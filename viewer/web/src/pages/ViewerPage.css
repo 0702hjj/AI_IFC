@@ -1,0 +1,61 @@
+.viewer-page {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.viewer-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  background: #f0f2f5;
+}
+
+.viewer-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.navcube-canvas {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: 200px;
+  height: 200px;
+}
+
+.viewer-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #555;
+  background: rgba(240, 242, 245, 0.85);
+}
+
+.viewer-error {
+  color: #b00020;
+}
+
+.viewer-side-panel {
+  width: 320px;
+  flex-shrink: 0;
+  border-left: 1px solid #ddd;
+  background: #fff;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.viewer-side-panel h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.viewer-side-panel .placeholder {
+  color: #999;
+}
