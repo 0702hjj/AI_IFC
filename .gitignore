@@ -25,3 +25,7 @@ skills/*.tar.gz
 *.step
 *.stl
 examples.py
+
+# docs architecture
+docs/architecture/viewer.md
+docs/architecture/viewerstatus.md
