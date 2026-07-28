@@ -46,10 +46,12 @@ type Queue struct {
 	jobs    chan string
 	mu      sync.Mutex
 	pending map[string]bool
+	closed  bool
+	ctx     context.Context
 }
 
 func NewQueue(st *store.Store, r Runner, workers int) *Queue {
-	q := &Queue{st: st, runner: r, jobs: make(chan string, 64), pending: map[string]bool{}}
+	q := &Queue{st: st, runner: r, jobs: make(chan string, 64), pending: map[string]bool{}, ctx: context.Background()}
 	for i := 0; i < workers; i++ {
 		go q.work()
 	}
@@ -57,16 +59,22 @@ func NewQueue(st *store.Store, r Runner, workers int) *Queue {
 }
 
 func (q *Queue) Start(ctx context.Context) {
+	q.mu.Lock()
+	q.ctx = ctx
+	q.mu.Unlock()
 	go func() {
 		<-ctx.Done()
+		q.mu.Lock()
+		q.closed = true
 		close(q.jobs)
+		q.mu.Unlock()
 	}()
 }
 
 func (q *Queue) Enqueue(id string) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.pending[id] {
+	if q.closed || q.pending[id] {
 		return false
 	}
 	q.pending[id] = true
@@ -82,7 +90,9 @@ func (q *Queue) work() {
 				delete(q.pending, id)
 				q.mu.Unlock()
 			}()
-			ctx := context.Background()
+			q.mu.Lock()
+			ctx := q.ctx
+			q.mu.Unlock()
 			if err := q.runner.Run(ctx, q.st.IFCPath(id), q.st.ModelDir(id)); err != nil {
 				_ = q.st.SetStatus(id, "failed", err.Error())
 			} else {
