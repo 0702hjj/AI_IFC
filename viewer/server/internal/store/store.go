@@ -8,11 +8,17 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"time"
 )
 
 var ErrNotFound = errors.New("model not found")
+var ErrInvalidID = errors.New("invalid model id")
+
+var idPattern = regexp.MustCompile(`^m_[0-9a-f]{16}$`)
+
+func validID(id string) bool { return idPattern.MatchString(id) }
 
 type Model struct {
 	ID        string    `json:"id"`
@@ -76,6 +82,9 @@ func (s *Store) write(m *Model) error {
 }
 
 func (s *Store) Get(id string) (*Model, error) {
+	if !validID(id) {
+		return nil, ErrInvalidID
+	}
 	data, err := os.ReadFile(filepath.Join(s.ModelDir(id), "model.json"))
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, ErrNotFound
