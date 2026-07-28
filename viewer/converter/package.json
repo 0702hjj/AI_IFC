@@ -1,0 +1,18 @@
+{
+  "name": "converter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.js\""
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "dependencies": {
+    "@xeokit/xeokit-convert": "^1.3.2",
+    "web-ifc": "^0.0.77"
+  }
+}
