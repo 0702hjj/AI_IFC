@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"ifcviewer/server/internal/api"
 	"ifcviewer/server/internal/convert"
@@ -60,9 +61,28 @@ func main() {
 
 	handler := api.NewHandler(st, q, cfg.MaxUploadMB<<20)
 	addr := fmt.Sprintf(":%d", cfg.Port)
-	log.Printf("data dir: %s", cfg.DataDir)
-	log.Printf("listening on %s", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	srv := &http.Server{Addr: addr, Handler: handler}
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Printf("data dir: %s", cfg.DataDir)
+		log.Printf("listening on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errCh <- err
+		}
+	}()
+
+	select {
+	case err := <-errCh:
 		log.Fatalf("serve: %v", err)
+	case <-ctx.Done():
 	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("shutdown: %v", err)
+	}
+	stop()
+	log.Printf("shut down")
 }
