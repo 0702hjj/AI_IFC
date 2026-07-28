@@ -1,0 +1,89 @@
+.library {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: system-ui, sans-serif;
+}
+
+.dropzone {
+  border: 2px dashed #999;
+  border-radius: 8px;
+  padding: 32px;
+  text-align: center;
+  cursor: pointer;
+  margin-bottom: 16px;
+  color: #555;
+}
+
+.dropzone.dragover {
+  border-color: #1677ff;
+  background: #f0f6ff;
+}
+
+.error-banner {
+  background: #fff1f0;
+  border: 1px solid #ffa39e;
+  color: #cf1322;
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.empty {
+  text-align: center;
+  color: #999;
+}
+
+.status {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.status-ready {
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.status-converting {
+  background: #fffbe6;
+  color: #d48806;
+}
+
+.status-failed {
+  background: #fff1f0;
+  color: #cf1322;
+}
+
+.actions a,
+.actions button,
+.actions .error-tip {
+  margin-right: 8px;
+}
+
+.actions button {
+  background: none;
+  border: none;
+  color: #1677ff;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+}
+
+.actions .error-tip {
+  color: #cf1322;
+  cursor: help;
+  text-decoration: underline dotted;
+}
