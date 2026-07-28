@@ -10,7 +10,7 @@
 - **server**（Go）：HTTP API 服务（默认端口 `:8090`），负责模型上传、转换任务调度、XKT/元数据静态服务与模型管理。
 - **web**（React + xeokit）：前端应用（开发端口 `:5173`），包含模型库页面与三维查看器。
 
-详细设计见 [docs/design.md](docs/design.md)，API 说明见 [docs/api.md](docs/api.md)。
+详细设计见 [docs/design.md](docs/design.md)，API 说明见 [docs/api.md](docs/api.md)，测试覆盖与验证方法见 [docs/README.md](docs/README.md)。
 
 ```
 web (React/xeokit)  ──HTTP──>  server (Go :8090)  ──子进程──>  converter (Node)
