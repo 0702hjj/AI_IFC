@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { ViewerProvider } from "@/viewer/ViewerContext";
+import { Toolbar } from "@/viewer/Toolbar";
 import { ModelTreePanel } from "@/viewer/ModelTreePanel";
 import { PropertyPanel } from "@/viewer/PropertyPanel";
 import "./ViewerPage.css";
@@ -21,6 +22,7 @@ export default function ViewerPage() {
   return (
     <div className="viewer-page">
       <ViewerProvider modelId={id}>
+        <Toolbar id={id} />
         <ModelTreePanel />
         <PropertyPanel />
       </ViewerProvider>

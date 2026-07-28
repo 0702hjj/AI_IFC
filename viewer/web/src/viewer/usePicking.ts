@@ -9,10 +9,14 @@ export function usePicking(viewer: Viewer | null) {
     if (!viewer) return;
     const control = viewer.cameraControl;
     const onPicked = (e: PickResult) => {
+      if (useViewerStore.getState().tool !== "select") return;
       const entity = e.entity;
       if (entity && entity.isObject) setSelected(String(entity.id));
     };
-    const onPickedNothing = () => setSelected(null);
+    const onPickedNothing = () => {
+      if (useViewerStore.getState().tool !== "select") return;
+      setSelected(null);
+    };
     const subPicked = control.on("picked", onPicked);
     const subPickedNothing = control.on("pickedNothing", onPickedNothing);
     return () => {
