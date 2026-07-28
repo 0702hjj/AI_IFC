@@ -14,12 +14,14 @@
 ```
 - 错误：`40001` 非法文件类型；`40002` 超出大小上限
 
+通用错误码：`40400` 模型不存在；`50000` 服务器内部错误
+
 ### GET /api/models
 模型列表（前端以 2s 间隔轮询直至所有模型脱离 `converting`）。
 
 ```json
 {"code":0,"message":"ok","data":[
-  {"id":"m_01J...","name":"a.ifc","size":1832140,"status":"ready","createdAt":"2026-07-27T10:00:00Z","error":null}
+  {"id":"m_01J...","name":"a.ifc","size":1832140,"status":"ready","createdAt":"2026-07-27T10:00:00Z","error":""}
 ]}
 ```
 `status` ∈ `converting | ready | failed`
@@ -51,7 +53,6 @@
 
 ```json
 {
-  "id": "m_01J...",
   "projectId": "3xFoo",
   "metaObjects": [
     {"id": "1AbC...", "type": "IfcBuildingStorey", "name": "Level 1", "parent": "0Root"},

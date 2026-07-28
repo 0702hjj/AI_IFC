@@ -19,6 +19,7 @@ import (
 
 // 配置路径均相对于进程工作目录解析（非可执行文件目录）。
 type config struct {
+	Host            string `json:"host"`
 	Port            int    `json:"port"`
 	DataDir         string `json:"dataDir"`
 	NodeBin         string `json:"nodeBin"`
@@ -34,6 +35,9 @@ func loadConfig(path string) (*config, error) {
 	var cfg config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, err
+	}
+	if cfg.Host == "" {
+		cfg.Host = "127.0.0.1"
 	}
 	return &cfg, nil
 }
@@ -60,7 +64,7 @@ func main() {
 	q.Start(ctx)
 
 	handler := api.NewHandler(st, q, cfg.MaxUploadMB<<20)
-	addr := fmt.Sprintf(":%d", cfg.Port)
+	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: handler}
 
 	errCh := make(chan error, 1)

@@ -8,7 +8,7 @@
 
 在 AI_IFC 仓库下构建一个**独立全栈小应用**：服务器到浏览器的 IFC 文件查看方案。
 
-- 技术路线：xeokit + React（前端），Go/Hertz（后端），Node `@xeokit/xeokit-convert`（IFC→XKT 转换）
+- 技术路线：xeokit + React（前端），Go（stdlib net/http，后端），Node `@xeokit/xeokit-convert`（IFC→XKT 转换）
 - 支持用户上传 IFC、在线查看、本地下载原始 IFC
 - 单机无认证，本地文件系统存储，无数据库
 - 参考 Online3DViewer 的交互形态（模型库 + 查看器两页）
@@ -25,7 +25,7 @@
 └──────────────┬──────────────────────────────────────────┘
                │ HTTP /api/*
 ┌──────────────▼──────────────────────────────────────────┐
-│ Go 后端 (Hertz, 无DB, 单二进制)   (viewer/server)          │
+│ Go 后端 (stdlib net/http, 无DB, 单二进制)   (viewer/server)    │
 │  ├─ 上传 → 存 data/uploads/{id}.ifc                       │
 │  ├─ 转换队列(内存) → exec convert2xkt → data/models/{id}/ │
 │  │    ├─ model.xkt                                      │
@@ -41,7 +41,7 @@
 
 | # | 模块 | 职责 | 位置 |
 |---|------|------|------|
-| 1 | backend (Go/Hertz) | 上传 IFC、触发转换、模型列表/删除、XKT+元数据静态服务、IFC 原文件下载 | `viewer/server/` |
+| 1 | backend (Go stdlib net/http) | 上传 IFC、触发转换、模型列表/删除、XKT+元数据静态服务、IFC 原文件下载 | `viewer/server/` |
 | 2 | converter (Node CLI) | 封装 `@xeokit/xeokit-convert`，输入 IFC 输出 XKT + metadata.json | `viewer/converter/` |
 | 3 | frontend (React+Vite+TS) | 模型列表页、查看器页（xeokit Viewer + 树/属性/剖切/测量插件） | `viewer/web/` |
 | 4 | 共享契约 | API 接口定义 + 元数据 JSON schema | `viewer/docs/api.md` |
@@ -57,10 +57,12 @@ AI_IFC/viewer/
 │   │   ├── convert/         # 转换队列 + 子进程管理
 │   │   └── store/           # 文件系统存储 + 状态(model.json)
 │   ├── go.mod
-│   └── server_config.yaml   # 端口、数据目录、convert2xkt 路径
+│   └── server_config.json   # host/端口、数据目录、converter 脚本路径
 ├── converter/               # Node 转换器
 │   ├── package.json         # @xeokit/xeokit-convert
-│   └── convert.js           # IFC → XKT + metadata.json
+│   ├── convert.js           # IFC → XKT + metadata.json
+│   ├── lib/metadata.js      # web-ifc 提取空间结构树 + 属性集
+│   └── test/                # 转换器测试（fixtures 样例 IFC）
 ├── web/                     # React 前端
 │   ├── src/
 │   │   ├── pages/LibraryPage.tsx
