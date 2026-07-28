@@ -1,0 +1,70 @@
+.tree-panel {
+  order: 0;
+  width: 280px;
+  flex-shrink: 0;
+  border-right: 1px solid #ddd;
+  background: #fff;
+  overflow: auto;
+  padding: 8px;
+  font-size: 13px;
+}
+
+.xeokit-tree-view ul {
+  list-style: none;
+  padding-left: 20px;
+  margin: 0;
+  pointer-events: all;
+}
+
+.xeokit-tree-view > ul {
+  padding-left: 0;
+}
+
+.xeokit-tree-view li {
+  position: relative;
+  padding-left: 22px;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.xeokit-tree-view li a {
+  background-color: #eee;
+  border-radius: 50%;
+  color: #000;
+  display: inline-block;
+  font-weight: bold;
+  height: 14px;
+  width: 14px;
+  line-height: 14px;
+  text-align: center;
+  text-decoration: none;
+  position: absolute;
+  left: 0;
+  top: 5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.xeokit-tree-view li input[type="checkbox"] {
+  margin: 0 6px 0 0;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.xeokit-tree-view li span {
+  cursor: pointer;
+}
+
+.xeokit-tree-view li span:hover {
+  color: #1565c0;
+  text-decoration: underline;
+}
+
+.xeokit-tree-view li.highlighted-node {
+  background-color: #fff3cd;
+}
+
+.xeokit-tree-view li.xrayed-node span {
+  font-style: italic;
+  color: #888;
+}

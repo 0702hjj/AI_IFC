@@ -1,5 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { ViewerProvider } from "@/viewer/ViewerContext";
+import { ModelTreePanel } from "@/viewer/ModelTreePanel";
+import { PropertyPanel } from "@/viewer/PropertyPanel";
 import "./ViewerPage.css";
 
 export default function ViewerPage() {
@@ -19,10 +21,8 @@ export default function ViewerPage() {
   return (
     <div className="viewer-page">
       <ViewerProvider modelId={id}>
-        <aside className="viewer-side-panel">
-          <h2>属性</h2>
-          <p className="placeholder">构件属性面板（待实现）</p>
-        </aside>
+        <ModelTreePanel />
+        <PropertyPanel />
       </ViewerProvider>
     </div>
   );

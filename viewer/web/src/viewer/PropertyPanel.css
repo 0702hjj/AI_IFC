@@ -1,0 +1,64 @@
+.property-panel {
+  order: 2;
+  width: 320px;
+  flex-shrink: 0;
+  border-left: 1px solid #ddd;
+  background: #fff;
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+
+.property-panel h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.property-empty {
+  color: #999;
+}
+
+.property-summary {
+  margin: 0 0 16px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+}
+
+.property-summary dt {
+  font-weight: 600;
+  color: #555;
+}
+
+.property-summary dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.property-set {
+  margin-bottom: 16px;
+}
+
+.property-set h3 {
+  margin: 0 0 6px;
+  font-size: 13px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 4px;
+}
+
+.property-set table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.property-set td {
+  padding: 3px 6px;
+  vertical-align: top;
+  border-bottom: 1px solid #f5f5f5;
+  word-break: break-all;
+}
+
+.property-set .property-name {
+  color: #555;
+  width: 45%;
+}
