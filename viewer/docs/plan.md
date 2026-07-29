@@ -4,9 +4,9 @@
 
 **Goal:** 在 AI_IFC/viewer/ 下实现独立全栈 IFC 查看器：Go 后端（上传/转换/静态服务/下载）+ Node 转换器（IFC→XKT+元数据）+ React/xeokit 前端（模型库 + 查看器）。
 
-**Architecture:** 浏览器只消费 XKT 与 xeokit 元模型 JSON，永不解析 IFC。Go 后端零第三方依赖（stdlib net/http），通过子进程调用 Node 转换器；转换器用 @xeokit/xeokit-convert 产几何、用 web-ifc 产元模型，二者注入同一 XKTModel 保证 id 一致。
+**Architecture:** 浏览器只消费 XKT 与 xeokit 元模型 JSON，永不解析 IFC。Go 后端除 `github.com/jackc/pgx/v5`（PostgreSQL 存储，可选）外零第三方依赖（stdlib net/http），通过子进程调用 Node 转换器；转换器用 @xeokit/xeokit-convert 产几何、用 web-ifc 产元模型，二者注入同一 XKTModel 保证 id 一致。
 
-**Tech Stack:** Go 1.26 (stdlib only), Node ≥18 (@xeokit/xeokit-convert, web-ifc), React 18 + Vite + TS + @xeokit/xeokit-sdk + react-router-dom + zustand。
+**Tech Stack:** Go 1.26 (stdlib only，例外：pgx/v5 用于可选 PG 存储), Node ≥18 (@xeokit/xeokit-convert, web-ifc), React 18 + Vite + TS + @xeokit/xeokit-sdk + react-router-dom + zustand。
 
 ## Global Constraints
 
@@ -32,7 +32,7 @@
 
 **Interfaces:**
 - Produces（被 server 调用）: `node converter/convert.js <input.ifc> <outDir>`；成功时写出 `<outDir>/model.xkt` 与 `<outDir>/metadata.json`，stdout 最后一行输出 `{"ok":true,"xktBytes":N,"metaObjects":M}`；失败时 exit code≠0，stderr 含错误原因
-- metadata.json 为 xeokit 元模型格式（api.md §3）：`{id?, projectId, metaObjects:[{id,type,name,parent,propertySetIds?}], propertySets:[{id,name,type,properties:[{name,value,type}]}]}`；`metaObjects[].id` = IFC GlobalId，与 XKT 内 entity id 一致
+- metadata.json 为 xeokit 元模型格式（api.md §5）：`{id?, projectId, metaObjects:[{id,type,name,parent,propertySetIds?}], propertySets:[{id,name,type,properties:[{name,value,type}]}]}`；`metaObjects[].id` = IFC GlobalId，与 XKT 内 entity id 一致
 
 - [ ] **Step 1: 初始化 converter 包并安装依赖**
 

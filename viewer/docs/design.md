@@ -10,7 +10,7 @@
 
 - 技术路线：xeokit + React（前端），Go（stdlib net/http，后端），Node `@xeokit/xeokit-convert`（IFC→XKT 转换）
 - 支持用户上传 IFC、在线查看、本地下载原始 IFC
-- 单机无认证，本地文件系统存储，无数据库
+- 单机无认证，本地文件系统存储，可选 PostgreSQL（Issue/override/修改记录）
 - 参考 Online3DViewer 的交互形态（模型库 + 查看器两页）
 
 非目标（YAGNI）：用户体系、与 gaia 平台集成、方案 B（Three.js/web-ifc）viewer。IFC 编辑/生成本期不做，演进方向见 §7。
@@ -25,7 +25,7 @@
 └──────────────┬──────────────────────────────────────────┘
                │ HTTP /api/*
 ┌──────────────▼──────────────────────────────────────────┐
-│ Go 后端 (stdlib net/http, 无DB, 单二进制)   (viewer/server)    │
+│ Go 后端 (stdlib net/http, 单二进制)              (viewer/server)    │
 │  ├─ 上传 → 存 data/uploads/{id}.ifc                       │
 │  ├─ 转换队列(内存) → exec convert2xkt → data/models/{id}/ │
 │  │    ├─ model.xkt                                      │
@@ -96,15 +96,18 @@ data/
     ├── model.xkt            # 转换产物
     ├── metadata.json        # 树 + 属性
     ├── issues.json          # Issue/Markup 持久化（审查标记）
-    └── issues/              # Issue 截图 {issueId}.png
+    ├── issues/              # Issue 截图 {issueId}.png
+    ├── overrides.json       # 属性 override {entityId: {field: value}}
+    └── changes.json         # 修改记录（change log，按 createdAt 降序读取）
 ```
 
-Issue/Markup 持久化采用文件存储（`models/{id}/issues.json` + `issues/*.png`），由 `internal/issue.Store` 接口抽象，后期可平移 PostgreSQL（新增 PgStore 实现，API/前端零改动）。
+Issue/Override/修改记录三类持久化默认均为文件存储，由 `internal/{issue,override,change}.Store` 接口抽象。配置 `pgDSN`（或环境变量 `VIEWER_PG_DSN`，优先级更高）后切换为 PostgreSQL：`internal/*/PgStore` 实现（pgx/v5 驱动），表 `issues`（data jsonb）、`overrides`（model_id/entity_id/field 复合主键）、`changes`（平铺列），启动时 `CREATE TABLE IF NOT EXISTS` 自动建表，API/前端零改动。未配置时保持文件存储。
 
 ### 4.3 约束
 
 - 上传仅接受 `.ifc`，大小上限 200MB
 - 错误统一 JSON 信封 `{code, message, data}`
+- 第三方依赖仅允许 `github.com/jackc/pgx/v5`（PostgreSQL 驱动，PgStore 使用），其余保持 stdlib only
 
 ## 5. 前端设计
 
@@ -118,12 +121,16 @@ ViewerPage
 ├─ <ModelTreePanel/>      左栏：自建 React 树（tree-utils 纯函数构建/过滤 + zustand 可见性状态
 │                          + useVisibility 联动 scene.objects 显隐/隔离/高亮）；搜索 + IFC 类型过滤
 ├─ <PropertyPanel/>       右栏：pick 构件 → viewer.metaScene.metaObjects[id].propertySets 展示；
-│                          属性搜索、pset 折叠、属性复制（只读）
-├─ <IssuePanel/>          底部抽屉：Issue 列表/创建（相机+截图）/状态流转/删除/点击恢复视角
+│                          属性搜索、pset 折叠、属性复制；白名单字段（Name/Description/
+│                          Classification/FireRating/Comments）可编辑，保存为 override
+│                          覆盖显示并带修改标记，同时写 change log
+├─ <IssuePanel/>          底部抽屉：「Issues / 修改历史」双 tab——Issue 列表/创建（相机+截图）/
+│                          状态流转/删除/点击恢复视角；修改历史 tab 展示 change log（old→new）
+├─ <IssuePins/>           3D HTML overlay 钉：entity 中心投影每帧同步，点击钉定位 Issue
 └─ <SectionControl/>      SectionPlanesPlugin：轴向选择 + 滑杆拖剖切面
 ```
 
-- 树/属性/拾取全部基于 `viewer.metaScene`（MetaModel），metadata.json 采用 xeokit 标准元模型格式（见 api.md §4），由 converter 用 web-ifc 从原 IFC 提取（convert2xkt 直接转 IFC 不产出元数据）
+- 树/属性/拾取全部基于 `viewer.metaScene`（MetaModel），metadata.json 采用 xeokit 标准元模型格式（见 api.md §5），由 converter 用 web-ifc 从原 IFC 提取（convert2xkt 直接转 IFC 不产出元数据）
 - 测量：DistanceMeasurementsPlugin + DistanceMeasurementsMouseControl（开关式，双击结束）；测量标签不做持久化，随会话保留
 - 状态管理：轻量 Zustand store（当前选中 objectId、工具模式）；xeokit 实例放 ref/context，不进响应式状态
 - 代码规范沿用 gaia_web 惯例：`@` 别名、文件 ≤500 行
@@ -145,6 +152,6 @@ ViewerPage
 依据 `md/dxf_agent/deep-research-report.md`（§1 变更追踪、§2.2 实体编辑 API、§2.4 前端修改流）与 `docs/architecture/viewer.md` 迭代计划：
 
 1. **属性修改（两阶段）**：先做 metadata override（不改 IFC 本体，存覆盖值 + 修改记录）；后续引入 IfcOpenShell Python 编辑服务（报告 §2.2 `PUT /models/{id}/entities/{guid}`）真改 IFC，override 平滑迁移
-2. **变更历史**：Issue/修改记录对齐报告 §1 的 commit 模型（author/timestamp/operation/diff/provenance），存储由 `issue.Store` 接口平移至 PostgreSQL
+2. **变更历史**：Issue/修改记录对齐报告 §1 的 commit 模型（author/timestamp/operation/diff/provenance），存储已由 `issue/change/override.Store` 接口平移至 PostgreSQL（PgStore 已落地）
 3. **版本对比**：IfcDiff（按 GlobalId 语义 diff，报告 §1.3）作为独立 Python 服务，与真改 IFC 共用
 4. **AI 协同**：同一 Python 服务后期暴露 MCP 工具（报告 §2.3），人/AI 走同一套编辑 API

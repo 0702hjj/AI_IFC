@@ -7,13 +7,13 @@
 
 | 优先级 | 组件 | 状态（2026-07-29） |
 | --- | --- | --- |
-| P0 | Property Inspector | ✅ 只读 + 属性搜索/pset 折叠/复制（修改功能见迭代 N+1） |
+| P0 | Property Inspector | ✅ 只读 + 属性搜索/pset 折叠/复制（编辑能力见 Property Editor 行） |
 | P0 | Model Tree + 过滤 | ✅ 自建树：搜索 + 类型过滤 + 显隐（默认展开 1 层） |
-| P0 | Issue/Markup | ✅ 创建（相机+截图）/列表/状态流转/删除/视角恢复（文件存储） |
+| P0 | Issue/Markup | ✅ 创建（相机+截图）/列表/状态流转/删除/视角恢复（文件/PG 双存储） |
 | P1 | Measure | ✅ 距离测量 |
 | P1 | Hide/Isolate/X-Ray 工具栏 | ✅ |
 | P1 | Model Compare（Diff Viewer） | ❌ 迭代 N+2 |
-| P2 | Property Editor | ❌ 迭代 N+1（override 阶段） |
+| P2 | Property Editor | ✅ override 阶段已落地（白名单字段编辑 + metadata override + change log；真改 IFC 见迭代 N+2） |
 | P2 | Rule Checker（批量审查） | ❌ 暂缓 |
 | P3 | Parametric Modeling | ❌ 不做 |
 
@@ -33,23 +33,23 @@
 
 不在我们范围：§2.3 AI 沙箱、§3 IFC→Python 工具（AI 线另行跟进，见 §五）。
 
-## 三、迭代 N+1（下一迭代，viewer 线）
+## 三、迭代 N+1（已完成 ✅，2026-07-29 落地，commits 8f41770..b16f293）
 
 目标：纯现有技术栈（Go + React + PG）完成「人的修改」第一步与审查协同收尾。
 
-1. **Issue 接 PG + 修改记录/历史**
-   - 新增 `PgStore` 实现 `internal/issue.Store` 接口（pgx 驱动，server 首次引入第三方依赖，需更新 plan.md 约束说明）
-   - Issue schema 扩展对齐报告 §1.1：`author`（先写死 local-user）、`provenance: {source: "UI"}`
-   - 新增通用「修改记录」存储（change log）：实体 + 字段 + old/new + 时间 + author，供属性修改器写入、历史面板展示
-2. **属性修改器（override 阶段）**
-   - PropertyPanel 只读 → 可编辑：Name/Description/Classification/FireRating/Comments 等白名单字段
-   - 保存为 metadata override（不改 IFC 本体），渲染时 override 覆盖原值显示；每次修改写一条 change log
-   - 交互对齐报告 §2.4：选中 → 改值 → 保存 → 记录 → 可查看历史
-3. **3D Issue Pin 收尾**
-   - HTML overlay 钉（entity 中心投影，每帧同步），点击钉定位 Issue
-   - 真机浏览器验证截图非空白（preserveDrawingBuffer 已固化，需人工确认）
+1. **Issue 接 PG + 修改记录/历史** ✅
+   - `internal/issue` 新增 `PgStore`（pgx/v5，server 首个第三方依赖，plan.md 约束已更新）；`pgDSN`/`VIEWER_PG_DSN` 配置启用，未配置保持文件存储
+   - Issue schema 已扩展对齐报告 §1.1：`author`（默认 `local-user`）、`provenance: {source: "UI"}`
+   - 新增通用「修改记录」存储 `internal/change`（实体 + 字段 + old/new + 时间 + author，File/Pg 双实现），`GET /api/models/{id}/changes`
+2. **属性修改器（override 阶段）** ✅
+   - PropertyPanel 只读 → 可编辑：Name/Description/Classification/FireRating/Comments 白名单字段
+   - 保存为 metadata override（`internal/override`，不改 IFC 本体），渲染时 override 覆盖原值显示并带修改标记；每次修改写一条 change log
+   - 交互对齐报告 §2.4：选中 → 改值 → 保存 → 记录 → IssuePanel「修改历史」tab 查看
+3. **3D Issue Pin 收尾** ✅
+   - HTML overlay 钉（entity 中心投影，每帧同步）已落地，点击钉定位 Issue
+   - 真机浏览器验证截图非空白（preserveDrawingBuffer 已固化，人工确认中）
 
-## 四、迭代 N+2（引入 Python 服务）
+## 四、迭代 N+2（下一迭代，引入 Python 服务）
 
 4. **Diff Viewer**
    - 独立 IfcDiff Python 服务（IfcOpenShell，按 GlobalId 语义 diff）
