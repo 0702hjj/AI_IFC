@@ -12,7 +12,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"ifcviewer/server/internal/api"
+	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/issue"
 	"ifcviewer/server/internal/store"
@@ -26,6 +29,7 @@ type config struct {
 	NodeBin         string `json:"nodeBin"`
 	ConverterScript string `json:"converterScript"`
 	MaxUploadMB     int64  `json:"maxUploadMB"`
+	PgDSN           string `json:"pgDSN"`
 }
 
 func loadConfig(path string) (*config, error) {
@@ -39,6 +43,9 @@ func loadConfig(path string) (*config, error) {
 	}
 	if cfg.Host == "" {
 		cfg.Host = "127.0.0.1"
+	}
+	if dsn := os.Getenv("VIEWER_PG_DSN"); dsn != "" {
+		cfg.PgDSN = dsn
 	}
 	return &cfg, nil
 }
@@ -64,8 +71,28 @@ func main() {
 	q := convert.NewQueue(st, runner, 2)
 	q.Start(ctx)
 
-	iss := issue.NewFileStore(cfg.DataDir)
-	handler := api.NewHandler(st, q, iss, cfg.MaxUploadMB<<20)
+	var iss issue.Store
+	var chg change.Store
+	if cfg.PgDSN != "" {
+		pool, err := pgxpool.New(context.Background(), cfg.PgDSN)
+		if err != nil {
+			log.Fatalf("connect postgres: %v", err)
+		}
+		defer pool.Close()
+		iss, err = issue.NewPgStore(pool, cfg.DataDir)
+		if err != nil {
+			log.Fatalf("init issue pg store: %v", err)
+		}
+		chg, err = change.NewPgStore(pool)
+		if err != nil {
+			log.Fatalf("init change pg store: %v", err)
+		}
+		log.Printf("storage: postgres")
+	} else {
+		iss = issue.NewFileStore(cfg.DataDir)
+		chg = change.NewFileStore(cfg.DataDir)
+	}
+	handler := api.NewHandler(st, q, iss, chg, cfg.MaxUploadMB<<20)
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: handler}
 

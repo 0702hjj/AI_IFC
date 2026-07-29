@@ -29,18 +29,24 @@ type Camera struct {
 	Up   [3]float64 `json:"up"`
 }
 
+type Provenance struct {
+	Source string `json:"source"`
+}
+
 type Issue struct {
-	ID         string    `json:"id"`
-	EntityID   string    `json:"entityId"`
-	EntityName string    `json:"entityName"`
-	EntityType string    `json:"entityType"`
-	Title      string    `json:"title"`
-	Comment    string    `json:"comment"`
-	Status     string    `json:"status"`
-	Camera     Camera    `json:"camera"`
-	Screenshot string    `json:"screenshot"`
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	ID         string     `json:"id"`
+	EntityID   string     `json:"entityId"`
+	EntityName string     `json:"entityName"`
+	EntityType string     `json:"entityType"`
+	Title      string     `json:"title"`
+	Comment    string     `json:"comment"`
+	Status     string     `json:"status"`
+	Author     string     `json:"author"`
+	Provenance Provenance `json:"provenance"`
+	Camera     Camera     `json:"camera"`
+	Screenshot string     `json:"screenshot"`
+	CreatedAt  time.Time  `json:"createdAt"`
+	UpdatedAt  time.Time  `json:"updatedAt"`
 }
 
 type IssuePatch struct {
@@ -78,6 +84,27 @@ func newID() string {
 	b := make([]byte, 6)
 	_, _ = rand.Read(b)
 	return "i_" + hex.EncodeToString(b)
+}
+
+// prepare 校验并填充 Create 默认值（FileStore 与 PgStore 共用）。
+func prepare(iss *Issue) error {
+	iss.Title = strings.TrimSpace(iss.Title)
+	if iss.Title == "" {
+		return ErrEmptyTitle
+	}
+	if iss.Status == "" {
+		iss.Status = "open"
+	}
+	if !validStatus[iss.Status] {
+		return ErrInvalidStatus
+	}
+	if iss.Author == "" {
+		iss.Author = "local-user"
+	}
+	if iss.Provenance.Source == "" {
+		iss.Provenance.Source = "UI"
+	}
+	return nil
 }
 
 func (s *FileStore) readAll(modelID string) ([]*Issue, error) {
@@ -119,15 +146,8 @@ func (s *FileStore) List(modelID string) ([]*Issue, error) {
 }
 
 func (s *FileStore) Create(modelID string, iss *Issue) (*Issue, error) {
-	iss.Title = strings.TrimSpace(iss.Title)
-	if iss.Title == "" {
-		return nil, ErrEmptyTitle
-	}
-	if iss.Status == "" {
-		iss.Status = "open"
-	}
-	if !validStatus[iss.Status] {
-		return nil, ErrInvalidStatus
+	if err := prepare(iss); err != nil {
+		return nil, err
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -221,16 +241,8 @@ func (s *FileStore) SaveScreenshot(modelID, issueID string, png []byte) (string,
 	if !idPattern.MatchString(issueID) {
 		return "", ErrInvalidID
 	}
-	if err := os.MkdirAll(s.issuesDir(modelID), 0o755); err != nil {
-		return "", err
-	}
-	rel := "issues/" + issueID + ".png"
-	abs := filepath.Join(s.DataDir, "models", modelID, rel)
-	tmp := abs + ".tmp"
-	if err := os.WriteFile(tmp, png, 0o644); err != nil {
-		return "", err
-	}
-	if err := os.Rename(tmp, abs); err != nil {
+	rel, err := writeScreenshot(s.DataDir, modelID, issueID, png)
+	if err != nil {
 		return "", err
 	}
 	s.mu.Lock()
@@ -250,4 +262,22 @@ func (s *FileStore) SaveScreenshot(modelID, issueID string, png []byte) (string,
 		}
 	}
 	return "", ErrNotFound
+}
+
+// writeScreenshot 截图始终落盘 models/{id}/issues/，PgStore 复用。
+func writeScreenshot(dataDir, modelID, issueID string, png []byte) (string, error) {
+	dir := filepath.Join(dataDir, "models", modelID, "issues")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	rel := "issues/" + issueID + ".png"
+	abs := filepath.Join(dataDir, "models", modelID, rel)
+	tmp := abs + ".tmp"
+	if err := os.WriteFile(tmp, png, 0o644); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, abs); err != nil {
+		return "", err
+	}
+	return rel, nil
 }

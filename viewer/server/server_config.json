@@ -4,5 +4,6 @@
   "dataDir": "../data",
   "nodeBin": "node",
   "converterScript": "../converter/convert.js",
-  "maxUploadMB": 200
+  "maxUploadMB": 200,
+  "pgDSN": ""
 }

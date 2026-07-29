@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/issue"
 	"ifcviewer/server/internal/store"
@@ -32,11 +33,12 @@ type handler struct {
 	st        *store.Store
 	q         *convert.Queue
 	iss       issue.Store
+	chg       change.Store
 	maxUpload int64
 }
 
-func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, maxUploadBytes int64) http.Handler {
-	h := &handler{st: st, q: q, iss: iss, maxUpload: maxUploadBytes}
+func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, maxUploadBytes int64) http.Handler {
+	h := &handler{st: st, q: q, iss: iss, chg: chg, maxUpload: maxUploadBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/models", h.upload)
 	mux.HandleFunc("GET /api/models", h.list)
@@ -51,6 +53,7 @@ func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, maxUploadByt
 	mux.HandleFunc("PATCH /api/models/{id}/issues/{issueId}", h.updateIssue)
 	mux.HandleFunc("DELETE /api/models/{id}/issues/{issueId}", h.deleteIssue)
 	mux.HandleFunc("GET /models/{id}/issues/{file}", h.serveIssueFile)
+	mux.HandleFunc("GET /api/models/{id}/changes", h.listChanges)
 	return cors(mux)
 }
 
@@ -316,4 +319,20 @@ func (h *handler) serveIssueFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(h.st.ModelDir(m.ID), "issues", file))
+}
+
+func (h *handler) listChanges(w http.ResponseWriter, r *http.Request) {
+	m := h.modelOrErr(w, r.PathValue("id"))
+	if m == nil {
+		return
+	}
+	entries, err := h.chg.List(m.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	if entries == nil {
+		entries = []*change.Entry{}
+	}
+	writeJSON(w, entries)
 }

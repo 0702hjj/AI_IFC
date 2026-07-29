@@ -57,6 +57,35 @@ func TestListEmptyWhenNoFile(t *testing.T) {
 	}
 }
 
+func TestCreateDefaultAuthorAndProvenance(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	created, err := fs.Create(modelID, &Issue{Title: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Author != "local-user" {
+		t.Fatalf("default author = %q, want local-user", created.Author)
+	}
+	if created.Provenance.Source != "UI" {
+		t.Fatalf("default provenance.source = %q, want UI", created.Provenance.Source)
+	}
+	list, _ := fs.List(modelID)
+	if list[0].Author != "local-user" || list[0].Provenance.Source != "UI" {
+		t.Fatalf("defaults not persisted: %+v", list[0])
+	}
+}
+
+func TestCreateExplicitAuthorAndProvenance(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	created, err := fs.Create(modelID, &Issue{Title: "x", Author: "ai-bot", Provenance: Provenance{Source: "AI"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.Author != "ai-bot" || created.Provenance.Source != "AI" {
+		t.Fatalf("explicit values overwritten: %+v", created)
+	}
+}
+
 func TestCreateEmptyTitle(t *testing.T) {
 	fs, modelID := newTestStore(t)
 	if _, err := fs.Create(modelID, &Issue{Title: "  "}); !errors.Is(err, ErrEmptyTitle) {

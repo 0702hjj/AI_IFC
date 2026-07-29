@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/issue"
 	"ifcviewer/server/internal/store"
@@ -18,17 +19,24 @@ import (
 // newIssueTestServer 构造 handler 与一个已存在的模型，返回 (mux, modelID)。
 func newIssueTestServer(t *testing.T) (http.Handler, string) {
 	t.Helper()
+	mux, modelID, _ := newChangesTestServer(t)
+	return mux, modelID
+}
+
+func newChangesTestServer(t *testing.T) (http.Handler, string, *change.FileStore) {
+	t.Helper()
 	st := store.NewStore(t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
 	q := convert.NewQueue(st, okRunner{}, 1)
 	q.Start(ctx)
-	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), 1<<20)
+	chg := change.NewFileStore(st.DataDir)
+	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), chg, 1<<20)
 	m, err := st.Create("ok.ifc", 4, strings.NewReader("fake"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	return mux, m.ID
+	return mux, m.ID, chg
 }
 
 func createTestIssue(t *testing.T, mux http.Handler, modelID string) issue.Issue {

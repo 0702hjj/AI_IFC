@@ -14,7 +14,7 @@
 - 后端端口 `8090`；前端 dev 端口 `5173`，vite proxy `/api` 与 `/models` → `http://localhost:8090`
 - 上传仅 `.ifc`，上限 200MB；JSON 信封 `{code, message, data}`，成功 `code=0`
 - 模型 id：`"m_"` + 16 位小写 hex（crypto/rand）
-- Go 后端禁止引入第三方依赖（stdlib only）
+- Go 后端仅允许 `github.com/jackc/pgx/v5`（PostgreSQL 存储，可选），其余保持 stdlib only
 - 前端 TS 文件 ≤500 行；路径别名 `@` → `src`
 - 接口契约以 `viewer/docs/api.md` 为准
 - 转换 worker 数 = 2；重启后 `converting` 一律恢复为 `failed`
