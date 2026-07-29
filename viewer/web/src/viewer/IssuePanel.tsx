@@ -9,6 +9,7 @@ import {
 } from "@/api/client";
 import type { ChangeEntry, Issue, IssueStatus } from "@/api/types";
 import { useViewer } from "./ViewerContext";
+import { locateIssue } from "./locateIssue";
 import { useViewerStore } from "./store";
 import "./IssuePanel.css";
 
@@ -21,11 +22,14 @@ const STATUS_LABELS: Record<IssueStatus, string> = {
 export function IssuePanel({ modelId }: { modelId: string }) {
   const ctx = useViewer();
   const selectedId = useViewerStore((s) => s.selectedId);
-  const setSelected = useViewerStore((s) => s.setSelected);
   const changesVersion = useViewerStore((s) => s.changesVersion);
+  const issues = useViewerStore((s) => s.issues);
+  const setIssues = useViewerStore((s) => s.setIssues);
+  const upsertIssue = useViewerStore((s) => s.upsertIssue);
+  const removeIssue = useViewerStore((s) => s.removeIssue);
+  const selectedIssueId = useViewerStore((s) => s.selectedIssueId);
 
   const [tab, setTab] = useState<"issues" | "history">("issues");
-  const [issues, setIssues] = useState<Issue[]>([]);
   const [changes, setChanges] = useState<ChangeEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
@@ -38,7 +42,7 @@ export function IssuePanel({ modelId }: { modelId: string }) {
     listIssues(modelId)
       .then(setIssues)
       .catch((e: Error) => setError(e.message));
-  }, [modelId]);
+  }, [modelId, setIssues]);
 
   useEffect(() => {
     if (tab !== "history") return;
@@ -86,7 +90,7 @@ export function IssuePanel({ modelId }: { modelId: string }) {
         },
         screenshot
       );
-      setIssues((prev) => [created, ...prev]);
+      upsertIssue(created);
       setTitle("");
       setComment("");
       setFormOpen(false);
@@ -99,19 +103,13 @@ export function IssuePanel({ modelId }: { modelId: string }) {
 
   const locate = (iss: Issue) => {
     if (!ctx) return;
-    ctx.viewer.cameraFlight.flyTo({
-      eye: iss.camera.eye,
-      look: iss.camera.look,
-      up: iss.camera.up,
-    });
-    const objects = ctx.viewer.scene.objects as unknown as Record<string, unknown>;
-    if (objects[iss.entityId]) setSelected(iss.entityId);
+    locateIssue(ctx, iss);
   };
 
   const changeStatus = async (iss: Issue, status: IssueStatus) => {
     try {
       const updated = await updateIssue(modelId, iss.id, { status });
-      setIssues((prev) => prev.map((x) => (x.id === iss.id ? updated : x)));
+      upsertIssue(updated);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -121,7 +119,7 @@ export function IssuePanel({ modelId }: { modelId: string }) {
     if (!window.confirm(`删除 Issue「${iss.title}」？`)) return;
     try {
       await deleteIssue(modelId, iss.id);
-      setIssues((prev) => prev.filter((x) => x.id !== iss.id));
+      removeIssue(iss.id);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -208,7 +206,10 @@ export function IssuePanel({ modelId }: { modelId: string }) {
           {tab === "issues" && (
             <ul className="issue-list">
             {issues.map((iss) => (
-              <li key={iss.id} className="issue-item">
+              <li
+                key={iss.id}
+                className={`issue-item${selectedIssueId === iss.id ? " active" : ""}`}
+              >
                 <span className={`issue-status-dot issue-status-${iss.status}`} />
                 <button type="button" className="issue-title" onClick={() => locate(iss)}>
                   {iss.title}

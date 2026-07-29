@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { fetchOverrides } from "@/api/client";
-import type { EntityFields, OverridesMap } from "@/api/types";
+import type { EntityFields, Issue, OverridesMap } from "@/api/types";
 
 export type ViewerTool = "select" | "measure";
 
@@ -12,6 +12,8 @@ interface ViewerState {
   xray: boolean;
   overrides: OverridesMap;
   changesVersion: number;
+  issues: Issue[];
+  selectedIssueId: string | null;
   setSelected: (id: string | null) => void;
   setTool: (tool: ViewerTool) => void;
   toggleHidden: (id: string) => void;
@@ -21,6 +23,10 @@ interface ViewerState {
   loadOverrides: (modelId: string) => Promise<void>;
   setEntityOverrides: (entityId: string, fields: EntityFields) => void;
   bumpChanges: () => void;
+  setIssues: (issues: Issue[]) => void;
+  upsertIssue: (issue: Issue) => void;
+  removeIssue: (id: string) => void;
+  setSelectedIssue: (id: string | null) => void;
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
@@ -31,6 +37,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   xray: false,
   overrides: {},
   changesVersion: 0,
+  issues: [],
+  selectedIssueId: null,
   setSelected: (id) => set({ selectedId: id }),
   setTool: (tool) => set({ tool }),
   toggleHidden: (id) =>
@@ -54,4 +62,17 @@ export const useViewerStore = create<ViewerState>((set) => ({
       return { overrides };
     }),
   bumpChanges: () => set((s) => ({ changesVersion: s.changesVersion + 1 })),
+  setIssues: (issues) => set({ issues }),
+  upsertIssue: (issue) =>
+    set((s) => ({
+      issues: s.issues.some((x) => x.id === issue.id)
+        ? s.issues.map((x) => (x.id === issue.id ? issue : x))
+        : [issue, ...s.issues],
+    })),
+  removeIssue: (id) =>
+    set((s) => ({
+      issues: s.issues.filter((x) => x.id !== id),
+      selectedIssueId: s.selectedIssueId === id ? null : s.selectedIssueId,
+    })),
+  setSelectedIssue: (id) => set({ selectedIssueId: id }),
 }));

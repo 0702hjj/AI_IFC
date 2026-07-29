@@ -62,6 +62,37 @@ describe("visibility", () => {
   });
 });
 
+describe("issues", () => {
+  const sample = {
+    id: "i_1", entityId: "w1", entityName: "Wall A", entityType: "IfcWall",
+    title: "t", comment: "", status: "open" as const,
+    camera: { eye: [1, 2, 3] as [number, number, number], look: [0, 0, 0] as [number, number, number], up: [0, 0, 1] as [number, number, number] },
+    screenshot: "", createdAt: "", updatedAt: "",
+  };
+
+  beforeEach(() => {
+    useViewerStore.setState({ issues: [], selectedIssueId: null });
+  });
+
+  it("upsertIssue prepends new issues and replaces existing ones", () => {
+    useViewerStore.getState().upsertIssue(sample);
+    useViewerStore.getState().upsertIssue({ ...sample, id: "i_2" });
+    expect(useViewerStore.getState().issues.map((i) => i.id)).toEqual(["i_2", "i_1"]);
+    useViewerStore.getState().upsertIssue({ ...sample, title: "updated" });
+    const issues = useViewerStore.getState().issues;
+    expect(issues.map((i) => i.id)).toEqual(["i_2", "i_1"]);
+    expect(issues[1].title).toBe("updated");
+  });
+
+  it("removeIssue drops the issue and clears its selection", () => {
+    useViewerStore.getState().setIssues([sample]);
+    useViewerStore.getState().setSelectedIssue("i_1");
+    useViewerStore.getState().removeIssue("i_1");
+    expect(useViewerStore.getState().issues).toEqual([]);
+    expect(useViewerStore.getState().selectedIssueId).toBeNull();
+  });
+});
+
 describe("overrides", () => {
   beforeEach(() => {
     useViewerStore.setState({ overrides: {}, changesVersion: 0 });

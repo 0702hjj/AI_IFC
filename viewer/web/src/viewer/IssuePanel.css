@@ -33,6 +33,7 @@
 
 .issue-list { list-style: none; margin: 0; padding: 0; }
 .issue-item { display: flex; align-items: center; gap: 8px; line-height: 28px; }
+.issue-item.active { background: #e3f2fd; border-radius: 4px; }
 .issue-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .issue-status-open { background: #d32f2f; }
 .issue-status-checking { background: #f9a825; }

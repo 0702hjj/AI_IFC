@@ -4,6 +4,7 @@ import { Toolbar } from "@/viewer/Toolbar";
 import { ModelTreePanel } from "@/viewer/ModelTreePanel";
 import { PropertyPanel } from "@/viewer/PropertyPanel";
 import { IssuePanel } from "@/viewer/IssuePanel";
+import { IssuePins } from "@/viewer/IssuePins";
 import "./ViewerPage.css";
 
 export default function ViewerPage() {
@@ -27,6 +28,7 @@ export default function ViewerPage() {
         <ModelTreePanel />
         <PropertyPanel modelId={id} />
         <IssuePanel modelId={id} />
+        <IssuePins />
       </ViewerProvider>
     </div>
   );
