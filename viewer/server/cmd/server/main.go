@@ -18,6 +18,7 @@ import (
 	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/issue"
+	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
 )
 
@@ -73,6 +74,7 @@ func main() {
 
 	var iss issue.Store
 	var chg change.Store
+	var ovr override.Store
 	if cfg.PgDSN != "" {
 		pool, err := pgxpool.New(context.Background(), cfg.PgDSN)
 		if err != nil {
@@ -87,12 +89,17 @@ func main() {
 		if err != nil {
 			log.Fatalf("init change pg store: %v", err)
 		}
+		ovr, err = override.NewPgStore(pool)
+		if err != nil {
+			log.Fatalf("init override pg store: %v", err)
+		}
 		log.Printf("storage: postgres")
 	} else {
 		iss = issue.NewFileStore(cfg.DataDir)
 		chg = change.NewFileStore(cfg.DataDir)
+		ovr = override.NewFileStore(cfg.DataDir)
 	}
-	handler := api.NewHandler(st, q, iss, chg, cfg.MaxUploadMB<<20)
+	handler := api.NewHandler(st, q, iss, chg, ovr, cfg.MaxUploadMB<<20)
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: handler}
 

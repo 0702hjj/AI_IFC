@@ -8,11 +8,13 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/issue"
+	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
 )
 
@@ -34,11 +36,12 @@ type handler struct {
 	q         *convert.Queue
 	iss       issue.Store
 	chg       change.Store
+	ovr       override.Store
 	maxUpload int64
 }
 
-func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, maxUploadBytes int64) http.Handler {
-	h := &handler{st: st, q: q, iss: iss, chg: chg, maxUpload: maxUploadBytes}
+func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, maxUploadBytes int64) http.Handler {
+	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, maxUpload: maxUploadBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/models", h.upload)
 	mux.HandleFunc("GET /api/models", h.list)
@@ -54,13 +57,15 @@ func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.S
 	mux.HandleFunc("DELETE /api/models/{id}/issues/{issueId}", h.deleteIssue)
 	mux.HandleFunc("GET /models/{id}/issues/{file}", h.serveIssueFile)
 	mux.HandleFunc("GET /api/models/{id}/changes", h.listChanges)
+	mux.HandleFunc("GET /api/models/{id}/overrides", h.listOverrides)
+	mux.HandleFunc("PUT /api/models/{id}/entities/{entityId}/properties", h.putEntityProperties)
 	return cors(mux)
 }
 
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -319,6 +324,88 @@ func (h *handler) serveIssueFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.ServeFile(w, r, filepath.Join(h.st.ModelDir(m.ID), "issues", file))
+}
+
+func (h *handler) listOverrides(w http.ResponseWriter, r *http.Request) {
+	m := h.modelOrErr(w, r.PathValue("id"))
+	if m == nil {
+		return
+	}
+	all, err := h.ovr.GetAll(m.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	if all == nil {
+		all = map[string]map[string]string{}
+	}
+	writeJSON(w, all)
+}
+
+type propertiesPatch struct {
+	EntityName string            `json:"entityName"`
+	Fields     map[string]string `json:"fields"`
+}
+
+func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
+	m := h.modelOrErr(w, r.PathValue("id"))
+	if m == nil {
+		return
+	}
+	entityID := r.PathValue("entityId")
+	if entityID == "" {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "entityId is required")
+		return
+	}
+	var in propertiesPatch
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "invalid json body")
+		return
+	}
+	if len(in.Fields) == 0 {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "fields is required")
+		return
+	}
+	old, err := h.ovr.Set(m.ID, entityID, in.Fields)
+	if errors.Is(err, override.ErrInvalidField) {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, err.Error())
+		return
+	}
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	fields := make([]string, 0, len(in.Fields))
+	for f := range in.Fields {
+		fields = append(fields, f)
+	}
+	sort.Strings(fields)
+	entries := make([]*change.Entry, 0, len(fields))
+	for _, f := range fields {
+		entries = append(entries, &change.Entry{
+			EntityID:   entityID,
+			EntityName: in.EntityName,
+			Field:      f,
+			OldValue:   old[f],
+			NewValue:   in.Fields[f],
+			Author:     "local-user",
+			Provenance: change.Provenance{Source: "UI"},
+		})
+	}
+	if err := h.chg.Append(m.ID, entries...); err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	all, err := h.ovr.GetAll(m.ID)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	effective := all[entityID]
+	if effective == nil {
+		effective = map[string]string{}
+	}
+	writeJSON(w, effective)
 }
 
 func (h *handler) listChanges(w http.ResponseWriter, r *http.Request) {
