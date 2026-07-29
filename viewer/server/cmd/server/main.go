@@ -14,6 +14,7 @@ import (
 
 	"ifcviewer/server/internal/api"
 	"ifcviewer/server/internal/convert"
+	"ifcviewer/server/internal/issue"
 	"ifcviewer/server/internal/store"
 )
 
@@ -63,7 +64,8 @@ func main() {
 	q := convert.NewQueue(st, runner, 2)
 	q.Start(ctx)
 
-	handler := api.NewHandler(st, q, cfg.MaxUploadMB<<20)
+	iss := issue.NewFileStore(cfg.DataDir)
+	handler := api.NewHandler(st, q, iss, cfg.MaxUploadMB<<20)
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: handler}
 

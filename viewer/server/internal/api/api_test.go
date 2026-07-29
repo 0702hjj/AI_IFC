@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"ifcviewer/server/internal/convert"
+	"ifcviewer/server/internal/issue"
 	"ifcviewer/server/internal/store"
 )
 
@@ -32,7 +33,7 @@ func setup(t *testing.T) (*httptest.Server, *store.Store) {
 	t.Cleanup(cancel)
 	q := convert.NewQueue(st, okRunner{}, 1)
 	q.Start(ctx)
-	srv := httptest.NewServer(NewHandler(st, q, 1<<20)) // 测试上限 1MB
+	srv := httptest.NewServer(NewHandler(st, q, issue.NewFileStore(st.DataDir), 1<<20)) // 测试上限 1MB
 	t.Cleanup(srv.Close)
 	return srv, st
 }
