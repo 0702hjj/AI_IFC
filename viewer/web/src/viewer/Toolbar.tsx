@@ -4,6 +4,7 @@ import { useViewer } from "./ViewerContext";
 import { useViewerStore } from "./store";
 import { useMeasurements } from "./useMeasurements";
 import { SectionControl } from "./SectionControl";
+import { VisibilityToolbar } from "./VisibilityToolbar";
 import "./Toolbar.css";
 
 export function Toolbar({ id }: { id: string }) {
@@ -50,6 +51,7 @@ function ToolbarInner({ id }: { id: string }) {
         <button type="button" className="toolbar-btn" onClick={clear}>
           清除测量
         </button>
+        <VisibilityToolbar />
         <a className="toolbar-btn toolbar-link" href={downloadUrl(id)} download>
           下载 IFC
         </a>

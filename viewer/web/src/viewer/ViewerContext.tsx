@@ -15,6 +15,7 @@ import {
 } from "@xeokit/xeokit-sdk";
 import { modelAssetUrl } from "@/api/client";
 import { usePicking, useSelectionHighlight } from "./usePicking";
+import { useVisibility } from "./useVisibility";
 
 export interface ViewerContextValue {
   viewer: Viewer;
@@ -69,6 +70,7 @@ export function ViewerProvider({
 
   usePicking(ctx?.viewer ?? null);
   useSelectionHighlight(ctx?.viewer ?? null);
+  useVisibility(ctx);
 
   return (
     <ViewerContext.Provider value={ctx}>
