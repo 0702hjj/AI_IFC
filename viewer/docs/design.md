@@ -13,7 +13,7 @@
 - 单机无认证，本地文件系统存储，无数据库
 - 参考 Online3DViewer 的交互形态（模型库 + 查看器两页）
 
-非目标（YAGNI）：用户体系、与 gaia 平台集成、IFC 编辑/生成、批注持久化、方案 B（Three.js/web-ifc）viewer。
+非目标（YAGNI）：用户体系、与 gaia 平台集成、IFC 编辑/生成、方案 B（Three.js/web-ifc）viewer。
 
 ## 2. 总体架构与数据流
 
@@ -94,8 +94,12 @@ data/
 └── models/{id}/
     ├── model.json           # 状态与元信息 {id,name,size,status,createdAt,error?}
     ├── model.xkt            # 转换产物
-    └── metadata.json        # 树 + 属性
+    ├── metadata.json        # 树 + 属性
+    ├── issues.json          # Issue/Markup 持久化（审查标记）
+    └── issues/              # Issue 截图 {issueId}.png
 ```
+
+Issue/Markup 持久化采用文件存储（`models/{id}/issues.json` + `issues/*.png`），由 `internal/issue.Store` 接口抽象，后期可平移 PostgreSQL（新增 PgStore 实现，API/前端零改动）。
 
 ### 4.3 约束
 
@@ -115,8 +119,8 @@ ViewerPage
 └─ <SectionControl/>      SectionPlanesPlugin：轴向选择 + 滑杆拖剖切面
 ```
 
-- 树/属性/拾取全部基于 `viewer.metaScene`（MetaModel），metadata.json 采用 xeokit 标准元模型格式（见 api.md §3），由 converter 用 web-ifc 从原 IFC 提取（convert2xkt 直接转 IFC 不产出元数据）
-- 测量：DistanceMeasurementsPlugin + DistanceMeasurementsMouseControl（开关式，双击结束）；MVP 不做批注持久化，测量标签随会话保留
+- 树/属性/拾取全部基于 `viewer.metaScene`（MetaModel），metadata.json 采用 xeokit 标准元模型格式（见 api.md §4），由 converter 用 web-ifc 从原 IFC 提取（convert2xkt 直接转 IFC 不产出元数据）
+- 测量：DistanceMeasurementsPlugin + DistanceMeasurementsMouseControl（开关式，双击结束）；测量标签不做持久化，随会话保留
 - 状态管理：轻量 Zustand store（当前选中 objectId、工具模式）；xeokit 实例放 ref/context，不进响应式状态
 - 代码规范沿用 gaia_web 惯例：`@` 别名、文件 ≤500 行
 

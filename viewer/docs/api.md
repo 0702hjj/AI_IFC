@@ -38,14 +38,40 @@
 ### GET /api/models/{id}/download
 下载原始 IFC，带 `Content-Disposition: attachment; filename="<name>"`。
 
-## 2. 静态资源（直挂，不走 JSON 信封）
+## 2. Issues（审查标记）
+
+所有路由沿用 `{code,message,data}` 信封。issue id 格式 `i_` + 12 位小写 hex；status ∈ `open | checking | resolved`。
+
+### GET /api/models/{id}/issues
+返回 `data: Issue[]`，按 createdAt 降序。
+
+### POST /api/models/{id}/issues
+multipart/form-data：
+- `issue`（必填）：JSON 字符串 `{"entityId","entityName","entityType","title","comment","camera":{"eye":[x,y,z],"look":[x,y,z],"up":[x,y,z]}}`，title 必填
+- `screenshot`（可选）：PNG 文件，≤5MB
+
+返回 `data: Issue`（含生成的 `id`、`status:"open"`、`screenshot` 相对路径如 `issues/{id}.png`、`createdAt/updatedAt`）。
+
+### PATCH /api/models/{id}/issues/{issueId}
+JSON body：`{"title"?, "comment"?, "status"?}`，仅更新传入字段。返回 `data: Issue`。
+
+### DELETE /api/models/{id}/issues/{issueId}
+删除 Issue 及其截图。返回 `data: null`。
+
+### GET /models/{id}/issues/{file}
+Issue 截图静态服务，`file` 必须匹配 `i_[0-9a-f]{12}\.png`。
+
+错误码：40001（参数/校验错误）、40002（超限）、40400（模型或 Issue 不存在）、50000（内部错误）。
+
+## 3. 静态资源（直挂，不走 JSON 信封）
 
 | 路径 | 说明 |
 |---|---|
 | `GET /models/{id}/model.xkt` | XKT 几何数据（支持 Range） |
-| `GET /models/{id}/metadata.json` | 元数据（见 §3） |
+| `GET /models/{id}/metadata.json` | 元数据（见 §4） |
+| `GET /models/{id}/issues/{file}` | Issue 截图（见 §2） |
 
-## 3. metadata.json Schema（xeokit 元模型格式）
+## 4. metadata.json Schema（xeokit 元模型格式）
 
 由 converter 用 web-ifc 从原 IFC 提取（空间结构树 + 属性集），输出 **xeokit 标准元模型 JSON**。
 该格式可直接作为 `XKTLoaderPlugin.load({metaModelSrc})` 的输入，前端 TreeViewPlugin/属性面板
@@ -77,7 +103,7 @@
 - 层级按 Site → Building → Storey → 构件，通过 `parent` 字段表达
 - 无 pset 的构件省略 `propertySetIds`
 
-## 4. 前后端协作约定
+## 5. 前后端协作约定
 
 1. 前端不解析 IFC；几何走 XKT，语义走 metadata.json
 2. 上传成功后跳转/停留列表页并轮询状态
