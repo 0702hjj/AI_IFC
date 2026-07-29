@@ -29,5 +29,27 @@ curl -sf -X PATCH -H 'Content-Type: application/json' -d '{"status":"resolved"}'
   "$BASE/api/models/$ID/issues/$ISSUE_ID" | python3 -c 'import sys,json;assert json.load(sys.stdin)["data"]["status"]=="resolved"'
 curl -sf -X DELETE "$BASE/api/models/$ID/issues/$ISSUE_ID" > /dev/null
 curl -sf "$BASE/api/models/$ID/issues" | python3 -c 'import sys,json;assert json.load(sys.stdin)["data"]==[]'
+# overrides + changes
+curl -sf -X PUT -H 'Content-Type: application/json' \
+  -d '{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"smoke edit"}}' \
+  "$BASE/api/models/$ID/entities/3a82-xxxx/properties" \
+  | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert d["FireRating"]=="F60" and d["Comments"]=="smoke edit",d'
+curl -sf "$BASE/api/models/$ID/overrides" \
+  | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert d["3a82-xxxx"]["FireRating"]=="F60" and d["3a82-xxxx"]["Comments"]=="smoke edit",d'
+curl -sf -X PUT -H 'Content-Type: application/json' \
+  -d '{"entityName":"Wall","fields":{"FireRating":"F90","Comments":""}}' \
+  "$BASE/api/models/$ID/entities/3a82-xxxx/properties" \
+  | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert d["FireRating"]=="F90" and "Comments" not in d,d'
+curl -sf "$BASE/api/models/$ID/changes" | python3 -c 'import sys,json
+d=json.load(sys.stdin)["data"]
+fr=[e for e in d if e["field"]=="FireRating"]
+cm=[e for e in d if e["field"]=="Comments"]
+assert len(d)==4 and len(fr)==2 and len(cm)==2,d
+assert any(e["oldValue"]=="" and e["newValue"]=="F60" for e in fr),d
+assert any(e["oldValue"]=="F60" and e["newValue"]=="F90" for e in fr),d
+assert any(e["oldValue"]=="" and e["newValue"]=="smoke edit" for e in cm),d
+assert any(e["oldValue"]=="smoke edit" and e["newValue"]=="" for e in cm),d
+assert all(e["author"]=="local-user" and e["provenance"]["source"]=="UI" for e in d),d'
+echo "overrides+changes OK"
 curl -sf -X DELETE "$BASE/api/models/$ID" > /dev/null
 echo "smoke OK"
