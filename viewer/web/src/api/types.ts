@@ -37,3 +37,18 @@ export interface NewIssue {
   comment: string;
   camera: IssueCamera;
 }
+
+export type EntityFields = Record<string, string>;
+export type OverridesMap = Record<string, EntityFields>;
+
+export interface ChangeEntry {
+  id: string;
+  entityId: string;
+  entityName: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  author: string;
+  provenance: { source: string };
+  createdAt: string;
+}

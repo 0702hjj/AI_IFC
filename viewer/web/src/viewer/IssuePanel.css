@@ -44,3 +44,14 @@
 .issue-delete-btn { border: none; background: none; cursor: pointer; color: #999; }
 .issue-delete-btn:hover { color: #b00020; }
 .issue-empty { color: #999; }
+
+.issue-tabs { display: flex; gap: 4px; }
+.issue-tab { border: none; background: none; cursor: pointer; font-weight: 600; font-size: 13px; padding: 2px 6px; color: #777; border-bottom: 2px solid transparent; }
+.issue-tab.active { color: #1565c0; border-bottom-color: #1565c0; }
+
+.change-item { display: flex; align-items: center; gap: 10px; line-height: 26px; }
+.change-time { color: #999; flex-shrink: 0; font-size: 12px; }
+.change-entity { color: #555; max-width: 22%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.change-field { font-weight: 600; }
+.change-diff { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.change-author { color: #777; flex-shrink: 0; }

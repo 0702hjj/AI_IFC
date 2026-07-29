@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+const api = vi.hoisted(() => ({ fetchOverrides: vi.fn() }));
+vi.mock("@/api/client", () => api);
+
 import { useViewerStore } from "./store";
 
 beforeEach(() => {
@@ -55,5 +59,36 @@ describe("visibility", () => {
     expect(after.hiddenIds).toEqual([]);
     expect(after.isolateId).toBeNull();
     expect(after.xray).toBe(false);
+  });
+});
+
+describe("overrides", () => {
+  beforeEach(() => {
+    useViewerStore.setState({ overrides: {}, changesVersion: 0 });
+    vi.clearAllMocks();
+  });
+
+  it("loadOverrides fetches overrides for a model into the store", async () => {
+    api.fetchOverrides.mockResolvedValue({ w1: { Name: "Wall B" } });
+    await useViewerStore.getState().loadOverrides("m1");
+    expect(api.fetchOverrides).toHaveBeenCalledWith("m1");
+    expect(useViewerStore.getState().overrides).toEqual({ w1: { Name: "Wall B" } });
+  });
+
+  it("setEntityOverrides replaces one entity's fields", () => {
+    useViewerStore.setState({ overrides: { w1: { Name: "A" } } });
+    useViewerStore.getState().setEntityOverrides("w1", { FireRating: "90 min" });
+    expect(useViewerStore.getState().overrides).toEqual({ w1: { FireRating: "90 min" } });
+  });
+
+  it("setEntityOverrides removes the entity when fields are empty", () => {
+    useViewerStore.setState({ overrides: { w1: { Name: "A" } } });
+    useViewerStore.getState().setEntityOverrides("w1", {});
+    expect(useViewerStore.getState().overrides).toEqual({});
+  });
+
+  it("bumpChanges increments changesVersion", () => {
+    useViewerStore.getState().bumpChanges();
+    expect(useViewerStore.getState().changesVersion).toBe(1);
   });
 });

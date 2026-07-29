@@ -73,3 +73,11 @@
 .property-set-title { cursor: pointer; user-select: none; }
 .property-copy { width: 1%; white-space: nowrap; }
 .property-copy-btn { border: none; background: none; color: #1565c0; cursor: pointer; font-size: 12px; padding: 0 4px; }
+
+.editable-section .property-set-title { cursor: default; }
+.editable-value { cursor: text; display: inline-block; min-width: 40px; }
+.editable-value:hover { background: #f0f6ff; }
+.editable-input { width: 100%; box-sizing: border-box; padding: 2px 4px; font-size: 13px; }
+.editable-error { color: #b00020; margin: 4px 0; }
+.override-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #f9a825; margin-right: 4px; }
+tr.overridden .property-name { font-weight: 600; }

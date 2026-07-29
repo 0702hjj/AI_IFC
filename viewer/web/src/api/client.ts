@@ -1,4 +1,4 @@
-import type { ModelInfo, Issue, NewIssue } from "./types";
+import type { ModelInfo, Issue, NewIssue, OverridesMap, EntityFields, ChangeEntry } from "./types";
 
 interface Envelope<T> { code: number; message: string; data: T }
 
@@ -44,3 +44,22 @@ export function deleteIssue(modelId: string, issueId: string) {
   return request<null>(`/api/models/${modelId}/issues/${issueId}`, { method: "DELETE" });
 }
 export const issueAssetUrl = (modelId: string, issue: Issue) => `/models/${modelId}/${issue.screenshot}`;
+
+export function fetchOverrides(modelId: string) {
+  return request<OverridesMap>(`/api/models/${modelId}/overrides`);
+}
+export function saveEntityProperties(
+  modelId: string,
+  entityId: string,
+  fields: EntityFields,
+  entityName: string
+) {
+  return request<EntityFields>(`/api/models/${modelId}/entities/${entityId}/properties`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields, entityName }),
+  });
+}
+export function fetchChanges(modelId: string) {
+  return request<ChangeEntry[]>(`/api/models/${modelId}/changes`);
+}

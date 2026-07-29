@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import {
   createIssue,
   deleteIssue,
+  fetchChanges,
   issueAssetUrl,
   listIssues,
   updateIssue,
 } from "@/api/client";
-import type { Issue, IssueStatus } from "@/api/types";
+import type { ChangeEntry, Issue, IssueStatus } from "@/api/types";
 import { useViewer } from "./ViewerContext";
 import { useViewerStore } from "./store";
 import "./IssuePanel.css";
@@ -21,8 +22,11 @@ export function IssuePanel({ modelId }: { modelId: string }) {
   const ctx = useViewer();
   const selectedId = useViewerStore((s) => s.selectedId);
   const setSelected = useViewerStore((s) => s.setSelected);
+  const changesVersion = useViewerStore((s) => s.changesVersion);
 
+  const [tab, setTab] = useState<"issues" | "history">("issues");
   const [issues, setIssues] = useState<Issue[]>([]);
+  const [changes, setChanges] = useState<ChangeEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -35,6 +39,13 @@ export function IssuePanel({ modelId }: { modelId: string }) {
       .then(setIssues)
       .catch((e: Error) => setError(e.message));
   }, [modelId]);
+
+  useEffect(() => {
+    if (tab !== "history") return;
+    fetchChanges(modelId)
+      .then(setChanges)
+      .catch((e: Error) => setError(e.message));
+  }, [modelId, tab, changesVersion]);
 
   const captureScreenshot = (): Promise<Blob | null> =>
     new Promise((resolve) => {
@@ -119,24 +130,65 @@ export function IssuePanel({ modelId }: { modelId: string }) {
   return (
     <section className={`issue-panel${collapsed ? " collapsed" : ""}`}>
       <header className="issue-panel-header" onClick={() => setCollapsed((v) => !v)}>
-        <span>Issues（{issues.length}）</span>
-        <button
-          type="button"
-          className="issue-new-btn"
-          disabled={!selectedId}
-          title={selectedId ? "" : "先在模型中选中一个构件"}
-          onClick={(e) => {
-            e.stopPropagation();
-            setFormOpen((v) => !v);
-          }}
-        >
-          新建 Issue
-        </button>
+        <span className="issue-tabs">
+          <button
+            type="button"
+            className={`issue-tab${tab === "issues" ? " active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setTab("issues");
+              setCollapsed(false);
+            }}
+          >
+            Issues（{issues.length}）
+          </button>
+          <button
+            type="button"
+            className={`issue-tab${tab === "history" ? " active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setTab("history");
+              setCollapsed(false);
+            }}
+          >
+            修改历史
+          </button>
+        </span>
+        {tab === "issues" && (
+          <button
+            type="button"
+            className="issue-new-btn"
+            disabled={!selectedId}
+            title={selectedId ? "" : "先在模型中选中一个构件"}
+            onClick={(e) => {
+              e.stopPropagation();
+              setFormOpen((v) => !v);
+            }}
+          >
+            新建 Issue
+          </button>
+        )}
       </header>
       {!collapsed && (
         <div className="issue-panel-body">
           {error && <p className="issue-error">{error}</p>}
-          {formOpen && (
+          {tab === "history" && (
+            <ul className="issue-list change-list">
+              {changes.map((c) => (
+                <li key={c.id} className="change-item" data-testid="change-item">
+                  <span className="change-time">{new Date(c.createdAt).toLocaleString()}</span>
+                  <span className="change-entity">{c.entityName || c.entityId}</span>
+                  <span className="change-field">{c.field}</span>
+                  <span className="change-diff">
+                    {c.oldValue || "（空）"} → {c.newValue || "（空）"}
+                  </span>
+                  <span className="change-author">{c.author}</span>
+                </li>
+              ))}
+              {changes.length === 0 && <li className="issue-empty">暂无修改记录</li>}
+            </ul>
+          )}
+          {tab === "issues" && formOpen && (
             <div className="issue-form">
               <input
                 placeholder="标题"
@@ -153,7 +205,8 @@ export function IssuePanel({ modelId }: { modelId: string }) {
               </button>
             </div>
           )}
-          <ul className="issue-list">
+          {tab === "issues" && (
+            <ul className="issue-list">
             {issues.map((iss) => (
               <li key={iss.id} className="issue-item">
                 <span className={`issue-status-dot issue-status-${iss.status}`} />
@@ -189,8 +242,9 @@ export function IssuePanel({ modelId }: { modelId: string }) {
                 </button>
               </li>
             ))}
-            {issues.length === 0 && <li className="issue-empty">暂无 Issue</li>}
-          </ul>
+              {issues.length === 0 && <li className="issue-empty">暂无 Issue</li>}
+            </ul>
+          )}
         </div>
       )}
     </section>

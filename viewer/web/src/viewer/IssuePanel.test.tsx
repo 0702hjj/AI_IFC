@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { cleanup, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 const mockCtx: { current: unknown } = { current: null };
 vi.mock("./ViewerContext", () => ({ useViewer: () => mockCtx.current }));
@@ -9,6 +9,7 @@ const api = vi.hoisted(() => ({
   createIssue: vi.fn(),
   updateIssue: vi.fn(),
   deleteIssue: vi.fn(),
+  fetchChanges: vi.fn(),
   issueAssetUrl: vi.fn(() => "/models/m/shot.png"),
 }));
 vi.mock("@/api/client", () => api);
@@ -36,8 +37,11 @@ function setup() {
   };
   useViewerStore.setState({
     selectedId: null, tool: "select", hiddenIds: [], isolateId: null, xray: false,
+    overrides: {}, changesVersion: 0,
   });
+  vi.clearAllMocks();
   api.listIssues.mockResolvedValue([sample]);
+  api.fetchChanges.mockResolvedValue([]);
   api.updateIssue.mockResolvedValue({ ...sample, status: "resolved" });
   api.deleteIssue.mockResolvedValue(null);
   api.createIssue.mockResolvedValue({ ...sample, id: "i_new000000001", title: "new" });
@@ -101,5 +105,52 @@ describe("IssuePanel", () => {
     await waitFor(() => expect(api.deleteIssue).toHaveBeenCalledOnce());
     await waitFor(() => expect(screen.queryByText("Door width incorrect")).toBeNull());
     vi.unstubAllGlobals();
+  });
+});
+
+describe("IssuePanel history tab", () => {
+  beforeEach(setup);
+
+  const entries = [
+    {
+      id: "c_new000000001", entityId: "w1", entityName: "Wall A", field: "Name",
+      oldValue: "Wall A", newValue: "Wall B", author: "local-user",
+      provenance: { source: "UI" }, createdAt: "2026-07-29T10:00:00Z",
+    },
+    {
+      id: "c_old000000001", entityId: "w1", entityName: "Wall A", field: "FireRating",
+      oldValue: "", newValue: "90 min", author: "local-user",
+      provenance: { source: "UI" }, createdAt: "2026-07-29T09:00:00Z",
+    },
+  ];
+
+  it("lists changes newest-first with field, old→new and author", async () => {
+    api.fetchChanges.mockResolvedValue(entries);
+    render(<IssuePanel modelId="m_0123456789abcdef" />);
+    fireEvent.click(screen.getByText("修改历史"));
+    await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledWith("m_0123456789abcdef"));
+    const items = await screen.findAllByTestId("change-item");
+    expect(items).toHaveLength(2);
+    expect(items[0].textContent).toContain("Name");
+    expect(items[0].textContent).toContain("Wall A → Wall B");
+    expect(items[0].textContent).toContain("local-user");
+    expect(items[1].textContent).toContain("FireRating");
+  });
+
+  it("does not fetch changes while on issues tab", async () => {
+    render(<IssuePanel modelId="m_0123456789abcdef" />);
+    await screen.findByText("Door width incorrect");
+    expect(api.fetchChanges).not.toHaveBeenCalled();
+  });
+
+  it("refetches history when changesVersion bumps", async () => {
+    api.fetchChanges.mockResolvedValue(entries);
+    render(<IssuePanel modelId="m_0123456789abcdef" />);
+    fireEvent.click(screen.getByText("修改历史"));
+    await screen.findAllByTestId("change-item");
+    api.fetchChanges.mockResolvedValue([entries[0]]);
+    act(() => useViewerStore.getState().bumpChanges());
+    await waitFor(() => expect(api.fetchChanges).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getAllByTestId("change-item")).toHaveLength(1));
   });
 });

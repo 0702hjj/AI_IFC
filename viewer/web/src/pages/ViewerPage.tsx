@@ -25,7 +25,7 @@ export default function ViewerPage() {
       <ViewerProvider modelId={id}>
         <Toolbar id={id} />
         <ModelTreePanel />
-        <PropertyPanel />
+        <PropertyPanel modelId={id} />
         <IssuePanel modelId={id} />
       </ViewerProvider>
     </div>
