@@ -62,3 +62,14 @@
   color: #555;
   width: 45%;
 }
+
+.property-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 4px 6px;
+}
+
+.property-set-title { cursor: pointer; user-select: none; }
+.property-copy { width: 1%; white-space: nowrap; }
+.property-copy-btn { border: none; background: none; color: #1565c0; cursor: pointer; font-size: 12px; padding: 0 4px; }
