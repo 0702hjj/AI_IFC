@@ -24,3 +24,36 @@ describe("viewer store", () => {
     expect(useViewerStore.getState().tool).toBe("measure");
   });
 });
+
+describe("visibility", () => {
+  beforeEach(() => {
+    useViewerStore.getState().resetVisibility();
+  });
+
+  it("toggleHidden adds and removes ids", () => {
+    const s = useViewerStore.getState();
+    s.toggleHidden("a");
+    expect(useViewerStore.getState().hiddenIds).toEqual(["a"]);
+    useViewerStore.getState().toggleHidden("a");
+    expect(useViewerStore.getState().hiddenIds).toEqual([]);
+  });
+
+  it("isolate sets and clears isolateId", () => {
+    useViewerStore.getState().isolate("a");
+    expect(useViewerStore.getState().isolateId).toBe("a");
+    useViewerStore.getState().isolate(null);
+    expect(useViewerStore.getState().isolateId).toBeNull();
+  });
+
+  it("resetVisibility clears hidden/isolate/xray", () => {
+    const s = useViewerStore.getState();
+    s.toggleHidden("a");
+    s.isolate("b");
+    s.setXray(true);
+    useViewerStore.getState().resetVisibility();
+    const after = useViewerStore.getState();
+    expect(after.hiddenIds).toEqual([]);
+    expect(after.isolateId).toBeNull();
+    expect(after.xray).toBe(false);
+  });
+});
