@@ -74,8 +74,8 @@ Issue 截图静态服务，`file` 必须匹配 `i_[0-9a-f]{12}\.png`。
 ## 4. metadata.json Schema（xeokit 元模型格式）
 
 由 converter 用 web-ifc 从原 IFC 提取（空间结构树 + 属性集），输出 **xeokit 标准元模型 JSON**。
-该格式可直接作为 `XKTLoaderPlugin.load({metaModelSrc})` 的输入，前端 TreeViewPlugin/属性面板
-全部基于 `viewer.metaScene` 工作，无需自研树格式。
+该格式可直接作为 `XKTLoaderPlugin.load({metaModelSrc})` 的输入，前端树面板基于
+`metaObjects` 的 `parent` 链自建（tree-utils 纯函数），属性面板直接读 `viewer.metaScene`，无需自研元数据格式。
 
 ```json
 {

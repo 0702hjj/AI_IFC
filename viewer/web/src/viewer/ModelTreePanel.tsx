@@ -36,15 +36,7 @@ export function ModelTreePanel() {
   );
 
   useEffect(() => {
-    const ids: string[] = [];
-    const walk = (nodes: TreeNode[]) => {
-      for (const n of nodes) {
-        ids.push(n.id);
-        walk(n.children);
-      }
-    };
-    walk(tree);
-    setExpanded(new Set(ids));
+    setExpanded(new Set(tree.map((n) => n.id)));
   }, [tree]);
 
   if (!ctx) return null;

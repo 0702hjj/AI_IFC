@@ -43,6 +43,7 @@ export function ViewerProvider({
     const viewer = new Viewer({
       canvasId: "xeokit-canvas",
       transparent: true,
+      preserveDrawingBuffer: true,
     });
     new NavCubePlugin(viewer, { canvasId: "navcube-canvas", visible: true });
     const xktLoader = new XKTLoaderPlugin(viewer);

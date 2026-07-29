@@ -114,7 +114,8 @@ ViewerPage
 │                          加载 model.xkt + metaModelSrc=metadata.json（xeokit 标准元模型格式），
 │                          向子组件暴露 viewer/sceneModel/metaModel
 ├─ <Toolbar/>             复位视角 / 剖切开关 / 测量开关 / 下载 IFC
-├─ <ModelTreePanel/>      左栏：TreeViewPlugin(containment) 容器 + 显隐/隔离/高亮联动
+├─ <ModelTreePanel/>      左栏：自建 React 树（tree-utils 纯函数构建/过滤 + zustand 可见性状态
+│                          + useVisibility 联动 scene.objects 显隐/隔离/高亮）
 ├─ <PropertyPanel/>       右栏：pick 构件 → viewer.metaScene.metaObjects[id].propertySets 展示
 └─ <SectionControl/>      SectionPlanesPlugin：轴向选择 + 滑杆拖剖切面
 ```

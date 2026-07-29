@@ -26,12 +26,20 @@ function setup() {
   });
 }
 
+function expand(name: string) {
+  const li = screen.getByText(name).closest("li")!;
+  fireEvent.click(li.querySelector("button.tree-toggle")!);
+}
+
 describe("ModelTreePanel", () => {
   beforeEach(setup);
 
-  it("renders tree nodes", () => {
+  it("renders tree nodes with one level expanded by default", () => {
     render(<ModelTreePanel />);
     expect(screen.getByText("Project")).toBeTruthy();
+    expect(screen.getByText("L1")).toBeTruthy();
+    expect(screen.queryByText("Wall A")).toBeNull();
+    expand("L1");
     expect(screen.getByText("Wall A")).toBeTruthy();
   });
 
@@ -53,6 +61,7 @@ describe("ModelTreePanel", () => {
 
   it("hide button toggles hiddenIds in store", () => {
     render(<ModelTreePanel />);
+    expand("L1");
     const row = screen.getByText("Wall A").closest("li")!;
     fireEvent.click(row.querySelector("button.tree-hide-btn")!);
     expect(useViewerStore.getState().hiddenIds).toEqual(["w1"]);
@@ -60,6 +69,7 @@ describe("ModelTreePanel", () => {
 
   it("clicking node title selects and flies to entity", () => {
     render(<ModelTreePanel />);
+    expand("L1");
     fireEvent.click(screen.getByText("Wall A"));
     expect(useViewerStore.getState().selectedId).toBe("w1");
     expect((mockCtx.current as { viewer: { cameraFlight: { flyTo: unknown } } }).viewer.cameraFlight.flyTo).toHaveBeenCalled();
