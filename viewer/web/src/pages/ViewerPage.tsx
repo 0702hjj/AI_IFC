@@ -3,6 +3,7 @@ import { ViewerProvider } from "@/viewer/ViewerContext";
 import { Toolbar } from "@/viewer/Toolbar";
 import { ModelTreePanel } from "@/viewer/ModelTreePanel";
 import { PropertyPanel } from "@/viewer/PropertyPanel";
+import { IssuePanel } from "@/viewer/IssuePanel";
 import "./ViewerPage.css";
 
 export default function ViewerPage() {
@@ -25,6 +26,7 @@ export default function ViewerPage() {
         <Toolbar id={id} />
         <ModelTreePanel />
         <PropertyPanel />
+        <IssuePanel modelId={id} />
       </ViewerProvider>
     </div>
   );
