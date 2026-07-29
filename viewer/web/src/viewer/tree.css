@@ -7,64 +7,29 @@
   overflow: auto;
   padding: 8px;
   font-size: 13px;
+  display: flex;
+  flex-direction: column;
 }
 
-.xeokit-tree-view ul {
-  list-style: none;
-  padding-left: 20px;
-  margin: 0;
-  pointer-events: all;
+.tree-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 6px;
+  padding: 4px 6px;
 }
 
-.xeokit-tree-view > ul {
-  padding-left: 0;
-}
+.tree-type-filter summary { cursor: pointer; user-select: none; }
+.tree-type-list { display: flex; flex-direction: column; max-height: 160px; overflow: auto; padding: 4px 0; }
+.tree-type-list label { display: flex; gap: 4px; align-items: center; line-height: 20px; }
 
-.xeokit-tree-view li {
-  position: relative;
-  padding-left: 22px;
-  line-height: 24px;
-  white-space: nowrap;
-}
+.tree-root, .tree-panel ul { list-style: none; padding-left: 0; margin: 0; overflow: auto; }
 
-.xeokit-tree-view li a {
-  background-color: #eee;
-  border-radius: 50%;
-  color: #000;
-  display: inline-block;
-  font-weight: bold;
-  height: 14px;
-  width: 14px;
-  line-height: 14px;
-  text-align: center;
-  text-decoration: none;
-  position: absolute;
-  left: 0;
-  top: 5px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.xeokit-tree-view li input[type="checkbox"] {
-  margin: 0 6px 0 0;
-  vertical-align: middle;
-  cursor: pointer;
-}
-
-.xeokit-tree-view li span {
-  cursor: pointer;
-}
-
-.xeokit-tree-view li span:hover {
-  color: #1565c0;
-  text-decoration: underline;
-}
-
-.xeokit-tree-view li.highlighted-node {
-  background-color: #fff3cd;
-}
-
-.xeokit-tree-view li.xrayed-node span {
-  font-style: italic;
-  color: #888;
-}
+.tree-row { display: flex; align-items: center; gap: 4px; line-height: 24px; white-space: nowrap; }
+.tree-toggle { border: none; background: none; cursor: pointer; width: 16px; padding: 0; }
+.tree-toggle-placeholder { width: 16px; flex-shrink: 0; }
+.tree-hide-btn { border: none; background: none; cursor: pointer; padding: 0 2px; font-size: 12px; }
+.tree-title { cursor: pointer; overflow: hidden; text-overflow: ellipsis; }
+.tree-title:hover { color: #1565c0; text-decoration: underline; }
+.tree-title.selected { color: #1565c0; font-weight: 600; }
+.tree-type { color: #999; font-style: normal; margin-left: 6px; font-size: 11px; }
+.tree-hidden .tree-title { opacity: 0.45; }
