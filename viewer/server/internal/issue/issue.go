@@ -49,6 +49,7 @@ type IssuePatch struct {
 	Status  *string `json:"status"`
 }
 
+// Store 抽象后期可平移 PostgreSQL 等实现。
 type Store interface {
 	List(modelID string) ([]*Issue, error)
 	Create(modelID string, iss *Issue) (*Issue, error)
@@ -57,6 +58,7 @@ type Store interface {
 	SaveScreenshot(modelID, issueID string, png []byte) (string, error)
 }
 
+// FileStore 假定 modelID 已被调用方校验，直接用于拼接磁盘路径。
 type FileStore struct {
 	DataDir string
 	mu      sync.Mutex
@@ -143,4 +145,109 @@ func (s *FileStore) Create(modelID string, iss *Issue) (*Issue, error) {
 		return nil, err
 	}
 	return iss, nil
+}
+
+func (s *FileStore) Update(modelID, issueID string, patch IssuePatch) (*Issue, error) {
+	if !idPattern.MatchString(issueID) {
+		return nil, ErrInvalidID
+	}
+	if patch.Status != nil && !validStatus[*patch.Status] {
+		return nil, ErrInvalidStatus
+	}
+	if patch.Title != nil {
+		*patch.Title = strings.TrimSpace(*patch.Title)
+		if *patch.Title == "" {
+			return nil, ErrEmptyTitle
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	issues, err := s.readAll(modelID)
+	if err != nil {
+		return nil, err
+	}
+	for _, iss := range issues {
+		if iss.ID != issueID {
+			continue
+		}
+		if patch.Title != nil {
+			iss.Title = *patch.Title
+		}
+		if patch.Comment != nil {
+			iss.Comment = *patch.Comment
+		}
+		if patch.Status != nil {
+			iss.Status = *patch.Status
+		}
+		iss.UpdatedAt = time.Now().UTC()
+		if err := s.writeAll(modelID, issues); err != nil {
+			return nil, err
+		}
+		return iss, nil
+	}
+	return nil, ErrNotFound
+}
+
+func (s *FileStore) Delete(modelID, issueID string) error {
+	if !idPattern.MatchString(issueID) {
+		return ErrInvalidID
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	issues, err := s.readAll(modelID)
+	if err != nil {
+		return err
+	}
+	out := issues[:0]
+	found := false
+	for _, iss := range issues {
+		if iss.ID == issueID {
+			found = true
+			continue
+		}
+		out = append(out, iss)
+	}
+	if !found {
+		return ErrNotFound
+	}
+	if err := s.writeAll(modelID, out); err != nil {
+		return err
+	}
+	_ = os.Remove(filepath.Join(s.issuesDir(modelID), issueID+".png"))
+	return nil
+}
+
+func (s *FileStore) SaveScreenshot(modelID, issueID string, png []byte) (string, error) {
+	if !idPattern.MatchString(issueID) {
+		return "", ErrInvalidID
+	}
+	if err := os.MkdirAll(s.issuesDir(modelID), 0o755); err != nil {
+		return "", err
+	}
+	rel := "issues/" + issueID + ".png"
+	abs := filepath.Join(s.DataDir, "models", modelID, rel)
+	tmp := abs + ".tmp"
+	if err := os.WriteFile(tmp, png, 0o644); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, abs); err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	issues, err := s.readAll(modelID)
+	if err != nil {
+		return "", err
+	}
+	for _, iss := range issues {
+		if iss.ID == issueID {
+			iss.Screenshot = rel
+			iss.UpdatedAt = time.Now().UTC()
+			if err := s.writeAll(modelID, issues); err != nil {
+				return "", err
+			}
+			return rel, nil
+		}
+	}
+	return "", ErrNotFound
 }

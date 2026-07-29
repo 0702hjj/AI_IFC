@@ -70,3 +70,115 @@ func TestCreateInvalidStatus(t *testing.T) {
 		t.Fatalf("err = %v, want ErrInvalidStatus", err)
 	}
 }
+
+func TestListSortedByCreatedAtDesc(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	first, err := fs.Create(modelID, &Issue{Title: "first"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := fs.Create(modelID, &Issue{Title: "second"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	list, err := fs.List(modelID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("list = %+v", list)
+	}
+	if list[0].ID != second.ID || list[1].ID != first.ID {
+		t.Fatalf("list order = [%s %s], want [%s %s]", list[0].ID, list[1].ID, second.ID, first.ID)
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	created, err := fs.Create(modelID, &Issue{Title: "old"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, title := "resolved", "new title"
+	got, err := fs.Update(modelID, created.ID, IssuePatch{Title: &title, Status: &status})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if got.Title != "new title" || got.Status != "resolved" {
+		t.Fatalf("got %+v", got)
+	}
+	if !got.UpdatedAt.After(created.CreatedAt) && !got.UpdatedAt.Equal(created.CreatedAt) {
+		t.Fatal("updatedAt not refreshed")
+	}
+	list, _ := fs.List(modelID)
+	if list[0].Title != "new title" {
+		t.Fatal("update not persisted")
+	}
+}
+
+func TestUpdateNotFound(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	status := "resolved"
+	if _, err := fs.Update(modelID, "i_abcdef012345", IssuePatch{Status: &status}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestUpdateInvalidID(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	status := "resolved"
+	if _, err := fs.Update(modelID, "bad id", IssuePatch{Status: &status}); !errors.Is(err, ErrInvalidID) {
+		t.Fatalf("err = %v, want ErrInvalidID", err)
+	}
+}
+
+func TestUpdateInvalidStatus(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	created, _ := fs.Create(modelID, &Issue{Title: "x"})
+	status := "bogus"
+	if _, err := fs.Update(modelID, created.ID, IssuePatch{Status: &status}); !errors.Is(err, ErrInvalidStatus) {
+		t.Fatalf("err = %v, want ErrInvalidStatus", err)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	created, _ := fs.Create(modelID, &Issue{Title: "x"})
+	if _, err := fs.SaveScreenshot(modelID, created.ID, []byte("fakepng")); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.Delete(modelID, created.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	list, _ := fs.List(modelID)
+	if len(list) != 0 {
+		t.Fatalf("list = %+v, want empty", list)
+	}
+	if _, err := os.Stat(filepath.Join(fs.issuesDir(modelID), created.ID+".png")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("screenshot file not removed")
+	}
+	if err := fs.Delete(modelID, created.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("second delete err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestSaveScreenshot(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	created, _ := fs.Create(modelID, &Issue{Title: "x"})
+	rel, err := fs.SaveScreenshot(modelID, created.ID, []byte("fakepng"))
+	if err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	want := "issues/" + created.ID + ".png"
+	if rel != want {
+		t.Fatalf("rel = %q, want %q", rel, want)
+	}
+	data, err := os.ReadFile(filepath.Join(fs.DataDir, "models", modelID, want))
+	if err != nil || string(data) != "fakepng" {
+		t.Fatalf("file: %v %q", err, data)
+	}
+	list, _ := fs.List(modelID)
+	if list[0].Screenshot != want {
+		t.Fatalf("record screenshot = %q", list[0].Screenshot)
+	}
+}
