@@ -1,4 +1,4 @@
-import type { ModelInfo } from "./types";
+import type { ModelInfo, Issue, NewIssue } from "./types";
 
 interface Envelope<T> { code: number; message: string; data: T }
 
@@ -19,3 +19,28 @@ export function retryModel(id: string) { return request<ModelInfo>(`/api/models/
 export function deleteModel(id: string) { return request<null>(`/api/models/${id}`, { method: "DELETE" }); }
 export const downloadUrl = (id: string) => `/api/models/${id}/download`;
 export const modelAssetUrl = (id: string, file: "model.xkt" | "metadata.json") => `/models/${id}/${file}`;
+
+export function listIssues(modelId: string) {
+  return request<Issue[]>(`/api/models/${modelId}/issues`);
+}
+export function createIssue(modelId: string, issue: NewIssue, screenshot: Blob | null) {
+  const fd = new FormData();
+  fd.append("issue", JSON.stringify(issue));
+  if (screenshot) fd.append("screenshot", screenshot, "screenshot.png");
+  return request<Issue>(`/api/models/${modelId}/issues`, { method: "POST", body: fd });
+}
+export function updateIssue(
+  modelId: string,
+  issueId: string,
+  patch: Partial<Pick<Issue, "title" | "comment" | "status">>
+) {
+  return request<Issue>(`/api/models/${modelId}/issues/${issueId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+}
+export function deleteIssue(modelId: string, issueId: string) {
+  return request<null>(`/api/models/${modelId}/issues/${issueId}`, { method: "DELETE" });
+}
+export const issueAssetUrl = (modelId: string, issue: Issue) => `/models/${modelId}/${issue.screenshot}`;
