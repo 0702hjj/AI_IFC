@@ -13,7 +13,7 @@
 - 单机无认证，本地文件系统存储，无数据库
 - 参考 Online3DViewer 的交互形态（模型库 + 查看器两页）
 
-非目标（YAGNI）：用户体系、与 gaia 平台集成、IFC 编辑/生成、方案 B（Three.js/web-ifc）viewer。
+非目标（YAGNI）：用户体系、与 gaia 平台集成、方案 B（Three.js/web-ifc）viewer。IFC 编辑/生成本期不做，演进方向见 §7。
 
 ## 2. 总体架构与数据流
 
@@ -114,9 +114,12 @@ ViewerPage
 │                          加载 model.xkt + metaModelSrc=metadata.json（xeokit 标准元模型格式），
 │                          向子组件暴露 viewer/sceneModel/metaModel
 ├─ <Toolbar/>             复位视角 / 剖切开关 / 测量开关 / 下载 IFC
+│   └─ <VisibilityToolbar/>  隐藏选中 / 隔离 / X-Ray / 重置可见性
 ├─ <ModelTreePanel/>      左栏：自建 React 树（tree-utils 纯函数构建/过滤 + zustand 可见性状态
-│                          + useVisibility 联动 scene.objects 显隐/隔离/高亮）
-├─ <PropertyPanel/>       右栏：pick 构件 → viewer.metaScene.metaObjects[id].propertySets 展示
+│                          + useVisibility 联动 scene.objects 显隐/隔离/高亮）；搜索 + IFC 类型过滤
+├─ <PropertyPanel/>       右栏：pick 构件 → viewer.metaScene.metaObjects[id].propertySets 展示；
+│                          属性搜索、pset 折叠、属性复制（只读）
+├─ <IssuePanel/>          底部抽屉：Issue 列表/创建（相机+截图）/状态流转/删除/点击恢复视角
 └─ <SectionControl/>      SectionPlanesPlugin：轴向选择 + 滑杆拖剖切面
 ```
 
@@ -136,3 +139,12 @@ ViewerPage
 - server：Go httptest 覆盖上传/列表/下载/删除；convert 队列用 fake converter 脚本测试状态机
 - converter：用 `research/ifc` 样例 IFC 做快照测试（XKT 非空、metadata 含 storey 树）
 - web：组件级测试从简；e2e 冒烟 MVP 后补
+
+## 7. 演进方向
+
+依据 `md/dxf_agent/deep-research-report.md`（§1 变更追踪、§2.2 实体编辑 API、§2.4 前端修改流）与 `docs/architecture/viewer.md` 迭代计划：
+
+1. **属性修改（两阶段）**：先做 metadata override（不改 IFC 本体，存覆盖值 + 修改记录）；后续引入 IfcOpenShell Python 编辑服务（报告 §2.2 `PUT /models/{id}/entities/{guid}`）真改 IFC，override 平滑迁移
+2. **变更历史**：Issue/修改记录对齐报告 §1 的 commit 模型（author/timestamp/operation/diff/provenance），存储由 `issue.Store` 接口平移至 PostgreSQL
+3. **版本对比**：IfcDiff（按 GlobalId 语义 diff，报告 §1.3）作为独立 Python 服务，与真改 IFC 共用
+4. **AI 协同**：同一 Python 服务后期暴露 MCP 工具（报告 §2.3），人/AI 走同一套编辑 API
