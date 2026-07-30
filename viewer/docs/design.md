@@ -152,6 +152,6 @@ ViewerPage
 依据 `md/dxf_agent/deep-research-report.md`（§1 变更追踪、§2.2 实体编辑 API、§2.4 前端修改流）与 `docs/architecture/viewer.md` 迭代计划：
 
 1. **属性修改（两阶段）**：先做 metadata override（不改 IFC 本体，存覆盖值 + 修改记录）；后续引入 IfcOpenShell Python 编辑服务（报告 §2.2 `PUT /models/{id}/entities/{guid}`）真改 IFC，override 平滑迁移
-2. **变更历史**：Issue/修改记录对齐报告 §1 的 commit 模型（author/timestamp/operation/diff/provenance），存储已由 `issue/change/override.Store` 接口平移至 PostgreSQL（PgStore 已落地）
+2. **变更历史**：Issue/修改记录对齐报告 §1 的 commit 模型（author/timestamp/operation/diff/provenance），存储已由 `issue/change/override.Store` 接口平移至 PostgreSQL（PgStore 已落地）。注：change log 的 oldValue 当前只记录前次 override 值（首次编辑为空），IFC 真原值捕获显式 deferred 至迭代 N+2——真改 IFC 落地后由 IfcDiff 的 diff 字段（报告 §1.1）取代，届时本问题自然消解
 3. **版本对比**：IfcDiff（按 GlobalId 语义 diff，报告 §1.3）作为独立 Python 服务，与真改 IFC 共用
 4. **AI 协同**：同一 Python 服务后期暴露 MCP 工具（报告 §2.3），人/AI 走同一套编辑 API

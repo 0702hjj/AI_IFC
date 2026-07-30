@@ -44,7 +44,7 @@ gaiass/
 4. ifcmcp 未启用是低垂果实：官方 ifcmcp 已经提供 31 个工具（含 ifc_plot/ifc_render 视觉反馈、ifc_list/ifc_docs/ifc_edit 发现式编辑），把它接进 .mcp.json 立刻就能让 LLM 操作 IFC，是验证 AI 工作流最快路径。
 四、下一步迭代计划（2026-07-29 更新，详见 docs/architecture/viewer.md）
 按「最终可用性」排序，viewer 线优先于 AI 线：
-迭代 N+1（✅ 已完成，2026-07-29，commits 8f41770..b16f293）：
+迭代 N+1（✅ 已完成，2026-07-29，commits 8f41770 起）：
 1	Issue 接 PG + 修改记录/历史	✅ PgStore 平移（File/Pg 双实现）；change log 对齐 deep-research-report §1.1 commit 模型
 2	属性修改器（override 阶段）	✅ 完成「看→发现→定位→修改→跟踪」人的闭环第一步；白名单字段 + override + change log，不改 IFC 本体
 3	3D Issue Pin + 真机截图验证	✅ Pin 落地（点击定位）；真机浏览器验证通过（截图非空白、钉居中、属性编辑入历史）
