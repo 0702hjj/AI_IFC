@@ -39,6 +39,31 @@ Issue / 属性 override / 修改记录三类持久化默认均为文件存储（
 
 也可设环境变量 `VIEWER_PG_DSN`（优先级高于配置文件）。未配置时保持文件存储，无需任何数据库。
 
+## IFC 真改（edit-service）
+
+`edit-service/`（Python FastAPI，默认 `:8100`）通过 ifcopenshell 对 IFC 做真实修改：pending（内存）→ commit（落盘 + 版本快照）。Go server 作为编排层代理其接口，并在 commit 成功后写 change log、自动重转 XKT；另提供 override → 真改迁移。
+
+**关键约束：两服务必须读写同一数据目录** —— edit-service 的 `VIEWER_DATA_DIR` 必须与 server 配置的 `dataDir` 指向同一目录（如 `viewer/data`），否则会出现 404 或改的不是同一份文件。
+
+```json
+// server/server_config.json
+{"editServiceURL": "http://127.0.0.1:8100"}
+```
+
+也可设环境变量 `VIEWER_EDIT_SERVICE_URL`（优先级高于配置文件），默认 `http://127.0.0.1:8100`。
+
+Go 侧端点（均走 `{code,message,data}` envelope，透传 Python 状态码语义：404→404、409→409、422→400、不可达→502）：
+
+| 端点 | 说明 |
+| --- | --- |
+| `PUT /api/models/{id}/edit/entities/{guid}` | 代理：暂存一条 pending 修改（body `{fields?, psets?, author?, provenance?}`） |
+| `GET /api/models/{id}/edit/pending` / `DELETE` | 查询 / 丢弃 pending |
+| `POST /api/models/{id}/edit/commit` | 编排：commit → 写 change log（含 diff 补充）→ 重转 XKT，响应 `{committed, entries, reconverting}` |
+| `GET /api/models/{id}/edit/history` | 编辑历史 |
+| `GET /api/models/{id}/edit/versions` | 版本快照列表 |
+| `POST /api/models/{id}/edit/diff` | 版本间 diff（body `{base, target}`，target 可为 `current`） |
+| `POST /api/models/{id}/overrides/migrate` | 把该模型全部 override 回放为真实 IFC 修改（一次 commit 一个版本快照），成功字段清除 override，失败字段保留并返回 `{migrated, failed}` |
+
 ## 依赖版本
 
 - Node.js ≥ 18
@@ -60,7 +85,7 @@ cd web && npm run dev
 # 3. 浏览器打开 http://localhost:5173 ，上传 .ifc 验证
 ```
 
-端到端冒烟（覆盖上传→转换→下载→Issue CRUD→属性 override/修改记录 全链路，需 server 已运行）：
+端到端冒烟（覆盖上传→转换→下载→Issue CRUD→属性 override/修改记录 全链路，需 server 已运行；edit-service 可达时追加 edit flow 段，否则自动跳过）：
 
 ```bash
 ./scripts/smoke.sh    # 成功输出以 smoke OK 结尾

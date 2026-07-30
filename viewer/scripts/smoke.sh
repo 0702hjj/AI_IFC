@@ -53,5 +53,33 @@ assert any(e["oldValue"]=="" and e["newValue"]=="smoke edit" for e in cm),d
 assert any(e["oldValue"]=="smoke edit" and e["newValue"]=="" for e in cm),d
 assert all(e["author"]=="local-user" and e["provenance"]["source"]=="UI" for e in d),d'
 echo "overrides+changes OK"
+# edit flow（经 Go 代理走 Python 编辑服务；服务不可达则跳过）
+EDIT_URL=${VIEWER_EDIT_SERVICE_URL:-http://127.0.0.1:8100}
+if curl -sf "$EDIT_URL/health" > /dev/null 2>&1; then
+  GUID=$(curl -sf "$BASE/models/$ID/metadata.json" | python3 -c 'import sys,json;d=json.load(sys.stdin);print(next(o["id"] for o in d["metaObjects"] if o["type"]=="IfcWall"))')
+  echo "edit target: $GUID"
+  curl -sf -X PUT -H 'Content-Type: application/json' \
+    -d '{"fields":{"Name":"Smoke Renamed Wall"}}' \
+    "$BASE/api/models/$ID/edit/entities/$GUID" > /dev/null
+  curl -sf "$BASE/api/models/$ID/edit/pending" | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert len(d)==1 and d[0]["changes"][0]["newValue"]=="Smoke Renamed Wall",d'
+  curl -sf -X POST "$BASE/api/models/$ID/edit/commit" \
+    | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert d["committed"]==1 and d["reconverting"] is True,d'
+  curl -sf "$BASE/api/models/$ID/changes" | python3 -c 'import sys,json
+d=json.load(sys.stdin)["data"]
+assert any(e["operation"]=="update" and e["field"]=="Name" and e["newValue"]=="Smoke Renamed Wall" and e["diff"] for e in d),d'
+  STATUS=""
+  for i in $(seq 1 30); do
+    STATUS=$(curl -sf "$BASE/api/models/$ID" | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["status"])')
+    [ "$STATUS" = "ready" ] && break
+    [ "$STATUS" = "failed" ] && { echo "reconversion failed"; exit 1; }
+    sleep 2
+  done
+  [ "$STATUS" = "ready" ] || { echo "reconversion timeout"; exit 1; }
+  curl -sf -X POST -H 'Content-Type: application/json' -d '{"base":"v1","target":"current"}' \
+    "$BASE/api/models/$ID/edit/diff" | python3 -c "import sys,json;d=json.load(sys.stdin)['data'];assert any(c['guid']=='$GUID' for c in d['changed']),d"
+  echo "edit flow OK"
+else
+  echo "edit flow SKIP (edit service unreachable at $EDIT_URL)"
+fi
 curl -sf -X DELETE "$BASE/api/models/$ID" > /dev/null
 echo "smoke OK"

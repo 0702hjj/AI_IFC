@@ -13,6 +13,7 @@ import (
 
 	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
+	"ifcviewer/server/internal/editsvc"
 	"ifcviewer/server/internal/issue"
 	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
@@ -37,11 +38,12 @@ type handler struct {
 	iss       issue.Store
 	chg       change.Store
 	ovr       override.Store
+	ed        *editsvc.Client
 	maxUpload int64
 }
 
-func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, maxUploadBytes int64) http.Handler {
-	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, maxUpload: maxUploadBytes}
+func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed *editsvc.Client, maxUploadBytes int64) http.Handler {
+	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, ed: ed, maxUpload: maxUploadBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/models", h.upload)
 	mux.HandleFunc("GET /api/models", h.list)
@@ -59,6 +61,7 @@ func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.S
 	mux.HandleFunc("GET /api/models/{id}/changes", h.listChanges)
 	mux.HandleFunc("GET /api/models/{id}/overrides", h.listOverrides)
 	mux.HandleFunc("PUT /api/models/{id}/entities/{entityId}/properties", h.putEntityProperties)
+	h.registerEditRoutes(mux)
 	return cors(mux)
 }
 
