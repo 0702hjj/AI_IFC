@@ -1,7 +1,7 @@
-# Viewer 迭代路线图（2026-07-29 更新）
+# Viewer 迭代路线图（2026-07-30 更新）
 
-> 本文原为 P0–P3 组件优先级路线图。P0 已全部落地，现更新为下一迭代计划。
-> 对齐文档：`md/dxf_agent/deep-research-report.md`（变更追踪 / 编辑 API / 前端修改流）、`viewer/docs/design.md` §7 演进方向。
+> 本文原为 P0–P3 组件优先级路线图，现为 **viewer 线**迭代计划。跨工作线的开源 v1 总计划见 [roadmap.md](./roadmap.md)。
+> 对齐文档：`md/dxf_agent/deep-research-report.md`（目标映射见 `research/overview.md`）、`viewer/docs/design.md` §7 演进方向。
 
 ## 一、原路线图完成状态
 
@@ -31,7 +31,7 @@
 | §1.3 IfcDiff | 按 GlobalId 语义 diff（added/removed/changed） | 迭代 N+2 Diff Viewer 的 diff 引擎 |
 | §4 混合存储 | Git 存 IFC + DB 存元数据/commit log | DB 部分先落地（PG 存 Issue/override/历史）；IFC 版本化暂缓 |
 
-不在我们范围：§2.3 AI 沙箱、§3 IFC→Python 工具（AI 线另行跟进，见 §五）。
+不在我们范围：§2.3 AI 沙箱、§3 IFC→Python 工具（AI 生成由另一同学负责，我们交付接入架构，见 §五与 roadmap.md §四）。
 
 ## 三、迭代 N+1（已完成 ✅，2026-07-29 落地，commits 8f41770 起）
 
@@ -59,14 +59,15 @@
    - override 数据迁移为真实 IFC 修改；修改后重新转换 XKT 刷新 viewer
    - change log 增加 diff 字段（报告 §1.1 `diff: {added, removed, changed}`）
 
-## 五、AI 线（并行候选，非 viewer 主线）
+## 五、AI 线（接入架构，非本仓库开发 AI 生成本体）
 
-按 viewerstatus.md 评估，「AI 用 IfcOpenShell 生成 IFC」主线目前为空，候选（优先级低于 viewer 线）：
+「AI 生成 IFC」由另一同学负责（2026-07-30 决策）。我们交付**可接入的架构**（详见 roadmap.md §四）：
 
-6. **启用 ifcmcp + 写最小 ai_ifc skill**：ifcmcp（31 个工具）接进 `.mcp.json`，按 `research/ifc/simplecadapi_skill_anatomy.md` 复刻清单写 `skills/ai_ifc/` 骨架——最快验证 AI 操作 IFC 的路径
-7. **IFC 生成 examples**：用 ifcopenshell.api 跑通「骨架优先」最小样例（Project→Site→Building→Storey→Wall，过 ifcopenshell.validate）
+6. **双角色编辑 API**（N+2 落地）：AI 与人走同一套 REST 编辑 API（报告 §2.1），provenance.source 区分 UI/AI
+7. **工具 schema 文档**（N+2）：编辑 API 的 OpenAPI/工具目录文档（报告 §2.3 REST 形态）+ `docs/ai-integration.md`
+8. **MCP 化预留**：报告 §4.1 建议 REST+MCP 双暴露；v1 先 REST，MCP 薄包装（参考 ifcmcp 31 工具模式）列 v1.1 候选
 
-长期：AI 与人走同一套编辑 API（报告 §2.1 双角色），Python 服务的 MCP 化在迭代 N+2 之后考虑。
+原候选「启用 ifcmcp + ai_ifc skill + IFC 生成 examples」移交 AI 生成线（调研材料已备：`research/ifc/simplecadapi_skill_anatomy.md`、`ifc_structrue_breakdown.md` 骨架优先策略、`MCP_API.md` ifcmcp 31 工具清单）。
 
 ## 六、前端布局（维持）
 
