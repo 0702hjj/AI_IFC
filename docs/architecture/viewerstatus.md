@@ -16,7 +16,7 @@ gaiass/
 - research/ifc/ 调研极其扎实：ifcopenshell_python_dev_notes.md 是可直接当 skill 底稿的开发参考；simplecadapi_skill_anatomy.md 已给出精确的复刻清单（SKILL.md 骨架 + 按 IFC 领域分组的 api/README + 4 段式机器生成文档 + MODELING_WORKFLOWS 7 场景）；ifc_structrue_breakdown.md 提出了"骨架优先"建模策略（先纯语义树，再增量填几何/材质/属性）。
 - AI_IFC/skills/ 下只有 simplecadapi，没有 ai_ifc。examples 里 20 个全是 SCAD 的，0 个 IFC 生成示例。
 - IfcOpenShell 自带 ifcmcp（31 个工具，stdio）+ ifcedit（discover.py 可批量生成 API 文档），这套正是复刻 SCAD skill 的现成工具链，但目前 .mcp.json 只配了 postgres MCP，没启用 ifcmcp。
-工作线 2：viewer —— 【~95% 完成，已是 BIM Review Platform】（2026-07-29 更新，迭代 N+1 已落地）
+工作线 2：viewer —— 【N+2 完成，已是审查+编辑平台】（2026-07-30 更新，迭代 N+2 已落地：真改 IFC + Diff Viewer + AI 接入口）
 已完成（TDD 全程，server 56 测试 / web 84 测试 / smoke 端到端含 Issue + override/changes 链路）：
 - converter：IFC→XKT+metadata.json，web-ifc 提取空间树+pset，id 一致性校验
 - server：Go stdlib + pgx/v5（唯一第三方依赖），上传/转换队列/列表/下载/删除/重试，路径穿越防护，重启恢复；Issue REST API（CRUD+截图）；属性 override（白名单字段 PUT）+ 修改记录 change log API；Issue/override/changes 三类存储均为 File/Pg 双实现（`pgDSN`/`VIEWER_PG_DSN` 启用 PG）
@@ -28,8 +28,8 @@ gaiass/
 | P0 | Issue/Markup | ✅ 有（创建/列表/状态流转/相机恢复/截图；文件/PG 双存储） |
 | P1 | 测量 | ✅ 距离有 |
 | P1 | Hide/Isolate/X-Ray 工具栏 | ✅ 有 |
-| P1 | 版本对比 Diff Viewer | ❌ 没做（迭代 N+2，IfcDiff Python 服务） |
-| P2 | 属性修改器 | ✅ override 阶段已落地（白名单字段编辑 + change log；真改 IFC 迭代 N+2） |
+| P1 | 版本对比 Diff Viewer | ✅ 已落地（迭代 N+2：版本快照 + IfcDiff 服务 + 绿/红/黄着色 + old→new 列表） |
+| P2 | 属性修改器 | ✅ 真改已落地（迭代 N+2：Python 服务真改 IFC + pending/commit；override 保留并可一键迁移真改） |
 | 收尾 | 3D Issue Pin + 真机截图验证 | ✅ 已落地（钉点击定位 + 真机浏览器验证通过） |
 工作线 3：后端 DB 集成 —— 【viewer 侧已落地，平台侧未对接】
 - viewer 模型文件仍为文件系统（uploads/{id}.ifc + models/{id}/），但 Issue/修改记录/属性 override 已可平移 PostgreSQL（File/Pg 双实现，pgDSN 切换，启动自动建表 issues/changes/overrides）。
@@ -48,14 +48,14 @@ gaiass/
 1	Issue 接 PG + 修改记录/历史	✅ PgStore 平移（File/Pg 双实现）；change log 对齐 deep-research-report §1.1 commit 模型
 2	属性修改器（override 阶段）	✅ 完成「看→发现→定位→修改→跟踪」人的闭环第一步；白名单字段 + override + change log，不改 IFC 本体
 3	3D Issue Pin + 真机截图验证	✅ Pin 落地（点击定位）；真机浏览器验证通过（截图非空白、钉居中、属性编辑入历史）
-迭代 N+2（下一迭代，引入 IfcOpenShell Python 编辑服务，详见 roadmap.md §二）：
-4	Python 服务骨架 + 实体编辑 API	FastAPI + ifcopenshell；报告 §2.2 PUT entities/{guid} + pending/commit（§2.4 Figure 2）
-5	IfcDiff 集成 + Diff Viewer	报告 §1.3 按 GlobalId 语义 diff，绿/红/黄着色 + 属性 diff
-6	override 迁移真改 + change log 升级	override 回放为真实 IFC 修改；change log 补 operation/diff 字段（§1.1 完整 schema）
-7	AI 接入口	双角色同一编辑 API（§2.1）+ 工具 schema 文档（§2.3 REST 形态）+ docs/ai-integration.md
+迭代 N+2（✅ 已完成，2026-07-30，分支 iteration-n+2 commits da57ab3..81ede3d，详见 roadmap.md §二）：
+4	Python 服务骨架 + 实体编辑 API	✅ `viewer/edit-service/`（FastAPI + ifcopenshell）；PUT entities/{guid} + pending/commit + history（真原值 oldValue）
+5	IfcDiff 集成 + Diff Viewer	✅ 版本快照（commit 产生 v{n+1}）+ POST diff（GlobalId 语义，属性级）；web Diff 面板绿/红/黄着色 + old→new
+6	override 迁移真改 + change log 升级	✅ POST /overrides/migrate 回放为真改（失败保留 override）；change log 补 operation/diff 字段 + provenance 枚举校验
+7	AI 接入口	✅ 双角色同一编辑 API（AI REST 直连验证通过）+ docs/ai-integration.md + ai-tools.openapi.json
 迭代 N+3（上线/开源就绪，详见 roadmap.md §三）：
 8	部署化	docker compose 一键起（server/web/PG/Python 服务/converter），配置外置
 9	文档与开源工程化	README 重写（en 主）、SCAD 归档说明、AI 接入指南、CI（GitHub Actions）、LICENSE 审计、v0.1.0 发布
 AI 生成线（另一同学负责，我们已备调研与接入口）：
 -	ifcmcp + ai_ifc skill + IFC 生成 examples（骨架优先）	调研已 90% 到位（research/ifc/）；接入走我们的双角色编辑 API，MCP 化 v1.1 候选
-一句话总结：viewer 已从"纯展示"变为"审查平台"（迭代 N+1 完成：Issue/修改记录平移 PG、属性 override 修改器、3D Issue Pin），下一步按 roadmap.md 推进——N+2 引入 IfcOpenShell Python 服务做真改 IFC 与 Diff 并预留 AI 接入口，N+3 完成部署/文档/CI 后开源 v1；AI 生成由另一同学并行推进。
+一句话总结：viewer 已从"纯展示"变为"审查+编辑平台"（迭代 N+2 完成：IfcOpenShell Python 服务真改 IFC + pending/commit、版本快照 + IfcDiff + Diff Viewer、override 迁移、双角色 AI 接入口文档），下一步按 roadmap.md 推进 N+3（部署/文档/CI 后开源 v1）；AI 生成由另一同学并行推进。

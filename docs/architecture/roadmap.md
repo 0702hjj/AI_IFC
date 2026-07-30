@@ -22,9 +22,10 @@
 - viewer 线 **~95%**：BIM Review Platform 成型；迭代 N+1 完成（Issue/change log/override 三 store File/PG 双实现、属性修改器 override 阶段、3D Issue Pin、真机验证通过）。详见 viewerstatus.md
 - 报告 §2.4 修改流已在 override 阶段落地（选中 → 改值 → 保存 → 记录 → 历史）；§1.1 commit 模型已落地 author/timestamp/provenance 半
 - DB 缺位已解决：PG（独立库 `ai_ifc_viewer`，自动建表 issues/changes/overrides），`pgDSN` 切换，FileStore 零依赖可跑
-- 未起步：IfcOpenShell Python 服务（真改 IFC、IfcDiff）、部署化、开源工程化
+- 迭代 N+2 **✅ 已完成**（2026-07-30，分支 iteration-n+2，commits da57ab3..81ede3d）：IfcOpenShell Python 编辑服务（`viewer/edit-service/`）、真改 IFC + pending/commit、版本快照 + IfcDiff、Go 编排与 override 迁移、web Diff Viewer、AI 接入口文档（`docs/ai-integration.md`）
+- 未起步：部署化、开源工程化（迭代 N+3）
 
-## 二、迭代 N+2：IfcOpenShell Python 编辑服务（真改 IFC + Diff）
+## 二、迭代 N+2：IfcOpenShell Python 编辑服务（真改 IFC + Diff）【✅ 已完成 2026-07-30】
 
 目标：引入 IfcOpenShell Python 服务，完成「真改 IFC」与「版本对比」，并把编辑 API 设计成**人/AI 双角色同一套**（报告 §2.1），为另一同学的 AI 生成线留好接入口。
 
@@ -63,9 +64,9 @@ AI 生成本体不在本仓库范围，但 v1 架构保证其可接入：
 
 | 报告章节 | 接入口 | 状态 |
 | --- | --- | --- |
-| §2.1 双角色 | 人：viewer → Go → Python 服务；AI：REST 直连同一编辑 API | N+2 落地 |
-| §1.1 commit 模型 | author/timestamp/provenance(UI\|AI) 已落地；operation/diff 字段 N+2 补齐 | 部分 ✅ |
-| §2.3 工具目录 | 编辑 API 的 OpenAPI 工具 schema 文档（REST 形态，可直接喂给 LLM） | N+2 |
+| §2.1 双角色 | 人：viewer → Go → Python 服务；AI：REST 直连同一编辑 API | ✅ |
+| §1.1 commit 模型 | author/timestamp/provenance(UI\|AI)/operation/diff 全部落地（`viewer/server/internal/change`） | ✅ |
+| §2.3 工具目录 | 编辑 API OpenAPI 工具 schema：`docs/ai-tools.openapi.json` + `docs/ai-integration.md` | ✅ |
 | MCP 化 | 报告 §4.1 建议 REST+MCP 双暴露；v1 先 REST，MCP 薄包装（参考 ifcmcp 31 工具模式）列为 v1.1 候选 | 预留 |
 | §2.3 沙箱/代码执行 | 属 AI 侧范围；架构上不阻塞（Python 服务进程隔离，后续可加 execute 端点） | 预留 |
 
@@ -73,7 +74,7 @@ AI 生成本体不在本仓库范围，但 v1 架构保证其可接入：
 
 | 序 | 迭代 | 内容 | 验收 |
 | --- | --- | --- | --- |
-| 1 | N+2 | Python 编辑服务 + 真改 IFC + Diff Viewer + override 迁移 | 浏览器改属性 → IFC 真改 → 重转刷新 → diff 可查；AI 可用 REST 完成同样操作；双模式（File/PG）测试全绿 + 真机验证 |
+| 1 | N+2 | Python 编辑服务 + 真改 IFC + Diff Viewer + override 迁移 | ✅ 已验收（2026-07-30）：smoke edit-flow 全绿（改属性→真改→重转→diff 可查）；AI REST 直连验证通过（provenance=AI）；File/PG 双模式测试全绿；真机浏览器验证 Diff Viewer 着色与 old→new 列表通过 |
 | 2 | N+3 | 部署 + 文档 + CI + 发布 | 干净机器 `docker compose up` 一键可用；README 快速开始可复现；CI 绿；v0.1.0 发布 |
 
 关键路径：Python 服务骨架 → 编辑 API → IfcDiff → override 迁移 → Diff UI；N+3 的部署/文档可在 N+2 后段并行启动。
