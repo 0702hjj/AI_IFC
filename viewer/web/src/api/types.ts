@@ -50,5 +50,7 @@ export interface ChangeEntry {
   newValue: string;
   author: string;
   provenance: { source: string };
+  operation?: "update" | "migrate";
+  diff?: unknown;
   createdAt: string;
 }

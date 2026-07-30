@@ -356,8 +356,10 @@ func (h *handler) listOverrides(w http.ResponseWriter, r *http.Request) {
 }
 
 type propertiesPatch struct {
-	EntityName string            `json:"entityName"`
-	Fields     map[string]string `json:"fields"`
+	EntityName string             `json:"entityName"`
+	Fields     map[string]string  `json:"fields"`
+	Author     string             `json:"author"`
+	Provenance *change.Provenance `json:"provenance"`
 }
 
 func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
@@ -378,6 +380,18 @@ func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(in.Fields) == 0 {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "fields is required")
+		return
+	}
+	author := in.Author
+	if author == "" {
+		author = "local-user"
+	}
+	source := "UI"
+	if in.Provenance != nil && in.Provenance.Source != "" {
+		source = in.Provenance.Source
+	}
+	if !change.ValidSource(source) {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
 		return
 	}
 	old, err := h.ovr.Set(m.ID, entityID, in.Fields)
@@ -402,8 +416,9 @@ func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
 			Field:      f,
 			OldValue:   old[f],
 			NewValue:   in.Fields[f],
-			Author:     "local-user",
-			Provenance: change.Provenance{Source: "UI"},
+			Author:     author,
+			Provenance: change.Provenance{Source: source},
+			Operation:  "update",
 		})
 	}
 	if err := h.chg.Append(m.ID, entries...); err != nil {

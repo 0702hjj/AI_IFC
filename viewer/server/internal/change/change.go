@@ -16,16 +16,30 @@ type Provenance struct {
 	Source string `json:"source"`
 }
 
+// ValidSource 仅允许 UI / AI 两种 provenance 来源。
+func ValidSource(s string) bool {
+	return s == "UI" || s == "AI"
+}
+
 type Entry struct {
-	ID         string     `json:"id"`
-	EntityID   string     `json:"entityId"`
-	EntityName string     `json:"entityName"`
-	Field      string     `json:"field"`
-	OldValue   string     `json:"oldValue"`
-	NewValue   string     `json:"newValue"`
-	Author     string     `json:"author"`
-	Provenance Provenance `json:"provenance"`
-	CreatedAt  time.Time  `json:"createdAt"`
+	ID         string          `json:"id"`
+	EntityID   string          `json:"entityId"`
+	EntityName string          `json:"entityName"`
+	Field      string          `json:"field"`
+	OldValue   string          `json:"oldValue"`
+	NewValue   string          `json:"newValue"`
+	Author     string          `json:"author"`
+	Provenance Provenance      `json:"provenance"`
+	Operation  string          `json:"operation"`
+	Diff       json.RawMessage `json:"diff,omitempty"`
+	CreatedAt  time.Time       `json:"createdAt"`
+}
+
+// normalize 把空 Operation 归一化为 "update"，兼容存量数据。
+func normalize(e *Entry) {
+	if e.Operation == "" {
+		e.Operation = "update"
+	}
 }
 
 // Store 抽象后期可平移 PostgreSQL 等实现。
@@ -87,6 +101,9 @@ func (s *FileStore) List(modelID string) ([]*Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+	for _, e := range entries {
+		normalize(e)
+	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].CreatedAt.After(entries[j].CreatedAt) })
 	return entries, nil
 }
@@ -101,6 +118,7 @@ func (s *FileStore) Append(modelID string, entries ...*Entry) error {
 	for _, e := range entries {
 		e.ID = newID()
 		e.CreatedAt = time.Now().UTC()
+		normalize(e)
 		all = append(all, e)
 	}
 	return s.writeAll(modelID, all)
