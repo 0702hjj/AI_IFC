@@ -32,6 +32,7 @@ type Entry struct {
 type Store interface {
 	List(modelID string) ([]*Entry, error)
 	Append(modelID string, entries ...*Entry) error
+	DeleteModel(modelID string) error
 }
 
 // FileStore 假定 modelID 已被调用方校验，直接用于拼接磁盘路径。
@@ -103,4 +104,14 @@ func (s *FileStore) Append(modelID string, entries ...*Entry) error {
 		all = append(all, e)
 	}
 	return s.writeAll(modelID, all)
+}
+
+// DeleteModel 删除该模型的 changes.json；文件不存在视为成功（幂等）。
+func (s *FileStore) DeleteModel(modelID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.Remove(s.changesPath(modelID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }

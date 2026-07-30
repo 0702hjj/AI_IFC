@@ -114,3 +114,9 @@ func (s *PgStore) Set(modelID, entityID string, patch map[string]string) (map[st
 	}
 	return old, nil
 }
+
+// DeleteModel 删除该模型全部 override 行；零行不报错（幂等）。
+func (s *PgStore) DeleteModel(modelID string) error {
+	_, err := s.pool.Exec(context.Background(), `DELETE FROM overrides WHERE model_id = $1`, modelID)
+	return err
+}

@@ -7,6 +7,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -137,5 +139,81 @@ func TestUploadListDownloadDelete(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("404: %d", resp.StatusCode)
+	}
+}
+
+func TestDeleteModelCascadesStores(t *testing.T) {
+	srv, st := setup(t)
+	rec := upload(t, srv.URL, "ok.ifc", "ISO-10303-21;fake")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
+	}
+	var e env
+	json.Unmarshal(rec.Body.Bytes(), &e)
+	var created store.Model
+	json.Unmarshal(e.Data, &created)
+
+	iss := issue.NewFileStore(st.DataDir)
+	if _, err := iss.Create(created.ID, &issue.Issue{Title: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	chg := change.NewFileStore(st.DataDir)
+	if err := chg.Append(created.ID, &change.Entry{EntityID: "e1", Field: "Name", NewValue: "y"}); err != nil {
+		t.Fatal(err)
+	}
+	ovr := override.NewFileStore(st.DataDir)
+	if _, err := ovr.Set(created.ID, "e1", map[string]string{"Name": "y"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"issues.json", "changes.json", "overrides.json"} {
+		if _, err := os.Stat(filepath.Join(st.DataDir, "models", created.ID, name)); err != nil {
+			t.Fatalf("%s should exist before delete: %v", name, err)
+		}
+	}
+
+	req, _ := http.NewRequest("DELETE", srv.URL+"/api/models/"+created.ID, nil)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("delete: %d", resp.StatusCode)
+	}
+	for _, name := range []string{"issues.json", "changes.json", "overrides.json"} {
+		if _, err := os.Stat(filepath.Join(st.DataDir, "models", created.ID, name)); !os.IsNotExist(err) {
+			t.Fatalf("%s not removed after delete: %v", name, err)
+		}
+	}
+}
+
+func TestPutEntityPropertiesBodyTooLarge(t *testing.T) {
+	srv, _ := setup(t)
+	rec := upload(t, srv.URL, "ok.ifc", "ISO-10303-21;fake")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
+	}
+	var e env
+	json.Unmarshal(rec.Body.Bytes(), &e)
+	var created store.Model
+	json.Unmarshal(e.Data, &created)
+
+	big := `{"entityName":"Wall","fields":{"Name":"` + strings.Repeat("x", 1<<20) + `"}}`
+	req, _ := http.NewRequest("PUT",
+		srv.URL+"/api/models/"+created.ID+"/entities/e1/properties", strings.NewReader(big))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	b, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400: %s", resp.StatusCode, b)
+	}
+	var be env
+	json.Unmarshal(b, &be)
+	if be.Code != codeInvalidType {
+		t.Fatalf("code = %d, want %d", be.Code, codeInvalidType)
 	}
 }

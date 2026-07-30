@@ -61,6 +61,7 @@ type Store interface {
 	Create(modelID string, iss *Issue) (*Issue, error)
 	Update(modelID, issueID string, patch IssuePatch) (*Issue, error)
 	Delete(modelID, issueID string) error
+	DeleteModel(modelID string) error
 	SaveScreenshot(modelID, issueID string, png []byte) (string, error)
 }
 
@@ -235,6 +236,16 @@ func (s *FileStore) Delete(modelID, issueID string) error {
 	}
 	_ = os.Remove(filepath.Join(s.issuesDir(modelID), issueID+".png"))
 	return nil
+}
+
+// DeleteModel 删除该模型全部 issue 记录与截图目录；路径不存在视为成功（幂等）。
+func (s *FileStore) DeleteModel(modelID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.Remove(s.issuesPath(modelID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return os.RemoveAll(s.issuesDir(modelID))
 }
 
 func (s *FileStore) SaveScreenshot(modelID, issueID string, png []byte) (string, error) {

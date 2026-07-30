@@ -171,6 +171,19 @@ func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
 	if m == nil {
 		return
 	}
+	// 先清理各 store 的模型作用域数据（PG 模式下文件系统删除无法覆盖），再删模型目录。
+	if err := h.iss.DeleteModel(m.ID); err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	if err := h.chg.DeleteModel(m.ID); err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	if err := h.ovr.DeleteModel(m.ID); err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
 	if err := h.st.Delete(m.ID); err != nil {
 		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
 		return
@@ -358,6 +371,7 @@ func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in propertiesPatch
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "invalid json body")
 		return

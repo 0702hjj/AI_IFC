@@ -211,3 +211,26 @@ func TestSaveScreenshot(t *testing.T) {
 		t.Fatalf("record screenshot = %q", list[0].Screenshot)
 	}
 }
+
+func TestFileDeleteModel(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	created, err := fs.Create(modelID, &Issue{Title: "x"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fs.SaveScreenshot(modelID, created.ID, []byte("fakepng")); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.DeleteModel(modelID); err != nil {
+		t.Fatalf("deleteModel: %v", err)
+	}
+	if _, err := os.Stat(fs.issuesPath(modelID)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("issues.json not removed")
+	}
+	if _, err := os.Stat(fs.issuesDir(modelID)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("issues/ dir not removed")
+	}
+	if err := fs.DeleteModel(modelID); err != nil {
+		t.Fatalf("second deleteModel err = %v, want nil", err)
+	}
+}

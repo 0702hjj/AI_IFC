@@ -171,3 +171,26 @@ func TestPgSaveScreenshot(t *testing.T) {
 		t.Fatalf("record screenshot = %q", list[0].Screenshot)
 	}
 }
+
+func TestPgDeleteModel(t *testing.T) {
+	ps, modelID := newTestPgStore(t)
+	if _, err := ps.Create(modelID, &Issue{Title: "a"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ps.Create(modelID, &Issue{Title: "b"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ps.DeleteModel(modelID); err != nil {
+		t.Fatalf("deleteModel: %v", err)
+	}
+	list, err := ps.List(modelID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("list = %+v, want empty", list)
+	}
+	if err := ps.DeleteModel(modelID); err != nil {
+		t.Fatalf("second deleteModel err = %v, want nil", err)
+	}
+}

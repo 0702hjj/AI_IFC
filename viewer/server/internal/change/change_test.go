@@ -1,6 +1,7 @@
 package change
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -72,5 +73,21 @@ func TestListEmptyWhenNoFile(t *testing.T) {
 	}
 	if len(list) != 0 {
 		t.Fatalf("list = %+v, want empty", list)
+	}
+}
+
+func TestFileDeleteModel(t *testing.T) {
+	fs, modelID := newTestStore(t)
+	if err := fs.Append(modelID, &Entry{EntityID: "e1", Field: "Name", NewValue: "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.DeleteModel(modelID); err != nil {
+		t.Fatalf("deleteModel: %v", err)
+	}
+	if _, err := os.Stat(fs.changesPath(modelID)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("changes.json not removed")
+	}
+	if err := fs.DeleteModel(modelID); err != nil {
+		t.Fatalf("second deleteModel err = %v, want nil", err)
 	}
 }

@@ -85,3 +85,9 @@ func (s *PgStore) Append(modelID string, entries ...*Entry) error {
 	}
 	return tx.Commit(ctx)
 }
+
+// DeleteModel 删除该模型全部 change 行；零行不报错（幂等）。
+func (s *PgStore) DeleteModel(modelID string) error {
+	_, err := s.pool.Exec(context.Background(), `DELETE FROM changes WHERE model_id = $1`, modelID)
+	return err
+}

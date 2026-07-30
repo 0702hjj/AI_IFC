@@ -32,6 +32,7 @@ func validate(patch map[string]string) error {
 type Store interface {
 	GetAll(modelID string) (map[string]map[string]string, error)
 	Set(modelID, entityID string, patch map[string]string) (old map[string]string, err error)
+	DeleteModel(modelID string) error
 }
 
 // apply 在已有数据上执行 patch：空字符串值 = 删除该字段 override。
@@ -124,4 +125,14 @@ func (s *FileStore) Set(modelID, entityID string, patch map[string]string) (map[
 		return nil, err
 	}
 	return old, nil
+}
+
+// DeleteModel 删除该模型的 overrides.json；文件不存在视为成功（幂等）。
+func (s *FileStore) DeleteModel(modelID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := os.Remove(s.overridesPath(modelID)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
 }

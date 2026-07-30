@@ -113,3 +113,26 @@ func TestPgGetAllEmpty(t *testing.T) {
 		t.Fatalf("all = %+v, want empty", all)
 	}
 }
+
+func TestPgDeleteModel(t *testing.T) {
+	ps, modelID := newTestPgStore(t)
+	if _, err := ps.Set(modelID, "e1", map[string]string{"Name": "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ps.Set(modelID, "e2", map[string]string{"FireRating": "F30"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ps.DeleteModel(modelID); err != nil {
+		t.Fatalf("deleteModel: %v", err)
+	}
+	all, err := ps.GetAll(modelID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 0 {
+		t.Fatalf("all = %+v, want empty", all)
+	}
+	if err := ps.DeleteModel(modelID); err != nil {
+		t.Fatalf("second deleteModel err = %v, want nil", err)
+	}
+}

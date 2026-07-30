@@ -153,6 +153,12 @@ func (s *PgStore) Delete(modelID, issueID string) error {
 	return nil
 }
 
+// DeleteModel 删除该模型全部 issue 行；零行不报错（幂等）。
+func (s *PgStore) DeleteModel(modelID string) error {
+	_, err := s.pool.Exec(context.Background(), `DELETE FROM issues WHERE model_id = $1`, modelID)
+	return err
+}
+
 func (s *PgStore) SaveScreenshot(modelID, issueID string, png []byte) (string, error) {
 	if !idPattern.MatchString(issueID) {
 		return "", ErrInvalidID

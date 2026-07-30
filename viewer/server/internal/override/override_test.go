@@ -120,3 +120,19 @@ func TestFileGetAllEmptyWhenNoFile(t *testing.T) {
 		t.Fatalf("all = %+v, want empty", all)
 	}
 }
+
+func TestFileDeleteModel(t *testing.T) {
+	fs, modelID := newTestFileStore(t)
+	if _, err := fs.Set(modelID, "e1", map[string]string{"Name": "x"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := fs.DeleteModel(modelID); err != nil {
+		t.Fatalf("deleteModel: %v", err)
+	}
+	if _, err := os.Stat(fs.overridesPath(modelID)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("overrides.json not removed")
+	}
+	if err := fs.DeleteModel(modelID); err != nil {
+		t.Fatalf("second deleteModel err = %v, want nil", err)
+	}
+}
