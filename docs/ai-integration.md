@@ -130,7 +130,9 @@ body（JSON Schema，`EditBody`）：
 
 ### `GET /models/{id}/pending`
 
-列出当前 pending changes（entry 数组，形状同上；无 pending 返回 `[]`）。模型不存在 → 404。
+列出当前 pending changes（entry 数组，形状同上；无 pending 返回 `[]`）。
+
+> 注意：`GET .../pending` 与 `GET .../history` **不校验模型是否存在**——模型 id 不存在时同样返回 200 `[]`（pending 为内存字典按 id 查询，history 为读文件、文件不存在即空）。写路径（PUT/commit/DELETE pending）与 versions/diff 才会对不存在的模型返回 404。经 Go 代理时 Go 侧会先校验模型，不存在 → 404 / code 40400。
 
 ### `DELETE /models/{id}/pending`
 
