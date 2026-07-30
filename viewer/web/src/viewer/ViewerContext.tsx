@@ -14,6 +14,7 @@ import {
   type MetaModel,
 } from "@xeokit/xeokit-sdk";
 import { modelAssetUrl } from "@/api/client";
+import { IssuePins } from "./IssuePins";
 import { usePicking, useSelectionHighlight } from "./usePicking";
 import { useVisibility } from "./useVisibility";
 
@@ -78,6 +79,7 @@ export function ViewerProvider({
       <div className="viewer-canvas-wrap">
         <canvas id="xeokit-canvas" className="viewer-canvas" />
         <canvas id="navcube-canvas" className="navcube-canvas" />
+        {ctx && <IssuePins />}
         {!ctx && !error && <div className="viewer-status">模型加载中…</div>}
         {error && (
           <div className="viewer-status viewer-error">
