@@ -47,7 +47,7 @@
    - 交互对齐报告 §2.4：选中 → 改值 → 保存 → 记录 → IssuePanel「修改历史」tab 查看
 3. **3D Issue Pin 收尾** ✅
    - HTML overlay 钉（entity 中心投影，每帧同步）已落地，点击钉定位 Issue
-   - 真机浏览器验证截图非空白（preserveDrawingBuffer 已固化，人工确认中）
+   - 真机浏览器验证通过：截图非空白（preserveDrawingBuffer 固化）、钉落在构件上、点击钉定位、属性编辑入修改历史
 
 ## 四、迭代 N+2（下一迭代，引入 Python 服务）
 

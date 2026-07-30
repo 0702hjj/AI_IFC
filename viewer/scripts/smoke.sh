@@ -40,6 +40,8 @@ curl -sf -X PUT -H 'Content-Type: application/json' \
   -d '{"entityName":"Wall","fields":{"FireRating":"F90","Comments":""}}' \
   "$BASE/api/models/$ID/entities/3a82-xxxx/properties" \
   | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert d["FireRating"]=="F90" and "Comments" not in d,d'
+curl -sf "$BASE/api/models/$ID/overrides" \
+  | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert d["3a82-xxxx"]["FireRating"]=="F90" and "Comments" not in d["3a82-xxxx"],d'
 curl -sf "$BASE/api/models/$ID/changes" | python3 -c 'import sys,json
 d=json.load(sys.stdin)["data"]
 fr=[e for e in d if e["field"]=="FireRating"]

@@ -30,9 +30,9 @@ gaiass/
 | P1 | Hide/Isolate/X-Ray 工具栏 | ✅ 有 |
 | P1 | 版本对比 Diff Viewer | ❌ 没做（迭代 N+2，IfcDiff Python 服务） |
 | P2 | 属性修改器 | ✅ override 阶段已落地（白名单字段编辑 + change log；真改 IFC 迭代 N+2） |
-| 收尾 | 3D Issue Pin + 真机截图验证 | ✅ 代码已落地（真机截图验证进行中） |
-工作线 3：后端 DB 集成 —— 【0% 完成，已决策平移路径】
-- viewer 的 store.go 是纯文件系统（uploads/{id}.ifc + models/{id}/model.json），明确 design.md 写"无DB"。
+| 收尾 | 3D Issue Pin + 真机截图验证 | ✅ 已落地（钉点击定位 + 真机浏览器验证通过） |
+工作线 3：后端 DB 集成 —— 【viewer 侧已落地，平台侧未对接】
+- viewer 模型文件仍为文件系统（uploads/{id}.ifc + models/{id}/），但 Issue/修改记录/属性 override 已可平移 PostgreSQL（File/Pg 双实现，pgDSN 切换，启动自动建表 issues/changes/overrides）。
 - gaia_agent/gaia_api 用 PostgreSQL（见 .mcp.json），但 viewer 完全独立、未对接。research/scad/techmap.md 已设计好后端分层（Intent Isolation + RAG + Tool Layer），但未落地。
 工作线 4：工作流与 IfcOpenShell 的符合度 —— 【偏离】
 - viewer 用的是 web-ifc（That Open 公司）+ xeokit-convert，不是 IfcOpenShell。研究文档 frontend_load.md 自己也说"IfcOpenShell WASM 启动重，不适合生产级前端"，所以选了 web-ifc——但这导致前后端不是同一套 API（techmap.md 明确要求"同一套 ifcopenshell.api"）。
@@ -47,7 +47,7 @@ gaiass/
 迭代 N+1（✅ 已完成，2026-07-29，commits 8f41770..b16f293）：
 1	Issue 接 PG + 修改记录/历史	✅ PgStore 平移（File/Pg 双实现）；change log 对齐 deep-research-report §1.1 commit 模型
 2	属性修改器（override 阶段）	✅ 完成「看→发现→定位→修改→跟踪」人的闭环第一步；白名单字段 + override + change log，不改 IFC 本体
-3	3D Issue Pin + 真机截图验证	✅ Pin 已落地（点击定位）；真机截图验证进行中
+3	3D Issue Pin + 真机截图验证	✅ Pin 落地（点击定位）；真机浏览器验证通过（截图非空白、钉居中、属性编辑入历史）
 迭代 N+2（下一迭代，引入 Python 服务）：
 4	Diff Viewer	IfcDiff 按 GlobalId 语义 diff（报告 §1.3），绿/红/黄着色 + 属性 diff
 5	真改 IFC	同一 Python 服务承载报告 §2.2 PUT entities/{guid} + pending/commit，override 平滑迁移
