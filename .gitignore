@@ -26,3 +26,4 @@ skills/*.tar.gz
 *.stl
 examples.py
 
+.superpowers/
