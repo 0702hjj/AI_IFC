@@ -27,6 +27,25 @@ history 持久化在 `{VIEWER_DATA_DIR}/models/{id}/edit-history.json`（原子�
 
 **注意**：pending changes 只存在于内存（按模型 id）；服务重启会丢失未 commit 的 pending（v1 可接受行为），history 不受影响。
 
+## 版本快照与 diff
+
+版本快照规则（`app/versions.py`，版本文件只增不改、原子写 tmp + os.replace）：
+
+- 快照存放在 `{VIEWER_DATA_DIR}/models/{id}/versions/v{n}.ifc`（n 从 1 开始）。
+- 首次 commit：先把 `uploads/{id}.ifc`（原始上传态）复制为 `v1.ifc`，落盘后把新文件复制为 `v2.ifc`。
+- 之后每次 commit 成功：新落盘文件复制为 `v{n+1}.ifc`。
+
+| 端点 | 语义 |
+| --- | --- |
+| `GET /models/{id}/versions` | `{"versions": [{"version": "v1", "createdAt": ...}, ...], "current": "v2"}`；未 commit 过时 versions 为空、current 为 null |
+| `POST /models/{id}/diff` | body `{"base": "v1", "target": "v2"}`（target 也接受 `"current"` = uploads 现态）。返回 `{"base", "target", "added": [guid], "removed": [guid], "changed": [{"guid", "changes": [{"field", "old", "new"}]}]}`；版本不存在 → 404；缺参 → 422 |
+
+diff 语义（`app/diffing.py`，基于 ifcdiff 的 `IfcDiff`，仅以 `attributes`/`property` 两种 relationship 运行）：以 GlobalId 为实体标识；changed 归约为实体直接属性与 pset 属性的字段级 old→new，entity 引用属性（ObjectPlacement/Representation 等几何表示层）不参与比较，天然过滤几何噪声。
+
+**缓存策略**：base/target 都是不可变版本快照时，结果缓存在 `versions/diff-{base}-{target}.json`，二次调用直接命中；`target="current"` 时不缓存（uploads 文件可变，无稳定缓存 key）。
+
+**ifcdiff 依赖**：pyproject 里以 editable 本地路径引用 `../../../IfcOpenShell/src/ifcdiff`（deepdiff/orderly-set 随它进来）；开源时需改为 vendor 或 PyPI 依赖。
+
 ## 测试
 
 ```bash

@@ -7,6 +7,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "ifcopenshell>=0.8",
+    "ifcdiff",
 ]
 
 [dependency-groups]
@@ -17,6 +18,9 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+ifcdiff = { path = "../../../IfcOpenShell/src/ifcdiff", editable = true }
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

@@ -6,32 +6,13 @@ import json
 from pathlib import Path
 
 import ifcopenshell
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+from conftest import MODEL_ID
 
-MODEL_ID = "m_0123456789abcdef"
 WALL_GUID = "3ZYW59sxj8lei475l7EhLU"
 WALL_NAME = "Wall for Test Example"
-
-
-@pytest.fixture()
-def data_dir(tmp_path: Path) -> Path:
-    """Viewer data dir with the fixture IFC registered under MODEL_ID."""
-    uploads = tmp_path / "uploads"
-    uploads.mkdir()
-    dst = uploads / f"{MODEL_ID}.ifc"
-    from conftest import FIXTURE_IFC
-
-    dst.write_bytes(FIXTURE_IFC.read_bytes())
-    return tmp_path
-
-
-@pytest.fixture()
-def client(data_dir: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setenv("VIEWER_DATA_DIR", str(data_dir))
-    return TestClient(create_app())
 
 
 def _disk_wall_name(data_dir: Path) -> str:

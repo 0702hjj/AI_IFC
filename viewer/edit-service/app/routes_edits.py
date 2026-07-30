@@ -18,7 +18,7 @@ import ifcopenshell.util.element
 from fastapi import APIRouter, HTTPException, Path, Request
 from pydantic import BaseModel, Field
 
-from . import history
+from . import history, versions
 
 router = APIRouter()
 
@@ -159,16 +159,24 @@ def get_pending(
 def commit_pending(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
-    """Atomically save all pending changes to disk and append them to history."""
+    """Atomically save all pending changes to disk and append them to history.
+
+    The first commit snapshots the original upload as ``v1`` before saving;
+    every commit snapshots the newly saved file as the next version.
+    """
     path = _model_path(request, id)
     registry = request.app.state.registry
+    data_dir = request.app.state.settings.data_dir
     with registry.lock(path):
         pending = _pending(request).get(id, [])
         if not pending:
             raise HTTPException(status_code=409, detail="no pending changes")
+        if not versions.list_versions(data_dir, id):
+            versions.snapshot(data_dir, id, path)
         registry.save(path)
+        versions.snapshot(data_dir, id, path)
         entries = [dict(entry, operation="update") for entry in pending]
-        history.append_history(request.app.state.settings.data_dir, id, entries)
+        history.append_history(data_dir, id, entries)
         _pending(request)[id] = []
     return {"committed": len(entries), "entries": entries}
 
