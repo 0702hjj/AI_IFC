@@ -19,13 +19,17 @@ class ModelRegistry:
 
     def __init__(self) -> None:
         self._models: Dict[str, ifcopenshell.file] = {}
-        self._locks: Dict[str, threading.Lock] = {}
+        self._locks: Dict[str, threading.RLock] = {}
         self._guard = threading.Lock()
 
     def load(self, path: str) -> ifcopenshell.file:
-        """Open (or return cached) model for an absolute path."""
+        """Open (or return cached) model for an absolute path.
+
+        The cache check-and-get runs under the per-path lock so a
+        concurrent ``unload`` cannot drop the entry between check and get.
+        """
         key = os.path.abspath(path)
-        with self._guard:
+        with self.lock(key):
             if key not in self._models:
                 self._models[key] = ifcopenshell.open(key)
             return self._models[key]
@@ -33,23 +37,23 @@ class ModelRegistry:
     def save(self, path: str) -> None:
         """Atomically write the loaded model back to disk (holds the path lock)."""
         key = os.path.abspath(path)
-        if key not in self._models:
-            raise KeyError(f"model not loaded: {key}")
-        tmp = key + ".tmp"
         with self.lock(key):
+            if key not in self._models:
+                raise KeyError(f"model not loaded: {key}")
+            tmp = key + ".tmp"
             self._models[key].write(tmp)
             os.replace(tmp, key)
 
-    def lock(self, path: str) -> threading.Lock:
-        """Return the per-path lock (same lock for the same path)."""
+    def lock(self, path: str) -> threading.RLock:
+        """Return the per-path reentrant lock (same lock for the same path)."""
         key = os.path.abspath(path)
         with self._guard:
             if key not in self._locks:
-                self._locks[key] = threading.Lock()
+                self._locks[key] = threading.RLock()
             return self._locks[key]
 
     def unload(self, path: str) -> None:
         """Drop a model from the cache (no-op if not loaded)."""
         key = os.path.abspath(path)
-        with self._guard:
+        with self.lock(key):
             self._models.pop(key, None)

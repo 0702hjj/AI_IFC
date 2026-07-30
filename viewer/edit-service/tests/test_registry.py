@@ -45,7 +45,7 @@ def test_lock_per_path(ifc_path: Path, tmp_path: Path) -> None:
     lock_a1 = reg.lock(str(ifc_path))
     lock_a2 = reg.lock(str(ifc_path))
     lock_b = reg.lock(str(tmp_path / "other.ifc"))
-    assert isinstance(lock_a1, type(threading.Lock()))
+    assert isinstance(lock_a1, type(threading.RLock()))
     assert lock_a1 is lock_a2
     assert lock_a1 is not lock_b
 
