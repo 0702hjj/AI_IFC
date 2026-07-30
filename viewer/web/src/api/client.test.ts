@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listModels, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff } from "./client";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
 
@@ -33,6 +33,45 @@ describe("api client", () => {
     vi.stubGlobal("fetch", spy);
     await deleteModel("m_1");
     expect((spy.mock.calls[0] as unknown as [string, RequestInit])[1].method).toBe("DELETE");
+  });
+  it("fetchModel gets a single model", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ id: "m_1", status: "converting" })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const m = await fetchModel("m_1");
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/models/m_1");
+    expect(m.status).toBe("converting");
+  });
+});
+
+describe("edit api", () => {
+  it("fetchEditVersions unwraps envelope", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({
+      versions: [{ version: "v1", createdAt: "2026-07-29T00:00:00Z" }],
+      current: "v1",
+    })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const res = await fetchEditVersions("m_1");
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/models/m_1/edit/versions");
+    expect(res.versions).toHaveLength(1);
+    expect(res.versions[0].version).toBe("v1");
+    expect(res.current).toBe("v1");
+  });
+
+  it("postEditDiff posts base/target and unwraps", async () => {
+    const diff = {
+      base: "v1", target: "current",
+      added: ["g1"], removed: ["g2"],
+      changed: [{ guid: "g3", changes: [{ field: "Name", old: "A", new: "B" }] }],
+    };
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(diff)), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const res = await postEditDiff("m_1", "v1", "current");
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/models/m_1/edit/diff");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ base: "v1", target: "current" });
+    expect(res.added).toEqual(["g1"]);
+    expect(res.changed[0].changes[0]).toEqual({ field: "Name", old: "A", new: "B" });
   });
 });
 
