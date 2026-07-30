@@ -23,3 +23,15 @@
   outline: 2px solid #1565c0;
   outline-offset: 1px;
 }
+
+.issue-pin.issue-status-open {
+  background: #d32f2f;
+}
+
+.issue-pin.issue-status-checking {
+  background: #f9a825;
+}
+
+.issue-pin.issue-status-resolved {
+  background: #2e7d32;
+}
