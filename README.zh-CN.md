@@ -60,7 +60,7 @@ graph LR
 - **converter**（`viewer/converter`）：Node CLI——web-ifc + xeokit-convert，提取以 GlobalId 为键的空间树与属性集
 - **edit-service**（`viewer/edit-service`）：FastAPI + IfcOpenShell——pending/commit 编辑、版本快照、IfcDiff
 
-详细架构：[`docs/architecture/ai-bim.md`](docs/architecture/ai-bim.md) · Viewer 内部细节：[`docs/architecture/viewer-detail.md`](docs/architecture/viewer-detail.md)
+详细架构：[`docs/architecture/ai-bim.md`](docs/architecture/ai-bim.md) · Viewer 内部细节：[`docs/architecture/viewer-detail.md`](docs/architecture/viewer-detail.md) · 团队同步汇报：[`docs/team-sync.md`](docs/team-sync.md)
 
 ## 快速开始
 
