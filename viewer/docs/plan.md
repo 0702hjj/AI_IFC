@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- 所有代码位于 `AI_IFC/viewer/`；所有 git 提交在 AI_IFC 仓库（`/home/hjj0702/Documents/gaiass/AI_IFC`）
+- 所有代码位于 `AI_IFC/viewer/`；所有 git 提交在 AI_IFC 仓库（`<repo>`）
 - 后端端口 `8090`；前端 dev 端口 `5173`，vite proxy `/api` 与 `/models` → `http://localhost:8090`
 - 上传仅 `.ifc`，上限 200MB；JSON 信封 `{code, message, data}`，成功 `code=0`
 - 模型 id：`"m_"` + 16 位小写 hex（crypto/rand）
@@ -37,7 +37,7 @@
 - [ ] **Step 1: 初始化 converter 包并安装依赖**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC/viewer/converter
+cd <repo>/viewer/converter
 npm init -y
 npm install @xeokit/xeokit-convert web-ifc
 mkdir -p test/fixtures
@@ -230,7 +230,7 @@ Expected: stdout 末行 `{"ok":true,...}`，两个产物文件存在。
 - [ ] **Step 8: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/converter
 git commit -m "feat(viewer): add IFC->XKT converter with metamodel extraction"
 ```
@@ -261,8 +261,8 @@ git commit -m "feat(viewer): add IFC->XKT converter with metamodel extraction"
 - [ ] **Step 1: 初始化 go module 并写失败测试**
 
 ```bash
-mkdir -p /home/hjj0702/Documents/gaiass/AI_IFC/viewer/server
-cd /home/hjj0702/Documents/gaiass/AI_IFC/viewer/server
+mkdir -p <repo>/viewer/server
+cd <repo>/viewer/server
 go mod init ifcviewer/server
 ```
 
@@ -486,7 +486,7 @@ Expected: PASS（2 个测试）
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/server
 git commit -m "feat(viewer): add filesystem model store with status tracking"
 ```
@@ -686,7 +686,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/server
 git commit -m "feat(viewer): add conversion queue with worker pool and exec runner"
 ```
@@ -896,7 +896,7 @@ Expected: 全部 PASS
 Run:
 ```bash
 cd viewer/server && go build -o /tmp/opencode/ifcserver ./cmd/server
-cd /home/hjj0702/Documents/gaiass/AI_IFC/viewer/server && /tmp/opencode/ifcserver &
+cd <repo>/viewer/server && /tmp/opencode/ifcserver &
 curl -F "file=@../converter/test/fixtures/wall-with-opening-and-window.ifc" http://localhost:8090/api/models
 sleep 3 && curl http://localhost:8090/api/models
 ```
@@ -905,7 +905,7 @@ Expected: 状态从 `converting` 变为 `ready`；`curl -I http://localhost:8090
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/server
 git commit -m "feat(viewer): add HTTP API, static serving, download and server entrypoint"
 ```
@@ -931,7 +931,7 @@ git commit -m "feat(viewer): add HTTP API, static serving, download and server e
 - [ ] **Step 1: 脚手架与依赖**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC/viewer
+cd <repo>/viewer
 npm create vite@latest web -- --template react-ts
 cd web
 npm install
@@ -1068,7 +1068,7 @@ export const modelAssetUrl = (id: string, file: "model.xkt" | "metadata.json") =
 - [ ] **Step 7: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/web
 git commit -m "feat(viewer): add web scaffold, api client and model library page"
 ```
@@ -1134,7 +1134,7 @@ viewer.cameraControl.on("pickedNothing", () => setSelected(null));
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/web
 git commit -m "feat(viewer): add xeokit viewer core with xkt loading and picking"
 ```
@@ -1190,7 +1190,7 @@ const mo = selectedId ? metaModel.metaObjects[selectedId] : null;
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/web
 git commit -m "feat(viewer): add model tree panel and property panel"
 ```
@@ -1253,7 +1253,7 @@ const aabb = viewer.scene.aabb;
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/web
 git commit -m "feat(viewer): add toolbar, section plane control and distance measurements"
 ```
@@ -1311,7 +1311,7 @@ Expected: 全部通过；`npm run build` 无 TS 错误。
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /home/hjj0702/Documents/gaiass/AI_IFC
+cd <repo>
 git add viewer/scripts viewer/README.md viewer/docs
 git commit -m "feat(viewer): add smoke script, README and design/api docs"
 ```

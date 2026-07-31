@@ -223,10 +223,6 @@ python3 -m compileall src/simplecadapi
 
 AGPL-3.0, see [`LICENSE`](LICENSE).
 
-## Community
+---
 
-The group chat currently has too many members for direct QR-code joining. Scan the QR code below to add Teacher Du Peng on WeChat, then ask him for an invitation to the CADDesigner technical community:
-
-<p align="center">
-  <img src="img/dp个人账号.png.jpg" alt="Teacher Du Peng's personal WeChat QR code" width="420">
-</p>
+*Archived copy. The original upstream's community/contact section (WeChat QR codes) has been removed from this archive out of respect for third-party personal information.*
