@@ -14,6 +14,7 @@ interface ViewerState {
   changesVersion: number;
   issues: Issue[];
   selectedIssueId: string | null;
+  diffOpen: boolean;
   setSelected: (id: string | null) => void;
   setTool: (tool: ViewerTool) => void;
   toggleHidden: (id: string) => void;
@@ -27,6 +28,7 @@ interface ViewerState {
   upsertIssue: (issue: Issue) => void;
   removeIssue: (id: string) => void;
   setSelectedIssue: (id: string | null) => void;
+  setDiffOpen: (open: boolean) => void;
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
@@ -39,6 +41,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
   changesVersion: 0,
   issues: [],
   selectedIssueId: null,
+  diffOpen: false,
   setSelected: (id) => set({ selectedId: id }),
   setTool: (tool) => set({ tool }),
   toggleHidden: (id) =>
@@ -75,4 +78,5 @@ export const useViewerStore = create<ViewerState>((set) => ({
       selectedIssueId: s.selectedIssueId === id ? null : s.selectedIssueId,
     })),
   setSelectedIssue: (id) => set({ selectedIssueId: id }),
+  setDiffOpen: (open) => set({ diffOpen: open }),
 }));

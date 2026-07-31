@@ -12,8 +12,8 @@
 | P0 | Issue/Markup | ✅ 创建（相机+截图）/列表/状态流转/删除/视角恢复（文件/PG 双存储） |
 | P1 | Measure | ✅ 距离测量 |
 | P1 | Hide/Isolate/X-Ray 工具栏 | ✅ |
-| P1 | Model Compare（Diff Viewer） | ❌ 迭代 N+2 |
-| P2 | Property Editor | ✅ override 阶段已落地（白名单字段编辑 + metadata override + change log；真改 IFC 见迭代 N+2） |
+| P1 | Model Compare（Diff Viewer） | ✅ 迭代 N+2 已落地（版本选择 + 绿/红/黄着色 + old→new 列表） |
+| P2 | Property Editor | ✅ 真改已落地（迭代 N+2：edit-service pending/commit 真改 IFC；override 编辑保留，可一键迁移真改） |
 | P2 | Rule Checker（批量审查） | ❌ 暂缓 |
 | P3 | Parametric Modeling | ❌ 不做 |
 
@@ -26,9 +26,9 @@
 | 报告章节 | 内容 | 落地方式 |
 | --- | --- | --- |
 | §2.4 前端修改流 | 选中构件 → 改参 → API → 保存/commit，viewer 实时刷新 | 迭代 N+1 属性修改器沿用此交互流（override 阶段不刷新几何，仅改属性显示） |
-| §2.2 实体编辑 API | `PUT /models/{id}/entities/{guid}` | 迭代 N+2 引入 IfcOpenShell Python 编辑服务真改 IFC |
+| §2.2 实体编辑 API | `PUT /models/{id}/entities/{guid}` | ✅ 迭代 N+2：`viewer/edit-service/`（FastAPI + ifcopenshell）真改 IFC，Go 代理 `/api/models/{id}/edit/...` |
 | §1.1 commit 模型 | author/timestamp/operation/diff/provenance | 迭代 N+1 修改记录对齐此 schema，provenance 区分 UI/AI |
-| §1.3 IfcDiff | 按 GlobalId 语义 diff（added/removed/changed） | 迭代 N+2 Diff Viewer 的 diff 引擎 |
+| §1.3 IfcDiff | 按 GlobalId 语义 diff（added/removed/changed） | ✅ 迭代 N+2：版本快照 + `POST /models/{id}/diff`（属性级），Diff Viewer 消费 |
 | §4 混合存储 | Git 存 IFC + DB 存元数据/commit log | DB 部分先落地（PG 存 Issue/override/历史）；IFC 版本化暂缓 |
 
 不在我们范围：§2.3 AI 沙箱、§3 IFC→Python 工具（AI 生成由另一同学负责，我们交付接入架构，见 §五与 roadmap.md §四）。
@@ -49,7 +49,7 @@
    - HTML overlay 钉（entity 中心投影，每帧同步）已落地，点击钉定位 Issue
    - 真机浏览器验证通过：截图非空白（preserveDrawingBuffer 固化）、钉落在构件上、点击钉定位、属性编辑入修改历史
 
-## 四、迭代 N+2（下一迭代，引入 Python 服务）
+## 四、迭代 N+2（已完成 ✅，2026-07-30 落地，分支 iteration-n+2 commits da57ab3..81ede3d；总计划见 roadmap.md §二）
 
 4. **Diff Viewer**
    - 独立 IfcDiff Python 服务（IfcOpenShell，按 GlobalId 语义 diff）
@@ -63,8 +63,8 @@
 
 「AI 生成 IFC」由另一同学负责（2026-07-30 决策）。我们交付**可接入的架构**（详见 roadmap.md §四）：
 
-6. **双角色编辑 API**（N+2 落地）：AI 与人走同一套 REST 编辑 API（报告 §2.1），provenance.source 区分 UI/AI
-7. **工具 schema 文档**（N+2）：编辑 API 的 OpenAPI/工具目录文档（报告 §2.3 REST 形态）+ `docs/ai-integration.md`
+6. **双角色编辑 API**（N+2 ✅）：AI 与人走同一套 REST 编辑 API（报告 §2.1），provenance.source 区分 UI/AI；AI REST 直连已真机验证
+7. **工具 schema 文档**（N+2 ✅）：`docs/ai-integration.md` + `docs/ai-tools.openapi.json`（FastAPI 导出，可直接喂给 LLM）
 8. **MCP 化预留**：报告 §4.1 建议 REST+MCP 双暴露；v1 先 REST，MCP 薄包装（参考 ifcmcp 31 工具模式）列 v1.1 候选
 
 原候选「启用 ifcmcp + ai_ifc skill + IFC 生成 examples」移交 AI 生成线（调研材料已备：`research/ifc/simplecadapi_skill_anatomy.md`、`ifc_structrue_breakdown.md` 骨架优先策略、`MCP_API.md` ifcmcp 31 工具清单）。

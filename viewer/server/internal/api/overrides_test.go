@@ -158,6 +158,63 @@ func TestPutPropertiesEmptyValueClears(t *testing.T) {
 	}
 }
 
+func TestPutPropertiesDefaultsAuthorProvenanceOperation(t *testing.T) {
+	mux, modelID, chg := newChangesTestServer(t)
+	rec := putProperties(t, mux, modelID, "e1", `{"entityName":"Wall","fields":{"Name":"X"}}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	entries := listChangeEntries(t, chg, modelID)
+	if len(entries) != 1 {
+		t.Fatalf("entries = %+v", entries)
+	}
+	e := entries[0]
+	if e.Author != "local-user" || e.Provenance.Source != "UI" || e.Operation != "update" {
+		t.Fatalf("entry = %+v, want local-user/UI/update", e)
+	}
+}
+
+func TestPutPropertiesCustomAuthorAndProvenance(t *testing.T) {
+	mux, modelID, chg := newChangesTestServer(t)
+	rec := putProperties(t, mux, modelID, "e1",
+		`{"entityName":"Wall","fields":{"Name":"X"},"author":"ai-bot","provenance":{"source":"AI"}}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	entries := listChangeEntries(t, chg, modelID)
+	if len(entries) != 1 {
+		t.Fatalf("entries = %+v", entries)
+	}
+	e := entries[0]
+	if e.Author != "ai-bot" || e.Provenance.Source != "AI" || e.Operation != "update" {
+		t.Fatalf("entry = %+v, want ai-bot/AI/update", e)
+	}
+}
+
+func TestPutPropertiesRejectsBadProvenanceSource(t *testing.T) {
+	mux, modelID, chg := newChangesTestServer(t)
+	rec := putProperties(t, mux, modelID, "e1",
+		`{"entityName":"Wall","fields":{"Name":"X"},"provenance":{"source":"robot"}}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	var env envelope
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Code != codeInvalidType {
+		t.Fatalf("code = %d, want %d", env.Code, codeInvalidType)
+	}
+	entries := listChangeEntries(t, chg, modelID)
+	if len(entries) != 0 {
+		t.Fatalf("entries = %+v, rejected patch must not log", entries)
+	}
+	code, all := getOverrides(t, mux, modelID)
+	if code != http.StatusOK || len(all) != 0 {
+		t.Fatalf("all = %+v, rejected patch must not persist", all)
+	}
+}
+
 func TestPutPropertiesRejectsInvalidField(t *testing.T) {
 	mux, modelID, chg := newChangesTestServer(t)
 	rec := putProperties(t, mux, modelID, "e1", `{"fields":{"Height":"3000"}}`)

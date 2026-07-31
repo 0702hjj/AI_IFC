@@ -1,4 +1,4 @@
-import type { ModelInfo, Issue, NewIssue, OverridesMap, EntityFields, ChangeEntry } from "./types";
+import type { ModelInfo, Issue, NewIssue, OverridesMap, EntityFields, ChangeEntry, EditVersionsResponse, DiffResponse } from "./types";
 
 interface Envelope<T> { code: number; message: string; data: T }
 
@@ -10,6 +10,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 }
 
 export function listModels() { return request<ModelInfo[]>("/api/models"); }
+export function fetchModel(id: string) { return request<ModelInfo>(`/api/models/${id}`); }
 export function uploadModel(file: File) {
   const fd = new FormData();
   fd.append("file", file);
@@ -62,4 +63,15 @@ export function saveEntityProperties(
 }
 export function fetchChanges(modelId: string) {
   return request<ChangeEntry[]>(`/api/models/${modelId}/changes`);
+}
+
+export function fetchEditVersions(modelId: string) {
+  return request<EditVersionsResponse>(`/api/models/${modelId}/edit/versions`);
+}
+export function postEditDiff(modelId: string, base: string, target: string) {
+  return request<DiffResponse>(`/api/models/${modelId}/edit/diff`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ base, target }),
+  });
 }

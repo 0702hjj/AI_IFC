@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,13 +26,31 @@ type blockingRunner struct {
 }
 
 func newBlockingRunner() *blockingRunner {
-	return &blockingRunner{started: make(chan struct{}), release: make(chan struct{})}
+	return &blockingRunner{started: make(chan struct{}, 4), release: make(chan struct{})}
 }
 
 func (b *blockingRunner) Run(ctx context.Context, in, out string) error {
-	close(b.started)
+	b.started <- struct{}{}
 	<-b.release
 	return nil
+}
+
+type countingRunner struct {
+	mu   sync.Mutex
+	runs int
+}
+
+func (c *countingRunner) Run(ctx context.Context, in, out string) error {
+	c.mu.Lock()
+	c.runs++
+	c.mu.Unlock()
+	return nil
+}
+
+func (c *countingRunner) count() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.runs
 }
 
 type ctxAwareRunner struct {
@@ -82,7 +101,7 @@ func TestQueueSuccessAndFailure(t *testing.T) {
 	}
 }
 
-func TestDuplicateEnqueueWhileRunning(t *testing.T) {
+func TestEnqueueWhileRunningReruns(t *testing.T) {
 	st := store.NewStore(t.TempDir())
 	m, _ := st.Create("dup.ifc", 1, strings.NewReader("x"))
 
@@ -99,7 +118,32 @@ func TestDuplicateEnqueueWhileRunning(t *testing.T) {
 		t.Fatal("duplicate enqueue while running should return false")
 	}
 	close(br.release)
+	<-br.started // dirty：同一 id 重跑一次
 	waitStatus(t, st, m.ID, "ready")
+	select {
+	case <-br.started:
+		t.Fatal("unexpected third run")
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestEnqueueNoDirtyRunsOnce(t *testing.T) {
+	st := store.NewStore(t.TempDir())
+	m, _ := st.Create("once.ifc", 1, strings.NewReader("x"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cr := &countingRunner{}
+	q := NewQueue(st, cr, 1)
+	q.Start(ctx)
+	if !q.Enqueue(m.ID) {
+		t.Fatal("enqueue failed")
+	}
+	waitStatus(t, st, m.ID, "ready")
+	time.Sleep(100 * time.Millisecond)
+	if n := cr.count(); n != 1 {
+		t.Fatalf("runs = %d, want exactly 1", n)
+	}
 }
 
 func TestEnqueueAfterClose(t *testing.T) {

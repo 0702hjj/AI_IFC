@@ -50,5 +50,36 @@ export interface ChangeEntry {
   newValue: string;
   author: string;
   provenance: { source: string };
+  operation?: "update" | "migrate";
+  diff?: unknown;
   createdAt: string;
+}
+
+export interface EditVersion {
+  version: string;
+  createdAt: string;
+}
+
+export interface EditVersionsResponse {
+  versions: EditVersion[];
+  current: string | null;
+}
+
+export interface DiffFieldChange {
+  field: string;
+  old: string;
+  new: string;
+}
+
+export interface DiffChangedEntity {
+  guid: string;
+  changes: DiffFieldChange[];
+}
+
+export interface DiffResponse {
+  base: string;
+  target: string;
+  added: string[];
+  removed: string[];
+  changed: DiffChangedEntity[];
 }

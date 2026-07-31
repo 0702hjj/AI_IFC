@@ -1,0 +1,26 @@
+[project]
+name = "ifc-edit-service"
+version = "0.1.0"
+description = "IFC model editing service (FastAPI + ifcopenshell)"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "ifcopenshell>=0.8",
+    "ifcdiff",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+ifcdiff = { path = "../../../IfcOpenShell/src/ifcdiff", editable = true }
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

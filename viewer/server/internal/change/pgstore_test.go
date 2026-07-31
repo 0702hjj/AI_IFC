@@ -2,6 +2,7 @@ package change
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -67,6 +68,96 @@ func TestPgAppendAndList(t *testing.T) {
 	}
 	if list[0].Author != "ai-bot" || list[0].Provenance.Source != "AI" {
 		t.Fatalf("provenance = %+v", list[0])
+	}
+}
+
+func TestPgMigrateAddsColumnsIdempotent(t *testing.T) {
+	dsn := os.Getenv("VIEWER_TEST_PG_DSN")
+	if dsn == "" {
+		t.Skip("VIEWER_TEST_PG_DSN not set")
+	}
+	pool, err := pgxpool.New(context.Background(), dsn)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer pool.Close()
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `DROP TABLE IF EXISTS changes`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `CREATE TABLE changes (
+		id text PRIMARY KEY,
+		model_id text NOT NULL,
+		entity_id text NOT NULL,
+		entity_name text NOT NULL,
+		field text NOT NULL,
+		old_value text NOT NULL,
+		new_value text NOT NULL,
+		author text NOT NULL,
+		provenance jsonb NOT NULL,
+		created_at timestamptz NOT NULL
+	)`); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := NewPgStore(pool); err != nil {
+			t.Fatalf("NewPgStore #%d on legacy table: %v", i+1, err)
+		}
+	}
+	var opCount, diffCount int
+	if err := pool.QueryRow(ctx,
+		`SELECT
+			(SELECT count(*) FROM information_schema.columns WHERE table_name='changes' AND column_name='operation'),
+			(SELECT count(*) FROM information_schema.columns WHERE table_name='changes' AND column_name='diff')`).Scan(&opCount, &diffCount); err != nil {
+		t.Fatal(err)
+	}
+	if opCount != 1 || diffCount != 1 {
+		t.Fatalf("columns operation=%d diff=%d, want 1/1", opCount, diffCount)
+	}
+}
+
+func TestPgOperationDiffRoundtrip(t *testing.T) {
+	ps, modelID := newTestPgStore(t)
+	diff := json.RawMessage(`{"op":"override"}`)
+	e := &Entry{
+		EntityID: "e1", EntityName: "Wall", Field: "width",
+		OldValue: "100", NewValue: "200",
+		Author: "ai-bot", Provenance: Provenance{Source: "AI"},
+		Operation: "migrate", Diff: diff,
+	}
+	noDiff := &Entry{EntityID: "e2", EntityName: "Wall", Field: "height", OldValue: "3000", NewValue: "3200"}
+	if err := ps.Append(modelID, e, noDiff); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	if noDiff.Operation != "update" {
+		t.Fatalf("Append must normalize empty operation, got %q", noDiff.Operation)
+	}
+	list, err := ps.List(modelID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	byID := map[string]*Entry{}
+	for _, got := range list {
+		byID[got.ID] = got
+	}
+	gotE := byID[e.ID]
+	if gotE == nil || gotE.Operation != "migrate" {
+		t.Fatalf("entry = %+v, want operation migrate", gotE)
+	}
+	var gotDiff interface{}
+	if err := json.Unmarshal(gotE.Diff, &gotDiff); err != nil {
+		t.Fatalf("diff not valid json: %v", err)
+	}
+	m, ok := gotDiff.(map[string]interface{})
+	if !ok || m["op"] != "override" || len(m) != 1 {
+		t.Fatalf("diff = %v, want %s", gotDiff, diff)
+	}
+	gotNo := byID[noDiff.ID]
+	if gotNo == nil || gotNo.Operation != "update" {
+		t.Fatalf("entry = %+v, want operation update", gotNo)
+	}
+	if gotNo.Diff != nil {
+		t.Fatalf("diff = %s, NULL column must read back nil", gotNo.Diff)
 	}
 }
 

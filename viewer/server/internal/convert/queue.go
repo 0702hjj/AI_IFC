@@ -46,12 +46,18 @@ type Queue struct {
 	jobs    chan string
 	mu      sync.Mutex
 	pending map[string]bool
+	running map[string]bool
+	dirty   map[string]bool
 	closed  bool
 	ctx     context.Context
 }
 
 func NewQueue(st *store.Store, r Runner, workers int) *Queue {
-	q := &Queue{st: st, runner: r, jobs: make(chan string, 64), pending: map[string]bool{}, ctx: context.Background()}
+	q := &Queue{
+		st: st, runner: r, jobs: make(chan string, 64),
+		pending: map[string]bool{}, running: map[string]bool{}, dirty: map[string]bool{},
+		ctx: context.Background(),
+	}
 	for i := 0; i < workers; i++ {
 		go q.work()
 	}
@@ -71,10 +77,19 @@ func (q *Queue) Start(ctx context.Context) {
 	}()
 }
 
+// Enqueue 排队一次转换；已在队列中返回 false。运行中再次 Enqueue 记 dirty，
+// worker 完成后会按最新文件内容重跑一次（runner 执行时才读 IFC 文件，
+// 排队未启动的任务天然拾取新内容，无需 dirty）。
 func (q *Queue) Enqueue(id string) bool {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if q.closed || q.pending[id] {
+	if q.closed {
+		return false
+	}
+	if q.pending[id] {
+		if q.running[id] {
+			q.dirty[id] = true
+		}
 		return false
 	}
 	q.pending[id] = true
@@ -84,13 +99,9 @@ func (q *Queue) Enqueue(id string) bool {
 
 func (q *Queue) work() {
 	for id := range q.jobs {
-		func() {
-			defer func() {
-				q.mu.Lock()
-				delete(q.pending, id)
-				q.mu.Unlock()
-			}()
+		for {
 			q.mu.Lock()
+			q.running[id] = true
 			ctx := q.ctx
 			q.mu.Unlock()
 			if err := q.runner.Run(ctx, q.st.IFCPath(id), q.st.ModelDir(id)); err != nil {
@@ -98,6 +109,16 @@ func (q *Queue) work() {
 			} else {
 				_ = q.st.SetStatus(id, "ready", "")
 			}
-		}()
+			q.mu.Lock()
+			delete(q.running, id)
+			if !q.dirty[id] {
+				delete(q.pending, id)
+				q.mu.Unlock()
+				break
+			}
+			// 运行期间有新提交：无论本次成败都按最新内容重转一次
+			delete(q.dirty, id)
+			q.mu.Unlock()
+		}
 	}
 }

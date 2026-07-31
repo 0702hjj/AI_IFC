@@ -13,6 +13,7 @@ import (
 
 	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
+	"ifcviewer/server/internal/editsvc"
 	"ifcviewer/server/internal/issue"
 	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
@@ -37,11 +38,12 @@ type handler struct {
 	iss       issue.Store
 	chg       change.Store
 	ovr       override.Store
+	ed        *editsvc.Client
 	maxUpload int64
 }
 
-func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, maxUploadBytes int64) http.Handler {
-	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, maxUpload: maxUploadBytes}
+func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed *editsvc.Client, maxUploadBytes int64) http.Handler {
+	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, ed: ed, maxUpload: maxUploadBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/models", h.upload)
 	mux.HandleFunc("GET /api/models", h.list)
@@ -59,6 +61,7 @@ func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.S
 	mux.HandleFunc("GET /api/models/{id}/changes", h.listChanges)
 	mux.HandleFunc("GET /api/models/{id}/overrides", h.listOverrides)
 	mux.HandleFunc("PUT /api/models/{id}/entities/{entityId}/properties", h.putEntityProperties)
+	h.registerEditRoutes(mux)
 	return cors(mux)
 }
 
@@ -356,8 +359,10 @@ func (h *handler) listOverrides(w http.ResponseWriter, r *http.Request) {
 }
 
 type propertiesPatch struct {
-	EntityName string            `json:"entityName"`
-	Fields     map[string]string `json:"fields"`
+	EntityName string             `json:"entityName"`
+	Fields     map[string]string  `json:"fields"`
+	Author     string             `json:"author"`
+	Provenance *change.Provenance `json:"provenance"`
 }
 
 func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
@@ -378,6 +383,18 @@ func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(in.Fields) == 0 {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "fields is required")
+		return
+	}
+	author := in.Author
+	if author == "" {
+		author = "local-user"
+	}
+	source := "UI"
+	if in.Provenance != nil && in.Provenance.Source != "" {
+		source = in.Provenance.Source
+	}
+	if !change.ValidSource(source) {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
 		return
 	}
 	old, err := h.ovr.Set(m.ID, entityID, in.Fields)
@@ -402,8 +419,9 @@ func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
 			Field:      f,
 			OldValue:   old[f],
 			NewValue:   in.Fields[f],
-			Author:     "local-user",
-			Provenance: change.Provenance{Source: "UI"},
+			Author:     author,
+			Provenance: change.Provenance{Source: source},
+			Operation:  "update",
 		})
 	}
 	if err := h.chg.Append(m.ID, entries...); err != nil {

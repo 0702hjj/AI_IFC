@@ -17,6 +17,8 @@ function ToolbarInner({ id }: { id: string }) {
   const { viewer, sceneModel } = useViewer()!;
   const tool = useViewerStore((s) => s.tool);
   const setTool = useViewerStore((s) => s.setTool);
+  const diffOpen = useViewerStore((s) => s.diffOpen);
+  const setDiffOpen = useViewerStore((s) => s.setDiffOpen);
   const { clear } = useMeasurements();
   const [sectionEnabled, setSectionEnabled] = useState(false);
 
@@ -50,6 +52,14 @@ function ToolbarInner({ id }: { id: string }) {
         </button>
         <button type="button" className="toolbar-btn" onClick={clear}>
           清除测量
+        </button>
+        <button
+          type="button"
+          className={`toolbar-btn${diffOpen ? " active" : ""}`}
+          aria-pressed={diffOpen}
+          onClick={() => setDiffOpen(!diffOpen)}
+        >
+          Diff
         </button>
         <VisibilityToolbar />
         <a className="toolbar-btn toolbar-link" href={downloadUrl(id)} download>
