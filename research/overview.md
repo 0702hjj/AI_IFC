@@ -2,7 +2,7 @@
 
 > 日期：2026-07-30（迭代 N+2 已落地；每次迭代后同步本文件）
 > 报告：`~/Documents/md/dxf_agent/deep-research-report.md`（IfcOpenShell 版本控制 / 编辑 API / IFC→Python 管线）
-> 总迭代计划：`docs/architecture/roadmap.md`；现状评估：`docs/architecture/viewerstatus.md`
+> 总迭代计划：`docs/architecture/roadmap.md`；现状评估：`docs/architecture/viewerstatus.md`；当前版总体架构：`docs/architecture/ai-bim.md`
 
 ## 分工声明
 

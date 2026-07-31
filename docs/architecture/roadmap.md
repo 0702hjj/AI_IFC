@@ -1,6 +1,6 @@
 # 开源 v1 总迭代路线图（2026-07-30）
 
-> 本文是跨工作线的总计划；viewer 线细节见 [viewer.md](./viewer.md)，现状评估见 [viewerstatus.md](./viewerstatus.md)，
+> 本文是跨工作线的总计划；总体架构见 [ai-bim.md](./ai-bim.md)，viewer 线细节见 [viewer.md](./viewer.md)，现状评估见 [viewerstatus.md](./viewerstatus.md)，
 > 与 deep-research-report 的目标映射见 `research/overview.md`。
 
 ## 〇、目标与范围决策（2026-07-30 确认）
