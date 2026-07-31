@@ -125,6 +125,45 @@ def test_commit_without_pending_returns_409(client: TestClient) -> None:
     assert resp.status_code == 409
 
 
+def test_commit_with_migrate_operation_stamps_entries_and_history(
+    client: TestClient, data_dir: Path
+) -> None:
+    client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={"fields": {"Name": "迁移而来"}},
+    )
+    resp = client.post(f"/models/{MODEL_ID}/commit", json={"operation": "migrate"})
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["entries"][0]["operation"] == "migrate"
+    history = json.loads(_history_file(data_dir).read_text(encoding="utf-8"))
+    assert history[0]["operation"] == "migrate"
+    assert client.get(f"/models/{MODEL_ID}/history").json()[0]["operation"] == "migrate"
+
+
+def test_commit_with_bad_operation_returns_422(client: TestClient) -> None:
+    client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={"fields": {"Name": "x"}},
+    )
+    resp = client.post(f"/models/{MODEL_ID}/commit", json={"operation": "delete"})
+    assert resp.status_code == 422
+    # 校验失败未消费 pending
+    assert len(client.get(f"/models/{MODEL_ID}/pending").json()) == 1
+
+
+def test_commit_without_body_defaults_to_update(client: TestClient, data_dir: Path) -> None:
+    client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={"fields": {"Name": "无 body"}},
+    )
+    resp = client.post(f"/models/{MODEL_ID}/commit")
+    assert resp.status_code == 200
+    assert resp.json()["entries"][0]["operation"] == "update"
+    history = json.loads(_history_file(data_dir).read_text(encoding="utf-8"))
+    assert history[0]["operation"] == "update"
+
+
 def test_bad_model_id_returns_422(client: TestClient) -> None:
     assert client.get("/models/../etc/pending").status_code in (404, 405, 422)
     assert client.get("/models/not_a_valid_id/pending").status_code == 422

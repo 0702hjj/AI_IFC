@@ -238,7 +238,8 @@ func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
 		return
 	}
-	res, err := h.ed.Commit(r.Context(), m.ID, body)
+	// Python commit 不带 body（operation 默认 update；author/provenance 随 PUT 流入 pending）
+	res, err := h.ed.Commit(r.Context(), m.ID, nil)
 	if err != nil {
 		writeEditErr(w, err)
 		return
@@ -265,11 +266,11 @@ func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// 策略：Python commit 成功后一律排重转；change log 写失败仅降级为响应 warning（HTTP 200）。
+	var warning string
 	if err := h.chg.Append(m.ID, entries...); err != nil {
 		log.Printf("edit commit %s: change log append failed after commit: %v", m.ID, err)
-		writeErr(w, http.StatusInternalServerError, codeInternal,
-			"commit applied but change log write failed: "+err.Error())
-		return
+		warning = "commit applied but change log write failed: " + err.Error()
 	}
 	if err := h.st.SetStatus(m.ID, "converting", ""); err != nil {
 		log.Printf("edit commit %s: set converting: %v", m.ID, err)
@@ -277,11 +278,15 @@ func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
 	if !h.q.Enqueue(m.ID) {
 		log.Printf("edit commit %s: conversion already pending", m.ID)
 	}
-	writeJSON(w, map[string]any{
+	resp := map[string]any{
 		"committed":    res.Committed,
 		"entries":      res.Entries,
 		"reconverting": true,
-	})
+	}
+	if warning != "" {
+		resp["warning"] = warning
+	}
+	writeJSON(w, resp)
 }
 
 // --- override → 真改迁移 ---
@@ -394,6 +399,7 @@ func (h *handler) migrateOverrides(w http.ResponseWriter, r *http.Request) {
 		entityIDs = append(entityIDs, id)
 	}
 	sort.Strings(entityIDs)
+	var warning string
 	success := map[string][]string{}
 	for _, entityID := range entityIDs {
 		fields := map[string]any{}
@@ -447,6 +453,7 @@ func (h *handler) migrateOverrides(w http.ResponseWriter, r *http.Request) {
 		commitBody, _ := json.Marshal(map[string]any{
 			"author":     author,
 			"provenance": map[string]string{"source": source},
+			"operation":  "migrate",
 		})
 		res, err := h.ed.Commit(r.Context(), m.ID, commitBody)
 		if err != nil {
@@ -468,8 +475,10 @@ func (h *handler) migrateOverrides(w http.ResponseWriter, r *http.Request) {
 				log.Printf("migrate %s: clear overrides for %s: %v", m.ID, entityID, err)
 			}
 		}
+		// 策略同 editCommit：commit 成功后一律排重转；change log 写失败降级为 warning
 		if err := h.chg.Append(m.ID, expandEntries(res.Entries, "migrate")...); err != nil {
 			log.Printf("migrate %s: change log append failed after commit: %v", m.ID, err)
+			warning = "commit applied but change log write failed: " + err.Error()
 		}
 		if err := h.st.SetStatus(m.ID, "converting", ""); err != nil {
 			log.Printf("migrate %s: set converting: %v", m.ID, err)
@@ -478,5 +487,9 @@ func (h *handler) migrateOverrides(w http.ResponseWriter, r *http.Request) {
 			log.Printf("migrate %s: conversion already pending", m.ID)
 		}
 	}
-	writeJSON(w, map[string]any{"migrated": migrated, "failed": failed})
+	resp := map[string]any{"migrated": migrated, "failed": failed}
+	if warning != "" {
+		resp["warning"] = warning
+	}
+	writeJSON(w, resp)
 }

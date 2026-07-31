@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -93,12 +94,18 @@ type editEnv struct {
 	mux     http.Handler
 	modelID string
 	st      *store.Store
-	chg     *change.FileStore
+	chg     change.Store
 	ovr     *override.FileStore
 	runs    chan string
 }
 
 func newEditEnv(t *testing.T, pyURL string) *editEnv {
+	t.Helper()
+	return newEditEnvChg(t, pyURL, nil)
+}
+
+// newEditEnvChg 允许注入自定义 change.Store（nil 用默认 FileStore）。
+func newEditEnvChg(t *testing.T, pyURL string, chg change.Store) *editEnv {
 	t.Helper()
 	st := store.NewStore(t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
@@ -106,7 +113,9 @@ func newEditEnv(t *testing.T, pyURL string) *editEnv {
 	runs := make(chan string, 4)
 	q := convert.NewQueue(st, spyRunner{runs: runs}, 1)
 	q.Start(ctx)
-	chg := change.NewFileStore(st.DataDir)
+	if chg == nil {
+		chg = change.NewFileStore(st.DataDir)
+	}
 	ovr := override.NewFileStore(st.DataDir)
 	var ed *editsvc.Client
 	if pyURL != "" {
@@ -122,6 +131,15 @@ func newEditEnv(t *testing.T, pyURL string) *editEnv {
 	}
 	return &editEnv{mux: mux, modelID: m.ID, st: st, chg: chg, ovr: ovr, runs: runs}
 }
+
+// failAppendChangeStore 仅 Append 失败，模拟 change log 磁盘写失败。
+type failAppendChangeStore struct{ err error }
+
+func (f failAppendChangeStore) List(modelID string) ([]*change.Entry, error) { return nil, nil }
+func (f failAppendChangeStore) Append(modelID string, entries ...*change.Entry) error {
+	return f.err
+}
+func (f failAppendChangeStore) DeleteModel(modelID string) error { return nil }
 
 func doEditReq(t *testing.T, mux http.Handler, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -423,6 +441,36 @@ func TestEditCommitDiffFailureNonBlocking(t *testing.T) {
 	waitReady(t, env.st, env.modelID)
 }
 
+func TestEditCommitChangeLogFailureWarns(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnvChg(t, pyURL, failAppendChangeStore{err: errors.New("change log disk full")})
+	scriptCommit(py, env.modelID)
+
+	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/edit/commit",
+		`{"author":"ai-bot","provenance":{"source":"AI"}}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	e := decodeEnv(t, rec)
+	var data struct {
+		Committed    int    `json:"committed"`
+		Reconverting bool   `json:"reconverting"`
+		Warning      string `json:"warning"`
+	}
+	if err := json.Unmarshal(e.Data, &data); err != nil {
+		t.Fatal(err)
+	}
+	if data.Committed != 2 || !data.Reconverting {
+		t.Fatalf("data = %s", e.Data)
+	}
+	if !strings.Contains(data.Warning, "change log") {
+		t.Fatalf("warning = %q, want change log failure surfaced", data.Warning)
+	}
+	// change log 写失败仍排重转
+	waitRun(t, env.runs)
+	waitReady(t, env.st, env.modelID)
+}
+
 func TestEditCommitNoPendingConflict(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
@@ -539,11 +587,15 @@ func TestMigrateSuccess(t *testing.T) {
 		Fields map[string]string            `json:"fields"`
 		Psets  map[string]map[string]string `json:"psets"`
 	}
+	var commitBody string
 	for _, c := range py.calls {
-		if c.Method == "PUT" {
+		switch c.Method {
+		case "PUT":
 			if err := json.Unmarshal([]byte(c.Body), &putBody); err != nil {
 				t.Fatal(err)
 			}
+		case "POST":
+			commitBody = c.Body
 		}
 	}
 	if putBody.Fields["Name"] != "NewName" {
@@ -551,6 +603,16 @@ func TestMigrateSuccess(t *testing.T) {
 	}
 	if putBody.Psets["Pset_WallCommon"]["FireRating"] != "F90" {
 		t.Fatalf("put psets = %+v", putBody.Psets)
+	}
+	// commit body 带 operation=migrate（Python 侧 history 与 Go change log 一致）
+	var cb struct {
+		Operation string `json:"operation"`
+	}
+	if err := json.Unmarshal([]byte(commitBody), &cb); err != nil {
+		t.Fatal(err)
+	}
+	if cb.Operation != "migrate" {
+		t.Fatalf("commit body = %s, want operation=migrate", commitBody)
 	}
 
 	// override 清空
@@ -656,6 +718,52 @@ func TestMigratePartialFailure(t *testing.T) {
 	}
 	if _, ok := all["g1"]; ok {
 		t.Fatalf("g1 override should be cleared: %+v", all)
+	}
+	waitRun(t, env.runs)
+	waitReady(t, env.st, env.modelID)
+}
+
+func TestMigrateChangeLogFailureWarns(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnvChg(t, pyURL, failAppendChangeStore{err: errors.New("change log disk full")})
+	writeMetadata(t, env.st, env.modelID, testMetadata)
+	if _, err := env.ovr.Set(env.modelID, "g1", map[string]string{"Name": "NewName"}); err != nil {
+		t.Fatal(err)
+	}
+	py.set("PUT", "/models/"+env.modelID+"/entities/g1", 200,
+		`{"id":"e_1","guid":"g1","changes":[],"author":"local-user","provenance":{"source":"UI"},"timestamp":"t"}`)
+	py.set("POST", "/models/"+env.modelID+"/commit", 200, `{"committed":1,"entries":[
+	  {"id":"e_1","guid":"g1","changes":[{"field":"Name","oldValue":"Wall A","newValue":"NewName"}],
+	   "author":"local-user","provenance":{"source":"UI"},"timestamp":"t","operation":"migrate"}]}`)
+
+	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/overrides/migrate", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	e := decodeEnv(t, rec)
+	var data struct {
+		Migrated []struct {
+			EntityID string `json:"entityId"`
+			Field    string `json:"field"`
+		} `json:"migrated"`
+		Warning string `json:"warning"`
+	}
+	if err := json.Unmarshal(e.Data, &data); err != nil {
+		t.Fatal(err)
+	}
+	if len(data.Migrated) != 1 {
+		t.Fatalf("migrated = %+v", data.Migrated)
+	}
+	if !strings.Contains(data.Warning, "change log") {
+		t.Fatalf("warning = %q, want change log failure surfaced", data.Warning)
+	}
+	// override 已清、重转已排
+	all, err := env.ovr.GetAll(env.modelID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 0 {
+		t.Fatalf("overrides = %+v, want empty", all)
 	}
 	waitRun(t, env.runs)
 	waitReady(t, env.st, env.modelID)

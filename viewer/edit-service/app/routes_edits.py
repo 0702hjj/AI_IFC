@@ -40,6 +40,12 @@ class EditBody(BaseModel):
     provenance: Provenance = Field(default_factory=Provenance)
 
 
+class CommitBody(BaseModel):
+    """Optional body of POST /models/{id}/commit."""
+
+    operation: Literal["update", "migrate"] = "update"
+
+
 def _model_path(request: Request, model_id: str) -> str:
     path = os.path.join(
         request.app.state.settings.data_dir, "uploads", f"{model_id}.ifc"
@@ -157,16 +163,21 @@ def get_pending(
 
 @router.post("/models/{id}/commit")
 def commit_pending(
-    request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
+    request: Request,
+    id: str = Path(pattern=MODEL_ID_PATTERN),
+    body: CommitBody | None = None,
 ) -> Dict[str, Any]:
     """Atomically save all pending changes to disk and append them to history.
 
     The first commit snapshots the original upload as ``v1`` before saving;
-    every commit snapshots the newly saved file as the next version.
+    every commit snapshots the newly saved file as the next version. The
+    optional body stamps ``operation`` onto the committed entries (default
+    ``update``; Go's override migration passes ``migrate``).
     """
     path = _model_path(request, id)
     registry = request.app.state.registry
     data_dir = request.app.state.settings.data_dir
+    operation = body.operation if body is not None else "update"
     with registry.lock(path):
         pending = _pending(request).get(id, [])
         if not pending:
@@ -175,7 +186,7 @@ def commit_pending(
             versions.snapshot(data_dir, id, path)
         registry.save(path)
         versions.snapshot(data_dir, id, path)
-        entries = [dict(entry, operation="update") for entry in pending]
+        entries = [dict(entry, operation=operation) for entry in pending]
         history.append_history(data_dir, id, entries)
         _pending(request)[id] = []
     return {"committed": len(entries), "entries": entries}

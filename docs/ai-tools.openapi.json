@@ -157,7 +157,7 @@
     "/models/{id}/commit": {
       "post": {
         "summary": "Commit Pending",
-        "description": "Atomically save all pending changes to disk and append them to history.\n\nThe first commit snapshots the original upload as ``v1`` before saving;\nevery commit snapshots the newly saved file as the next version.",
+        "description": "Atomically save all pending changes to disk and append them to history.\n\nThe first commit snapshots the original upload as ``v1`` before saving;\nevery commit snapshots the newly saved file as the next version. The\noptional body stamps ``operation`` onto the committed entries (default\n``update``; Go's override migration passes ``migrate``).",
         "operationId": "commit_pending_models__id__commit_post",
         "parameters": [
           {
@@ -171,6 +171,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CommitBody"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -362,6 +379,22 @@
   },
   "components": {
     "schemas": {
+      "CommitBody": {
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "update",
+              "migrate"
+            ],
+            "title": "Operation",
+            "default": "update"
+          }
+        },
+        "type": "object",
+        "title": "CommitBody",
+        "description": "Optional body of POST /models/{id}/commit."
+      },
       "DiffBody": {
         "properties": {
           "base": {

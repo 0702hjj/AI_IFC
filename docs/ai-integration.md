@@ -57,7 +57,7 @@ curl -X PUT "$BASE/models/$MID/entities/$GUID" \
 # 2. 查看 pending
 curl "$BASE/models/$MID/pending"
 
-# 3. commit：原子落盘 + 版本快照 + 追加 history（body 被忽略，见 commit 模型脚注）
+# 3. commit：原子落盘 + 版本快照 + 追加 history（可选 body 见 commit 模型脚注）
 curl -X POST "$BASE/models/$MID/commit"
 
 # 4. 查看版本与 diff
@@ -140,11 +140,13 @@ body（JSON Schema，`EditBody`）：
 
 ### `POST /models/{id}/commit`
 
-把全部 pending 原子落盘（持文件锁）→ 版本快照 → 追加 history（每条 entry 补 `"operation": "update"`）→ 清空 pending。
+把全部 pending 原子落盘（持文件锁）→ 版本快照 → 追加 history（每条 entry 补 `"operation"` 字段）→ 清空 pending。
+
+可选 body（JSON Schema，`CommitBody`）：`{"operation": "update" | "migrate"}`，缺省（或无 body）为 `"update"`，其他值 → 422。`operation` 会被打到本次 commit 的全部 entries 与 history 上；`migrate` 由 Go 侧 override → 真改迁移传入，AI 常规编辑无需传。
 
 响应 200：`{"committed": <条数>, "entries": [...]}`（entries 即持久化的 history 条目）。无 pending → 409（`no pending changes`）；模型不存在 → 404。
 
-> **脚注（commit body）**：Python 的 `POST /models/{id}/commit` **不消费请求 body**。`author`/`provenance` 在每次 PUT 的 body 中流动，先落进 pending entry，再由 commit 原样持久化到 history。经 Go 代理时，Go 会校验 commit body 里的 `provenance.source`（若提供），但 Python 侧不读该 body。
+> **脚注（commit body）**：Python 的 `POST /models/{id}/commit` 只消费可选的 `operation` 字段。`author`/`provenance` 在每次 PUT 的 body 中流动，先落进 pending entry，再由 commit 原样持久化到 history。经 Go 代理时，Go 会校验 commit body 里的 `provenance.source`（若提供），但转发给 Python 时不带 body（`operation` 取默认 `update`）；Go 的 migrate 端点则显式传 `{"operation": "migrate"}`。
 
 ### `GET /models/{id}/history`
 
@@ -209,6 +211,7 @@ Go server（默认 `127.0.0.1:8090`）把同一套端点暴露在 `/api/models/{
 - **错误映射**：Python 404 → HTTP 404 / code 40400；409 → HTTP 409 / code 40900；422 → HTTP 400 / code 40001；其余（含 Python 不可达）→ HTTP 502 / code 50200。
 - **provenance 校验**：PUT 与 commit 的 body 若含 `provenance.source`，Go 侧先校验枚举（UI|AI），非法 → HTTP 400 / code 40001。
 - **commit 编排**：Go 代理的 commit 在 Python commit 成功后追加：把 entries 展开写入 change log（`{dataDir}/models/{id}/changes.json`）、用 IfcDiff 结果补充 change log 的 `diff` 字段、把模型状态置为 `converting` 并排入 XKT 重转队列；响应 data 额外含 `"reconverting": true`。
+- **commit 后的非致命错误语义**：Python commit 一旦成功，重转**一定**会被排入队列（运行中的转换会被标记重跑，新内容不会丢）。此阶段 change log 写失败（`edit/commit` 与 `overrides/migrate` 同一策略）不再返回 500：记服务端日志，响应仍为 HTTP 200，data 额外含 `"warning"` 字符串（如 `"commit applied but change log write failed: ..."`）；调用方应把 warning 视为降级提示而非失败——IFC 已落盘、重转已排队，仅 change log 可能缺条。
 
 ## provenance 与 commit 模型
 
