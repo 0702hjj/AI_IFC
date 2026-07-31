@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const api = vi.hoisted(() => ({ fetchOverrides: vi.fn() }));

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
 """Entity edit endpoint tests: pending/commit two-phase flow, history, error paths."""
 
 from __future__ import annotations

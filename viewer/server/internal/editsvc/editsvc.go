@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 // Package editsvc 是 Python 编辑服务（viewer/edit-service）的 HTTP 客户端。
 // Python 的错误响应 {"detail": ...} 映射为带状态码的 *Error，由 handler 层转 envelope。
 package editsvc

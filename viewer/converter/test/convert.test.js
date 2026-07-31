@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");

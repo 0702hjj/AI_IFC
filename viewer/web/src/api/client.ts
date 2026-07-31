@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 import type { ModelInfo, Issue, NewIssue, OverridesMap, EntityFields, ChangeEntry, EditVersionsResponse, DiffResponse } from "./types";
 
 interface Envelope<T> { code: number; message: string; data: T }

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 import { useEffect, useState } from "react";
 import { fetchEditVersions, postEditDiff } from "@/api/client";
 import type { DiffResponse, EditVersion } from "@/api/types";

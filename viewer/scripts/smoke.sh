@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
 set -euo pipefail
 # 前提：server 已在 :8090 运行
 BASE=http://localhost:8090

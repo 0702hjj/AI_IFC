@@ -1,0 +1,53 @@
+AI_IFC — BIM review & editing platform for IFC models
+Copyright (C) 2026 0702hjj
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, version 3 only (AGPL-3.0-only). See the LICENSE file.
+
+=====================================================================
+Origin (archived portion)
+=====================================================================
+This repository was forked from SimpleCADAPI — the CADDesigner research
+artifact (https://562590763.github.io/CADDesigner/), licensed AGPL-3.0.
+
+The following archived portions retain their original copyright and license:
+  - src/simplecadapi/        (SimpleCAD API Team / 倪旌哲 <nijingzhe@zju.edu.cn>)
+  - skills/simplecadapi/     (SimpleCAD API Team)
+  - examples/                (SimpleCAD API Team)
+  - pyproject.toml           (SimpleCADAPI package metadata, archived)
+  - docs/legacy/SimpleCADAPI.md
+
+All new code under viewer/ and docs/ is Copyright (C) 2026 0702hjj,
+licensed AGPL-3.0-only (SPDX-License-Identifier headers in each file).
+
+=====================================================================
+Third-party components
+=====================================================================
+Runtime dependencies and their licenses:
+
+  Component                          License            Source
+  ---------------------------------  -----------------  ------------------------------------------
+  @xeokit/xeokit-sdk                 AGPL-3.0           https://github.com/xeokit/xeokit-sdk
+  @xeokit/xeokit-convert             AGPL-3.0           https://github.com/xeokit/xeokit-convert
+  web-ifc                            MPL-2.0            https://github.com/ThatOpen/web-ifc
+  ifcopenshell                       LGPL-3.0-or-later  https://github.com/IfcOpenShell/IfcOpenShell
+  ifcdiff                            LGPL-3.0-or-later  https://github.com/IfcOpenShell/IfcOpenShell (src/ifcdiff)
+  pgx (jackc/pgx/v5)                 MIT                https://github.com/jackc/pgx
+  React                              MIT                https://github.com/facebook/react
+  Vite                               MIT                https://github.com/vitejs/vite
+  zustand                            MIT                https://github.com/pmndrs/zustand
+  react-router-dom                   MIT                https://github.com/remix-run/react-router
+  FastAPI                            MIT                https://github.com/fastapi/fastapi
+  uvicorn                            BSD-3-Clause       https://github.com/encode/uvicorn
+  pydantic                           MIT                https://github.com/pydantic/pydantic
+  deepdiff                           MIT                https://github.com/seperman/deepdiff
+
+Note: ifcdiff is currently referenced as a local editable path dependency
+(../IfcOpenShell/src/ifcdiff) and is NOT distributed with this repository.
+Before the v0.1.0 release it will be vendored (with its LGPL-3.0 header
+preserved) or pinned as a git source — see docs/open-source-plan.md §二.
+
+Full dependency manifests:
+  viewer/server/go.mod, viewer/web/package.json,
+  viewer/converter/package.json, viewer/edit-service/pyproject.toml

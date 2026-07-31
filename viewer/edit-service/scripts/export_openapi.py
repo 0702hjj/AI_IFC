@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
 """Export the FastAPI app's OpenAPI schema to docs/ai-tools.openapi.json.
 
 Run from viewer/edit-service:

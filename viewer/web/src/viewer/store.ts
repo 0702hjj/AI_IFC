@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 import { create } from "zustand";
 import { fetchOverrides } from "@/api/client";
 import type { EntityFields, Issue, OverridesMap } from "@/api/types";

@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
 """ModelRegistry tests: caching, atomic save roundtrip, per-path locks."""
 
 from __future__ import annotations

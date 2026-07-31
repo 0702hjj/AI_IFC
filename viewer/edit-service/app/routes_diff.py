@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
 """Version listing and model diff endpoints.
 
 ``GET .../versions`` lists the immutable commit snapshots; ``POST .../diff``

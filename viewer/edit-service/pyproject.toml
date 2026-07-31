@@ -2,6 +2,7 @@
 name = "ifc-edit-service"
 version = "0.1.0"
 description = "IFC model editing service (FastAPI + ifcopenshell)"
+license = { text = "AGPL-3.0-only" }
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115",

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 import { useState } from "react";
 import { downloadUrl } from "@/api/client";
 import { useViewer } from "./ViewerContext";

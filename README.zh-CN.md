@@ -131,4 +131,4 @@ cd ..                  && ./scripts/smoke.sh   # 端到端（需先起服务）
 
 ## 许可证
 
-[AGPL-3.0](LICENSE)。`v0.1.0` 发布前做依赖许可证审计（见开源方案）。
+[AGPL-3.0-only](LICENSE)——继承自 SimpleCADAPI fork，与 AGPL 的 xeokit 栈一致。三方组件归属与归档代码边界见 [NOTICE](NOTICE)；`v0.1.0` 发布前做全量依赖许可证审计（见开源方案）。

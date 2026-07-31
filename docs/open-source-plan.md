@@ -30,7 +30,9 @@
 
 无论哪个，都要在 `viewer/edit-service/README.md` 与 NOTICE 中标注 LGPL 组件来源。
 
-**行动项**：审计每个依赖的实际 LICENSE 文本（`uv pip show` / npm `license` 字段）→ 出 `docs/license-audit.md` 结论表 → 根 NOTICE 文件列三方组件。
+**行动项**：审计每个依赖的实际 LICENSE 文本（`uv pip show` / npm `license` 字段）→ 出 `docs/license-audit.md` 结论表 → ~~根 NOTICE 文件列三方组件~~（✅ 2026-07-30 已建 `NOTICE`：三方组件表 + SCAD/新代码版权边界；audit 表仍待出）。
+
+**已完成的许可微调（2026-07-30）**：全仓维持 **AGPL-3.0-only**（SCAD 上游即 AGPL-3.0、xeokit-sdk/convert 实测同为 AGPL，论证见上）；`viewer/` 全部源文件加 SPDX 头（`AGPL-3.0-only`，Copyright 0702hjj）；根 `NOTICE`；`src/simplecadapi/ARCHIVED.md` 归档标注；`viewer/edit-service/pyproject.toml` 补 license 元数据；README 许可节同步。SCAD 归档部分（根 pyproject、src/skills/examples）原样未动。
 
 ## 三、N+3 工程化分解
 
@@ -76,8 +78,7 @@ jobs:
 
 ### 3.4 SCAD 遗产归档（已完成大半）
 
-- ✅ 旧 README 已归档至 `docs/legacy/SimpleCADAPI.md`
-- 待办：`src/simplecadapi/README`（或现有 README）顶部加 archived 标注；`skills/simplecadapi`、`examples/` 在新 README 已声明归档（已完成）
+- ✅ 旧 README 已归档至 `docs/legacy/SimpleCADAPI.md`；✅ `src/simplecadapi/ARCHIVED.md` 归档标注（2026-07-30）
 - 原则：不删除（论文 artifact 有引用价值），但门面完全聚焦 IFC
 
 ### 3.5 发布 v0.1.0

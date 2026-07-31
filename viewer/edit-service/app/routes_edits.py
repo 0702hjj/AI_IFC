@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
 """Entity edit endpoints: in-memory pending changes, two-phase commit, history.
 
 ``PUT`` applies field/pset edits to the in-memory model and records a

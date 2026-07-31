@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
 """Persistent edit history, stored per model under the viewer data dir.
 
 History lives at ``{VIEWER_DATA_DIR}/models/{id}/edit-history.json``.

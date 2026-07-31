@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
 """FastAPI application factory for the IFC edit service."""
 
 from __future__ import annotations

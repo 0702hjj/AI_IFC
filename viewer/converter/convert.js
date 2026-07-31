@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: AGPL-3.0-only
+// Copyright (C) 2026 0702hjj
+
 const fs = require("fs");
 const path = require("path");
 const { XKTModel, parseIFCIntoXKTModel, writeXKTModelToArrayBuffer } = require("@xeokit/xeokit-convert");

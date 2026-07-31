@@ -131,4 +131,4 @@ Iteration plan: [`docs/architecture/roadmap.md`](docs/architecture/roadmap.md)
 
 ## License
 
-[AGPL-3.0](LICENSE). A dependency license audit is scheduled before the `v0.1.0` release (see the open-source plan).
+[AGPL-3.0-only](LICENSE) — inherited from the SimpleCADAPI fork and consistent with the AGPL-licensed xeokit stack. Third-party attributions and the archived-code boundary: [NOTICE](NOTICE). A full dependency license audit is scheduled before the `v0.1.0` release (see the open-source plan).
