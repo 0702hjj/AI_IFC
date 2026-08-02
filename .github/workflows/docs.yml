@@ -31,6 +31,8 @@ jobs:
       - run: npm run docs:build
         working-directory: docs
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs/site/.vitepress/dist
