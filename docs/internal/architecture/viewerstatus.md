@@ -6,7 +6,7 @@ gaiass/
 │   ├── skills/simplecadapi/ ← 原 SCAD skill 包（17 条 MUST + 201 页 API 文档）
 │   ├── research/            ← 调研非常充分（IFC/SCAD/web/MCP 四个方向）
 │   ├── viewer/              ← IFC Web 显示（Go+Node+React+xeokit，已成型）
-│   ├── docs/architecture/   ← viewer 路线图 + SCAD 架构评审
+│   ├── docs/internal/architecture/   ← viewer 路线图 + SCAD 架构评审
 │   └── examples/            ← 全是 SCAD 的（01~20，无 IFC 示例）
 ├── IfcOpenShell/    ← v0.8.0 官方源码（事实标准，含 ifcmcp/ifcedit/ifcquery）
 ├── gaia_agent/      ← Go 后端 agent 平台（PostgreSQL，无 IFC 集成）
@@ -21,7 +21,7 @@ gaiass/
 - converter：IFC→XKT+metadata.json，web-ifc 提取空间树+pset，id 一致性校验
 - server：Go stdlib + pgx/v5（唯一第三方依赖），上传/转换队列/列表/下载/删除/重试，路径穿越防护，重启恢复；Issue REST API（CRUD+截图）；属性 override（白名单字段 PUT）+ 修改记录 change log API；Issue/override/changes 三类存储均为 File/Pg 双实现（`pgDSN`/`VIEWER_PG_DSN` 启用 PG）
 - web：模型库页、xeokit 加载+拾取高亮、自建模型树（搜索/类型过滤/显隐）、PropertyPanel（搜索/折叠/复制 + 白名单字段编辑、override 覆盖显示带修改标记）、可见性工具栏（Hide/Isolate/X-Ray）、IssuePanel（Issues/修改历史双 tab）、IssuePins 3D HTML 钉（点击定位）、剖切、测量、NavCube
-对照 docs/architecture/viewer.md 的路线图（已更新为迭代计划）：
+对照 docs/internal/architecture/viewer.md 的路线图（已更新为迭代计划）：
 | 优先级 | 组件 | 现状 |
 | P0 | Property Inspector | ✅ 有（只读展示 + 搜索/折叠/复制；编辑能力见属性修改器行） |
 | P0 | Model Tree + 过滤 | ✅ 有（搜索 + 分类过滤 + hide） |
@@ -42,7 +42,7 @@ gaiass/
 2. viewer 技术路线与 IfcOpenShell 割裂【已决策，2026-07-29】：viewer 走 web-ifc+xeokit（前端展示不变）；「真改 IFC」与 Diff Viewer 统一由后端引入 IfcOpenShell Python 服务承载（对齐 deep-research-report §2.2/§1.3），属性修改走「先 override 后真改」两阶段，前端 WASM 方案排除。
 3. DB 缺位【已落地 PG】：Issue/属性 override/修改记录已平移 PostgreSQL（PgStore，pgx/v5，配置 `pgDSN`/`VIEWER_PG_DSN` 启用，默认仍文件存储），修改记录对齐报告 §1.1 commit 模型（author/timestamp/old→new/provenance）。RAG（pgvector）仍未起步。
 4. ifcmcp 未启用是低垂果实【已移交】：官方 ifcmcp 已经提供 31 个工具（含 ifc_plot/ifc_render 视觉反馈、ifc_list/ifc_docs/ifc_edit 发现式编辑）——AI 生成线（另一同学）可直接启用；本仓库侧重把 Python 编辑服务做成人/AI 同一套 API（MCP 化 v1.1 候选）。
-四、下一步迭代计划（2026-07-30 更新，总计划见 docs/architecture/roadmap.md，目标映射见 research/overview.md）
+四、下一步迭代计划（2026-07-30 更新，总计划见 docs/internal/architecture/roadmap.md，目标映射见 research/overview.md）
 方向决策：快速上线并开源 v1（自托管 docker compose、审查+编辑为主、SCAD 遗产归档）；AI 生成由另一同学负责，我们交付可接入架构。
 迭代 N+1（✅ 已完成，2026-07-29，commits 8f41770 起）：
 1	Issue 接 PG + 修改记录/历史	✅ PgStore 平移（File/Pg 双实现）；change log 对齐 deep-research-report §1.1 commit 模型
@@ -52,7 +52,7 @@ gaiass/
 4	Python 服务骨架 + 实体编辑 API	✅ `viewer/edit-service/`（FastAPI + ifcopenshell）；PUT entities/{guid} + pending/commit + history（真原值 oldValue）
 5	IfcDiff 集成 + Diff Viewer	✅ 版本快照（commit 产生 v{n+1}）+ POST diff（GlobalId 语义，属性级）；web Diff 面板绿/红/黄着色 + old→new
 6	override 迁移真改 + change log 升级	✅ POST /overrides/migrate 回放为真改（失败保留 override）；change log 补 operation/diff 字段 + provenance 枚举校验
-7	AI 接入口	✅ 双角色同一编辑 API（AI REST 直连验证通过）+ docs/ai-integration.md + ai-tools.openapi.json
+7	AI 接入口	✅ 双角色同一编辑 API（AI REST 直连验证通过）+ docs/internal/ai-integration.md + docs/site/public/ai-tools.openapi.json
 迭代 N+3（上线/开源就绪，详见 roadmap.md §三）：
 8	部署化	docker compose 一键起（server/web/PG/Python 服务/converter），配置外置
 9	文档与开源工程化	README 重写（en 主）、SCAD 归档说明、AI 接入指南、CI（GitHub Actions）、LICENSE 审计、v0.1.0 发布

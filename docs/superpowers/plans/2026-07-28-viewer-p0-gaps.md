@@ -2511,7 +2511,7 @@ cd AI_IFC && git add viewer/web/src/viewer/IssuePanel* viewer/web/src/pages/ && 
 - Modify: `viewer/scripts/smoke.sh`
 - Modify: `viewer/docs/api.md`（追加 issues 契约）
 - Modify: `viewer/docs/design.md`（更新非目标与存储说明）
-- Modify: `docs/architecture/viewerstatus.md`（缺口表勾选）
+- Modify: `docs/internal/architecture/viewerstatus.md`（缺口表勾选）
 
 **Interfaces:**
 - Consumes: Task 3 的路由、Task 10 的前端功能
@@ -2576,7 +2576,7 @@ Issue 截图静态服务，`file` 必须匹配 `i_[0-9a-f]{12}\.png`。
 
 2. `viewer/docs/design.md`：将「非目标」中的「标注持久化」删除，改为在存储一节补充：「Issue/Markup 持久化采用文件存储（`models/{id}/issues.json` + `issues/*.png`），由 `internal/issue.Store` 接口抽象，后期可平移 PostgreSQL（新增 PgStore 实现，API/前端零改动）」。
 
-3. `docs/architecture/viewerstatus.md`：P0/P1 缺口表更新为：
+3. `docs/internal/architecture/viewerstatus.md`：P0/P1 缺口表更新为：
 
 ```markdown
 | 优先级 | 组件 | 现状 |
@@ -2599,7 +2599,7 @@ Expected: 全部通过
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/scripts/smoke.sh viewer/docs/api.md viewer/docs/design.md docs/architecture/viewerstatus.md && git commit -m "feat(viewer): smoke 覆盖 issues CRUD；同步 design/api/viewerstatus 文档"
+cd AI_IFC && git add viewer/scripts/smoke.sh docs/internal/viewer/api.md docs/internal/viewer/design.md docs/internal/architecture/viewerstatus.md && git commit -m "feat(viewer): smoke 覆盖 issues CRUD；同步 design/api/viewerstatus 文档"
 ```
 
 ---

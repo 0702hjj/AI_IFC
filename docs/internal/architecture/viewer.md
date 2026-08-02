@@ -64,7 +64,7 @@
 「AI 生成 IFC」由另一同学负责（2026-07-30 决策）。我们交付**可接入的架构**（详见 roadmap.md §四）：
 
 6. **双角色编辑 API**（N+2 ✅）：AI 与人走同一套 REST 编辑 API（报告 §2.1），provenance.source 区分 UI/AI；AI REST 直连已真机验证
-7. **工具 schema 文档**（N+2 ✅）：`docs/ai-integration.md` + `docs/ai-tools.openapi.json`（FastAPI 导出，可直接喂给 LLM）
+7. **工具 schema 文档**（N+2 ✅）：`docs/internal/ai-integration.md` + `docs/site/public/ai-tools.openapi.json`（FastAPI 导出，可直接喂给 LLM）
 8. **MCP 化预留**：报告 §4.1 建议 REST+MCP 双暴露；v1 先 REST，MCP 薄包装（参考 ifcmcp 31 工具模式）列 v1.1 候选
 
 原候选「启用 ifcmcp + ai_ifc skill + IFC 生成 examples」移交 AI 生成线（调研材料已备：`research/ifc/simplecadapi_skill_anatomy.md`、`ifc_structrue_breakdown.md` 骨架优先策略、`MCP_API.md` ifcmcp 31 工具清单）。

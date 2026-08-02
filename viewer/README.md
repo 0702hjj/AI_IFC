@@ -21,7 +21,7 @@
 - **server**（Go，stdlib + pgx/v5）：HTTP API 服务（默认端口 `:8090`），负责模型上传、转换任务调度、XKT/元数据静态服务、模型管理、Issue CRUD、属性 override 与修改记录。
 - **web**（React + xeokit）：前端应用（开发端口 `:5173`），包含模型库页面与三维审查界面。
 
-详细设计见 [docs/design.md](docs/design.md)，API 说明见 [docs/api.md](docs/api.md)，测试覆盖与验证方法见 [docs/README.md](docs/README.md)。
+详细设计、API 契约与测试说明已并入公开文档站：[Viewer REST API](https://0702hjj.github.io/AI_IFC/reference/rest-api) 与 [测试与调试](https://0702hjj.github.io/AI_IFC/development/testing)；本文仅保留源码邻近的最小启动提示。
 
 ```
 web (React/xeokit)  ──HTTP──>  server (Go :8090)  ──子进程──>  converter (Node)

@@ -89,7 +89,7 @@ graph LR
 
 **Live demo 路径**（5 分钟可复现）：
 ```bash
-# 起服务后（docs/usage.md §二）
+# 起服务后（docs/internal/usage.md §二）
 # 1. 上传 viewer/converter/test/fixtures/wall-with-opening-and-window.ifc
 # 2. 经 Go 代理改个 Name 并 commit：
 MID=<上传返回的id>; GUID=$(curl -s localhost:8090/models/$MID/metadata.json | python3 -c 'import sys,json;print([o["id"] for o in json.load(sys.stdin)["metaObjects"] if o.get("type")=="IfcWall"][0])')
@@ -112,7 +112,7 @@ curl -X POST localhost:8090/api/models/$MID/edit/commit
 2. 修改是 pending/commit 两阶段：PUT 不落盘，commit 才生效并产生版本；丢弃用 `DELETE pending`
 3. 字段分两类：`fields`（直接属性，如 Name）与 `psets`（属性集，需显式 pset 名，如 `{"Pset_WallCommon":{"FireRating":"F60"}}`）；校验失败整请求零副作用
 4. commit 可带 `{"operation":"update"|"migrate"}`；GET history 拿真原值 oldValue
-5. 工具目录：`docs/ai-tools.openapi.json`（可直接喂 LLM；变更后用 `viewer/edit-service/scripts/export_openapi.py` 再导出）；接入指南 `docs/ai-integration.md`
+5. 工具目录：`docs/site/public/ai-tools.openapi.json`（可直接喂 LLM；变更后用 `viewer/edit-service/scripts/export_openapi.py` 再导出）；接入指南 `docs/internal/ai-integration.md`
 6. **MCP**：v1.1 候选，薄包装这套 REST（参考 ifcmcp 31 工具模式）；AI 沙箱/代码执行属你们侧，架构不阻塞
 
 ## 六、已知限制与技术债（诚实清单）

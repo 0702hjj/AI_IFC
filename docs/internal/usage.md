@@ -1,7 +1,7 @@
 # 使用文档（2026-07-30）
 
 > 面向使用者：从零启动平台、浏览器操作、AI 直连、故障排查。
-> 架构见 `docs/architecture/ai-bim.md`；AI 接入契约详见 `docs/ai-integration.md`。
+> 架构见 `docs/internal/architecture/ai-bim.md`；AI 接入契约详见 `docs/internal/ai-integration.md`。
 
 ## 一、环境依赖
 
@@ -85,7 +85,7 @@ curl -X POST http://127.0.0.1:8100/models/$MID/diff \
 
 > 直连的 commit **不触发** Go 侧 change log 与 XKT 重转。需要完整链路（前端自动刷新可见）时，改走 Go 代理：把 `http://127.0.0.1:8100/models/$MID/...` 换成 `http://127.0.0.1:8090/api/models/$MID/edit/...`。
 
-完整契约（端点目录、JSON Schema、错误码）：`docs/ai-integration.md` + `docs/ai-tools.openapi.json`。
+完整契约（端点目录、JSON Schema、错误码）：`docs/internal/ai-integration.md` + `docs/site/public/ai-tools.openapi.json`。
 
 ## 五、验证
 

@@ -1,7 +1,7 @@
 # 开源方案（2026-07-30）
 
 > 目标：把 AI_IFC 以 `v0.1.0` 发布为**自托管开源**项目（docker compose 一键起）。
-> 本文是 roadmap §三（迭代 N+3）的细化执行方案。总体架构见 `docs/architecture/ai-bim.md`。
+> 本文是 roadmap §三（迭代 N+3）的细化执行方案。总体架构见 `docs/internal/architecture/ai-bim.md`。
 
 ## 一、定位与受众
 
@@ -78,7 +78,7 @@ jobs:
 
 ### 3.4 SCAD 遗产归档（已完成大半）
 
-- ✅ 旧 README 已归档至 `docs/legacy/SimpleCADAPI.md`；✅ `src/simplecadapi/ARCHIVED.md` 归档标注（2026-07-30）
+- ✅ 旧 README 已归档至 `docs/archive/simplecadapi/legacy/SimpleCADAPI.md`；✅ `src/simplecadapi/ARCHIVED.md` 归档标注（2026-07-30）
 - 原则：不删除（论文 artifact 有引用价值），但门面完全聚焦 IFC
 
 ### 3.5 发布 v0.1.0
@@ -93,12 +93,12 @@ jobs:
 | 文档 | 语言 | 状态 |
 | --- | --- | --- |
 | `README.md` / `README.zh-CN.md` | EN / 中文 | ✅ 已重写（N+3 本文档轮） |
-| `docs/usage.md` | 中文 | ✅ 使用文档 |
-| `docs/architecture/ai-bim.md` | 中文 | ✅ 总体架构（当前版） |
-| `docs/architecture/viewer-detail.md` | 中文 | ✅ viewer 细节 |
-| `docs/ai-integration.md` + `docs/ai-tools.openapi.json` | 中文 | ✅ AI 接入（openapi 变更后需 `export_openapi.py` 再导出） |
-| `docs/architecture/roadmap.md` / `viewer.md` / `viewerstatus.md` / `research/overview.md` | 中文 | ✅ 活文档，迭代后同步 |
-| `docs/open-source-plan.md` | 中文 | ✅ 本文 |
+| `docs/internal/usage.md` | 中文 | ✅ 使用文档（源，公开版见 docs/site/） |
+| `docs/internal/architecture/ai-bim.md` | 中文 | ✅ 总体架构（源，公开版见 docs/site/） |
+| `docs/internal/architecture/viewer-detail.md` | 中文 | ✅ viewer 细节（源） |
+| `docs/internal/ai-integration.md` + `docs/site/public/ai-tools.openapi.json` | 中文 | ✅ AI 接入（openapi 变更后需 `export_openapi.py` 再导出） |
+| `docs/internal/architecture/roadmap.md` / `viewer.md` / `viewerstatus.md` / `research/overview.md` | 中文 | ✅ 活文档，迭代后同步 |
+| `docs/internal/open-source-plan.md` | 中文 | ✅ 本文 |
 | `docs/license-audit.md` / `CONTRIBUTING.md` / NOTICE | EN | ⬜ N+3 待办 |
 
 原则：**对外门面英文，对内技术文档中文**；README 只放快速路径，细节链到 docs/。

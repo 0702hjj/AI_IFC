@@ -22,7 +22,7 @@
 - viewer 线 **~95%**：BIM Review Platform 成型；迭代 N+1 完成（Issue/change log/override 三 store File/PG 双实现、属性修改器 override 阶段、3D Issue Pin、真机验证通过）。详见 viewerstatus.md
 - 报告 §2.4 修改流已在 override 阶段落地（选中 → 改值 → 保存 → 记录 → 历史）；§1.1 commit 模型已落地 author/timestamp/provenance 半
 - DB 缺位已解决：PG（独立库 `ai_ifc_viewer`，自动建表 issues/changes/overrides），`pgDSN` 切换，FileStore 零依赖可跑
-- 迭代 N+2 **✅ 已完成**（2026-07-30，分支 iteration-n+2，commits da57ab3..81ede3d）：IfcOpenShell Python 编辑服务（`viewer/edit-service/`）、真改 IFC + pending/commit、版本快照 + IfcDiff、Go 编排与 override 迁移、web Diff Viewer、AI 接入口文档（`docs/ai-integration.md`）
+- 迭代 N+2 **✅ 已完成**（2026-07-30，分支 iteration-n+2，commits da57ab3..81ede3d）：IfcOpenShell Python 编辑服务（`viewer/edit-service/`）、真改 IFC + pending/commit、版本快照 + IfcDiff、Go 编排与 override 迁移、web Diff Viewer、AI 接入口文档（`docs/internal/ai-integration.md`）
 - 未起步：部署化、开源工程化（迭代 N+3）
 
 ## 二、迭代 N+2：IfcOpenShell Python 编辑服务（真改 IFC + Diff）【✅ 已完成 2026-07-30】
@@ -49,12 +49,12 @@ AI agent（另一同学）──► 同一套编辑 API（REST 直连或经 Go �
 4. **Go server 编排**：编辑请求代理至 Python 服务；commit 后触发 converter 重转 XKT（沿用现有队列）；**override → 真改迁移**（把 PG overrides 逐条回放为真实 IFC 修改，迁移后清空 override 并写 change log）
 5. **change log 升级**：补 `operation` 与 `diff` 字段（对齐报告 §1.1 完整 schema）；provenance 枚举校验（UI/AI）
 6. **web Diff Viewer**：V1/V2 版本选择 → 绿(新增)/红(删除)/黄(修改)着色 + 属性 diff 列表（old→new）；真改后 viewer 自动刷新
-7. **AI 接入口**：编辑 API 的 OpenAPI/工具 schema 文档（报告 §2.3「tool catalog」的 REST 形态）；`docs/ai-integration.md` 初版
+7. **AI 接入口**：编辑 API 的 OpenAPI/工具 schema 文档（报告 §2.3「tool catalog」的 REST 形态）；`docs/internal/ai-integration.md` 初版
 
 ## 三、迭代 N+3：上线 / 开源就绪
 
 1. **部署化**：docker compose 一键起（Go server、web 静态托管、PG、Python 编辑服务、Node converter）；配置外置（`.env.example`，DSN/端口/数据卷）；数据目录卷映射
-2. **文档**：根 README 重写（英文为主、中文为辅：定位/截图/快速开始/架构图）；SCAD 遗产归档说明（README 一节 + `src/simplecadapi/README` 标注 archived）；`docs/ai-integration.md` 完善（双角色接入、provenance、commit 模型、MCP 化路线）
+2. **文档**：根 README 重写（英文为主、中文为辅：定位/截图/快速开始/架构图）；SCAD 遗产归档说明（README 一节 + `src/simplecadapi/README` 标注 archived）；`docs/internal/ai-integration.md` 完善（双角色接入、provenance、commit 模型、MCP 化路线）
 3. **开源工程化**：GitHub Actions CI（go test、web test、PG service 集成、smoke）；LICENSE 审计（AGPL-3.0 与全部依赖兼容性，含 pgx/xeokit/ifcopenshell）；issue/PR 模板；`.gitignore` 复查 + 密钥扫描
 4. **发布**：v0.1.0 tag + release notes + 示例模型（可用 research 样例 IFC）
 
@@ -66,7 +66,7 @@ AI 生成本体不在本仓库范围，但 v1 架构保证其可接入：
 | --- | --- | --- |
 | §2.1 双角色 | 人：viewer → Go → Python 服务；AI：REST 直连同一编辑 API | ✅ |
 | §1.1 commit 模型 | author/timestamp/provenance(UI\|AI)/operation/diff 全部落地（`viewer/server/internal/change`） | ✅ |
-| §2.3 工具目录 | 编辑 API OpenAPI 工具 schema：`docs/ai-tools.openapi.json` + `docs/ai-integration.md` | ✅ |
+| §2.3 工具目录 | 编辑 API OpenAPI 工具 schema：`docs/site/public/ai-tools.openapi.json` + `docs/internal/ai-integration.md` | ✅ |
 | MCP 化 | 报告 §4.1 建议 REST+MCP 双暴露；v1 先 REST，MCP 薄包装（参考 ifcmcp 31 工具模式）列为 v1.1 候选 | 预留 |
 | §2.3 沙箱/代码执行 | 属 AI 侧范围；架构上不阻塞（Python 服务进程隔离，后续可加 execute 端点） | 预留 |
 

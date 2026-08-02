@@ -121,7 +121,7 @@ app/
 └── history.py       edit-history.json（原子写；记录真原值 oldValue）
 ```
 
-端点详见 `docs/ai-integration.md` 与 `docs/ai-tools.openapi.json`（`uv run python scripts/export_openapi.py` 再生成）。
+端点详见 `docs/internal/ai-integration.md` 与 `docs/site/public/ai-tools.openapi.json`（`uv run python scripts/export_openapi.py` 再生成）。
 
 注意：`VIEWER_DATA_DIR` 必须与 Go `dataDir` 指向**同一目录**（edit-service 按 `{dataDir}/uploads/{id}.ifc` 解析模型）。
 

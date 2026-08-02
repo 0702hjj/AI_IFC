@@ -15,7 +15,7 @@
 
 本文档是架构设计稿，不是实现说明书。命名、模块拆分和阶段顺序可以在落地时微调，但本文档中的设计原则和兼容性约束应视为 2.0 的硬边界。
 
-配套执行文档见：`docs/core/rearchitecture_2_0_requirements.md`。
+配套执行文档见：`rearchitecture_2_0_requirements.md`。
 
 ## 当前实现审计（2026-04-14）
 

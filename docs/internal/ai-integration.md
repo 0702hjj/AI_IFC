@@ -1,6 +1,6 @@
 # AI 接入口：编辑 API 集成指南
 
-面向 AI 生成线的接入文档：如何用 REST 调用本仓库的 IFC 编辑服务，完成「改属性 → pending → commit → diff」全流程。文档中的端点、字段、枚举、默认值均与 `viewer/edit-service/app/`（Python FastAPI）和 `viewer/server/internal/api/`（Go 代理）实现逐一核对；机器可消费的完整 schema 见 [`docs/ai-tools.openapi.json`](ai-tools.openapi.json)（由实现导出，重新生成方式见文末）。
+面向 AI 生成线的接入文档：如何用 REST 调用本仓库的 IFC 编辑服务，完成「改属性 → pending → commit → diff」全流程。文档中的端点、字段、枚举、默认值均与 `viewer/edit-service/app/`（Python FastAPI）和 `viewer/server/internal/api/`（Go 代理）实现逐一核对；机器可消费的完整 schema 见 [`docs/site/public/ai-tools.openapi.json`](../site/public/ai-tools.openapi.json)（由实现导出，重新生成方式见文末）。
 
 ## 概述：双角色同一 API
 
@@ -240,12 +240,12 @@ v1 已知限制（定位：单机单用户内部工具）：
 
 v1.1 候选路线：
 
-- **MCP 化**：报告 §4.1 建议 REST+MCP 双暴露；v1 先 REST（本文档 + `ai-tools.openapi.json` 即 tool catalog 的 REST 形态），MCP 薄包装参考 ifcmcp 31 工具模式。本文档只写路线，不实现。
+- **MCP 化**：报告 §4.1 建议 REST+MCP 双暴露；v1 先 REST（本文档 + `docs/site/public/ai-tools.openapi.json` 即 tool catalog 的 REST 形态），MCP 薄包装参考 ifcmcp 31 工具模式。本文档只写路线，不实现。
 - **沙箱 / 代码执行**：属 AI 生成侧（另一同学）范围；本架构不阻塞（Python 服务进程隔离，后续可加 execute 端点）。
 
 ## 附：OpenAPI schema 的生成与再生成
 
-`docs/ai-tools.openapi.json` 由实现直接导出（`create_app().openapi()`），与运行中服务的 `GET /openapi.json` 天然一致。编辑 API 变更后重新生成：
+`docs/site/public/ai-tools.openapi.json` 由实现直接导出（`create_app().openapi()`），与运行中服务的 `GET /openapi.json` 天然一致。编辑 API 变更后重新生成：
 
 ```bash
 cd viewer/edit-service

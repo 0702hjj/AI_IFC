@@ -31,8 +31,8 @@ SimpleCADAPI 的顶层 API 选择是正确的：它没有把用户拖进传统 C
 - `src/simplecadapi/tagging.py`
 - historical assembly/constraint implementation, now removed from the active public/support surface
 - historical scalar-field/SDF implementation, now removed from the active public/support surface
-- `docs/core/serialization/`
-- `docs/core/operation_graph_json_spec.md`
+- `docs/archive/simplecadapi/core/serialization/`
+- `docs/archive/simplecadapi/core/operation_graph_json_spec.md`
 - `examples/07_serialization_operation_tree.py`
 - `test/` 与 `tests/`
 
@@ -49,7 +49,7 @@ SimpleCADAPI 的顶层 API 选择是正确的：它没有把用户拖进传统 C
 - composite convenience API 在 `GraphSession` 内降低为 canonical low-level graph，这个设计非常正确。用户调用 `make_box_rsolid`，图里记录 rectangle/profile/extrude，这是 CAD DSL 和 replay IR 分层的正确方式。参考：`src/simplecadapi/operations.py:1480`、`examples/07_serialization_operation_tree.py:52`、`examples/07_serialization_operation_tree.py:272`。
 - `union_rsolid(...)` 明确返回单个 `Solid`，失败就报错，不默默返回多个实体。这对机械 CAD 是正确的默认语义。参考：`src/simplecadapi/operations.py:2856`、`src/simplecadapi/operations.py:2876`。
 - `GraphSession` + `export_model_json` + `replay_model_json` 的主线是对的。它把脚本建模提升为可交换、可 replay 的模型记录。参考：`src/simplecadapi/graph.py:44`、`src/simplecadapi/serializer.py:416`、`src/simplecadapi/serializer.py:732`。
-- `ql` 被放到子模块而非全部塞进顶层，是正确的边界意识。参考：`src/simplecadapi/__init__.py`、`docs/api/README.md:5`。
+- `ql` 被放到子模块而非全部塞进顶层，是正确的边界意识。参考：`src/simplecadapi/__init__.py`、`docs/archive/simplecadapi/api/README.md:5`。
 
 问题：
 
@@ -95,7 +95,7 @@ SimpleCADAPI 的顶层 API 选择是正确的：它没有把用户拖进传统 C
 
 问题：
 
-- `.wrapped` 是公开事实，docs 也承认 public geometry wrappers expose `.wrapped`。这不是错，但这意味着 SDK 没有真正封装 kernel，只是提供了 OCP-native convenience layer。参考：`docs/core/README.md:5`、`src/simplecadapi/core.py:427`、`src/simplecadapi/core.py:718`。
+- `.wrapped` 是公开事实，docs 也承认 public geometry wrappers expose `.wrapped`。这不是错，但这意味着 SDK 没有真正封装 kernel，只是提供了 OCP-native convenience layer。参考：`docs/archive/simplecadapi/core/README.md:5`、`src/simplecadapi/core.py:427`、`src/simplecadapi/core.py:718`。
 - QL 内部直接用 OCP adaptor 判断 curve/surface type。这个实现合理，但进一步证明 QL 当前绑定 OCP 语义，而不是中立 CAD 语义。参考：`src/simplecadapi/ql.py:193`。
 - 旧 constraints 实现直接用 OCP transform 重建 solid，装配层和 kernel 层耦合很深；该 public/support surface 已移除，等待新契约重做。
 - `operations.py` 仍然直接 import OCP builder 类型并手写部分 kernel 操作。kernel adapter 层还没有完全收敛。参考：`src/simplecadapi/operations.py:14`、`src/simplecadapi/operations.py:17`。

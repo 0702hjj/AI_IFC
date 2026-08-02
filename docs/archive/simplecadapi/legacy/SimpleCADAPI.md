@@ -175,12 +175,12 @@ uv run python examples/10_part_assembly.py
 
 ## Documentation
 
-- Public API reference: [`docs/api/`](docs/api/)
-- Core type and modeling notes: [`docs/core/`](docs/core/)
+- Public API reference: [`docs/archive/simplecadapi/api/`](docs/archive/simplecadapi/api/)
+- Core type and modeling notes: [`docs/archive/simplecadapi/core/`](docs/archive/simplecadapi/core/)
 - Serialization and replay details:
-  [`docs/core/serialization/README.md`](docs/core/serialization/README.md)
+  [`docs/archive/simplecadapi/core/serialization/README.md`](docs/archive/simplecadapi/core/serialization/README.md)
 - Operation graph JSON spec:
-  [`docs/core/operation_graph_json_spec.md`](docs/core/operation_graph_json_spec.md)
+  [`docs/archive/simplecadapi/core/operation_graph_json_spec.md`](docs/archive/simplecadapi/core/operation_graph_json_spec.md)
 
 ## Releasing the Agent Skill
 

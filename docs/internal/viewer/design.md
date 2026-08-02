@@ -44,7 +44,7 @@
 | 1 | backend (Go stdlib net/http) | 上传 IFC、触发转换、模型列表/删除、XKT+元数据静态服务、IFC 原文件下载 | `viewer/server/` |
 | 2 | converter (Node CLI) | 封装 `@xeokit/xeokit-convert`，输入 IFC 输出 XKT + metadata.json | `viewer/converter/` |
 | 3 | frontend (React+Vite+TS) | 模型列表页、查看器页（xeokit Viewer + 树/属性/剖切/测量插件） | `viewer/web/` |
-| 4 | 共享契约 | API 接口定义 + 元数据 JSON schema | `viewer/docs/api.md` |
+| 4 | 共享契约 | API 接口定义 + 元数据 JSON schema | `api.md` |
 
 ### 目录结构
 
@@ -149,7 +149,7 @@ ViewerPage
 
 ## 7. 演进方向
 
-依据 `md/dxf_agent/deep-research-report.md`（§1 变更追踪、§2.2 实体编辑 API、§2.4 前端修改流）与 `docs/architecture/viewer.md` 迭代计划：
+依据 `md/dxf_agent/deep-research-report.md`（§1 变更追踪、§2.2 实体编辑 API、§2.4 前端修改流）与 `docs/internal/architecture/viewer.md` 迭代计划：
 
 1. **属性修改（两阶段）**：先做 metadata override（不改 IFC 本体，存覆盖值 + 修改记录）；后续引入 IfcOpenShell Python 编辑服务（报告 §2.2 `PUT /models/{id}/entities/{guid}`）真改 IFC，override 平滑迁移
 2. **变更历史**：Issue/修改记录对齐报告 §1 的 commit 模型（author/timestamp/operation/diff/provenance），存储已由 `issue/change/override.Store` 接口平移至 PostgreSQL（PgStore 已落地）。注：change log 的 oldValue 当前只记录前次 override 值（首次编辑为空），IFC 真原值捕获显式 deferred 至迭代 N+2——真改 IFC 落地后由 IfcDiff 的 diff 字段（报告 §1.1）取代，届时本问题自然消解

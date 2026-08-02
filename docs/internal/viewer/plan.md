@@ -16,7 +16,7 @@
 - 模型 id：`"m_"` + 16 位小写 hex（crypto/rand）
 - Go 后端仅允许 `github.com/jackc/pgx/v5`（PostgreSQL 存储，可选），其余保持 stdlib only
 - 前端 TS 文件 ≤500 行；路径别名 `@` → `src`
-- 接口契约以 `viewer/docs/api.md` 为准
+- 接口契约以 `api.md` 为准
 - 转换 worker 数 = 2；重启后 `converting` 一律恢复为 `failed`
 
 ---
