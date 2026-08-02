@@ -80,7 +80,7 @@ cd server && go run ./cmd/server      # :8090
 cd web && npm install && npm run dev  # :5173
 ```
 
-1. 打开 http://localhost:5173 ，上传一个 `.ifc`（≤200MB；非 .ifc / 超限应被前端拦截）
+1. 打开 `http://localhost:5173` ，上传一个 `.ifc`（≤200MB；非 .ifc / 超限应被前端拦截）
 2. 列表中状态 `converting → ready`（2s 轮询自动刷新）；failed 应显示错误并可重试
 3. 进入查看器：模型渲染、轨道旋转/缩放、NavCube 可用
 4. 左侧树：默认展开 1 层；搜索「wall」过滤命中；类型过滤勾选 IfcWall；节点 👁 显隐；点节点相机飞行+高亮

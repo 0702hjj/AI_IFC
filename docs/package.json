@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "docs:dev": "vitepress dev site",
-    "docs:build": "vitepress build site"
+    "docs:build": "vitepress build site",
+    "docs:dev:internal": "node scripts/internal-site.mjs && vitepress dev .internal",
+    "docs:build:internal": "node scripts/internal-site.mjs && vitepress build .internal"
   },
   "devDependencies": {
     "vitepress": "^1.6.0"

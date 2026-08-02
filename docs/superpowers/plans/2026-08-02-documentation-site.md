@@ -38,9 +38,9 @@ Expected: 空输出。
 
 Run（需批准，.git 为只读挂载）:
 
-```bash
+````bash
 git switch -c iteration-docs-site
-```
+````
 
 Expected: `Switched to a new branch 'iteration-docs-site'`；`git branch --show-current` 输出该分支名。
 
@@ -67,7 +67,7 @@ Expected: node ≥ 22（本机 26.x）、npm 12.x，均可满足 VitePress 要�
 
 - [ ] **Step 1: 创建 `docs/package.json`**
 
-```json
+````json
 {
   "name": "ai-ifc-docs",
   "private": true,
@@ -80,15 +80,15 @@ Expected: node ≥ 22（本机 26.x）、npm 12.x，均可满足 VitePress 要�
     "vitepress": "^1.6.0"
   }
 }
-```
+````
 
 - [ ] **Step 2: 创建 `docs/.gitignore`**
 
-```gitignore
+````gitignore
 node_modules/
 .vitepress/cache/
 .vitepress/dist/
-```
+````
 
 - [ ] **Step 3: 生成锁文件并安装依赖**
 
@@ -97,7 +97,7 @@ Expected: 生成 `docs/package-lock.json`；`node_modules/.bin/vitepress --versi
 
 - [ ] **Step 4: 创建 `docs/site/.vitepress/config.mts`**
 
-```ts
+````ts
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 0702hjj
 import { defineConfig } from 'vitepress'
@@ -213,20 +213,20 @@ export default defineConfig({
     },
   },
 })
-```
+````
 
 - [ ] **Step 5: 创建 `docs/site/public/favicon.svg`**
 
-```svg
+````svg
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="6" fill="#3fb950"/>
   <text x="16" y="22" font-family="monospace" font-size="16" font-weight="bold" text-anchor="middle" fill="#0d1117">IFC</text>
 </svg>
-```
+````
 
 - [ ] **Step 6: 创建 `docs/site/index.md`（首页，FRP-Panel 式产品入口）**
 
-```markdown
+````markdown
 ---
 layout: home
 
@@ -276,7 +276,7 @@ AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平
 平台已端到端可用（上传 → 转换 → 审查 → 编辑 → commit → diff）。当前仓库以 `viewer/` 为活跃产品；仓库历史中的 SimpleCADAPI（SCAD）代码作为归档保留，详见 [License 与第三方组件](/project/license)。
 
 版本路线见 [Roadmap](/project/roadmap)，已知边界见 [已知限制](/project/known-limits)。
-```
+````
 
 - [ ] **Step 7: 复制 OpenAPI 静态产物到站点 public 目录**
 
@@ -290,10 +290,10 @@ Expected: 退出码 0，输出包含 `build complete`；`site/.vitepress/dist/in
 
 - [ ] **Step 9: Commit**
 
-```bash
+````bash
 git add docs/package.json docs/package-lock.json docs/.gitignore docs/site/.vitepress/config.mts docs/site/index.md docs/site/public/favicon.svg docs/site/public/ai-tools.openapi.json
 git commit -m "docs: add VitePress scaffold for public docs site"
-```
+````
 
 ---
 
@@ -304,7 +304,7 @@ git commit -m "docs: add VitePress scaffold for public docs site"
 
 - [ ] **Step 1: 创建 `.github/workflows/docs.yml`**
 
-```yaml
+````yaml
 name: docs
 
 on:
@@ -356,7 +356,7 @@ jobs:
     steps:
       - uses: actions/deploy-pages@v4
         id: deployment
-```
+````
 
 要点（对应 spec §4.2）：PR 只构建不部署；push main 与 `workflow_dispatch` 部署；部署独立 concurrency group `docs-pages-deploy`；使用官方三个 Pages actions；环境 `github-pages`。
 
@@ -367,10 +367,10 @@ Expected: `yaml ok`（若无 pyyaml，用 `node -e "require('js-yaml')"` 不可�
 
 - [ ] **Step 3: Commit**
 
-```bash
+````bash
 git add .github/workflows/docs.yml
 git commit -m "ci: build docs on PR and deploy Pages on main"
-```
+````
 
 ---
 
@@ -384,7 +384,7 @@ git commit -m "ci: build docs on PR and deploy Pages on main"
 
 - [ ] **Step 1: 创建 `docs/site/guide/project-intro.md`**
 
-```markdown
+````markdown
 # 项目介绍
 
 AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它从 SimpleCADAPI fork 而来，但活跃产品是 `viewer/` 下的 IFC 平台；SimpleCADAPI 相关代码作为归档保留，详见 [License 与第三方组件](/project/license)。
@@ -423,11 +423,11 @@ AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它�
 三语言并存是生态现实而非设计偏好：每个语言绑定的是该生态里唯一或最优的 IFC 库。服务之间通过 REST 与子进程解耦，任一组件可独立替换。
 
 详细架构见 [总体架构](/development/architecture)。
-```
+````
 
 - [ ] **Step 2: 创建 `docs/site/guide/quickstart.md`**
 
-```markdown
+````markdown
 # 环境要求与本地部署
 
 ## 环境依赖
@@ -477,11 +477,11 @@ cd viewer/converter && npm test
 ```
 
 > 注意：上传、转换、审查等浏览功能不依赖 edit-service 与 PostgreSQL；编辑、版本、diff 需要 edit-service 运行。
-```
+````
 
 - [ ] **Step 3: 创建 `docs/site/guide/first-ifc.md`**
 
-```markdown
+````markdown
 # 上传第一个 IFC
 
 仓库自带一个 buildingSMART 官方样例 IFC：
@@ -508,11 +508,11 @@ cd viewer/converter && npm test
 | 改了属性前端没刷新 | 经 Go 代理 commit 才触发重转；直连 edit-service 后需手动刷新或经代理重放 |
 
 完整排查表见 [测试与调试](/development/testing)。
-```
+````
 
 - [ ] **Step 4: 创建 `docs/site/guide/configuration.md`**
 
-```markdown
+````markdown
 # 配置说明
 
 ## Go server（`viewer/server/server_config.json`）
@@ -557,7 +557,7 @@ cd viewer/converter && npm test
 ## 端口
 
 默认端口：server `8090`、edit-service `8100`、web 开发服务器 `5173`。
-```
+````
 
 - [ ] **Step 5: 验证构建**
 
@@ -566,10 +566,10 @@ Expected: 退出码 0，`build complete`，无 dead link 报错。
 
 - [ ] **Step 6: Commit**
 
-```bash
+````bash
 git add docs/site/guide
 git commit -m "docs: add quickstart section (intro, deploy, first IFC, configuration)"
-```
+````
 
 ---
 
@@ -585,7 +585,7 @@ git commit -m "docs: add quickstart section (intro, deploy, first IFC, configura
 
 - [ ] **Step 1: 创建 `docs/site/viewer/library.md`**
 
-```markdown
+````markdown
 # 模型库与模型上传
 
 模型库页是平台的入口：上传、列表、状态跟踪、重试、下载与删除。
@@ -605,11 +605,11 @@ git commit -m "docs: add quickstart section (intro, deploy, first IFC, configura
 ## 相关 API
 
 上传、列表、重试、下载、删除的接口契约见 [Viewer REST API](/reference/rest-api)。
-```
+````
 
 - [ ] **Step 2: 创建 `docs/site/viewer/model-tree.md`**
 
-```markdown
+````markdown
 # 模型树与属性检查
 
 ## 模型树
@@ -632,11 +632,11 @@ git commit -m "docs: add quickstart section (intro, deploy, first IFC, configura
 ## 技术说明
 
 元数据由 converter 以 xeokit 标准元模型 JSON 导出，`metaObjects[].id` 为 IFC GlobalId，与 XKT 实体 id 一致，因此选中、着色、diff 结果全部对齐。Schema 见 [Viewer REST API](/reference/rest-api) 的 metadata.json 一节。
-```
+````
 
 - [ ] **Step 3: 创建 `docs/site/viewer/viewing.md`**
 
-```markdown
+````markdown
 # 可见性、剖切与测量
 
 ## 可见性工具栏
@@ -659,11 +659,11 @@ git commit -m "docs: add quickstart section (intro, deploy, first IFC, configura
 - **NavCube**：方向指示与视图切换。
 - **复位视角**：恢复默认相机位置。
 - 轨道旋转 / 缩放 / 平移为 xeokit 默认交互。
-```
+````
 
 - [ ] **Step 4: 创建 `docs/site/viewer/issues.md`**
 
-```markdown
+````markdown
 # Issue 与 3D Pin
 
 ## 创建 Issue
@@ -688,11 +688,11 @@ git commit -m "docs: add quickstart section (intro, deploy, first IFC, configura
 ## 接口契约
 
 Issue CRUD 与截图静态服务见 [Viewer REST API](/reference/rest-api)。
-```
+````
 
 - [ ] **Step 5: 创建 `docs/site/viewer/editing.md`**
 
-```markdown
+````markdown
 # IFC 属性编辑
 
 属性编辑分两阶段：**override（显示层）→ 真改（写回 IFC）**。
@@ -732,11 +732,11 @@ Issue CRUD 与截图静态服务见 [Viewer REST API](/reference/rest-api)。
 - 多请求并发由每模型一把锁串行化。
 
 接口契约见 [IFC 编辑 API](/reference/edit-api)。
-```
+````
 
 - [ ] **Step 6: 创建 `docs/site/viewer/versions-diff.md`**
 
-```markdown
+````markdown
 # 版本与 Diff Viewer
 
 ## 版本快照
@@ -764,7 +764,7 @@ Issue CRUD 与截图静态服务见 [Viewer REST API](/reference/rest-api)。
 - base/target 均为不可变版本时，结果缓存在 `versions/diff-{base}-{target}.json`；`target="current"` 不缓存。
 
 接口契约见 [IFC 编辑 API](/reference/edit-api)。
-```
+````
 
 - [ ] **Step 7: 验证构建 + Commit**
 
@@ -791,7 +791,7 @@ git commit -m "docs: add viewer usage section (library, tree, viewing, issues, e
 
 - [ ] **Step 1: 创建 `docs/site/development/architecture.md`**
 
-```markdown
+````markdown
 # 总体架构
 
 ```mermaid
@@ -879,11 +879,11 @@ POST /models/{id}/commit
 change log 条目含：`author`（默认 `local-user`，v1 无认证）、`createdAt`（UTC）、`operation`（`update | migrate`）、`diff`（commit 时 IfcDiff 补充）、`provenance`（`{source: UI|AI}`，API 层枚举校验）。版本为线性快照序列（分支/合并未做，属多用户范围）。
 
 已知技术债（详见 [已知限制](/project/known-limits)）：三份历史记录并存（Go change log / edit-service edit-history / 内存 pending）粒度与用途不同；ifcdiff 为本地 editable 依赖；pending 为内存态；diff 无超时控制；Python 侧存储仅文件模式。
-```
+````
 
 - [ ] **Step 2: 创建 `docs/site/development/repo-structure.md`**
 
-```markdown
+````markdown
 # 仓库结构
 
 ```
@@ -919,11 +919,11 @@ AI_IFC/
 - `docs/site/` 是唯一公开文档站源，内容由 VitePress 构建并以 `/AI_IFC/` 为 base 发布到 GitHub Pages。
 - `docs/internal/` 与 `docs/archive/simplecadapi/` 不进入站点导航与搜索。
 - 各服务 README 只保留邻近源码的最小启动提示，详细说明一律链接到公开文档站。
-```
+````
 
 - [ ] **Step 3: 创建 `docs/site/development/web.md`**
 
-```markdown
+````markdown
 # Web 前端
 
 `viewer/web/`：React 19 + TypeScript + Vite + zustand + xeokit-sdk，开发端口 `:5173`。
@@ -967,11 +967,11 @@ src/
 - **override 显示**：渲染时 `applyOverrides` 把 override 值覆盖在原值上并带修改标记；保存走 `PUT /api/models/{id}/entities/{entityId}/properties`。
 - **Diff 着色**：diff 返回的 guid 即 scene object id；`entity.colorize` 设置颜色，清除时置 null；removed 构件在当前 XKT 无几何，仅列表呈现。
 - **自动刷新**：ViewerPage 持续轮询模型状态，`converting → ready` 转换时 remount ViewerProvider 重载 XKT（外部 commit / AI 直改触发的重转也能捕获）。
-```
+````
 
 - [ ] **Step 4: 创建 `docs/site/development/server.md`**
 
-```markdown
+````markdown
 # Go Server
 
 `viewer/server/`：Go 1.26（stdlib net/http + pgx/v5 唯一第三方依赖），默认 `:8090`。
@@ -1024,11 +1024,11 @@ internal/
 - 三个领域 store（issue/change/override）各有 `Store` 接口 + FileStore（`models/{id}/*.json`，tmp+rename 原子写）+ PgStore（pgx/v5，构造时建表）。
 - 切换：`server_config.json` 的 `pgDSN` 或 env `VIEWER_PG_DSN`；不配置即 File 模式。
 - 模型文件本身始终文件存储。
-```
+````
 
 - [ ] **Step 5: 创建 `docs/site/development/converter.md`**
 
-```markdown
+````markdown
 # IFC Converter
 
 `viewer/converter/`：Node CLI，基于 web-ifc + xeokit-convert，把 IFC 转为 XKT 几何与语义元数据，由 server 以子进程方式调用，无需常驻。
@@ -1059,11 +1059,11 @@ cd viewer/converter
 npm install
 npm test    # node:test 集成测试：真实 IFC 样例（buildingSMART 官方 fixture）转换快照
 ```
-```
+````
 
 - [ ] **Step 6: 创建 `docs/site/development/edit-service.md`**
 
-```markdown
+````markdown
 # Edit Service
 
 `viewer/edit-service/`：Python FastAPI + ifcopenshell + ifcdiff，默认 `:8100`，提供真改 IFC、pending/commit、版本快照与语义 diff。
@@ -1112,11 +1112,11 @@ uv run uvicorn app.main:app --port 8100
 cd viewer/edit-service
 uv run pytest
 ```
-```
+````
 
 - [ ] **Step 7: 创建 `docs/site/development/testing.md`**
 
-```markdown
+````markdown
 # 测试与调试
 
 ## 各模块测试
@@ -1165,7 +1165,7 @@ cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
 | commit 409 | 无 pending（内存态，服务重启会丢） |
 | 改了属性前端没刷新 | 直连 edit-service 的 commit 不触发重转；走 Go 代理 |
 | PG 连不上 | 清空 pgDSN 回退文件存储 |
-```
+````
 
 - [ ] **Step 8: 验证构建 + Commit**
 
@@ -1189,7 +1189,7 @@ git commit -m "docs: add development guide (architecture, structure, four compon
 
 - [ ] **Step 1: 创建 `docs/site/reference/rest-api.md`**
 
-```markdown
+````markdown
 # Viewer REST API
 
 后端 base：`http://localhost:8090`；JSON 信封统一为 `{code, message, data}`，`code=0` 表示成功。模型 id 格式 `m_` + 16 位小写 hex。
@@ -1334,11 +1334,11 @@ Go server 把 edit-service 的端点暴露在 `/api/models/{id}/edit/...` 前缀
 ## 通用错误码
 
 `40001` 参数/校验错误、`40002` 超限、`40400` 模型或 Issue 不存在、`50000` 服务器内部错误。
-```
+````
 
 - [ ] **Step 2: 创建 `docs/site/reference/edit-api.md`**
 
-```markdown
+````markdown
 # IFC 编辑 API
 
 edit-service（Python FastAPI，默认 `:8100`）是 IFC 编辑端点**唯一参考**。路径参数：`id` 匹配 `^m_[0-9a-f]{16}$`；`guid` 为 IFC GlobalId。除标注外，错误响应为 FastAPI 形态 `{"detail": ...}`。
@@ -1446,11 +1446,11 @@ Go server（默认 `:8090`）把同一套端点暴露在 `/api/models/{id}/edit/
 - PUT/commit body 若含 `provenance.source`，Go 先校验枚举（UI|AI），非法 → 40001。
 - Go 代理 commit 成功后：entries 展开写入 change log、IfcDiff 补充 diff 字段、模型置 `converting` 并排队重转；响应 data 额外含 `"reconverting": true`。
 - change log 写失败不返回 500：记日志，响应仍 200，data 含 `"warning"` 字符串（IFC 已落盘、重转已排队，仅 change log 可能缺条）。
-```
+````
 
 - [ ] **Step 3: 创建 `docs/site/reference/ai.md`**
 
-```markdown
+````markdown
 # AI 接入
 
 面向 AI agent 的接入指南：用 REST 调用 IFC 编辑服务完成「改属性 → pending → commit → diff」全流程。机器可消费的完整 schema 见 [OpenAPI 文件](/reference/openapi)。
@@ -1538,11 +1538,11 @@ curl -X POST "$BASE/models/$MID/diff" \
 v1 已知限制（详见 [已知限制](/project/known-limits)）：单机单用户、无认证（勿暴露公网）；pending 只存内存（服务重启丢失）；`VIEWER_DATA_DIR` 必须与 Go `dataDir` 同目录；diff 仅属性级。
 
 后续路线（**当前未交付**）：MCP 化（REST+MCP 双暴露，参考 ifcmcp 工具模式）与沙箱/代码执行端点——详见 [Roadmap](/project/roadmap)。
-```
+````
 
 - [ ] **Step 4: 创建 `docs/site/reference/openapi.md`**
 
-```markdown
+````markdown
 # OpenAPI 文件
 
 ## edit-service（机器可消费）
@@ -1563,7 +1563,7 @@ uv run python scripts/export_openapi.py
 Go server 的 REST 契约当前以本文档站 [Viewer REST API](/reference/rest-api) 为人工维护的公开契约，没有自动生成的 schema。
 
 > 自动生成与漂移检测（从 schema 生成页面、CI 检测 schema 与已提交产物是否一致）属于后续迭代，见 [Roadmap](/project/roadmap)。
-```
+````
 
 - [ ] **Step 5: 验证构建 + Commit**
 
@@ -1587,7 +1587,7 @@ git commit -m "docs: add API & AI reference (REST, edit API, AI integration, Ope
 
 - [ ] **Step 1: 创建 `docs/site/project/roadmap.md`**
 
-```markdown
+````markdown
 # Roadmap
 
 > 公开版只保留已完成、近期与后续；内部迭代细节见仓库 `docs/internal/`。
@@ -1614,11 +1614,11 @@ git commit -m "docs: add API & AI reference (REST, edit API, AI integration, Ope
 ## v1 范围外
 
 多用户/鉴权、AI 生成 IFC 本体（并行线经编辑 API 接入）、IFC → Python 生成管线、RAG、Git 存 IFC、文档版本切换。
-```
+````
 
 - [ ] **Step 2: 创建 `docs/site/project/known-limits.md`**
 
-```markdown
+````markdown
 # 已知限制
 
 以下限制是当前实现的真实边界，除特别说明外均属未交付能力而非缺陷：
@@ -1644,11 +1644,11 @@ git commit -m "docs: add API & AI reference (REST, edit API, AI integration, Ope
 - **MCP 封装未交付**：当前为 REST 形态。
 - **OpenAPI 为仓库内静态文件**：自动生成与漂移检测属后续迭代。
 - **仅中文文档**：英文 locale 为后续迭代。
-```
+````
 
 - [ ] **Step 3: 创建 `docs/site/project/contributing.md`**
 
-```markdown
+````markdown
 # 贡献指南
 
 ## 开发环境
@@ -1686,11 +1686,11 @@ cd docs && npm ci && npm run docs:build
 ## License
 
 本仓库为 AGPL-3.0-only。贡献即表示同意以该许可证发布；第三方组件归属见 [License 与第三方组件](/project/license)。
-```
+````
 
 - [ ] **Step 4: 创建 `docs/site/project/license.md`**
 
-```markdown
+````markdown
 # License 与第三方组件
 
 ## 仓库许可证
@@ -1723,7 +1723,7 @@ AI_IFC 以 **AGPL-3.0-only** 发布（[LICENSE](https://github.com/0702hjj/AI_IF
 | FastAPI / uvicorn / pydantic / deepdiff | MIT / BSD-3-Clause |
 
 > ifcdiff 当前以本地 editable 路径依赖引用（未随仓库分发）；发布前将 vendor（保留 LGPL 声明与来源）或固定为 git source，并在 NOTICE 标注。
-```
+````
 
 - [ ] **Step 5: 验证构建 + Commit**
 
@@ -1756,7 +1756,7 @@ git commit -m "docs: add project section (roadmap, known limits, contributing, l
 
 Run（仓库根）:
 
-```bash
+````bash
 mkdir -p docs/internal/architecture docs/internal/viewer docs/archive/simplecadapi
 git mv docs/team-sync.md docs/internal/team-sync.md
 git mv docs/open-source-plan.md docs/internal/open-source-plan.md
@@ -1775,7 +1775,7 @@ git mv viewer/docs/design.md docs/internal/viewer/design.md
 git mv viewer/docs/api.md docs/internal/viewer/api.md
 git mv viewer/docs/README.md docs/internal/viewer/README.md
 git mv docs/ai-tools.openapi.json docs/site/public/ai-tools.openapi.json
-```
+````
 
 注意：上面分两次移动 `docs/architecture`（整体移入 internal 后再抽出 sdk-architecture-review 到 archive）；执行时以实际文件为准，`git mv` 失败则调整顺序。移动后：
 
@@ -1826,10 +1826,10 @@ Expected: 退出码 0，`build complete`。
 
 - [ ] **Step 7: Commit**
 
-```bash
+````bash
 git add -A docs viewer/edit-service/scripts/export_openapi.py viewer/edit-service/README.md NOTICE
 git commit -m "docs: reorganize docs into site/internal/archive; move SCAD docs out of public site"
-```
+````
 
 ---
 
@@ -1842,7 +1842,7 @@ git commit -m "docs: reorganize docs into site/internal/archive; move SCAD docs 
 
 - [ ] **Step 1: 重写 `README.md`（英文，指向文档站）**
 
-```markdown
+````markdown
 # AI_IFC
 
 [中文说明](README.zh-CN.md)
@@ -1885,11 +1885,11 @@ src/  skills/  examples/   # archived: SimpleCADAPI (SCAD), the repo's origin
 ## License
 
 [AGPL-3.0-only](LICENSE) — inherited from the SimpleCADAPI fork and consistent with the AGPL-licensed xeokit stack. Third-party attributions and the archived-code boundary: [NOTICE](NOTICE).
-```
+````
 
 - [ ] **Step 2: 重写 `README.zh-CN.md`（中文，指向文档站）**
 
-```markdown
+````markdown
 # AI_IFC
 
 [English](README.md)
@@ -1932,7 +1932,7 @@ src/  skills/  examples/   # 归档：SimpleCADAPI（SCAD），仓库起点
 ## 许可证
 
 [AGPL-3.0-only](LICENSE)——继承自 SimpleCADAPI fork，与 AGPL 的 xeokit 栈一致。三方组件与归档代码边界见 [NOTICE](NOTICE)。
-```
+````
 
 - [ ] **Step 3: 在 `docs/internal/architecture/roadmap.md` 记录后续任务**
 
@@ -1957,10 +1957,10 @@ Expected: 退出码 0。
 
 - [ ] **Step 5: Commit**
 
-```bash
+````bash
 git add README.md README.zh-CN.md docs/internal/architecture/roadmap.md
 git commit -m "docs: point READMEs at the docs site; record i18n and API auto-gen as follow-ups"
-```
+````
 
 ---
 
@@ -2004,33 +2004,33 @@ Expected: 仅示例 base URL 与端口说明，无个人本机路径。
 
 Run（docs/）:
 
-```bash
+````bash
 npm run docs:build
 npx vitepress preview site --port 4173 &
 sleep 2
 curl -sf http://127.0.0.1:4173/AI_IFC/ | head -5
 curl -sf -o /dev/null -w "%{http_code}\n" http://127.0.0.1:4173/AI_IFC/reference/rest-api.html
 curl -sf -o /dev/null -w "%{http_code}\n" http://127.0.0.1:4173/AI_IFC/ai-tools.openapi.json
-```
+````
 
 Expected: 首页 200；`reference/rest-api.html` 200；`ai-tools.openapi.json` 200；页面内资源引用以 `/AI_IFC/` 开头。
 
 - [ ] **Step 5: 全量提交**
 
-```bash
+````bash
 git status --porcelain
 git add -A
 git commit -m "docs: documentation site iteration complete"
-```
+````
 
 （若此前任务已全部提交，本步可能无变更。）
 
 - [ ] **Step 6: 推送分支并打开 PR（需批准网络与 git 写权限）**
 
-```bash
+````bash
 git push -u origin iteration-docs-site
 gh pr create --title "docs: VitePress documentation site + GitHub Pages deployment" --body "Implements docs/superpowers/specs/2026-08-02-documentation-site-design.md. PR 内验证 docs build；main 合并后自动部署 Pages（需在仓库 Settings → Pages 将 Source 设为 GitHub Actions）。"
-```
+````
 
 Expected: 推送成功；PR 创建成功并返回 URL。
 

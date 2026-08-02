@@ -32,7 +32,7 @@ cd viewer/server && go run ./cmd/server
 cd viewer/web && npm run dev
 ```
 
-打开 http://localhost:5173。
+打开 `http://localhost:5173`。
 
 ### 配置项
 
