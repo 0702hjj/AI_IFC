@@ -6,7 +6,9 @@
     "docs:dev": "vitepress dev site",
     "docs:build": "vitepress build site",
     "docs:dev:internal": "node scripts/internal-site.mjs && vitepress dev .internal",
-    "docs:build:internal": "node scripts/internal-site.mjs && vitepress build .internal"
+    "docs:build:internal": "node scripts/internal-site.mjs && vitepress build .internal",
+    "gen:api": "node scripts/gen-edit-api-reference.mjs && node scripts/gen-go-routes.mjs",
+    "check:api": "npm run gen:api && git -C .. diff --exit-code -- docs/site/reference/edit-api-reference.md docs/site/public/go-rest-api.routes.json"
   },
   "devDependencies": {
     "vitepress": "^1.6.0"

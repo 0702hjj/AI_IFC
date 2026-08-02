@@ -8,6 +8,7 @@
 - 真改 IFC：edit-service（pending → commit）、版本快照、属性级语义 diff、Diff Viewer、override → 真改迁移。
 - AI 接入口：人/AI 双角色编辑 API（provenance 区分）、OpenAPI 工具目录、接入指南。
 - 文档站：本 VitePress 站点、PR 构建校验与 GitHub Pages 自动部署。
+- 文档增强：英文 locale（首页、快速开始、总体架构、贡献、API 入口）、edit-service API 参考页与 Go 端点清单的机器生成 + CI 漂移检测。
 
 ## 近期
 
@@ -17,8 +18,8 @@
 
 ## 后续
 
-- **双语扩展**：中文文档稳定后增加英文 locale；英文优先覆盖首页、快速开始、总体架构、贡献与 API 入口；禁止仅创建空的英文导航或占位页。
-- **API 自动生成**：从 edit-service 的 FastAPI OpenAPI schema 生成或同步 API 页面；为 Go server 建立机器可读契约；CI 检测 schema 与已提交产物漂移；人工指南继续解释工作流与语义。
+- **双语扩展（后续）**：其余页面（Viewer 使用、开发指南细节、项目组）的英文版本。
+- **API 自动生成（后续）**：edit-service 的"代码 vs schema"漂移检测（需 ifcdiff 依赖自包含）；Go server 请求/响应 schema 的完整自动生成。
 - 编辑 API 的 MCP 封装；几何 diff；增量重转；diff 超时控制。
 
 ## v1 范围外

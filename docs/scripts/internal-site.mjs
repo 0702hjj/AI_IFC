@@ -28,7 +28,7 @@ mkdirSync(join(out, '.vitepress'), { recursive: true })
 // --- 2. Copy public site content to the wiki root ----------------------------
 // Public pages keep their URLs (/guide/..., /viewer/..., ...), so the absolute
 // links inside them keep working. Assets from site/public land in wiki /public.
-for (const entry of ['index.md', 'guide', 'viewer', 'development', 'reference', 'project', 'public']) {
+for (const entry of ['index.md', 'guide', 'viewer', 'development', 'reference', 'project', 'public', 'en']) {
   cpSync(join(docsRoot, 'site', entry), join(out, entry), { recursive: true })
 }
 
@@ -45,6 +45,7 @@ writeFileSync(join(out, 'index.md'), `# AI_IFC 内部 Wiki
 ## 公开内容（与文档站一致）
 
 - [快速开始](/guide/project-intro) · [Viewer 使用](/viewer/library) · [开发指南](/development/architecture) · [API 与 AI](/reference/rest-api) · [项目](/project/roadmap)
+- English docs: [Quick Start](/en/guide/project-intro)
 
 ## 内部文档
 

@@ -15,6 +15,6 @@ uv run python scripts/export_openapi.py
 
 ## Go server
 
-Go server 的 REST 契约当前以本文档站 [Viewer REST API](/reference/rest-api) 为人工维护的公开契约，没有自动生成的 schema。
+Go server 的 REST 契约当前以本文档站 [Viewer REST API](/reference/rest-api) 为人工维护的公开契约。另提供从 Go mux 注册扫描生成的**机器可读端点清单**：[go-rest-api.routes.json](/go-rest-api.routes.json)（method / path / handler / 源文件），由 `docs/scripts/gen-go-routes.mjs` 生成，`npm run check:api` 检测漂移；Go 侧请求/响应 schema 的完整自动生成仍属后续迭代。
 
-> 自动生成与漂移检测（从 schema 生成页面、CI 检测 schema 与已提交产物是否一致）属于后续迭代，见 [Roadmap](/project/roadmap)。
+> 自动生成与漂移检测已部分落地：edit-service 的字段/端点参考页由 OpenAPI schema 生成（见 [编辑 API 参考（自动生成）](/reference/edit-api-reference)）；edit-service 的"代码 vs schema"漂移检测需待 ifcdiff 依赖自包含后才能接入（见 [Roadmap](/project/roadmap)）。
