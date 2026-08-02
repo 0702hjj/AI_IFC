@@ -31,7 +31,7 @@ cd viewer/server && go run ./cmd/server
 cd viewer/web && npm run dev
 ```
 
-打开 http://localhost:5173 即可使用。完整配置项见 [配置说明](/guide/configuration)。
+打开 `http://localhost:5173` 即可使用。完整配置项见 [配置说明](/guide/configuration)。
 
 ## 验证
 

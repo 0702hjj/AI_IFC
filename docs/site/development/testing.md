@@ -25,7 +25,7 @@ cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
 
 ## 手工验证清单（浏览器）
 
-1. 打开 http://localhost:5173 ，上传 `.ifc`（≤200MB）。
+1. 打开 `http://localhost:5173` ，上传 `.ifc`（≤200MB）。
 2. 列表状态 `converting → ready`（2s 轮询）；failed 显示错误并可重试。
 3. 进入查看器：模型渲染、轨道旋转/缩放、NavCube 可用。
 4. 模型树：默认展开 1 层；搜索/类型过滤；节点显隐；点击节点相机飞行 + 高亮。
