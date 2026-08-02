@@ -26,13 +26,13 @@
 ```
 `status` ∈ `converting | ready | failed`
 
-### GET /api/models/{id}
+### GET /api/models/{id} {#model-detail}
 单模型详情，结构同上。
 
 ### POST /api/models/{id}/retry
 对 `failed` 模型重新入队转换；响应返回更新后的模型对象（`status:"converting"`）。
 
-### DELETE /api/models/{id}
+### DELETE /api/models/{id} {#delete-model}
 删除该模型的 IFC、XKT、metadata 与状态文件。响应 `data: null`。
 
 ### GET /api/models/{id}/download
@@ -52,10 +52,10 @@ multipart/form-data：
 
 返回 `data: Issue`（含生成的 `id`、`status:"open"`、`author`/`provenance`（默认 `local-user`/`{"source":"UI"}`）、`screenshot` 相对路径如 `issues/{id}.png`、`createdAt/updatedAt`）。
 
-### PATCH /api/models/{id}/issues/{issueId}
+### PATCH /api/models/{id}/issues/{issueId} {#patch-issue}
 JSON body：`{"title"?, "comment"?, "status"?}`，仅更新传入字段。返回 `data: Issue`。
 
-### DELETE /api/models/{id}/issues/{issueId}
+### DELETE /api/models/{id}/issues/{issueId} {#delete-issue}
 删除 Issue 及其截图。返回 `data: null`。
 
 ### GET /models/{id}/issues/{file}

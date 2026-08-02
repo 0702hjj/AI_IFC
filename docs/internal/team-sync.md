@@ -23,7 +23,7 @@
 | AI 接入 | REST 先行 + OpenAPI 工具目录 | 零新组件得到可喂 LLM 的契约；MCP 是薄包装（v1.1） | 直接实现 MCP |
 | 部署形态 | 自托管 docker compose（N+3 交付），单机无认证 | v1 定位内网/个人；鉴权/多用户改变整个信任模型，属 v2 | SaaS / 多租户 |
 
-与 deep-research-report（愿景层）的逐项映射与偏差记录：[research/overview.md](../research/overview.md)、[architecture/ai-bim.md](architecture/ai-bim.md) §七。
+与 deep-research-report（愿景层）的逐项映射与偏差记录：[research/overview.md](https://github.com/0702hjj/AI_IFC/blob/main/research/overview.md)、[architecture/ai-bim.md](architecture/ai-bim.md) §七。
 
 ## 二、当前架构
 

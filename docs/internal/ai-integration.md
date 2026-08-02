@@ -1,6 +1,6 @@
 # AI 接入口：编辑 API 集成指南
 
-面向 AI 生成线的接入文档：如何用 REST 调用本仓库的 IFC 编辑服务，完成「改属性 → pending → commit → diff」全流程。文档中的端点、字段、枚举、默认值均与 `viewer/edit-service/app/`（Python FastAPI）和 `viewer/server/internal/api/`（Go 代理）实现逐一核对；机器可消费的完整 schema 见 [`docs/site/public/ai-tools.openapi.json`](../site/public/ai-tools.openapi.json)（由实现导出，重新生成方式见文末）。
+面向 AI 生成线的接入文档：如何用 REST 调用本仓库的 IFC 编辑服务，完成「改属性 → pending → commit → diff」全流程。文档中的端点、字段、枚举、默认值均与 `viewer/edit-service/app/`（Python FastAPI）和 `viewer/server/internal/api/`（Go 代理）实现逐一核对；机器可消费的完整 schema 见 [`docs/site/public/ai-tools.openapi.json`](https://github.com/0702hjj/AI_IFC/blob/main/docs/site/public/ai-tools.openapi.json)（由实现导出，重新生成方式见文末）。
 
 ## 概述：双角色同一 API
 
