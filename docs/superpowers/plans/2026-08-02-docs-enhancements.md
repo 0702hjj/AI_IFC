@@ -12,6 +12,8 @@
 
 ---
 
+> **变更记录（2026-08-02）**：Task 6（产品截图）经用户确认后**取消**，本次迭代不实现截图；Task 7 的 Roadmap 更新与验收相应去掉截图项。其余任务（双语、API 自动生成）按计划完成。
+
 ## Global Constraints
 
 - 工作分支 `iteration-docs-enhancements`，基于 main（PR #1/#2 均已合并）。
@@ -1295,6 +1297,8 @@ git commit -m "docs: generate API reference pages and add CI drift check"
 
 ## Task 6: 产品截图
 
+> **已取消（2026-08-02，用户决定不做）**：原计划拍摄模型库/三维审查/Diff 三张真实截图并嵌入页面。本次迭代不执行本任务；如后续需要，可单独立项。
+
 **Files:**
 - Create（运行产物，提交入库）: `docs/site/public/screenshots/library.png`、`viewer.png`、`diff.png`
 - Modify: `docs/site/guide/first-ifc.md`、`docs/site/en/guide/first-ifc.md`、`docs/site/viewer/versions-diff.md`（嵌入截图）
@@ -1404,10 +1408,10 @@ git commit -m "docs: add product screenshots (library, viewer, diff)"
 
 - [ ] **Step 1: 更新公开 Roadmap `docs/site/project/roadmap.md`**
 
-「已完成」追加：
+「已完成」追加（不含截图）：
 
 ```markdown
-- 文档增强：英文 locale（首页、快速开始、总体架构、贡献、API 入口）、产品截图（模型库/三维审查/Diff）、edit-service API 参考页与 Go 端点清单的机器生成 + CI 漂移检测。
+- 文档增强：英文 locale（首页、快速开始、总体架构、贡献、API 入口）、edit-service API 参考页与 Go 端点清单的机器生成 + CI 漂移检测。
 ```
 
 「后续」改为：
@@ -1475,7 +1479,7 @@ Expected: PR 创建成功；CI（docs build、api-reference、viewer 四组）�
 
 ## Self-Review（写后自查）
 
-- **Spec 覆盖**：§9.1 双语（英文优先集完整、无占位、剩余页列为后续）、§9.2 API 自动生成（edit-service 页面生成 + Go 机器可读清单 + CI 漂移检测 + 人工指南保留）、§9.3 截图（真实产品截图 + 嵌入公开页）；BotRS 的 locales 镜像组织为参考（root + zh/en 镜像，URL 前缀 `/en/`）。
+- **Spec 覆盖**：§9.1 双语（英文优先集完整、无占位、剩余页列为后续）、§9.2 API 自动生成（edit-service 页面生成 + Go 机器可读清单 + CI 漂移检测 + 人工指南保留）；§9.3 截图经用户确认**不做**（变更记录见文首）；BotRS 的 locales 镜像组织为参考（root + zh/en 镜像，URL 前缀 `/en/`）。
 - **占位符扫描**：无 TODO/TBD；英文 11 页全部有完整内容。
 - **确定性**：生成脚本无时间戳、稳定排序；`check:api` 以 git diff 判漂移。
 - **类型一致性**：config 侧边栏 link 与 en 页面文件一一对应（en/guide/4、en/development/1、en/reference/4、en/project/1、en/index）；生成的 `edit-api-reference` 在 zh/en 侧边栏均挂 `/reference/edit-api-reference`；机器产物路径与脚本一致（`site/reference/edit-api-reference.md`、`site/public/go-rest-api.routes.json`）。

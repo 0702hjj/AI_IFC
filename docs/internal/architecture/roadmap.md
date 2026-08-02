@@ -62,6 +62,9 @@ AI agent（另一同学）──► 同一套编辑 API（REST 直连或经 Go �
 
 - **双语扩展**：第一版中文文档稳定后再增加英文 locale；英文优先覆盖首页、快速开始、总体架构、贡献和 API 入口；禁止仅创建空的英文导航或内容占位页。
 - **API 自动生成**：从 FastAPI OpenAPI schema 生成或同步 edit-service API 页面；为 Go server 建立机器可读规范或等价契约生成方式；CI 检测 schema 与已提交产物是否漂移；人工指南继续解释工作流和语义。
+- 已完成（2026-08-02，分支 iteration-docs-enhancements）：英文 locale 优先集（首页/快速开始/总体架构/贡献/API 入口）、edit-service API 参考页 + Go 端点清单生成与 CI 漂移检测（`npm run gen:api` / `check:api` + docs workflow `api-reference` job）。
+- 仍待办：edit-service 代码 vs schema 漂移检测（ifcdiff 自包含后）、Go server 完整 schema 生成、英文剩余页面。
+- 明确不做（2026-08-02，用户决定）：文档截图/录屏（原 spec §9.3 可选增强），如后续需要可单独立项。
 
 ## 四、AI 接入口架构（交付给另一位同学）
 
