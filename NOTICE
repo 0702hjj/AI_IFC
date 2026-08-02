@@ -16,7 +16,7 @@ The following archived portions retain their original copyright and license:
   - skills/simplecadapi/     (SimpleCAD API Team)
   - examples/                (SimpleCAD API Team)
   - pyproject.toml           (SimpleCADAPI package metadata, archived)
-  - docs/legacy/SimpleCADAPI.md
+  - docs/archive/simplecadapi/legacy/SimpleCADAPI.md
 
 All new code under viewer/ and docs/ is Copyright (C) 2026 0702hjj,
 licensed AGPL-3.0-only (SPDX-License-Identifier headers in each file).
@@ -46,7 +46,7 @@ Runtime dependencies and their licenses:
 Note: ifcdiff is currently referenced as a local editable path dependency
 (../IfcOpenShell/src/ifcdiff) and is NOT distributed with this repository.
 Before the v0.1.0 release it will be vendored (with its LGPL-3.0 header
-preserved) or pinned as a git source — see docs/open-source-plan.md §二.
+preserved) or pinned as a git source — see docs/internal/open-source-plan.md §二.
 
 Full dependency manifests:
   viewer/server/go.mod, viewer/web/package.json,
