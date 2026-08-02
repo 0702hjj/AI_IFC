@@ -58,6 +58,11 @@ AI agent（另一同学）──► 同一套编辑 API（REST 直连或经 Go �
 3. **开源工程化**：GitHub Actions CI（go test、web test、PG service 集成、smoke）；LICENSE 审计（AGPL-3.0 与全部依赖兼容性，含 pgx/xeokit/ifcopenshell）；issue/PR 模板；`.gitignore` 复查 + 密钥扫描
 4. **发布**：v0.1.0 tag + release notes + 示例模型（可用 research 样例 IFC）
 
+### 后续任务（文档站确认，2026-08-02）
+
+- **双语扩展**：第一版中文文档稳定后再增加英文 locale；英文优先覆盖首页、快速开始、总体架构、贡献和 API 入口；禁止仅创建空的英文导航或内容占位页。
+- **API 自动生成**：从 FastAPI OpenAPI schema 生成或同步 edit-service API 页面；为 Go server 建立机器可读规范或等价契约生成方式；CI 检测 schema 与已提交产物是否漂移；人工指南继续解释工作流和语义。
+
 ## 四、AI 接入口架构（交付给另一位同学）
 
 AI 生成本体不在本仓库范围，但 v1 架构保证其可接入：
