@@ -84,20 +84,20 @@ jobs:
         run: |
           uv venv .ci-venv
           uv pip install --python .ci-venv pytest
+          echo "$GITHUB_WORKSPACE/.ci-venv/bin" >> "$GITHUB_PATH"
       - name: Run pack tests (repo root test/)
         run: |
-          .ci-venv/bin/python -m pytest test/test_skill_pack.py test/test_skill_pack_aiifc.py -q
+          python -m pytest test/test_skill_pack.py test/test_skill_pack_aiifc.py -q
       - name: Build skill bundle + archive
         run: |
-          .ci-venv/bin/python tools/skill_pack_aiifc.py --archive --output-root /tmp/skill-dist
+          python tools/skill_pack_aiifc.py --archive --output-root /tmp/skill-dist
           test -f /tmp/skill-dist/aiifc.tar.gz
           test -d /tmp/skill-dist/aiifc/references/docs/flows
       - name: Verify bundle integrity
         run: |
-          cd /tmp/skill-dist
-          .ci-venv/bin/python -c "
+          python -c "
           import tarfile
-          names = tarfile.open('aiifc.tar.gz').getnames()
+          names = tarfile.open('/tmp/skill-dist/aiifc.tar.gz').getnames()
           assert 'aiifc/SKILL.md' in names
           assert 'aiifc/requirements.txt' in names
           assert not any('__pycache__' in n or n.endswith('.pyc') for n in names), 'bundle leaked pyc'
@@ -109,12 +109,12 @@ jobs:
       - name: Flows smoke (skeleton + full_building)
         run: |
           cd skills/aiifc/references/docs
-          ../../../.ci-venv/bin/python -m flows.skeleton
-          ../../../.ci-venv/bin/python -m flows.full_building
+          python -m flows.skeleton
+          python -m flows.full_building
       - name: Validate generated IFC
         run: |
           cd skills/aiifc/references/docs
-          ../../../.ci-venv/bin/python -c "
+          python -c "
           import ifcopenshell, ifcopenshell.validate
           m = ifcopenshell.open('model.ifc')
           lg = ifcopenshell.validate.json_logger()
