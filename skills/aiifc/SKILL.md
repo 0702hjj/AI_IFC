@@ -14,7 +14,7 @@ metadata:
 
 - Thin reference skill: docs only, no SDK source code bundled.
 - Agent reads these docs, then writes ifcopenshell.api code directly (not MCP tool calls).
-- Python runtime (demo environment): **always use `.venv/bin/python`** (ifcopenshell 0.8.5 preinstalled); system `python3` has NO ifcopenshell.
+- Python runtime (demo environment): **always use `.venv/bin/python`** (ifcopenshell / ifcquery / ifcdiff 0.8.5 all preinstalled via `viewer/edit-service` pyproject, PyPI 发布版, 无本地源码依赖); system `python3` has NO ifcopenshell.
 
 ## MUST Requirements
 
@@ -23,42 +23,42 @@ metadata:
 2. Read the exact usecase Markdown page (`docs/api/<pkg>.<usecase>.md`) for every usecase you call.
 3. Read `references/MODELING_WORKFLOWS.md` before building your first model.
 4. **Read `references/SPATIAL_QUALITY.md` BEFORE framing any design JSON** — it is a design constraint (not only a post-check): footprint articulation (CP-05, no lazy rectangles), door swing clearance (GI-08), stair continuity (GI-09) must be internalized up front so the design JSON is born compliant. Also read `references/DESIGN_PATTERNS.md` before choosing massing/facade/spatial organization.
-5. **Component recipes — consult before building any element**: Before constructing a specific component (window, door, stair, roof, parapet, balcony, atrium, massing variant, etc.), check the component-recipe library under `references/docs/design/` for a matching recipe. Each recipe specifies the IFC class, geometry method, parameter range, and variants — follow its parametric scheme rather than inventing coordinates/parameters/types; fall back to the generic API only when no recipe matches. This is a per-component, high-frequency habit, independent of the complex design-JSON flow (#20). The index of which recipe covers which component lives in `docs/design/README.md` — read it to locate the right recipe. 
+5. **Component recipes — consult before building any element**: Before constructing a specific component (window, door, stair, roof, parapet, balcony, atrium, massing variant, etc.), check the component-recipe library under `references/docs/design/` for a matching recipe. Each recipe specifies the IFC class, geometry method, parameter range, and variants — follow its parametric scheme rather than inventing coordinates/parameters/types; fall back to the generic API only when no recipe matches. This is a per-component, high-frequency habit, independent of the complex design-JSON flow (#18). The index of which recipe covers which component lives in `docs/design/README.md` — read it to locate the right recipe. 
 
 **API usage:**
-5. All API calls use **keyword arguments**; the first positional argument is always `model`.
-6. Use `ifcopenshell.api.run("<package>.<usecase>", model, **kwargs)` as the calling convention.
-7. Follow the documented API signatures exactly — do not invent parameters.
+6. All API calls use **keyword arguments**; the first positional argument is always `model`.
+7. Use `ifcopenshell.api.run("<package>.<usecase>", model, **kwargs)` as the calling convention.
+8. Follow the documented API signatures exactly — do not invent parameters.
 
 **Skeleton:**
-8. **Skeleton first**: build Project→Site→Building→Storey spatial tree before any element or geometry.
-9. **Every element needs a container**: always `spatial.assign_container`. No orphan elements.
+9. **Skeleton first**: build Project→Site→Building→Storey spatial tree before any element or geometry.
+10. **Every element needs a container**: always `spatial.assign_container`. No orphan elements.
 
 **Geometry:**
-10. **If a product has geometry, it needs placement**: `geometry.edit_object_placement` for every product with a body representation.
-11. **`create_2pt_wall` returns the representation but does NOT assign it** — always `geometry.assign_representation` separately.
+11. **If a product has geometry, it needs placement**: `geometry.edit_object_placement` for every product with a body representation.
+12. **`create_2pt_wall` returns the representation but does NOT assign it** — always `geometry.assign_representation` separately.
 
 **Opening:**
-12. **Set world coordinates for openings before `feature.add_feature`** (it converts world → relative automatically). Never set "wall-local" coordinates manually — double-offset error.
-13. **Opening thickness must exceed wall thickness** (≥ 1.5×) to fully penetrate.
+13. **Set world coordinates for openings before `feature.add_feature`** (it converts world → relative automatically). Never set "wall-local" coordinates manually — double-offset error.
+14. **Opening thickness must exceed wall thickness** (≥ 1.5×) to fully penetrate.
 
 **Normativity:**
-17. **Pset applicability**: before `pset.add_pset`, verify via `PsetQto.get_applicable_names()` (see PSET_REFERENCE.md).
-18. **PredefinedType enum**: verify the value is in the entity's allowed enum list (see ENTITY_SPECS.md).
-19. **Pset + material coverage**: every product class must get ≥1 pset AND ≥1 material; spot-check with `util.element.get_psets(e)` / `get_material(e)`.
+15. **Pset applicability**: before `pset.add_pset`, verify via `PsetQto.get_applicable_names()` (see PSET_REFERENCE.md).
+16. **PredefinedType enum**: verify the value is in the entity's allowed enum list (see ENTITY_SPECS.md).
+17. **Pset + material coverage**: every product class must get ≥1 pset AND ≥1 material; spot-check with `util.element.get_psets(e)` / `get_material(e)`.
 
 **Generation (design JSON first for complex geometry):**
-20. **Complex buildings** (multi-room floor plans, irregular/sloped/curved walls, multi-storey): **frame the geometry with a design JSON first** — the LLM outputs parametric intent (footprint / axis paths / openings along-axis / stairs / roof), never coordinate math. **But a design JSON is a design decision, not a fixed layout to follow blindly**: before emitting it, consult `DESIGN_PATTERNS.md` (massing/facade/structure/circulation/spatial) and `docs/design/` (roof/stairs/windows/parapet/balcony recipes) to *choose* the design; and the downstream build script must consult `docs/api/` usecases + `docs/design/` recipes for component details rather than following the JSON literally. Then `flows/design_builder.py` → `features.json` → per-building build script. **Do NOT improvise coordinates for complex geometry** — that is the root cause of drift / misalignment / gaps.
-21. **Simple single wall/slab**: may still be coded directly (Pipeline Stages).
+18. **Complex buildings** (multi-room floor plans, irregular/sloped/curved walls, multi-storey): **frame the geometry with a design JSON first** — the LLM outputs parametric intent (footprint / axis paths / openings along-axis / stairs / roof), never coordinate math. **But a design JSON is a design decision, not a fixed layout to follow blindly**: before emitting it, consult `DESIGN_PATTERNS.md` (massing/facade/structure/circulation/spatial) and `docs/design/` (roof/stairs/windows/parapet/balcony recipes) to *choose* the design; and the downstream build script must consult `docs/api/` usecases + `docs/design/` recipes for component details rather than following the JSON literally. Then `flows/design_builder.py` → `features.json` → per-building build script. **Do NOT improvise coordinates for complex geometry** — that is the root cause of drift / misalignment / gaps.
+19. **Simple single wall/slab**: may still be coded directly (Pipeline Stages).
 
 **Validation (three layers, see MODELING_WORKFLOWS → Grounding):**
-14. **During**: `tracker.snapshot()` after each step that changes geometry or placement. Curtain-wall doors/windows are exempt from opening-link checks (they sit in the grid, not in `IfcOpeningElement`).
-15. **After**: run `flows/design_review.py` once per build as a **fixed black-box check** — just run it and read its text report (`ERRORS / WARNINGS / INFO`). **Do NOT spend effort understanding or editing its code.** If it flags errors, fix the MODEL against the rule descriptions in `references/SPATIAL_QUALITY.md` — that file is the single source of truth for what each rule means (read it, not the tool's implementation). These are the same rules you internalized BEFORE generating (MUST #4), so a compliant design JSON should pass without a fix-loop. Never write your own verification script to replace it.
-16. **Export**: `model.write()` is followed by `ifcopenshell.validate`. No model is complete without passing schema validation.
+20. **During**: `tracker.snapshot()` after each step that changes geometry or placement. Curtain-wall doors/windows are exempt from opening-link checks (they sit in the grid, not in `IfcOpeningElement`).
+21. **After**: run `flows/design_review.py` once per build as a **fixed black-box check** — just run it and read its text report (`ERRORS / WARNINGS / INFO`). **Do NOT spend effort understanding or editing its code.** If it flags errors, fix the MODEL against the rule descriptions in `references/SPATIAL_QUALITY.md` — that file is the single source of truth for what each rule means (read it, not the tool's implementation). These are the same rules you internalized BEFORE generating (MUST #4), so a compliant design JSON should pass without a fix-loop. Never write your own verification script to replace it.
+22. **Export**: `model.write()` is followed by `ifcopenshell.validate`. No model is complete without passing schema validation.
 
 **Output & Verification:**
-22. **Output paths (mandatory, demo adaptation)**: build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; modelId is given via system context — never the repo root or `examples/` root); **design.json (complex-build artifact, MUST #20) → `viewer/data/staging/{modelId}.design.json`** (the system archives it per version to `models/{id}/designs/v{n}.json`, kept in sync with the build script); design_review/ifc_inspect analysis JSONs are auto-written by the tools to `analysis_results/` (project root, default tool behavior, no action needed).
-23. **No visualization rendering**: do NOT call `ifc_plot` / `ifc_render` / any PNG/SVG/image output. The agent cannot read images, and the user inspects the IFC in their own BIM viewer. All verification is **text-only**: `ifcopenshell.validate` (schema legality) + `design_review.py` (quality report) + `ifc_inspect.py` (on-demand filtered text dump).
+23. **Output paths (mandatory, demo adaptation)**: build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; modelId is given via system context — never the repo root or `examples/` root); **design.json (complex-build artifact, MUST #18) → `viewer/data/staging/{modelId}.design.json`** (the system archives it per version to `models/{id}/designs/v{n}.json`, kept in sync with the build script); design_review/ifc_inspect analysis JSONs are auto-written by the tools to `analysis_results/` (project root, default tool behavior, no action needed).
+24. **No visualization rendering**: do NOT call `ifc_plot` / `ifc_render` / any PNG/SVG/image output. The agent cannot read images, and the user inspects the IFC in their own BIM viewer. All verification is **text-only**: `ifcopenshell.validate` (schema legality) + `design_review.py` (quality report) + `ifc_inspect.py` (on-demand filtered text dump).
 
 ## Type Library
 

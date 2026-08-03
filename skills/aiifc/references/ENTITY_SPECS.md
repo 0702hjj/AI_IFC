@@ -12,5 +12,5 @@
 ## 用法
 
 - 生成代码前查实体属性: **REQ 必填**(GlobalId 等)、**PredefinedType 枚举值**必须与表一致。
-- PredefinedType 校验: 值必须在实体枚举列表内(SKILL.md MUST #18)。
+- PredefinedType 校验: 值必须在实体枚举列表内(SKILL.md MUST #16)。
 - 配合 `PSET_REFERENCE.md`(→ `docs/psets/`)挂属性集, `DESIGN_JSON_SCHEMA.md`(→ design JSON)框定几何。
