@@ -9,7 +9,6 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "ifcopenshell>=0.8",
     "ifcdiff>=0.8",
-    "ifcquery>=0.8",
 ]
 
 [dependency-groups]

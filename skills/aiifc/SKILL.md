@@ -14,7 +14,7 @@ metadata:
 
 - Thin reference skill: docs only, no SDK source code bundled.
 - Agent reads these docs, then writes ifcopenshell.api code directly (not MCP tool calls).
-- Python runtime (demo environment): **always use `.venv/bin/python`** (ifcopenshell / ifcquery / ifcdiff 0.8.5 all preinstalled via `viewer/edit-service` pyproject, PyPI 发布版, 无本地源码依赖); system `python3` has NO ifcopenshell.
+- Python runtime (demo environment): **always use `.venv/bin/python`**; the skill's flows/tools need `ifcopenshell` + `ifcquery` + `numpy` (see `requirements.txt` at skill root). In the demo, these come preinstalled (PyPI 发布版 0.8.5, 无本地源码依赖); system `python3` has NO ifcopenshell.
 
 ## MUST Requirements
 
