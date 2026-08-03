@@ -18,6 +18,7 @@ sandbox/
 
 # Generated skills archives
 skills/*.tar.gz
+skills/dist/
 
 .DS_Store
 
