@@ -87,6 +87,19 @@ AI 生成本体不在本仓库范围，但 v1 架构保证其可接入：
 
 关键路径：Python 服务骨架 → 编辑 API → IfcDiff → override 迁移 → Diff UI；N+3 的部署/文档可在 N+2 后段并行启动。
 
+## 五-b、测试整合与 IFC 适配（后续任务，2026-08-03 记录）
+
+> 背景：SCAD 遗产测试（根 `test/` 33 文件 + `tests/` 2 文件）随仓库归档保留，但其生成 STEP/STL 的目标产物已不在本项目范围（本项目目标是 IFC）。aiifc skill 打包测试（`test/test_skill_pack_aiifc.py`）目前与 SCAD 测试混放于根 `test/`。CI 已新增 `edit-service` 与 `skill-pack` 两个 Python job（2026-08，PR #5）。
+
+**待办（合理取舍，分批推进）**：
+
+1. **测试目录整合**：把 skill 打包测试（`test_skill_pack.py` + `test_skill_pack_aiifc.py`）收拢到 `tests/skill/`，与 SCAD 测试解耦；CI 的 `skill-pack` job 改指该目录。SCAD 测试（`test/`、`tests/`）保留不动，作为归档遗产。
+2. **测试适应 IFC 新需求**：围绕 IFC 目标补测试——
+   - aiifc skill 打包测试已就位（frontmatter/必需路径/噪声拒绝/归档完整性）。
+   - 补充 skill flows 冒烟测试（skeleton / wall / full_building 等，产出 `model.ifc` 并过 `ifcopenshell.validate`），固化到 CI。
+   - 评估 SCAD 生成 STEP/STL 相关测试的去留（按需裁剪或标注归档）。
+3. **CI 扩展**：把 edit-service 与 skill 测试纳入 PR 必过门禁（已部分完成）；后续可在 `smoke` 增加「AI skill 生成 → 上传 → 转换 → 查看」端到端冒烟。
+
 ## 六、风险与对策
 
 - **IfcDiff 大模型性能**：数百 MB IFC diff 可能慢 → 先限定属性级 diff 场景，几何 diff 按需；必要时 HDF5/流式（报告 §4.4）
