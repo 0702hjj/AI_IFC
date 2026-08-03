@@ -10,7 +10,7 @@ import ifcopenshell
 import ifcopenshell.api
 import ifcopenshell.util.placement
 
-from flows.skeleton import build_skeleton  # reuse skeleton builder
+from flows import skeleton  # reuse skeleton builder
 
 
 def build_wall(model, body, storey):

@@ -9,7 +9,7 @@ import numpy as np
 import ifcopenshell
 import ifcopenshell.api
 
-from flows.skeleton import build_skeleton  # reuse skeleton builder
+from flows import skeleton  # reuse skeleton builder
 
 
 def build_slab(model, body, storey):
