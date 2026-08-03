@@ -33,7 +33,7 @@ opencode CLI 服务 (AI agent) ──REST──► edit-service :8100   (provena
 **关键约束（接入失败的常见根因）**：
 
 - `VIEWER_DATA_DIR`（edit-service）必须与 server `server_config.json` 的 `dataDir` 指向**同一目录**，两边都按 `{dataDir}/uploads/{id}.ifc` 定位模型——不一致 → 404 `model not found` 或改的不是同一份文件。
-- edit-service 的本地依赖 `ifcdiff` 是相对路径（`pyproject.toml` 的 `../../../IfcOpenShell/src/ifcdiff`），若该目录不存在需先建软链（如 `ln -s <实际仓库> IFC_front/IfcOpenShell`），否则 `uv sync` 失败。
+- edit-service 依赖 `ifcopenshell` / `ifcdiff` / `ifcquery` 均为 **PyPI 官方发布**（对齐 IfcOpenShell 0.8.5），`uv sync` 直接安装，无本地源码依赖、无需软链。
 - 模型 id 必须匹配 `^m_[0-9a-f]{16}$`；guid 为 IFC GlobalId（22 位 base64 风格）。
 
 ## 接入契约（tool catalog）
@@ -111,7 +111,7 @@ demo 成功的判定标准：**浏览器刷新后能看到 opencode CLI 服务�
 ## 接入规范检查清单（每次接入前逐项核对）
 
 - [ ] edit-service 与 server 的 `dataDir` 一致（`VIEWER_DATA_DIR` vs `server_config.json`），且 `VIEWER_EDIT_SERVICE_URL` 指向 :8100
-- [ ] `uv sync` 成功（ifcdiff 本地路径可达）；`GET /health` 返回 ok
+- [ ] `uv sync` 成功（PyPI 版 ifcopenshell/ifcdiff/ifcquery 直接装，无需本地路径）；`GET /health` 返回 ok
 - [ ] `PUT .../entities/{guid}` 传 `provenance.source="AI"`；字段/pset 校验通过（未知属性名、类型不符、空 body 均 422）
 - [ ] 两阶段语义遵守：pending 阶段未落盘；commit 后 versions 递增、history 含 `operation`
 - [ ] diff 的 base/target 存在；`target="current"` 不缓存语义已知

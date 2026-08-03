@@ -56,7 +56,7 @@ cd edit-service && uv sync && VIEWER_DATA_DIR=../data uv run uvicorn app.main:ap
 curl http://127.0.0.1:8100/health    # → {"status":"ok"}
 ```
 
-> 首次 `uv sync` 需要本机 ifcdiff 本地路径可达（`pyproject.toml` 的 `../../../IfcOpenShell/src/ifcdiff`，如指向 `IFC_front/IfcOpenShell`）；目录不存在则先建软链，否则依赖安装失败。
+> 依赖 `ifcopenshell` / `ifcdiff` / `ifcquery` 均为 PyPI 官方发布（对齐 IfcOpenShell 0.8.5），`uv sync` 直接安装，无需本机 IfcOpenShell 源码或软链。
 
 配置（环境变量）：`VIEWER_DATA_DIR`（默认 `../data`，须与 server 一致）、`EDIT_SERVICE_PORT`（默认 8100）。Go 侧配置：
 

@@ -333,6 +333,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "ifcdiff" },
     { name = "ifcopenshell" },
+    { name = "ifcquery" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -345,8 +346,9 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "ifcdiff", editable = "../../../IfcOpenShell/src/ifcdiff" },
+    { name = "ifcdiff", specifier = ">=0.8" },
     { name = "ifcopenshell", specifier = ">=0.8" },
+    { name = "ifcquery", specifier = ">=0.8" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
 
@@ -358,17 +360,14 @@ dev = [
 
 [[package]]
 name = "ifcdiff"
-version = "0.0.0"
-source = { editable = "../../../IfcOpenShell/src/ifcdiff" }
+version = "0.8.5"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deepdiff" },
     { name = "ifcopenshell" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "deepdiff" },
-    { name = "ifcopenshell" },
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/2e/c111594a76b240c444a61849e812e0cb6014d87da292707492a2fd5a95e7/ifcdiff-0.8.5-py3-none-any.whl", hash = "sha256:aa587e95bfb9b5ca0dfd2e164202d0302f976935a3e21a3cb15411d5d844ee56", size = 6877, upload-time = "2026-04-13T13:23:58.88Z" },
 ]
 
 [[package]]
@@ -411,6 +410,17 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/35/cb/05664ab9568b949687088d771ef9b1658a4c4cd135289553aa4d12cc93ee/ifcopenshell-0.8.5-py314-none-manylinux_2_31_aarch64.whl", hash = "sha256:005dced5aaa45064e73287c75ed9cf5f8ba54bce80c496fd76404313833cd62e", size = 41035596, upload-time = "2026-04-13T13:42:20.516Z" },
     { url = "https://files.pythonhosted.org/packages/b2/aa/6529f307901b03c49312a97ee9fa6aede996fb89094597a5b7743919e0f4/ifcopenshell-0.8.5-py314-none-manylinux_2_31_x86_64.whl", hash = "sha256:15b488347efce0d7f5ab5b6d5561cf30428353b6ee8c7c8a53724f4b10ad4ac6", size = 43717208, upload-time = "2026-04-13T13:42:50.056Z" },
     { url = "https://files.pythonhosted.org/packages/1a/32/333cfd39c468e2e365adba80e35cc551eb9c0f147cfe8497a64b0617919a/ifcopenshell-0.8.5-py314-none-win_amd64.whl", hash = "sha256:13a5992dc07e69c0c78df5479e1ff9635e6ce9fa70c841d9ce2931e8481eabb9", size = 24542242, upload-time = "2026-04-13T13:42:08.57Z" },
+]
+
+[[package]]
+name = "ifcquery"
+version = "0.8.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ifcopenshell" },
+]
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2a/6b/d30688ac69adb8c8ef455dd5ee9cc34321485a1ca9c7bc16e03c9bafc0ae/ifcquery-0.8.5-py3-none-any.whl", hash = "sha256:b15a1f4b06600dfa31e193f510980c8dffdb270781a38451f2947be73ac4256c", size = 34364, upload-time = "2026-04-01T06:54:52.977Z" },
 ]
 
 [[package]]
