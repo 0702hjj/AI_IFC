@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,7 +18,9 @@ import (
 	"strings"
 
 	"ifcviewer/server/internal/change"
+	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/editsvc"
+	"ifcviewer/server/internal/store"
 )
 
 const (
@@ -241,20 +244,31 @@ func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
 		return
 	}
-	// Python commit 不带 body（operation 默认 update；author/provenance 随 PUT 流入 pending）
-	res, err := h.ed.Commit(r.Context(), m.ID, nil)
+	resp, err := commitOrchestrate(r.Context(), h.ed, h.st, h.chg, h.q, m.ID)
 	if err != nil {
 		writeEditErr(w, err)
 		return
 	}
+	writeJSON(w, resp)
+}
+
+// commitOrchestrate 执行 Python commit 及 Go 侧编排：commit → change log（含 diff 补充）
+// → 置 converting → 入队重转。editCommit handler 与 chat 模块（AI 三连）共用。
+// 策略：Python commit 成功后一律排重转；change log 写失败仅降级为响应 warning。
+// Python commit 不带 body（operation 默认 update；author/provenance 随 PUT 流入 pending）。
+func commitOrchestrate(ctx context.Context, ed *editsvc.Client, st *store.Store, chg change.Store, q *convert.Queue, modelID string) (map[string]any, error) {
+	res, err := ed.Commit(ctx, modelID, nil)
+	if err != nil {
+		return nil, err
+	}
 	entries := expandEntries(res.Entries, "update")
 	// diff 字段补充（非致命）：base = v{n-1}，n 取 versions.current。
-	if vers, err := h.ed.GetVersions(r.Context(), m.ID); err != nil {
-		log.Printf("edit commit %s: get versions for diff: %v", m.ID, err)
+	if vers, err := ed.GetVersions(ctx, modelID); err != nil {
+		log.Printf("edit commit %s: get versions for diff: %v", modelID, err)
 	} else if n := versionNum(vers.Current); n >= 2 {
-		d, err := h.ed.Diff(r.Context(), m.ID, fmt.Sprintf("v%d", n-1), "current")
+		d, err := ed.Diff(ctx, modelID, fmt.Sprintf("v%d", n-1), "current")
 		if err != nil {
-			log.Printf("edit commit %s: diff v%d->current: %v", m.ID, n-1, err)
+			log.Printf("edit commit %s: diff v%d->current: %v", modelID, n-1, err)
 		} else {
 			byGUID := map[string][]editsvc.DiffChange{}
 			for _, c := range d.Changed {
@@ -269,17 +283,16 @@ func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// 策略：Python commit 成功后一律排重转；change log 写失败仅降级为响应 warning（HTTP 200）。
 	var warning string
-	if err := h.chg.Append(m.ID, entries...); err != nil {
-		log.Printf("edit commit %s: change log append failed after commit: %v", m.ID, err)
+	if err := chg.Append(modelID, entries...); err != nil {
+		log.Printf("edit commit %s: change log append failed after commit: %v", modelID, err)
 		warning = "commit applied but change log write failed: " + err.Error()
 	}
-	if err := h.st.SetStatus(m.ID, "converting", ""); err != nil {
-		log.Printf("edit commit %s: set converting: %v", m.ID, err)
+	if err := st.SetStatus(modelID, "converting", ""); err != nil {
+		log.Printf("edit commit %s: set converting: %v", modelID, err)
 	}
-	if !h.q.Enqueue(m.ID) {
-		log.Printf("edit commit %s: conversion already pending", m.ID)
+	if !q.Enqueue(modelID) {
+		log.Printf("edit commit %s: conversion already pending", modelID)
 	}
 	resp := map[string]any{
 		"committed":    res.Committed,
@@ -289,7 +302,7 @@ func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
 	if warning != "" {
 		resp["warning"] = warning
 	}
-	writeJSON(w, resp)
+	return resp, nil
 }
 
 // --- override → 真改迁移 ---

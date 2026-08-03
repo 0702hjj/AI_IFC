@@ -22,6 +22,8 @@ function ToolbarInner({ id }: { id: string }) {
   const setTool = useViewerStore((s) => s.setTool);
   const diffOpen = useViewerStore((s) => s.diffOpen);
   const setDiffOpen = useViewerStore((s) => s.setDiffOpen);
+  const chatOpen = useViewerStore((s) => s.chatOpen);
+  const setChatOpen = useViewerStore((s) => s.setChatOpen);
   const { clear } = useMeasurements();
   const [sectionEnabled, setSectionEnabled] = useState(false);
 
@@ -68,6 +70,14 @@ function ToolbarInner({ id }: { id: string }) {
         <a className="toolbar-btn toolbar-link" href={downloadUrl(id)} download>
           下载 IFC
         </a>
+        <button
+          type="button"
+          className={`toolbar-btn${chatOpen ? " active" : ""}`}
+          aria-pressed={chatOpen}
+          onClick={() => setChatOpen(!chatOpen)}
+        >
+          AI 对话
+        </button>
       </div>
       <SectionControl enabled={sectionEnabled} />
     </div>

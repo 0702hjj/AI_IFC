@@ -6,5 +6,6 @@
   "converterScript": "../converter/convert.js",
   "maxUploadMB": 200,
   "pgDSN": "",
-  "editServiceURL": "http://127.0.0.1:8100"
+  "editServiceURL": "http://127.0.0.1:8100",
+  "openCodeURL": "http://127.0.0.1:4096"
 }

@@ -14,6 +14,55 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function listModels() { return request<ModelInfo[]>("/api/models"); }
 export function fetchModel(id: string) { return request<ModelInfo>(`/api/models/${id}`); }
+
+// --- chat 模块（demo） ---
+export interface ChatSession {
+  chatSessionId: string;
+  opencodeSessionId: string;
+  modelId: string;
+  title: string;
+  createdAt: string;
+}
+export function createChatSession(title: string, modelId: string | null) {
+  return request<ChatSession>("/api/chat/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, modelId: modelId ?? "" }),
+  });
+}
+export function listChatSessions() { return request<ChatSession[]>("/api/chat/sessions"); }
+export function createChatProject(title: string) {
+  return request<ModelInfo>("/api/chat/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+}
+export function postChatMessage(cid: string, text: string) {
+  return request<{ accepted: boolean }>(`/api/chat/sessions/${cid}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text }),
+  });
+}
+export interface ChatPart {
+  id?: string;
+  type: string; // text | reasoning | tool
+  text?: string;
+  tool?: string;
+  state?: { status?: string; title?: string; input?: unknown; output?: string; error?: string };
+}
+export interface ChatHistoryMsg {
+  info: { id: string; role: string };
+  parts: ChatPart[];
+}
+export function fetchChatMessages(cid: string) {
+  return request<ChatHistoryMsg[]>(`/api/chat/sessions/${cid}/messages`);
+}
+export function abortChatSession(cid: string) {
+  return request<{ aborted: boolean }>(`/api/chat/sessions/${cid}/abort`, { method: "POST" });
+}
+export const chatEventsUrl = (cid: string) => `/api/chat/sessions/${cid}/events`;
 export function uploadModel(file: File) {
   const fd = new FormData();
   fd.append("file", file);

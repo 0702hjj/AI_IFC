@@ -26,4 +26,7 @@ skills/*.tar.gz
 *.stl
 examples.py
 
+# AI skill 运行期产物（design_review / ifc_inspect 自动写出）
+analysis_results/
+
 .superpowers/

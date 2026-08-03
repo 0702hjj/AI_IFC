@@ -23,8 +23,13 @@ vi.mock("@/viewer/ModelTreePanel", () => ({ ModelTreePanel: () => null }));
 vi.mock("@/viewer/PropertyPanel", () => ({ PropertyPanel: () => null }));
 vi.mock("@/viewer/IssuePanel", () => ({ IssuePanel: () => null }));
 vi.mock("@/viewer/DiffPanel", () => ({ DiffPanel: () => null }));
+vi.mock("@/viewer/ChatSidebar", () => ({ ChatSidebar: () => null }));
 
-const api = vi.hoisted(() => ({ fetchModel: vi.fn() }));
+const api = vi.hoisted(() => ({
+  fetchModel: vi.fn(),
+  createChatSession: vi.fn(() => new Promise(() => {})), // 永不 resolve：本测试不关心 chat
+  listChatSessions: vi.fn(() => Promise.resolve([])),
+}));
 vi.mock("@/api/client", () => api);
 
 import ViewerPage from "./ViewerPage";

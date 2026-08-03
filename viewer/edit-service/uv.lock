@@ -345,7 +345,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "ifcdiff", editable = "../../../IfcOpenShell/src/ifcdiff" },
+    { name = "ifcdiff", specifier = ">=0.8" },
     { name = "ifcopenshell", specifier = ">=0.8" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
@@ -358,17 +358,14 @@ dev = [
 
 [[package]]
 name = "ifcdiff"
-version = "0.0.0"
-source = { editable = "../../../IfcOpenShell/src/ifcdiff" }
+version = "0.8.5"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "deepdiff" },
     { name = "ifcopenshell" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "deepdiff" },
-    { name = "ifcopenshell" },
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/2e/c111594a76b240c444a61849e812e0cb6014d87da292707492a2fd5a95e7/ifcdiff-0.8.5-py3-none-any.whl", hash = "sha256:aa587e95bfb9b5ca0dfd2e164202d0302f976935a3e21a3cb15411d5d844ee56", size = 6877, upload-time = "2026-04-13T13:23:58.88Z" },
 ]
 
 [[package]]

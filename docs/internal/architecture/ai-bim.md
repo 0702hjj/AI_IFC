@@ -152,7 +152,7 @@ POST /models/{id}/commit
 
 **已知技术债（按优先级）**：
 1. 三份历史（Go change.Store / edit-history.json / 内存 pending）——已出现一次 operation 漂移（终审修复），v2 归并单源
-2. ifcdiff 本地 editable 依赖（`../../../IfcOpenShell`）——N+3 改 vendor 或 git source（开源方案有审计步骤）
+2. ~~ifcdiff 本地 editable 依赖~~——**已解决（2026-08）**：`ifcopenshell`/`ifcdiff` 改为 PyPI 官方发布，`uv sync` 直接安装，无本地源码依赖（skill 侧 `ifcquery` 随 `skills/aiifc/requirements.txt` 提供）
 3. pending 内存态（重启丢失）——v2 持久化
 4. diff 无超时控制（大模型阻塞 threadpool）——N+3
 5. Python 侧存储仅文件模式（PG 模式下 versions/history 仍在文件）——文档声明，v2 评估

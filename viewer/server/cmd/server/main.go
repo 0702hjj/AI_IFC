@@ -22,6 +22,7 @@ import (
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/editsvc"
 	"ifcviewer/server/internal/issue"
+	"ifcviewer/server/internal/opencode"
 	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
 )
@@ -36,6 +37,7 @@ type config struct {
 	MaxUploadMB     int64  `json:"maxUploadMB"`
 	PgDSN           string `json:"pgDSN"`
 	EditServiceURL  string `json:"editServiceURL"`
+	OpenCodeURL     string `json:"openCodeURL"`
 }
 
 func loadConfig(path string) (*config, error) {
@@ -58,6 +60,12 @@ func loadConfig(path string) (*config, error) {
 	}
 	if cfg.EditServiceURL == "" {
 		cfg.EditServiceURL = "http://127.0.0.1:8100"
+	}
+	if u := os.Getenv("VIEWER_OPENCODE_URL"); u != "" {
+		cfg.OpenCodeURL = u
+	}
+	if cfg.OpenCodeURL == "" {
+		cfg.OpenCodeURL = "http://127.0.0.1:4096"
 	}
 	return &cfg, nil
 }
@@ -110,9 +118,17 @@ func main() {
 		chg = change.NewFileStore(cfg.DataDir)
 		ovr = override.NewFileStore(cfg.DataDir)
 	}
-	handler := api.NewHandler(st, q, iss, chg, ovr, editsvc.New(cfg.EditServiceURL), cfg.MaxUploadMB<<20)
+	ed := editsvc.New(cfg.EditServiceURL)
+	handler := api.NewHandler(st, q, iss, chg, ovr, ed, cfg.MaxUploadMB<<20)
+	// chat 模块（demo）：独立 handler，/api/chat/ 子树优先匹配，其余走既有 handler。
+	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
+		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Chg: chg, Q: q, DataDir: cfg.DataDir,
+	})
+	root := http.NewServeMux()
+	root.Handle("/api/chat/", chatHandler)
+	root.Handle("/", handler)
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	srv := &http.Server{Addr: addr, Handler: handler}
+	srv := &http.Server{Addr: addr, Handler: root}
 
 	errCh := make(chan error, 1)
 	go func() {

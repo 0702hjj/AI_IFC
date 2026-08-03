@@ -1,0 +1,77 @@
+/* ChatSidebar：项目页右侧 AI 对话侧边栏 */
+.chat-sidebar {
+  position: absolute; top: 0; right: 0; bottom: 0; width: 380px;
+  display: flex; flex-direction: column; z-index: 30;
+  background: #161a22; border-left: 1px solid #2a2f3a;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.4);
+  text-align: left; /* 覆盖 #root 的 text-align:center，侧边栏内全部左对齐 */
+}
+.chat-sidebar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid #2a2f3a;
+  color: #e5e7eb; font-weight: 600; font-size: 14px;
+}
+.chat-collapse { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 14px; }
+
+.chat-messages { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.chat-msg { display: flex; flex-direction: column; }
+.chat-msg-user { align-items: flex-end; }
+.chat-msg-assistant, .chat-msg-system { align-items: flex-start; }
+.chat-bubble { max-width: 92%; padding: 8px 12px; border-radius: 10px; font-size: 13.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.chat-msg-user .chat-bubble { background: #2563eb; color: #fff; }
+.chat-msg-assistant .chat-bubble { background: #1f2937; color: #e5e7eb; }
+.chat-msg-system .chat-bubble { background: transparent; color: #9ca3af; font-size: 12px; padding: 2px 6px; }
+
+/* markdown 渲染（assistant 气泡）：纯文本 pre-wrap 会把 ## / 列表 / 代码块显示成裸字符，必须结构化 */
+.chat-markdown { white-space: normal; }
+.chat-markdown > :first-child { margin-top: 0; }
+.chat-markdown > :last-child { margin-bottom: 0; }
+.chat-markdown p { margin: 4px 0; }
+.chat-markdown h1, .chat-markdown h2, .chat-markdown h3, .chat-markdown h4 { margin: 8px 0 4px; line-height: 1.3; font-weight: 600; }
+.chat-markdown h1 { font-size: 16px; } .chat-markdown h2 { font-size: 15px; } .chat-markdown h3, .chat-markdown h4 { font-size: 14px; }
+.chat-markdown ul, .chat-markdown ol { margin: 4px 0; padding-left: 20px; }
+.chat-markdown li { margin: 2px 0; }
+.chat-markdown code { background: #0d1117; padding: 1px 5px; border-radius: 4px; font-size: 12.5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.chat-markdown pre { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 8px 10px; overflow-x: auto; margin: 6px 0; }
+.chat-markdown pre code { background: none; padding: 0; font-size: 12px; }
+.chat-markdown blockquote { border-left: 3px solid #374151; margin: 6px 0; padding: 2px 10px; color: #9ca3af; }
+.chat-markdown a { color: #60a5fa; text-decoration: underline; }
+.chat-markdown table { border-collapse: collapse; margin: 6px 0; font-size: 12.5px; }
+.chat-markdown th, .chat-markdown td { border: 1px solid #30363d; padding: 3px 8px; }
+.chat-markdown hr { border: none; border-top: 1px solid #2a2f3a; margin: 8px 0; }
+/* 工具调用卡片：标题常显（状态图标+title），input/output/error 可折叠 */
+.chat-toolcard { background: #1a1f2b; border: 1px solid #2a2f3a; border-radius: 8px; overflow: hidden; max-width: 94%; font-size: 12.5px; }
+.chat-toolcard-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px; cursor: default; }
+.chat-toolcard-head[role="button"] { cursor: pointer; }
+.chat-toolcard-head:hover { background: #1f2937; }
+.chat-tool-icon { width: 14px; text-align: center; font-weight: 700; }
+.chat-tool-title { flex: 1; color: #d1d5db; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chat-tool-chevron { color: #6b7280; font-size: 10px; }
+.chat-tool-running .chat-tool-icon { color: #fbbf24; } /* ⟳ 黄 */
+.chat-tool-completed .chat-tool-icon { color: #34d399; } /* ✓ 绿 */
+.chat-tool-error .chat-tool-icon { color: #f87171; } /* ✗ 红 */
+.chat-tool-detail { padding: 0 10px 8px; display: flex; flex-direction: column; gap: 4px; }
+.chat-tool-block { margin: 0; background: #0d1117; border: 1px solid #30363d; border-radius: 5px; padding: 6px 8px; color: #c9d1d9; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 260px; overflow-y: auto; }
+.chat-tool-error { color: #fca5a5; border-color: #7f1d1d; }
+
+/* 思考链折叠块 */
+.chat-reasoning { max-width: 94%; }
+.chat-reasoning-head { display: flex; align-items: center; gap: 6px; cursor: pointer; color: #8b9ab8; font-size: 12px; padding: 3px 6px; user-select: none; }
+.chat-reasoning-head:hover { color: #a5b4cf; }
+.chat-reasoning-body { color: #8b9ab8; font-size: 12px; font-style: italic; line-height: 1.5; padding: 4px 8px; border-left: 2px solid #2a3354; margin: 2px 0 2px 6px; white-space: pre-wrap; word-break: break-word; }
+
+.chat-typing { font-size: 12.5px; color: #6b7280; padding: 4px 6px; }
+
+/* 左边缘拖拽条（调整侧边栏宽度，宽度持久化 localStorage） */
+.chat-resizer { position: absolute; top: 0; left: -3px; bottom: 0; width: 6px; cursor: col-resize; z-index: 31; }
+.chat-resizer:hover, .chat-resizer:active { background: rgba(96, 165, 250, 0.4); }
+
+.chat-inputbar { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid #2a2f3a; }
+.chat-inputbar textarea {
+  flex: 1; resize: none; height: 42px; background: #1f2937; border: 1px solid #374151;
+  border-radius: 8px; color: #e5e7eb; padding: 9px; font-size: 13.5px; outline: none;
+}
+.chat-primary { background: #2563eb; color: #fff; border: none; border-radius: 8px; padding: 0 16px; font-size: 13.5px; cursor: pointer; }
+.chat-primary:disabled { background: #374151; cursor: not-allowed; }
+.chat-stop { background: #b91c1c; color: #fff; border: none; border-radius: 8px; padding: 0 14px; font-size: 13.5px; cursor: pointer; }
+.chat-stop:hover { background: #dc2626; }
