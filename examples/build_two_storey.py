@@ -1,11 +1,10 @@
 """
-build_two_storey_c_0ef930f7f58c0967.py — Minimal two-storey house.
+build_two_storey.py — Minimal two-storey house.
 
 Footprint 6m x 5m, one room per floor, exterior walls + floor slabs only.
-Builds on the existing skeleton file at viewer/data/staging/c_0ef930f7f58c0967.ifc
-(Project + units + Model context already present).
+Builds a full model from scratch (Project + units + Model context included).
 
-Run: python examples/build_two_storey_c_0ef930f7f58c0967.py
+Run: python examples/build_two_storey.py  ->  writes model.ifc in the working directory
 """
 
 import numpy as np
@@ -13,7 +12,7 @@ import ifcopenshell
 import ifcopenshell.api
 import ifcopenshell.util.placement
 
-STAGING = "viewer/data/staging/c_0ef930f7f58c0967.ifc"
+OUT = "model.ifc"
 
 # Design parameters (meters, SI)
 LENGTH = 6.0
@@ -172,11 +171,11 @@ def build():
                             "Width": WALL_THICK,
                             "GrossVolume": seg_len * WALL_HEIGHT * WALL_THICK})
 
-    model.write(STAGING)
+    model.write(OUT)
     print("walls:", len(model.by_type("IfcWall")),
           "slabs:", len(model.by_type("IfcSlab")),
           "storeys:", len(model.by_type("IfcBuildingStorey")))
-    return STAGING
+    return OUT
 
 
 def self_check(path):

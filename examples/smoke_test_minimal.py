@@ -1,10 +1,9 @@
-"""Smoke test: minimal IFC (skeleton + one wall) -> viewer/data/staging/smoke-test.ifc"""
+"""Smoke test: minimal IFC (skeleton + one wall) -> model.ifc in working directory."""
 import os
 import ifcopenshell
 import ifcopenshell.api
 
-OUT = os.path.join(os.path.dirname(__file__), "..", "viewer", "data", "staging", "smoke-test.ifc")
-OUT = os.path.abspath(OUT)
+OUT = os.path.abspath("model.ifc")
 
 # --- Skeleton first: Project -> Site -> Building -> Storey ---
 model = ifcopenshell.api.run("project.create_file")
@@ -29,7 +28,6 @@ rep = ifcopenshell.api.run("geometry.add_wall_representation", model,
 ifcopenshell.api.run("geometry.assign_representation", model, product=wall, representation=rep)
 ifcopenshell.api.run("spatial.assign_container", model, relating_structure=storey, products=[wall])
 
-os.makedirs(os.path.dirname(OUT), exist_ok=True)
 model.write(OUT)
 print(f"WROTE {OUT}")
 
