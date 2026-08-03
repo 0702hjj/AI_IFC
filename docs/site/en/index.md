@@ -22,6 +22,8 @@ features:
     details: Attribute-level diffs keyed by GlobalId with added/removed/modified highlighting and old → new details, without geometric noise.
   - title: Human / AI Dual Role
     details: Humans and AI share the same REST editing API, distinguished by provenance; the OpenAPI tool catalog can be fed directly to an LLM.
+  - title: AI Authoring Skill
+    details: An agent-agnostic aiifc skill lets AI write ifcopenshell.api code directly, generating or heavily modifying IFC models from natural language.
 ---
 
 ## What it does

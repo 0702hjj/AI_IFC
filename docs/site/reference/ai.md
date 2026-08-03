@@ -85,3 +85,7 @@ curl -X POST "$BASE/models/$MID/diff" \
 v1 已知限制（详见 [已知限制](/project/known-limits)）：单机单用户、无认证（勿暴露公网）；pending 只存内存（服务重启丢失）；`VIEWER_DATA_DIR` 必须与 Go `dataDir` 同目录；diff 仅属性级。
 
 后续路线（**当前未交付**）：MCP 化（REST+MCP 双暴露，参考 ifcmcp 工具模式）与沙箱/代码执行端点——详见 [Roadmap](/project/roadmap)。
+
+## 与 aiifc skill 的分工
+
+REST 编辑 API 适合「改现有模型属性/pset」这类细粒度编辑；若要**从零建模型或大改几何**，用 [AI Skill（aiifc）](/reference/ai-skill)——agent 直接写 `ifcopenshell.api` 代码产出完整 IFC 文件，再交给平台做 commit/版本/重转。

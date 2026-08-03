@@ -85,3 +85,7 @@ curl -X POST "$BASE/models/$MID/diff" \
 v1 limits (details in [Known limitations](/project/known-limits), Chinese): single-machine single-user, no auth (do not expose publicly); pending is in-memory (lost on service restart); `VIEWER_DATA_DIR` must equal the Go `dataDir`; diff is attribute-level only.
 
 Roadmap (not delivered yet): an MCP wrapper (REST+MCP dual exposure, modeled on ifcmcp's tool patterns) and a sandbox/execution endpoint — see [Roadmap](/project/roadmap) (Chinese).
+
+## Division of labor with the aiifc skill
+
+The REST editing API fits fine-grained edits (attributes / psets of an existing model). For **building models from scratch or large geometry changes**, use the [AI Skill (aiifc)](/en/reference/ai-skill) — the agent writes `ifcopenshell.api` code directly to produce a complete IFC file, then hands it to the platform for commit / version / reconversion.
