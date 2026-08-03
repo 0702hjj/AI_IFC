@@ -155,4 +155,4 @@ models/{id}/
 2. AI 直连 Python 的 commit 不触发 Go 编排（change log/重转）；完整链路走 Go 代理
 3. edit-service 的 versions/history/diff 缓存仅文件存储，与 File/PG 模式无关
 4. diff 属性级（几何 diff 未做）；大模型 diff 无超时
-5. ~~ifcdiff 本地 editable 依赖~~——**已解决（2026-08）**：`ifcdiff`/`ifcquery`/`ifcopenshell` 改为 PyPI 官方发布，`uv sync` 直接安装
+5. ~~ifcdiff 本地 editable 依赖~~——**已解决（2026-08）**：`ifcopenshell`/`ifcdiff` 改为 PyPI 官方发布，`uv sync` 直接安装（skill 侧 `ifcquery` 随 `skills/aiifc/requirements.txt`）

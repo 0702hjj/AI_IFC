@@ -44,7 +44,7 @@ diff 语义（`app/diffing.py`，基于 ifcdiff 的 `IfcDiff`，仅以 `attribut
 
 **缓存策略**：base/target 都是不可变版本快照时，结果缓存在 `versions/diff-{base}-{target}.json`，二次调用直接命中；`target="current"` 时不缓存（uploads 文件可变，无稳定缓存 key）。
 
-**ifcdiff / ifcquery 依赖**：`ifcdiff`、`ifcquery`、`ifcopenshell` 均为 **PyPI 官方发布**（版本对齐 IfcOpenShell 0.8.5），无本地源码依赖——`uv sync` 直接安装，不再需要 `../../../IfcOpenShell` 本地目录。
+**ifcdiff 依赖**：`ifcopenshell`、`ifcdiff` 均为 **PyPI 官方发布**（版本对齐 IfcOpenShell 0.8.5），无本地源码依赖——`uv sync` 直接安装，不再需要 `../../../IfcOpenShell` 本地目录。（`ifcquery` 是 aiifc skill 的运行依赖，不属于本服务，见 `skills/aiifc/requirements.txt`。）
 
 ## AI 接入
 

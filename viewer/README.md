@@ -56,7 +56,7 @@ cd edit-service && uv sync && VIEWER_DATA_DIR=../data uv run uvicorn app.main:ap
 curl http://127.0.0.1:8100/health    # → {"status":"ok"}
 ```
 
-> 依赖 `ifcopenshell` / `ifcdiff` / `ifcquery` 均为 PyPI 官方发布（对齐 IfcOpenShell 0.8.5），`uv sync` 直接安装，无需本机 IfcOpenShell 源码或软链。
+> 服务依赖 `ifcopenshell` / `ifcdiff` 均为 PyPI 官方发布（对齐 IfcOpenShell 0.8.5），`uv sync` 直接安装，无需本机 IfcOpenShell 源码或软链。aiifc skill 的 flows 另需 `ifcquery`（见 `skills/aiifc/requirements.txt`）。
 
 配置（环境变量）：`VIEWER_DATA_DIR`（默认 `../data`，须与 server 一致）、`EDIT_SERVICE_PORT`（默认 8100）。Go 侧配置：
 
@@ -191,5 +191,5 @@ IFC_front/AI_IFC/
 ├── opencode.json          模型、skills.paths（demo 适配版）
 ├── skills/aiifc/          IFC 技能（demo 适配版）
 ├── .opencode/agent/ifc-demo.md   demo agent 规则（staging/自检/原子替换）
-└── .venv/                 Python 环境（ifcopenshell + ifcquery）
+└── .venv/                 Python 环境（按 skills/aiifc/requirements.txt 安装：ifcopenshell + ifcquery + numpy）
 ```
