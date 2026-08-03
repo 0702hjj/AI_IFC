@@ -1,0 +1,140 @@
+{
+  "service": "viewer server (Go)",
+  "source": "viewer/server/internal/api/{api,edit}.go",
+  "generatedBy": "docs/scripts/gen-go-routes.mjs",
+  "note": "Machine-readable endpoint inventory extracted from Go mux registrations. Human-readable contract: docs/site/reference/rest-api.md.",
+  "endpoints": [
+    {
+      "method": "GET",
+      "path": "/api/models",
+      "handler": "h.list",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models",
+      "handler": "h.upload",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/models/{id}",
+      "handler": "h.delete",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}",
+      "handler": "h.get",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}/changes",
+      "handler": "h.listChanges",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}/download",
+      "handler": "h.download",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{id}/edit/commit",
+      "handler": "h.editCommit",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{id}/edit/diff",
+      "handler": "h.editDiff",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/models/{id}/edit/entities/{guid}",
+      "handler": "h.editPutEntity",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}/edit/history",
+      "handler": "h.editHistory",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/models/{id}/edit/pending",
+      "handler": "h.editDeletePending",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}/edit/pending",
+      "handler": "h.editGetPending",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}/edit/versions",
+      "handler": "h.editVersions",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/models/{id}/entities/{entityId}/properties",
+      "handler": "h.putEntityProperties",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}/issues",
+      "handler": "h.listIssues",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{id}/issues",
+      "handler": "h.createIssue",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/models/{id}/issues/{issueId}",
+      "handler": "h.deleteIssue",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/models/{id}/issues/{issueId}",
+      "handler": "h.updateIssue",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/models/{id}/overrides",
+      "handler": "h.listOverrides",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{id}/overrides/migrate",
+      "handler": "h.migrateOverrides",
+      "file": "viewer/server/internal/api/edit.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/models/{id}/retry",
+      "handler": "h.retry",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/models/{id}/issues/{file}",
+      "handler": "h.serveIssueFile",
+      "file": "viewer/server/internal/api/api.go"
+    }
+  ]
+}

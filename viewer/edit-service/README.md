@@ -48,7 +48,7 @@ diff 语义（`app/diffing.py`，基于 ifcdiff 的 `IfcDiff`，仅以 `attribut
 
 ## AI 接入
 
-AI agent 以 REST 直连本服务（默认 `http://127.0.0.1:8100`，与浏览器经 Go 代理走的是同一套端点），调用时传 `provenance.source="AI"`。完整接入指南（双角色架构、curl 全流程、tool catalog、provenance/commit 模型、限制与 MCP 化路线）见 [`docs/ai-integration.md`](../../docs/ai-integration.md)；机器可消费的 OpenAPI schema 见 [`docs/ai-tools.openapi.json`](../../docs/ai-tools.openapi.json)，编辑 API 变更后重新导出：
+AI agent 以 REST 直连本服务（默认 `http://127.0.0.1:8100`，与浏览器经 Go 代理走的是同一套端点），调用时传 `provenance.source="AI"`。完整接入指南（双角色架构、curl 全流程、tool catalog、provenance/commit 模型、限制与 MCP 化路线）见 [`docs/internal/ai-integration.md`](../../docs/internal/ai-integration.md)；机器可消费的 OpenAPI schema 见 [`docs/site/public/ai-tools.openapi.json`](../../docs/site/public/ai-tools.openapi.json)，编辑 API 变更后重新导出：
 
 ```bash
 uv run python scripts/export_openapi.py

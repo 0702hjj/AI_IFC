@@ -258,7 +258,7 @@ operations.cut_rsolid(body, tool, ...)
 
 ## 当前状态：2.0 重构进行中
 
-`docs/core/rearchitecture_2_0.md` 显示重构仍在推进，关键 TODO：
+`docs/archive/simplecadapi/core/rearchitecture_2_0.md` 显示重构仍在推进，关键 TODO：
 
 - **TODO-KERNEL-001**：OCP-native evaluator 迁移
 - **TODO-HIST-002**：shell 操作的 TopoDelta

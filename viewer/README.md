@@ -23,7 +23,7 @@
 - **web**（React + xeokit）：前端应用（开发端口 `:5173`），包含模型库页面与三维审查界面（含聊天侧边栏）。
 - **opencode serve**（opencode CLI server 模式，默认 `:4096`）：承载 AI agent，由 Go chat 模块代理调用（见下「AI 聊天」章节）。
 
-详细设计见 [docs/design.md](docs/design.md)，API 说明见 [docs/api.md](docs/api.md)，测试覆盖与验证方法见 [docs/README.md](docs/README.md)。
+详细设计、API 契约与测试说明已并入公开文档站：[Viewer REST API](https://0702hjj.github.io/AI_IFC/reference/rest-api) 与 [测试与调试](https://0702hjj.github.io/AI_IFC/development/testing)；本文仅保留源码邻近的最小启动提示。
 
 ```
 web (React/xeokit)  ──HTTP──>  server (Go :8090)  ──子进程──>  converter (Node)
