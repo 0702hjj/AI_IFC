@@ -58,6 +58,71 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  edit-service:
+    name: edit-service (Python, FastAPI + ifcopenshell)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: viewer/edit-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+      - run: uv sync --group dev
+      - run: uv run pytest -q
+
+  skill-pack:
+    name: skill (aiifc pack + flows smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+      - name: Install test deps
+        run: |
+          uv venv .ci-venv
+          uv pip install --python .ci-venv pytest
+          echo "$GITHUB_WORKSPACE/.ci-venv/bin" >> "$GITHUB_PATH"
+      - name: Run pack tests (repo root test/)
+        run: |
+          python -m pytest test/test_skill_pack.py test/test_skill_pack_aiifc.py -q
+      - name: Build skill bundle + archive
+        run: |
+          python tools/skill_pack_aiifc.py --archive --output-root /tmp/skill-dist
+          test -f /tmp/skill-dist/aiifc.tar.gz
+          test -d /tmp/skill-dist/aiifc/references/docs/flows
+      - name: Verify bundle integrity
+        run: |
+          python -c "
+          import tarfile
+          names = tarfile.open('/tmp/skill-dist/aiifc.tar.gz').getnames()
+          assert 'aiifc/SKILL.md' in names
+          assert 'aiifc/requirements.txt' in names
+          assert not any('__pycache__' in n or n.endswith('.pyc') for n in names), 'bundle leaked pyc'
+          print(f'ok: {len(names)} files, clean')
+          "
+      - name: Install skill runtime deps (flows smoke)
+        run: |
+          uv pip install --python .ci-venv -r skills/aiifc/requirements.txt
+      - name: Flows smoke (skeleton + full_building)
+        run: |
+          cd skills/aiifc/references/docs
+          python -m flows.skeleton
+          python -m flows.full_building
+      - name: Validate generated IFC
+        run: |
+          cd skills/aiifc/references/docs
+          python -c "
+          import ifcopenshell, ifcopenshell.validate
+          m = ifcopenshell.open('model.ifc')
+          lg = ifcopenshell.validate.json_logger()
+          ifcopenshell.validate.validate(m, lg)
+          assert not lg.statements, f'validation failed: {lg.statements}'
+          print('IFC validation passed')
+          "
+
   smoke:
     name: e2e smoke (upload → convert → download)
     runs-on: ubuntu-latest

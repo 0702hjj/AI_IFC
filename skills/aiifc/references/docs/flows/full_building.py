@@ -4,7 +4,6 @@ full_building.py — 完整的单层建筑(6m×4m),4面墙+1门+1窗+地板+材�
 修正: 洞口完全穿透墙体厚度; 所有构件有颜色区分。
 """
 
-from pathlib import Path
 import numpy as np
 import ifcopenshell
 import ifcopenshell.api
@@ -220,7 +219,7 @@ def build_full_building():
 
 if __name__ == "__main__":
     model = build_full_building()
-    outpath = str(Path(__file__).resolve().parents[4] / "examples" / "full_building.ifc")
+    outpath = "model.ifc"
     model.write(outpath)
     print(f"[8] written: {len(model.by_type('IfcRoot'))} entities → {outpath}")
     logger = ifcopenshell.validate.json_logger()
