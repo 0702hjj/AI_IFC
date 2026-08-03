@@ -2,13 +2,15 @@
 // Copyright (C) 2026 0702hjj
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   listModels,
   uploadModel,
   deleteModel,
   retryModel,
   downloadUrl,
+  createChatProject,
+  fetchModel,
 } from "@/api/client";
 import type { ModelInfo } from "@/api/types";
 import "./LibraryPage.css";
@@ -31,6 +33,28 @@ export default function LibraryPage() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [error, setError] = useState<string>("");
   const [uploading, setUploading] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const navigate = useNavigate();
+
+  const confirmCreate = async () => {
+    setCreatingProject(true);
+    try {
+      const m = await createChatProject(projectName.trim() || "AI 项目");
+      // 等初始化转换完成（ready）再跳转，避免项目页加载未就绪的 XKT 失败
+      for (let i = 0; i < 30; i++) {
+        const cur = await fetchModel(m.id);
+        if (cur.status === "ready") break;
+        if (cur.status === "failed") throw new Error(cur.error || "初始化转换失败");
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      navigate(`/view/${m.id}`);
+    } catch (e) {
+      setError((e as Error).message);
+      setCreatingProject(false);
+    }
+  };
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -107,7 +131,28 @@ export default function LibraryPage() {
 
   return (
     <div className="library">
-      <h1>模型库</h1>
+      <div className="library-header">
+        <h1>模型库</h1>
+        {naming ? (
+          <div className="project-naming">
+            <input
+              autoFocus
+              value={projectName}
+              placeholder="给项目起个名，如：两层小楼"
+              onChange={(e) => setProjectName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") confirmCreate(); if (e.key === "Escape") setNaming(false); }}
+            />
+            <button className="chat-entry-btn" disabled={creatingProject} onClick={confirmCreate}>
+              {creatingProject ? "初始化中…" : "创建"}
+            </button>
+            <button className="chat-entry-cancel" onClick={() => setNaming(false)}>取消</button>
+          </div>
+        ) : (
+          <button className="chat-entry-btn" onClick={() => setNaming(true)}>
+            新建空白项目（AI 建模）
+          </button>
+        )}
+      </div>
 
       <div
         className={`dropzone${dragOver ? " dragover" : ""}`}

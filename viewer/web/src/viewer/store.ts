@@ -18,6 +18,8 @@ interface ViewerState {
   issues: Issue[];
   selectedIssueId: string | null;
   diffOpen: boolean;
+  chatOpen: boolean;
+  pendingModelReload: boolean; // AI commit 后（viewer.committed）置 true；前端轮询到 ready 即 reload 并清零
   setSelected: (id: string | null) => void;
   setTool: (tool: ViewerTool) => void;
   toggleHidden: (id: string) => void;
@@ -32,6 +34,9 @@ interface ViewerState {
   removeIssue: (id: string) => void;
   setSelectedIssue: (id: string | null) => void;
   setDiffOpen: (open: boolean) => void;
+  setChatOpen: (open: boolean) => void;
+  flagPendingModelReload: () => void;
+  clearPendingModelReload: () => void;
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
@@ -45,6 +50,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   issues: [],
   selectedIssueId: null,
   diffOpen: false,
+  chatOpen: false,
+  pendingModelReload: false,
   setSelected: (id) => set({ selectedId: id }),
   setTool: (tool) => set({ tool }),
   toggleHidden: (id) =>
@@ -82,4 +89,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
     })),
   setSelectedIssue: (id) => set({ selectedIssueId: id }),
   setDiffOpen: (open) => set({ diffOpen: open }),
+  setChatOpen: (open) => set({ chatOpen: open }),
+  flagPendingModelReload: () => set({ pendingModelReload: true }),
+  clearPendingModelReload: () => set({ pendingModelReload: false }),
 }));
