@@ -22,6 +22,8 @@ features:
     details: 按 GlobalId 的属性级 diff：新增/删除/修改着色与 old → new 明细，不带几何噪声。
   - title: 人 / AI 双角色
     details: 人与 AI 共用同一套 REST 编辑 API，provenance 区分 UI / AI；OpenAPI 工具目录可直接喂给 LLM。
+  - title: AI 建模 Skill
+    details: agent 无关的 aiifc skill 让 AI 直接写 ifcopenshell.api 代码，从自然语言生成或大改 IFC 模型。
 ---
 
 ## 它能做什么
