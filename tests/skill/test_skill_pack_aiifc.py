@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[1] / "tools" / "skill_pack_aiifc.py"
+    Path(__file__).resolve().parents[2] / "tools" / "skill_pack_aiifc.py"
 )
 MODULE_SPEC = importlib.util.spec_from_file_location(
     "skill_pack_aiifc",
@@ -20,7 +20,7 @@ packer = importlib.util.module_from_spec(MODULE_SPEC)
 sys.modules[MODULE_SPEC.name] = packer
 MODULE_SPEC.loader.exec_module(packer)
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 REAL_SKILL = REPO_ROOT / "skills" / "aiifc"
 
 SKILL_MD = """---

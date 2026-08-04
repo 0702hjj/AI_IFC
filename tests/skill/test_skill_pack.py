@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 MODULE_PATH = (
-    Path(__file__).resolve().parents[1] / "src/simplecadapi/auto_tools/skill_pack.py"
+    Path(__file__).resolve().parents[2] / "src/simplecadapi/auto_tools/skill_pack.py"
 )
 MODULE_SPEC = importlib.util.spec_from_file_location(
     "simplecadapi_skill_pack",

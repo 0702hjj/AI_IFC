@@ -85,14 +85,15 @@ jobs:
           uv venv .ci-venv
           uv pip install --python .ci-venv pytest
           echo "$GITHUB_WORKSPACE/.ci-venv/bin" >> "$GITHUB_PATH"
-      - name: Run pack tests (repo root test/)
+      - name: Run pack tests
         run: |
-          python -m pytest test/test_skill_pack.py test/test_skill_pack_aiifc.py -q
+          python -m pytest tests/skill/ -q
       - name: Build skill bundle + archive
         run: |
           python tools/skill_pack_aiifc.py --archive --output-root /tmp/skill-dist
           test -f /tmp/skill-dist/aiifc.tar.gz
           test -d /tmp/skill-dist/aiifc/references/docs/flows
+          test -d /tmp/skill-dist/aiifc/templates
       - name: Verify bundle integrity
         run: |
           python -c "
@@ -100,20 +101,24 @@ jobs:
           names = tarfile.open('/tmp/skill-dist/aiifc.tar.gz').getnames()
           assert 'aiifc/SKILL.md' in names
           assert 'aiifc/requirements.txt' in names
+          assert 'aiifc/templates/build_skeleton.py' in names
           assert not any('__pycache__' in n or n.endswith('.pyc') for n in names), 'bundle leaked pyc'
           print(f'ok: {len(names)} files, clean')
           "
       - name: Install skill runtime deps (flows smoke)
         run: |
           uv pip install --python .ci-venv -r skills/aiifc/requirements.txt
-      - name: Flows smoke (skeleton + full_building)
+      - name: Flows smoke (skeleton + full_building + template)
         run: |
           cd skills/aiifc/references/docs
           python -m flows.skeleton
           python -m flows.full_building
+          rm -f model.ifc
+          cd /tmp
+          python /tmp/skill-dist/aiifc/templates/build_skeleton.py
       - name: Validate generated IFC
         run: |
-          cd skills/aiifc/references/docs
+          cd /tmp
           python -c "
           import ifcopenshell, ifcopenshell.validate
           m = ifcopenshell.open('model.ifc')
@@ -145,7 +150,7 @@ jobs:
           /tmp/ifcserver &
           echo $! > /tmp/ifcserver.pid
           for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:8090/api/models > /dev/null && break
+            curl -sf http://127.0.0.1:8090/api/v1/models > /dev/null && break
             sleep 1
           done
       - name: Run smoke
