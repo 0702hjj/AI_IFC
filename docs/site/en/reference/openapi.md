@@ -19,4 +19,4 @@ The page [Editing API Reference (generated)](/reference/edit-api-reference) is g
 
 The Go server's REST contract is documented by hand at [Viewer REST API](/en/reference/rest-api). A machine-readable endpoint inventory is generated from the Go mux registrations: [go-rest-api.routes.json](/go-rest-api.routes.json) (method, path, handler, source file). Full request/response schema generation for Go remains a follow-up.
 
-> Automated page generation from schemas and CI drift detection are partially delivered (see above); code-vs-schema drift detection for edit-service needs the ifcdiff dependency to become self-contained first (see [Roadmap](/project/roadmap), Chinese).
+> Automated page generation from schemas and CI drift detection are partially delivered (see above); code-vs-schema drift detection for edit-service is now unblocked (dependencies are self-contained via PyPI), see the [Roadmap](/project/roadmap) (Chinese).

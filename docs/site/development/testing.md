@@ -40,7 +40,7 @@ cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
 | 现象 | 排查 |
 | --- | --- |
 | 上传后一直 converting | 看 server 日志 converter stderr；手动跑 convert.js 复现；确认 nodeBin/converterScript |
-| 转换 failed | `POST /api/models/{id}/retry` 重试 |
+| 转换 failed | `POST /api/v1/models/{id}/retry` 重试 |
 | 编辑 404 model not found | VIEWER_DATA_DIR 与 dataDir 不同目录 |
 | 编辑 422 | 属性名/类型不符，请求零副作用，修正重发 |
 | commit 409 | 无 pending（内存态，服务重启会丢） |

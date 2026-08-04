@@ -4,7 +4,7 @@ Backend base: `http://localhost:8090`; every JSON response uses the envelope `{c
 
 ## Models
 
-### POST /api/models
+### POST /api/v1/models
 
 Upload an IFC file and trigger asynchronous conversion. Request: `multipart/form-data`, field `file` (only `.ifc`, ≤200MB).
 
@@ -16,7 +16,7 @@ Response:
 
 Errors: `40001` invalid file type; `40002` over the size limit.
 
-### GET /api/models
+### GET /api/v1/models
 
 Model list (the frontend polls every 2s until all models leave `converting`):
 
@@ -28,19 +28,19 @@ Model list (the frontend polls every 2s until all models leave `converting`):
 
 `status` ∈ `converting | ready | failed`.
 
-### GET /api/models/{id} {#model-detail}
+### GET /api/v1/models/{id} {#model-detail}
 
 Single-model detail, same shape.
 
-### POST /api/models/{id}/retry
+### POST /api/v1/models/{id}/retry
 
 Re-enqueue conversion for a `failed` model; returns the updated model object (`status:"converting"`).
 
-### DELETE /api/models/{id} {#delete-model}
+### DELETE /api/v1/models/{id} {#delete-model}
 
 Deletes the model's IFC, XKT, metadata, state file and issues/changes/overrides. Response `data: null`.
 
-### GET /api/models/{id}/download
+### GET /api/v1/models/{id}/download
 
 Download the original IFC with `Content-Disposition: attachment; filename="<name>"`.
 
@@ -48,11 +48,11 @@ Download the original IFC with `Content-Disposition: attachment; filename="<name
 
 Issue ids look like `i_` + 12 lowercase hex; `status` ∈ `open | checking | resolved`; `author` defaults to `local-user`; `provenance.source` defaults to `UI` (can be overridden at creation).
 
-### GET /api/models/{id}/issues
+### GET /api/v1/models/{id}/issues
 
 Returns `data: Issue[]` ordered by createdAt descending.
 
-### POST /api/models/{id}/issues
+### POST /api/v1/models/{id}/issues
 
 `multipart/form-data`:
 
@@ -61,15 +61,15 @@ Returns `data: Issue[]` ordered by createdAt descending.
 
 Returns `data: Issue` (with the generated id, `status:"open"`, default author/provenance, `screenshot` relative path, createdAt/updatedAt).
 
-### PATCH /api/models/{id}/issues/{issueId} {#patch-issue}
+### PATCH /api/v1/models/{id}/issues/{issueId} {#patch-issue}
 
 JSON body: `{"title"?, "comment"?, "status"?}` — only the given fields are updated.
 
-### DELETE /api/models/{id}/issues/{issueId} {#delete-issue}
+### DELETE /api/v1/models/{id}/issues/{issueId} {#delete-issue}
 
 Deletes the issue and its screenshot.
 
-### GET /models/{id}/issues/{file}
+### GET /v1/models/{id}/issues/{file}
 
 Issue screenshot static service; `file` must match `i_[0-9a-f]{12}\.png`.
 
@@ -77,11 +77,11 @@ Issue screenshot static service; `file` must match `i_[0-9a-f]{12}\.png`.
 
 Property edits go through metadata overrides (the IFC itself is untouched): whitelisted fields are exactly `Name / Description / Classification / FireRating / Comments`; every change writes one change log entry per field.
 
-### GET /api/models/{id}/overrides
+### GET /api/v1/models/{id}/overrides
 
 Returns `data: { [entityId]: { [field]: value } }` (`{}` when empty).
 
-### PUT /api/models/{id}/entities/{entityId}/properties
+### PUT /api/v1/models/{id}/entities/{entityId}/properties
 
 JSON body: `{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"note"}}`.
 
@@ -90,7 +90,7 @@ JSON body: `{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"note"}
 - Every field writes a change log entry (oldValue is the previously effective value; author `local-user`; provenance `UI`).
 - Returns `data: { [field]: value }`, the entity's current effective overrides.
 
-### GET /api/models/{id}/changes
+### GET /api/v1/models/{id}/changes
 
 Returns `data: ChangeEntry[]` ordered by createdAt descending (`[]` when empty):
 
@@ -102,15 +102,15 @@ Returns `data: ChangeEntry[]` ordered by createdAt descending (`[]` when empty):
 
 ## Edit proxy endpoints
 
-The Go server exposes the edit-service endpoints under the `/api/models/{id}/edit/...` prefix (orchestration: after commit it writes the change log, fills diffs via IfcDiff and queues XKT reconversion). Full contract: [IFC Editing API](/en/reference/edit-api).
+The Go server exposes the edit-service endpoints under the `/api/v1/models/{id}/edit/...` prefix (orchestration: after commit it writes the change log, fills diffs via IfcDiff and queues XKT reconversion). Full contract: [IFC Editing API](/en/reference/edit-api).
 
 ## Static resources (no envelope)
 
 | Path | Description |
 | --- | --- |
-| `GET /models/{id}/model.xkt` | XKT geometry (supports Range) |
-| `GET /models/{id}/metadata.json` | metadata (below) |
-| `GET /models/{id}/issues/{file}` | issue screenshots |
+| `GET /v1/models/{id}/model.xkt` | XKT geometry (supports Range) |
+| `GET /v1/models/{id}/metadata.json` | metadata (below) |
+| `GET /v1/models/{id}/issues/{file}` | issue screenshots |
 
 ## metadata.json Schema (xeokit meta-model format)
 

@@ -8,7 +8,7 @@ Humans (browser) and AI agents use the **same editing endpoints**; only the entr
 
 ```
 Browser (human) ──► Go server :8090 ──proxy──► Python edit-service :8100
-                  /api/models/{id}/edit/...        │  /models/{id}/...
+                  /api/v1/models/{id}/edit/...        │  /models/{id}/...
 AI agent ────────► REST direct ────────────────────┘  (or via the Go proxy, one-to-one)
 ```
 
@@ -63,7 +63,7 @@ curl -X POST "$BASE/models/$MID/diff" \
   -d '{"base": "v1", "target": "current"}'
 ```
 
-> A direct commit does **not** trigger the Go change log or XKT reconversion. For the full pipeline (visible to the frontend) use the Go proxy: `http://127.0.0.1:8090/api/models/$MID/edit/...`.
+> A direct commit does **not** trigger the Go change log or XKT reconversion. For the full pipeline (visible to the frontend) use the Go proxy: `http://127.0.0.1:8090/api/v1/models/$MID/edit/...`.
 
 ## Provenance and the commit model
 

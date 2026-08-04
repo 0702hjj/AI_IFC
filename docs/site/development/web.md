@@ -38,6 +38,6 @@ src/
 ## 关键机制
 
 - **选中链路**：`setSelected(id)` → usePicking 高亮 → PropertyPanel 显示该 GlobalId 的 pset。
-- **override 显示**：渲染时 `applyOverrides` 把 override 值覆盖在原值上并带修改标记；保存走 `PUT /api/models/{id}/entities/{entityId}/properties`。
+- **override 显示**：渲染时 `applyOverrides` 把 override 值覆盖在原值上并带修改标记；保存走 `PUT /api/v1/models/{id}/entities/{entityId}/properties`。
 - **Diff 着色**：diff 返回的 guid 即 scene object id；`entity.colorize` 设置颜色，清除时置 null；removed 构件在当前 XKT 无几何，仅列表呈现。
 - **自动刷新**：ViewerPage 持续轮询模型状态，`converting → ready` 转换时 remount ViewerProvider 重载 XKT（外部 commit / AI 直改触发的重转也能捕获）。

@@ -15,7 +15,7 @@ uv run uvicorn app.main:app --port 8100
 | `VIEWER_DATA_DIR` | `../data` | 与 Go `dataDir` 同目录（必须） |
 | `EDIT_SERVICE_PORT` | `8100` | 监听端口 |
 
-> ifcdiff 当前以本地 editable 路径依赖 `../../../IfcOpenShell/src/ifcdiff`（deepdiff/orderly-set 随它进入）；自包含处理见 [Roadmap](/project/roadmap)。
+> 依赖 `ifcopenshell` / `ifcdiff` / `ifcquery` 均为 PyPI 官方发布（对齐 IfcOpenShell 0.8.5），`uv sync` 直接安装，无本地源码依赖。
 
 ## 编辑 API
 

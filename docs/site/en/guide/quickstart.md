@@ -8,9 +8,8 @@
 | Node.js | 18+ | converter (`npm install` once, no daemon) | yes |
 | Python + [uv](https://docs.astral.sh/uv/) | 3.10+ | edit-service | for editing/diff; browsing works without it |
 | PostgreSQL | 14+ | issues/changes/overrides persistence | optional (file storage by default) |
-| IfcOpenShell source checkout | v0.8 | local editable dependency of ifcdiff | currently required (see below) |
 
-> **ifcdiff dependency note**: `viewer/edit-service/pyproject.toml` currently references the IfcOpenShell source checkout (`src/ifcdiff`) next to this repo as a local editable dependency. Before running edit-service you need an IfcOpenShell v0.8 checkout in a sibling directory. This is a documented deployment limitation; self-containment (vendor or git source) is tracked in the [Roadmap](/project/roadmap) (Chinese).
+> **Python dependencies**: edit-service depends on `ifcopenshell` / `ifcdiff` / `ifcquery` (all official PyPI releases, aligned with IfcOpenShell 0.8.5); `uv sync` installs them directly. No local IfcOpenShell source checkout needed.
 
 ## Start (four terminals)
 

@@ -21,7 +21,7 @@ graph LR
   UI -->|REST envelope| GO
   AI -->|same editing API| PY
   AI -->|or via Go proxy| GO
-  GO -->|/api/models/{id}/edit/* proxy + orchestration| PY
+  GO -->|/api/v1/models/{id}/edit/* proxy + orchestration| PY
   GO -->|subprocess node convert.js| CV
   GO -->|pgx/v5, optional| PG
   GO --> FS
@@ -84,4 +84,4 @@ Read all overrides → map per entity (Name/Description/Comments → fields;
 
 Change log entries carry: `author` (default `local-user`, no auth in v1), `createdAt` (UTC), `operation` (`update | migrate`), `diff` (filled by IfcDiff at commit), `provenance` (`{source: UI|AI}`, validated at the API layer). Versions form a linear snapshot sequence (branching/merging is out of scope, belongs to multi-user).
 
-Known technical debt (details in [Known limitations](/project/known-limits), Chinese): three history records coexist (Go change log / edit-service edit-history / in-memory pending) with different granularity and purposes; ifcdiff is a local editable dependency; pending is in-memory; diff has no timeout; the Python side is file-storage only.
+Known technical debt (details in [Known limitations](/project/known-limits), Chinese): three history records coexist (Go change log / edit-service edit-history / in-memory pending) with different granularity and purposes; pending is in-memory; diff has no timeout; the Python side is file-storage only.

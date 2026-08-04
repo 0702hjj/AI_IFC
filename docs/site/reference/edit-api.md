@@ -87,17 +87,17 @@ body：`{"base": "v1", "target": "v2"}`（target 可为 `"current"` 表示 uploa
 
 ## 经 Go 代理
 
-Go server（默认 `:8090`）把同一套端点暴露在 `/api/models/{id}/edit/...` 前缀下，端点一一对应：
+Go server（默认 `:8090`）把同一套端点暴露在 `/api/v1/models/{id}/edit/...` 前缀下，端点一一对应：
 
 | Go 代理端点 | Python 端点 |
 | --- | --- |
-| `PUT /api/models/{id}/edit/entities/{guid}` | `PUT /models/{id}/entities/{guid}` |
-| `GET /api/models/{id}/edit/pending` | `GET /models/{id}/pending` |
-| `DELETE /api/models/{id}/edit/pending` | `DELETE /models/{id}/pending` |
-| `GET /api/models/{id}/edit/history` | `GET /models/{id}/history` |
-| `GET /api/models/{id}/edit/versions` | `GET /models/{id}/versions` |
-| `POST /api/models/{id}/edit/diff` | `POST /models/{id}/diff` |
-| `POST /api/models/{id}/edit/commit` | `POST /models/{id}/commit` |
+| `PUT /api/v1/models/{id}/edit/entities/{guid}` | `PUT /models/{id}/entities/{guid}` |
+| `GET /api/v1/models/{id}/edit/pending` | `GET /models/{id}/pending` |
+| `DELETE /api/v1/models/{id}/edit/pending` | `DELETE /models/{id}/pending` |
+| `GET /api/v1/models/{id}/edit/history` | `GET /models/{id}/history` |
+| `GET /api/v1/models/{id}/edit/versions` | `GET /models/{id}/versions` |
+| `POST /api/v1/models/{id}/edit/diff` | `POST /models/{id}/diff` |
+| `POST /api/v1/models/{id}/edit/commit` | `POST /models/{id}/commit` |
 
 与直连的差异：
 

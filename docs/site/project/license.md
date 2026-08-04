@@ -29,4 +29,4 @@ AI_IFC 以 **AGPL-3.0-only** 发布（[LICENSE](https://github.com/0702hjj/AI_IF
 | React / Vite / zustand / react-router-dom | MIT |
 | FastAPI / uvicorn / pydantic / deepdiff | MIT / BSD-3-Clause |
 
-> ifcdiff 当前以本地 editable 路径依赖引用（未随仓库分发）；发布前将 vendor（保留 LGPL 声明与来源）或固定为 git source，并在 NOTICE 标注。
+> Python 依赖（`ifcopenshell` / `ifcdiff` / `ifcquery`）均为 PyPI 官方发布（LGPL-3.0），随 edit-service 正常分发，`uv sync` 直接安装。

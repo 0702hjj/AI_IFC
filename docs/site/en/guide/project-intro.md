@@ -31,7 +31,7 @@ AI_IFC is a **self-hosted, open-source** IFC model review and editing platform. 
 | `web` | React 19 + xeokit | Model library, 3D review, property editing, issues, Diff Viewer |
 | `server` | Go 1.26 (stdlib + pgx/v5) | Upload/conversion queue, REST API, edit orchestration, storage abstraction |
 | `converter` | Node CLI (web-ifc + xeokit-convert) | IFC → XKT + metadata.json |
-| `edit-service` | Python FastAPI + IfcOpenShell + ifcdiff | Real IFC edits, pending/commit, version snapshots, semantic diffs |
+| `edit-service` | Python FastAPI + IfcOpenShell (+ ifcdiff / ifcquery, PyPI) | Real IFC edits, pending/commit, version snapshots, semantic diffs |
 
 The three-language stack is an ecosystem reality rather than a design preference: each language binds the only or best IFC library in that ecosystem. Services communicate over REST and subprocesses, and any component can be replaced independently.
 

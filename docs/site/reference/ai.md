@@ -8,7 +8,7 @@
 
 ```
 浏览器（人）──► Go server :8090 ──代理──► Python 编辑服务 :8100
-                  /api/models/{id}/edit/...        │  /models/{id}/...
+                  /api/v1/models/{id}/edit/...     │  /models/{id}/...
 AI agent ────────► REST 直连 ──────────────────────┘  （或经 Go 代理，端点一一对应）
 ```
 
@@ -63,7 +63,7 @@ curl -X POST "$BASE/models/$MID/diff" \
   -d '{"base": "v1", "target": "current"}'
 ```
 
-> 直连的 commit **不触发** Go 侧 change log 与 XKT 重转。需要完整链路（前端自动刷新可见）时改走 Go 代理：`http://127.0.0.1:8090/api/models/$MID/edit/...`。
+> 直连的 commit **不触发** Go 侧 change log 与 XKT 重转。需要完整链路（前端自动刷新可见）时改走 Go 代理：`http://127.0.0.1:8090/api/v1/models/$MID/edit/...`。
 
 ## provenance 与 commit 模型
 
