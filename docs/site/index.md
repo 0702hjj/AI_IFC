@@ -37,6 +37,14 @@ AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平
 
 典型工作流：上传 IFC → 转换完成后三维审查 → 对构件提 Issue → 编辑属性（override 或真改）→ commit 生成版本 → 用 Diff 对比版本变化。
 
+## 界面截图
+
+![三维查看器](/screenshots/viewer.png)
+
+| 模型库 | 属性编辑 | 版本对比 | AI 对话 |
+|---|---|---|---|
+| ![模型库](/screenshots/library.png) | ![属性编辑](/screenshots/properties.png) | ![版本对比](/screenshots/diff.png) | ![AI 对话](/screenshots/chat.png) |
+
 ## 开始路径
 
 1. [项目介绍](/guide/project-intro) — 了解定位、能力边界与四组件架构。

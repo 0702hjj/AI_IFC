@@ -34,6 +34,16 @@ AI agent ──► REST 编辑 API ────────┘
           └─► aiifc skill（直接写 ifcopenshell.api 代码）
 ```
 
+## 界面截图
+
+| 模型库 | 三维查看器 |
+|---|---|
+| ![模型库](docs/site/public/screenshots/library.png) | ![三维查看器](docs/site/public/screenshots/viewer.png) |
+
+| 属性编辑 | 版本对比 | AI 对话 |
+|---|---|---|
+| ![属性编辑](docs/site/public/screenshots/properties.png) | ![版本对比](docs/site/public/screenshots/diff.png) | ![AI 对话](docs/site/public/screenshots/chat.png) |
+
 ## 快速开始
 
 见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`viewer/web`（React + xeokit）、`viewer/server`（Go）、`viewer/converter`（Node）、`viewer/edit-service`（Python FastAPI + IfcOpenShell）。
