@@ -53,7 +53,7 @@ func createTestIssue(t *testing.T, mux http.Handler, modelID string) issue.Issue
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	req := httptest.NewRequest("POST", "/api/models/"+modelID+"/issues", &body)
+	req := httptest.NewRequest("POST", "/api/v1/models/"+modelID+"/issues", &body)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -81,14 +81,14 @@ func TestIssueCRUD(t *testing.T) {
 
 	// list
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/models/"+modelID+"/issues", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/"+modelID+"/issues", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("list status = %d", rec.Code)
 	}
 
 	// patch status
 	patch := bytes.NewBufferString(`{"status":"resolved"}`)
-	req := httptest.NewRequest("PATCH", "/api/models/"+modelID+"/issues/"+iss.ID, patch)
+	req := httptest.NewRequest("PATCH", "/api/v1/models/"+modelID+"/issues/"+iss.ID, patch)
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -98,7 +98,7 @@ func TestIssueCRUD(t *testing.T) {
 
 	// delete
 	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("DELETE", "/api/models/"+modelID+"/issues/"+iss.ID, nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("DELETE", "/api/v1/models/"+modelID+"/issues/"+iss.ID, nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("delete status = %d", rec.Code)
 	}
@@ -109,7 +109,7 @@ func TestIssueErrors(t *testing.T) {
 
 	// model 不存在
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/models/m_0000000000000000/issues", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/m_0000000000000000/issues", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("want 404, got %d", rec.Code)
 	}
@@ -119,7 +119,7 @@ func TestIssueErrors(t *testing.T) {
 	w := multipart.NewWriter(&body)
 	_ = w.WriteField("issue", `{"entityId":"e1","title":"  "}`)
 	_ = w.Close()
-	req := httptest.NewRequest("POST", "/api/models/"+modelID+"/issues", &body)
+	req := httptest.NewRequest("POST", "/api/v1/models/"+modelID+"/issues", &body)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -129,7 +129,7 @@ func TestIssueErrors(t *testing.T) {
 
 	// 非法 status
 	iss := createTestIssue(t, mux, modelID)
-	req = httptest.NewRequest("PATCH", "/api/models/"+modelID+"/issues/"+iss.ID, bytes.NewBufferString(`{"status":"bogus"}`))
+	req = httptest.NewRequest("PATCH", "/api/v1/models/"+modelID+"/issues/"+iss.ID, bytes.NewBufferString(`{"status":"bogus"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -139,7 +139,7 @@ func TestIssueErrors(t *testing.T) {
 
 	// issue 不存在
 	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("DELETE", "/api/models/"+modelID+"/issues/i_abcdef012345", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("DELETE", "/api/v1/models/"+modelID+"/issues/i_abcdef012345", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("want 404, got %d", rec.Code)
 	}
@@ -159,7 +159,7 @@ func TestIssueScreenshot(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = w.Close()
-	req := httptest.NewRequest("POST", "/api/models/"+modelID+"/issues", &body)
+	req := httptest.NewRequest("POST", "/api/v1/models/"+modelID+"/issues", &body)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -175,7 +175,7 @@ func TestIssueScreenshot(t *testing.T) {
 		t.Fatal("screenshot path empty")
 	}
 	rec = httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/models/"+modelID+"/"+iss.Screenshot, nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/v1/models/"+modelID+"/"+iss.Screenshot, nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("serve screenshot: %d", rec.Code)
 	}

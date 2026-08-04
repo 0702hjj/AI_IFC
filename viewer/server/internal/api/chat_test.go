@@ -134,7 +134,7 @@ func fakeOCWithAbort(t *testing.T, createCount *int32, abortCnt *int32) *httptes
 
 // doChatCreate 直接调 createSession 并解 envelope，返回 session 或错误（goroutine 安全）。
 func doChatCreate(h *ChatHandler, body string) (*chatSession, error) {
-	req := httptest.NewRequest(http.MethodPost, "/api/chat/sessions", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/sessions", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	h.createSession(rec, req)
 	var e env
@@ -285,7 +285,7 @@ func TestAbortSessionForwards(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 经 mux 打 abort（走真实路由 + path value）
-	req := httptest.NewRequest(http.MethodPost, "/api/chat/sessions/"+cs.ID+"/abort", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/sessions/"+cs.ID+"/abort", nil)
 	rec := httptest.NewRecorder()
 	h.mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -301,7 +301,7 @@ func TestAbortSessionNotFound(t *testing.T) {
 	var createCount int32
 	srv := fakeOC(t, &createCount)
 	h := newChatTestHandler(t, srv.URL)
-	req := httptest.NewRequest(http.MethodPost, "/api/chat/sessions/c_nope/abort", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/sessions/c_nope/abort", nil)
 	rec := httptest.NewRecorder()
 	h.mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {

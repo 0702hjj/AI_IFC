@@ -24,12 +24,12 @@ describe("api client", () => {
     const file = new File(["x"], "a.ifc");
     await uploadModel(file);
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/models");
+    expect(url).toBe("/api/v1/models");
     expect(init.method).toBe("POST");
     expect(init.body).toBeInstanceOf(FormData);
   });
   it("downloadUrl format", () => {
-    expect(downloadUrl("m_abc")).toBe("/api/models/m_abc/download");
+    expect(downloadUrl("m_abc")).toBe("/api/v1/models/m_abc/download");
   });
   it("deleteModel uses DELETE", async () => {
     const spy = vi.fn(async () => new Response(JSON.stringify(envelope(null)), { status: 200 }));
@@ -41,7 +41,7 @@ describe("api client", () => {
     const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ id: "m_1", status: "converting" })), { status: 200 }));
     vi.stubGlobal("fetch", spy);
     const m = await fetchModel("m_1");
-    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/models/m_1");
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/v1/models/m_1");
     expect(m.status).toBe("converting");
   });
 });
@@ -54,7 +54,7 @@ describe("edit api", () => {
     })), { status: 200 }));
     vi.stubGlobal("fetch", spy);
     const res = await fetchEditVersions("m_1");
-    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/models/m_1/edit/versions");
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/v1/models/m_1/edit/versions");
     expect(res.versions).toHaveLength(1);
     expect(res.versions[0].version).toBe("v1");
     expect(res.current).toBe("v1");
@@ -70,7 +70,7 @@ describe("edit api", () => {
     vi.stubGlobal("fetch", spy);
     const res = await postEditDiff("m_1", "v1", "current");
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/models/m_1/edit/diff");
+    expect(url).toBe("/api/v1/models/m_1/edit/diff");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ base: "v1", target: "current" });
     expect(res.added).toEqual(["g1"]);
@@ -116,7 +116,7 @@ describe("issue api", () => {
     expect(spy).toHaveBeenCalledTimes(2);
     const [patchUrl, patchInit] = spy.mock.calls[0] as unknown as [string, RequestInit];
     expect(patchInit.method).toBe("PATCH");
-    expect(patchUrl).toContain("/api/models/m_0123456789abcdef/issues/i_abcdef012345");
+    expect(patchUrl).toContain("/api/v1/models/m_0123456789abcdef/issues/i_abcdef012345");
     const [, delInit] = spy.mock.calls[1] as unknown as [string, RequestInit];
     expect(delInit.method).toBe("DELETE");
   });

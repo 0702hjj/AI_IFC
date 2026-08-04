@@ -29,14 +29,14 @@ const (
 )
 
 func (h *handler) registerEditRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("PUT /api/models/{id}/edit/entities/{guid}", h.editPutEntity)
-	mux.HandleFunc("GET /api/models/{id}/edit/pending", h.editGetPending)
-	mux.HandleFunc("DELETE /api/models/{id}/edit/pending", h.editDeletePending)
-	mux.HandleFunc("GET /api/models/{id}/edit/history", h.editHistory)
-	mux.HandleFunc("GET /api/models/{id}/edit/versions", h.editVersions)
-	mux.HandleFunc("POST /api/models/{id}/edit/diff", h.editDiff)
-	mux.HandleFunc("POST /api/models/{id}/edit/commit", h.editCommit)
-	mux.HandleFunc("POST /api/models/{id}/overrides/migrate", h.migrateOverrides)
+	mux.HandleFunc("PUT /api/v1/models/{id}/edit/entities/{guid}", h.editPutEntity)
+	mux.HandleFunc("GET /api/v1/models/{id}/edit/pending", h.editGetPending)
+	mux.HandleFunc("DELETE /api/v1/models/{id}/edit/pending", h.editDeletePending)
+	mux.HandleFunc("GET /api/v1/models/{id}/edit/history", h.editHistory)
+	mux.HandleFunc("GET /api/v1/models/{id}/edit/versions", h.editVersions)
+	mux.HandleFunc("POST /api/v1/models/{id}/edit/diff", h.editDiff)
+	mux.HandleFunc("POST /api/v1/models/{id}/edit/commit", h.editCommit)
+	mux.HandleFunc("POST /api/v1/models/{id}/overrides/migrate", h.migrateOverrides)
 }
 
 // writeEditErr 透传 Python 状态码语义：404→404、409→409、422→400，其余（含不可达）→502。

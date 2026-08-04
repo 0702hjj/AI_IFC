@@ -228,7 +228,7 @@ func TestEditPutEntityPassthrough(t *testing.T) {
 	py.set("PUT", "/models/"+env.modelID+"/entities/g1", 200, entry)
 
 	body := `{"fields":{"Name":"B"},"author":"local-user","provenance":{"source":"UI"}}`
-	rec := doEditReq(t, env.mux, "PUT", "/api/models/"+env.modelID+"/edit/entities/g1", body)
+	rec := doEditReq(t, env.mux, "PUT", "/api/v1/models/"+env.modelID+"/edit/entities/g1", body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -268,7 +268,7 @@ func TestEditProxyStatusMapping(t *testing.T) {
 	}
 	for _, c := range cases {
 		py.set("GET", path, c.pyStatus, `{"detail":"boom"}`)
-		rec := doEditReq(t, env.mux, "GET", "/api/models/"+env.modelID+"/edit/pending", "")
+		rec := doEditReq(t, env.mux, "GET", "/api/v1/models/"+env.modelID+"/edit/pending", "")
 		if rec.Code != c.wantStatus {
 			t.Fatalf("py %d: go status = %d, want %d (body %s)", c.pyStatus, rec.Code, c.wantStatus, rec.Body)
 		}
@@ -301,7 +301,7 @@ func TestEditProxyGetEndpoints(t *testing.T) {
 		{"GET", "/edit/versions", `"current":"v2"`},
 	}
 	for _, c := range cases {
-		rec := doEditReq(t, env.mux, c.method, "/api/models/"+env.modelID+c.goPath, "")
+		rec := doEditReq(t, env.mux, c.method, "/api/v1/models/"+env.modelID+c.goPath, "")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s %s: status = %d body = %s", c.method, c.goPath, rec.Code, rec.Body)
 		}
@@ -317,7 +317,7 @@ func TestEditDiffPassthrough(t *testing.T) {
 	env := newEditEnv(t, pyURL)
 	py.set("POST", "/models/"+env.modelID+"/diff", 200, fakeDiffBody)
 	body := `{"base":"v1","target":"current"}`
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/edit/diff", body)
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/diff", body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -333,7 +333,7 @@ func TestEditDiffPassthrough(t *testing.T) {
 func TestEditPutEntityBadProvenance(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
-	rec := doEditReq(t, env.mux, "PUT", "/api/models/"+env.modelID+"/edit/entities/g1",
+	rec := doEditReq(t, env.mux, "PUT", "/api/v1/models/"+env.modelID+"/edit/entities/g1",
 		`{"fields":{"Name":"B"},"provenance":{"source":"robot"}}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
@@ -351,7 +351,7 @@ func TestEditCommitOrchestration(t *testing.T) {
 	env := newEditEnv(t, pyURL)
 	scriptCommit(py, env.modelID)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/edit/commit",
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit",
 		`{"author":"ai-bot","provenance":{"source":"AI"}}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
@@ -424,7 +424,7 @@ func TestEditCommitDiffFailureNonBlocking(t *testing.T) {
 	scriptCommit(py, env.modelID)
 	py.set("POST", "/models/"+env.modelID+"/diff", 500, `{"detail":"diff exploded"}`)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/edit/commit", "")
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -449,7 +449,7 @@ func TestEditCommitChangeLogFailureWarns(t *testing.T) {
 	env := newEditEnvChg(t, pyURL, failAppendChangeStore{err: errors.New("change log disk full")})
 	scriptCommit(py, env.modelID)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/edit/commit",
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit",
 		`{"author":"ai-bot","provenance":{"source":"AI"}}`)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
@@ -479,7 +479,7 @@ func TestEditCommitNoPendingConflict(t *testing.T) {
 	env := newEditEnv(t, pyURL)
 	py.set("POST", "/models/"+env.modelID+"/commit", 409, `{"detail":"no pending changes"}`)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/edit/commit", "")
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit", "")
 	if rec.Code != http.StatusConflict {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -496,7 +496,7 @@ func TestEditCommitNoPendingConflict(t *testing.T) {
 func TestEditCommitBadProvenance(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/edit/commit",
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit",
 		`{"provenance":{"source":"robot"}}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
@@ -513,7 +513,7 @@ func TestEditServiceUnreachable(t *testing.T) {
 		{"PUT", "/edit/entities/g1", `{"fields":{"Name":"x"}}`},
 		{"POST", "/edit/commit", ""},
 	} {
-		rec := doEditReq(t, env.mux, tc.method, "/api/models/"+env.modelID+tc.path, tc.body)
+		rec := doEditReq(t, env.mux, tc.method, "/api/v1/models/"+env.modelID+tc.path, tc.body)
 		if rec.Code != http.StatusBadGateway {
 			t.Fatalf("%s %s: status = %d, want 502 (body %s)", tc.method, tc.path, rec.Code, rec.Body)
 		}
@@ -552,7 +552,7 @@ func TestMigrateSuccess(t *testing.T) {
 	    {"field":"Pset_WallCommon.FireRating","oldValue":"F30","newValue":"F90"}],
 	   "author":"local-user","provenance":{"source":"UI"},"timestamp":"t","operation":"update"}]}`)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/overrides/migrate", "")
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/overrides/migrate", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -675,7 +675,7 @@ func TestMigratePartialFailure(t *testing.T) {
 	  {"id":"e_1","guid":"g1","changes":[{"field":"Name","oldValue":"Old","newValue":"N1"}],
 	   "author":"local-user","provenance":{"source":"UI"},"timestamp":"t","operation":"update"}]}`)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/overrides/migrate", "")
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/overrides/migrate", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -739,7 +739,7 @@ func TestMigrateChangeLogFailureWarns(t *testing.T) {
 	  {"id":"e_1","guid":"g1","changes":[{"field":"Name","oldValue":"Wall A","newValue":"NewName"}],
 	   "author":"local-user","provenance":{"source":"UI"},"timestamp":"t","operation":"migrate"}]}`)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/overrides/migrate", "")
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/overrides/migrate", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -775,7 +775,7 @@ func TestMigrateChangeLogFailureWarns(t *testing.T) {
 func TestMigrateEmptyOverrides(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/overrides/migrate", "")
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/overrides/migrate", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -802,7 +802,7 @@ func TestMigrateBadProvenance(t *testing.T) {
 	if _, err := env.ovr.Set(env.modelID, "g1", map[string]string{"Name": "N1"}); err != nil {
 		t.Fatal(err)
 	}
-	rec := doEditReq(t, env.mux, "POST", "/api/models/"+env.modelID+"/overrides/migrate",
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/overrides/migrate",
 		`{"provenance":{"source":"robot"}}`)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)

@@ -16,7 +16,7 @@ import (
 
 func putProperties(t *testing.T, mux http.Handler, modelID, entityID, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	req := httptest.NewRequest("PUT", "/api/models/"+modelID+"/entities/"+entityID+"/properties", strings.NewReader(body))
+	req := httptest.NewRequest("PUT", "/api/v1/models/"+modelID+"/entities/"+entityID+"/properties", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -26,7 +26,7 @@ func putProperties(t *testing.T, mux http.Handler, modelID, entityID, body strin
 func getOverrides(t *testing.T, mux http.Handler, modelID string) (int, map[string]map[string]string) {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/models/"+modelID+"/overrides", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/"+modelID+"/overrides", nil))
 	var env envelope
 	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
 		t.Fatal(err)
@@ -269,7 +269,7 @@ func TestPutPropertiesModelNotFound(t *testing.T) {
 func TestListOverridesModelNotFound(t *testing.T) {
 	mux, _, _ := newChangesTestServer(t)
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/models/m_0000000000000000/overrides", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/m_0000000000000000/overrides", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
 	}
