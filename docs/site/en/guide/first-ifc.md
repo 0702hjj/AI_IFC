@@ -17,7 +17,7 @@ The repository bundles an official buildingSMART sample IFC:
 | Symptom | Action |
 | --- | --- |
 | Stuck in converting | Check the converter stderr in server logs; run `node viewer/converter/convert.js <ifc> <outDir>` manually; verify `nodeBin` / `converterScript` |
-| Conversion failed | Retry with `POST /api/models/{id}/retry` |
+| Conversion failed | Retry with `POST /api/v1/models/{id}/retry` |
 | Editing returns 404 model not found | `VIEWER_DATA_DIR` and the Go `dataDir` point to different directories |
 | Editing returns 422 | Attribute name or value type is wrong — the request had no side effects, fix and resend |
 | Commit returns 409 | No pending changes (pending lives in memory and is lost when edit-service restarts) |

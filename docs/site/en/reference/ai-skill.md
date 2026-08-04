@@ -8,6 +8,7 @@ An **IfcOpenShell authoring skill** for AI agents — letting an agent write `if
 
 - **SKILL.md**: behavioral constitution (MUST 1–24) — skeleton-first, container required, world coordinates, opening discipline, three-layer validation, design-JSON framing for complex geometry.
 - **references/**: 103 API pages, 8 component recipes (stairs / roof / windows / parapet / balcony), 13 runnable flows, 6 methodology references (SKD_OVERVIEW / MODELING_WORKFLOWS / DESIGN_JSON_SCHEMA / SPATIAL_QUALITY, etc.).
+- **templates/**: copyable complete example scripts (e.g. `build_skeleton.py` minimal model).
 - **requirements.txt**: Python deps for the flows (`ifcopenshell` / `ifcquery` / `numpy`, official PyPI releases, no local source dependency).
 
 The layout derives from the SimpleCADAPI skill anatomy in this repo's history (`research/ifc/simplecadapi_skill_anatomy.md`), rewritten for the IFC domain: **modules split by action, four-level progressive disclosure, single responsibility per doc, connected by MUST clauses**.

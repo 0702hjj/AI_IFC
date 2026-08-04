@@ -34,6 +34,16 @@ AI agent ──► REST editing API ────┘
           └─► aiifc skill (write ifcopenshell.api code directly)
 ```
 
+## Screenshots
+
+| Model library | 3D viewer |
+|---|---|
+| ![Model library](docs/site/public/screenshots/library.png) | ![3D viewer](docs/site/public/screenshots/viewer.png) |
+
+| Property editing | Version diff | AI chat |
+|---|---|---|
+| ![Property editing](docs/site/public/screenshots/properties.png) | ![Version diff](docs/site/public/screenshots/diff.png) | ![AI chat](docs/site/public/screenshots/chat.png) |
+
 ## Quick start
 
 See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `viewer/web` (React + xeokit), `viewer/server` (Go), `viewer/converter` (Node), `viewer/edit-service` (Python FastAPI + IfcOpenShell).

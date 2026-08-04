@@ -8,9 +8,8 @@
 | Node.js | 18+ | converter（`npm install` 一次即可，无需常驻） | 必需 |
 | Python + [uv](https://docs.astral.sh/uv/) | 3.10+ | edit-service | 编辑/diff 功能必需；纯浏览可不要 |
 | PostgreSQL | 14+ | issues/changes/overrides 持久化 | 可选（默认文件存储） |
-| IfcOpenShell 源码 checkout | v0.8 | ifcdiff 的本地 editable 依赖 | 当前必需（见下方说明） |
 
-> **ifcdiff 依赖说明**：edit-service 的 `pyproject.toml` 目前以本地 editable 路径引用同级目录的 IfcOpenShell 源码（`src/ifcdiff`）。即运行 edit-service 前，需要在仓库同级目录准备一份 IfcOpenShell v0.8 checkout。这是已记录的部署限制，自包含处理（vendor 或 git source）在 [Roadmap](/project/roadmap) 中。
+> **Python 依赖说明**：edit-service 依赖 `ifcopenshell` / `ifcdiff` / `ifcquery`（均为 PyPI 官方发布，对齐 IfcOpenShell 0.8.5），`uv sync` 直接安装，无需本机 IfcOpenShell 源码 checkout。
 
 ## 启动（四个终端）
 

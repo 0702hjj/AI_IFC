@@ -87,17 +87,17 @@ Missing version → 404; missing `base`/`target` → 422. Diff is attribute-leve
 
 ## Via the Go proxy
 
-The Go server (default `:8090`) exposes the same endpoints under `/api/models/{id}/edit/...`, one-to-one:
+The Go server (default `:8090`) exposes the same endpoints under `/api/v1/models/{id}/edit/...`, one-to-one:
 
 | Go proxy endpoint | Python endpoint |
 | --- | --- |
-| `PUT /api/models/{id}/edit/entities/{guid}` | `PUT /models/{id}/entities/{guid}` |
-| `GET /api/models/{id}/edit/pending` | `GET /models/{id}/pending` |
-| `DELETE /api/models/{id}/edit/pending` | `DELETE /models/{id}/pending` |
-| `GET /api/models/{id}/edit/history` | `GET /models/{id}/history` |
-| `GET /api/models/{id}/edit/versions` | `GET /models/{id}/versions` |
-| `POST /api/models/{id}/edit/diff` | `POST /models/{id}/diff` |
-| `POST /api/models/{id}/edit/commit` | `POST /models/{id}/commit` |
+| `PUT /api/v1/models/{id}/edit/entities/{guid}` | `PUT /models/{id}/entities/{guid}` |
+| `GET /api/v1/models/{id}/edit/pending` | `GET /models/{id}/pending` |
+| `DELETE /api/v1/models/{id}/edit/pending` | `DELETE /models/{id}/pending` |
+| `GET /api/v1/models/{id}/edit/history` | `GET /models/{id}/history` |
+| `GET /api/v1/models/{id}/edit/versions` | `GET /models/{id}/versions` |
+| `POST /api/v1/models/{id}/edit/diff` | `POST /models/{id}/diff` |
+| `POST /api/v1/models/{id}/edit/commit` | `POST /models/{id}/commit` |
 
 Differences from direct access:
 

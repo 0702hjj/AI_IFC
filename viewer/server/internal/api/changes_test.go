@@ -20,7 +20,7 @@ func TestListChanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/models/"+modelID+"/changes", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/"+modelID+"/changes", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
@@ -47,7 +47,7 @@ func TestListChanges(t *testing.T) {
 func TestListChangesEmpty(t *testing.T) {
 	mux, modelID, _ := newChangesTestServer(t)
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/models/"+modelID+"/changes", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/"+modelID+"/changes", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
 	}
@@ -62,7 +62,7 @@ func TestListChangesEmpty(t *testing.T) {
 func TestListChangesModelNotFound(t *testing.T) {
 	mux, _, _ := newChangesTestServer(t)
 	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/models/m_0000000000000000/changes", nil))
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/models/m_0000000000000000/changes", nil))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("want 404, got %d", rec.Code)
 	}

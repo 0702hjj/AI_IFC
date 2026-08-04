@@ -11,11 +11,11 @@
 - 编辑保存后作为 override 覆盖显示值，**不修改 IFC 本体**，被覆盖字段带修改标记。
 - 空字符串 = 清除该字段的 override。
 - 每次修改逐字段写入一条 change log（`operation=update`，`author=local-user`，`provenance={source:"UI"}`），可在修改历史 tab 查看。
-- 相关 API：`GET /api/models/{id}/overrides`、`PUT /api/models/{id}/entities/{entityId}/properties`、`GET /api/models/{id}/changes`。
+- 相关 API：`GET /api/v1/models/{id}/overrides`、`PUT /api/v1/models/{id}/entities/{entityId}/properties`、`GET /api/v1/models/{id}/changes`。
 
 ## 第二阶段：override 迁移为真改
 
-`POST /api/models/{id}/overrides/migrate` 把当前全部 override 回放为真实 IFC 修改：
+`POST /api/v1/models/{id}/overrides/migrate` 把当前全部 override 回放为真实 IFC 修改：
 
 - 每个实体先 PUT pending，再一次性 commit（`operation=migrate`），生成新的版本快照。
 - 成功字段清除 override；失败字段保留 override，并在响应 `failed` 中带原因。

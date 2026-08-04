@@ -12,8 +12,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return env.data;
 }
 
-export function listModels() { return request<ModelInfo[]>("/api/models"); }
-export function fetchModel(id: string) { return request<ModelInfo>(`/api/models/${id}`); }
+export function listModels() { return request<ModelInfo[]>("/api/v1/models"); }
+export function fetchModel(id: string) { return request<ModelInfo>(`/api/v1/models/${id}`); }
 
 // --- chat 模块（demo） ---
 export interface ChatSession {
@@ -24,22 +24,22 @@ export interface ChatSession {
   createdAt: string;
 }
 export function createChatSession(title: string, modelId: string | null) {
-  return request<ChatSession>("/api/chat/sessions", {
+  return request<ChatSession>("/api/v1/chat/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title, modelId: modelId ?? "" }),
   });
 }
-export function listChatSessions() { return request<ChatSession[]>("/api/chat/sessions"); }
+export function listChatSessions() { return request<ChatSession[]>("/api/v1/chat/sessions"); }
 export function createChatProject(title: string) {
-  return request<ModelInfo>("/api/chat/projects", {
+  return request<ModelInfo>("/api/v1/chat/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ title }),
   });
 }
 export function postChatMessage(cid: string, text: string) {
-  return request<{ accepted: boolean }>(`/api/chat/sessions/${cid}/messages`, {
+  return request<{ accepted: boolean }>(`/api/v1/chat/sessions/${cid}/messages`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text }),
@@ -57,49 +57,49 @@ export interface ChatHistoryMsg {
   parts: ChatPart[];
 }
 export function fetchChatMessages(cid: string) {
-  return request<ChatHistoryMsg[]>(`/api/chat/sessions/${cid}/messages`);
+  return request<ChatHistoryMsg[]>(`/api/v1/chat/sessions/${cid}/messages`);
 }
 export function abortChatSession(cid: string) {
-  return request<{ aborted: boolean }>(`/api/chat/sessions/${cid}/abort`, { method: "POST" });
+  return request<{ aborted: boolean }>(`/api/v1/chat/sessions/${cid}/abort`, { method: "POST" });
 }
-export const chatEventsUrl = (cid: string) => `/api/chat/sessions/${cid}/events`;
+export const chatEventsUrl = (cid: string) => `/api/v1/chat/sessions/${cid}/events`;
 export function uploadModel(file: File) {
   const fd = new FormData();
   fd.append("file", file);
-  return request<ModelInfo>("/api/models", { method: "POST", body: fd });
+  return request<ModelInfo>("/api/v1/models", { method: "POST", body: fd });
 }
-export function retryModel(id: string) { return request<ModelInfo>(`/api/models/${id}/retry`, { method: "POST" }); }
-export function deleteModel(id: string) { return request<null>(`/api/models/${id}`, { method: "DELETE" }); }
-export const downloadUrl = (id: string) => `/api/models/${id}/download`;
-export const modelAssetUrl = (id: string, file: "model.xkt" | "metadata.json") => `/models/${id}/${file}`;
+export function retryModel(id: string) { return request<ModelInfo>(`/api/v1/models/${id}/retry`, { method: "POST" }); }
+export function deleteModel(id: string) { return request<null>(`/api/v1/models/${id}`, { method: "DELETE" }); }
+export const downloadUrl = (id: string) => `/api/v1/models/${id}/download`;
+export const modelAssetUrl = (id: string, file: "model.xkt" | "metadata.json") => `/v1/models/${id}/${file}`;
 
 export function listIssues(modelId: string) {
-  return request<Issue[]>(`/api/models/${modelId}/issues`);
+  return request<Issue[]>(`/api/v1/models/${modelId}/issues`);
 }
 export function createIssue(modelId: string, issue: NewIssue, screenshot: Blob | null) {
   const fd = new FormData();
   fd.append("issue", JSON.stringify(issue));
   if (screenshot) fd.append("screenshot", screenshot, "screenshot.png");
-  return request<Issue>(`/api/models/${modelId}/issues`, { method: "POST", body: fd });
+  return request<Issue>(`/api/v1/models/${modelId}/issues`, { method: "POST", body: fd });
 }
 export function updateIssue(
   modelId: string,
   issueId: string,
   patch: Partial<Pick<Issue, "title" | "comment" | "status">>
 ) {
-  return request<Issue>(`/api/models/${modelId}/issues/${issueId}`, {
+  return request<Issue>(`/api/v1/models/${modelId}/issues/${issueId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(patch),
   });
 }
 export function deleteIssue(modelId: string, issueId: string) {
-  return request<null>(`/api/models/${modelId}/issues/${issueId}`, { method: "DELETE" });
+  return request<null>(`/api/v1/models/${modelId}/issues/${issueId}`, { method: "DELETE" });
 }
-export const issueAssetUrl = (modelId: string, issue: Issue) => `/models/${modelId}/${issue.screenshot}`;
+export const issueAssetUrl = (modelId: string, issue: Issue) => `/v1/models/${modelId}/${issue.screenshot}`;
 
 export function fetchOverrides(modelId: string) {
-  return request<OverridesMap>(`/api/models/${modelId}/overrides`);
+  return request<OverridesMap>(`/api/v1/models/${modelId}/overrides`);
 }
 export function saveEntityProperties(
   modelId: string,
@@ -107,21 +107,21 @@ export function saveEntityProperties(
   fields: EntityFields,
   entityName: string
 ) {
-  return request<EntityFields>(`/api/models/${modelId}/entities/${entityId}/properties`, {
+  return request<EntityFields>(`/api/v1/models/${modelId}/entities/${entityId}/properties`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ fields, entityName }),
   });
 }
 export function fetchChanges(modelId: string) {
-  return request<ChangeEntry[]>(`/api/models/${modelId}/changes`);
+  return request<ChangeEntry[]>(`/api/v1/models/${modelId}/changes`);
 }
 
 export function fetchEditVersions(modelId: string) {
-  return request<EditVersionsResponse>(`/api/models/${modelId}/edit/versions`);
+  return request<EditVersionsResponse>(`/api/v1/models/${modelId}/edit/versions`);
 }
 export function postEditDiff(modelId: string, base: string, target: string) {
-  return request<DiffResponse>(`/api/models/${modelId}/edit/diff`, {
+  return request<DiffResponse>(`/api/v1/models/${modelId}/edit/diff`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ base, target }),

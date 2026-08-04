@@ -37,6 +37,14 @@ AI_IFC is an IFC (Industry Foundation Classes) review and editing platform made 
 
 Typical workflow: upload an IFC → review it in 3D once conversion finishes → file issues on elements → edit attributes (override or real edit) → commit to create a version → use Diff to compare versions.
 
+## Screenshots
+
+![3D viewer](/screenshots/viewer.png)
+
+| Model library | Property editing | Version diff | AI chat |
+|---|---|---|---|
+| ![Model library](/screenshots/library.png) | ![Property editing](/screenshots/properties.png) | ![Version diff](/screenshots/diff.png) | ![AI chat](/screenshots/chat.png) |
+
 ## Getting started
 
 1. [Project introduction](/en/guide/project-intro) — positioning, capability boundaries and the four-component architecture.

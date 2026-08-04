@@ -27,21 +27,21 @@ internal/
 
 | 路由 | 说明 |
 | --- | --- |
-| `POST /api/models` | 上传（multipart `file`，.ifc，限大小）→ 入转换队列 |
-| `GET /api/models` / `GET /api/models/{id}` | 列表（createdAt 倒序）/ 详情 |
-| `POST /api/models/{id}/retry` | failed 重转 |
-| `DELETE /api/models/{id}` | 级联删 issues/changes/overrides + 文件 |
-| `GET /api/models/{id}/download` | 下载原 IFC |
+| `POST /api/v1/models` | 上传（multipart `file`，.ifc，限大小）→ 入转换队列 |
+| `GET /api/v1/models` / `GET /api/v1/models/{id}` | 列表（createdAt 倒序）/ 详情 |
+| `POST /api/v1/models/{id}/retry` | failed 重转 |
+| `DELETE /api/v1/models/{id}` | 级联删 issues/changes/overrides + 文件 |
+| `GET /api/v1/models/{id}/download` | 下载原 IFC |
 | `GET /models/{id}/model.xkt` · `/metadata.json` | 静态产物（无 envelope） |
-| `GET/POST /api/models/{id}/issues` · `PATCH/DELETE .../issues/{issueId}` | Issue CRUD（截图 ≤5MB） |
+| `GET/POST /api/v1/models/{id}/issues` · `PATCH/DELETE .../issues/{issueId}` | Issue CRUD（截图 ≤5MB） |
 | `GET /models/{id}/issues/{file}` | Issue 截图（文件名白名单正则） |
-| `GET /api/models/{id}/changes` | 修改记录（change log） |
-| `GET /api/models/{id}/overrides` | `map[entityId]map[field]value` |
-| `PUT /api/models/{id}/entities/{entityId}/properties` | override 写入（白名单五字段；每字段一条 change） |
-| `POST /api/models/{id}/overrides/migrate` | override → 真改迁移 |
-| `PUT /api/models/{id}/edit/entities/{guid}` | 代理至 edit-service（provenance 先校验） |
-| `GET/DELETE /api/models/{id}/edit/pending` · `GET .../edit/history` · `GET .../edit/versions` · `POST .../edit/diff` | 代理透传 |
-| `POST /api/models/{id}/edit/commit` | 编排：Python commit → change log 展开 → 重转；change log 失败降级 `warning` |
+| `GET /api/v1/models/{id}/changes` | 修改记录（change log） |
+| `GET /api/v1/models/{id}/overrides` | `map[entityId]map[field]value` |
+| `PUT /api/v1/models/{id}/entities/{entityId}/properties` | override 写入（白名单五字段；每字段一条 change） |
+| `POST /api/v1/models/{id}/overrides/migrate` | override → 真改迁移 |
+| `PUT /api/v1/models/{id}/edit/entities/{guid}` | 代理至 edit-service（provenance 先校验） |
+| `GET/DELETE /api/v1/models/{id}/edit/pending` · `GET .../edit/history` · `GET .../edit/versions` · `POST .../edit/diff` | 代理透传 |
+| `POST /api/v1/models/{id}/edit/commit` | 编排：Python commit → change log 展开 → 重转；change log 失败降级 `warning` |
 
 错误映射（代理）：Python 404 → 404 / 409 → 409 / 422 → 400 / 其他 → 502。模型 id 校验 `^m_[0-9a-f]{16}$`（路径穿越防护，与 Python 侧同规则）。
 

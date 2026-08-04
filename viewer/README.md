@@ -71,13 +71,13 @@ Go 侧端点（均走 `{code,message,data}` envelope，透传 Python 状态码�
 
 | 端点 | 说明 |
 | --- | --- |
-| `PUT /api/models/{id}/edit/entities/{guid}` | 代理：暂存一条 pending 修改（body `{fields?, psets?, author?, provenance?}`） |
-| `GET /api/models/{id}/edit/pending` / `DELETE` | 查询 / 丢弃 pending |
-| `POST /api/models/{id}/edit/commit` | 编排：commit → 写 change log（含 diff 补充）→ 重转 XKT，响应 `{committed, entries, reconverting}`；change log 写失败降级为 `warning` 字段（仍 200，重转照常排队） |
-| `GET /api/models/{id}/edit/history` | 编辑历史 |
-| `GET /api/models/{id}/edit/versions` | 版本快照列表 |
-| `POST /api/models/{id}/edit/diff` | 版本间 diff（body `{base, target}`，target 可为 `current`） |
-| `POST /api/models/{id}/overrides/migrate` | 把该模型全部 override 回放为真实 IFC 修改（一次 commit 一个版本快照，commit 带 `operation=migrate`），成功字段清除 override，失败字段保留并返回 `{migrated, failed}`；change log 写失败降级为 `warning` 字段 |
+| `PUT /api/v1/models/{id}/edit/entities/{guid}` | 代理：暂存一条 pending 修改（body `{fields?, psets?, author?, provenance?}`） |
+| `GET /api/v1/models/{id}/edit/pending` / `DELETE` | 查询 / 丢弃 pending |
+| `POST /api/v1/models/{id}/edit/commit` | 编排：commit → 写 change log（含 diff 补充）→ 重转 XKT，响应 `{committed, entries, reconverting}`；change log 写失败降级为 `warning` 字段（仍 200，重转照常排队） |
+| `GET /api/v1/models/{id}/edit/history` | 编辑历史 |
+| `GET /api/v1/models/{id}/edit/versions` | 版本快照列表 |
+| `POST /api/v1/models/{id}/edit/diff` | 版本间 diff（body `{base, target}`，target 可为 `current`） |
+| `POST /api/v1/models/{id}/overrides/migrate` | 把该模型全部 override 回放为真实 IFC 修改（一次 commit 一个版本快照，commit 带 `operation=migrate`），成功字段清除 override，失败字段保留并返回 `{migrated, failed}`；change log 写失败降级为 `warning` 字段 |
 
 ## AI 聊天（opencode serve）
 
@@ -107,13 +107,13 @@ chat 模块端点（均走 `{code,message,data}` envelope，opencode 原生格�
 
 | 端点 | 说明 |
 | --- | --- |
-| `POST /api/chat/sessions` | 建/复用会话（同 modelId 幂等复用），持久化到 `{dataDir}/chat-sessions.json` |
-| `GET /api/chat/sessions` | 会话列表 |
-| `POST /api/chat/sessions/{cid}/messages` | 发消息给 AI agent（body `{text}`） |
-| `GET /api/chat/sessions/{cid}/messages` | 会话历史（回填聊天内容） |
-| `GET /api/chat/sessions/{cid}/events` | SSE 透传：agent 流式消息 + chat 模块自有事件（`viewer.committed` 等） |
-| `POST /api/chat/sessions/{cid}/abort` | 中止 AI 当前 turn（透传 opencode `/session/{id}/abort`） |
-| `POST /api/chat/projects` | 骨架项目：生成空白 IFC（含用户命名）→ 注册模型 → 入队转换（从零构建入口） |
+| `POST /api/v1/chat/sessions` | 建/复用会话（同 modelId 幂等复用），持久化到 `{dataDir}/chat-sessions.json` |
+| `GET /api/v1/chat/sessions` | 会话列表 |
+| `POST /api/v1/chat/sessions/{cid}/messages` | 发消息给 AI agent（body `{text}`） |
+| `GET /api/v1/chat/sessions/{cid}/messages` | 会话历史（回填聊天内容） |
+| `GET /api/v1/chat/sessions/{cid}/events` | SSE 透传：agent 流式消息 + chat 模块自有事件（`viewer.committed` 等） |
+| `POST /api/v1/chat/sessions/{cid}/abort` | 中止 AI 当前 turn（透传 opencode `/session/{id}/abort`） |
+| `POST /api/v1/chat/projects` | 骨架项目：生成空白 IFC（含用户命名）→ 注册模型 → 入队转换（从零构建入口） |
 
 ## 依赖版本
 
@@ -145,7 +145,7 @@ cd ~/.code/gaiahub/CADapi/IFC_front/AI_IFC && opencode serve --port 4096 --cors 
 # 5. 浏览器打开 http://localhost:5173 ，上传 .ifc 验证
 ```
 
-> 起 AI 聊天服务后，项目页聊天侧边栏才可用（`POST /api/chat/*` 不可达时返回 502，不影响模型浏览）。
+> 起 AI 聊天服务后，项目页聊天侧边栏才可用（`POST /api/v1/chat/*` 不可达时返回 502，不影响模型浏览）。
 
 端到端冒烟（覆盖上传→转换→下载→Issue CRUD→属性 override/修改记录 全链路，需 server 已运行；edit-service 可达时追加 edit flow 段，否则自动跳过）：
 

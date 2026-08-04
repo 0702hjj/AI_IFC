@@ -87,13 +87,13 @@ func NewChatHandler(ctx context.Context, d ChatDeps) *ChatHandler {
 
 // registerRoutes 注册 chat 模块全部路由（NewChatHandler 与测试 handler 共用）。
 func (h *ChatHandler) registerRoutes() {
-	h.mux.HandleFunc("POST /api/chat/sessions", h.createSession)
-	h.mux.HandleFunc("GET /api/chat/sessions", h.listSessions)
-	h.mux.HandleFunc("POST /api/chat/sessions/{cid}/messages", h.postMessage)
-	h.mux.HandleFunc("GET /api/chat/sessions/{cid}/messages", h.getMessages)
-	h.mux.HandleFunc("GET /api/chat/sessions/{cid}/events", h.events)
-	h.mux.HandleFunc("POST /api/chat/sessions/{cid}/abort", h.abortSession)
-	h.mux.HandleFunc("POST /api/chat/projects", h.createProject)
+	h.mux.HandleFunc("POST /api/v1/chat/sessions", h.createSession)
+	h.mux.HandleFunc("GET /api/v1/chat/sessions", h.listSessions)
+	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/messages", h.postMessage)
+	h.mux.HandleFunc("GET /api/v1/chat/sessions/{cid}/messages", h.getMessages)
+	h.mux.HandleFunc("GET /api/v1/chat/sessions/{cid}/events", h.events)
+	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/abort", h.abortSession)
+	h.mux.HandleFunc("POST /api/v1/projects", h.createProject)
 }
 
 func (h *ChatHandler) sessionsPath() string {

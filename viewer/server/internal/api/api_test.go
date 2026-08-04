@@ -52,7 +52,7 @@ func upload(t *testing.T, url, filename, content string) *httptest.ResponseRecor
 	fw, _ := w.CreateFormFile("file", filename)
 	fw.Write([]byte(content))
 	w.Close()
-	req, _ := http.NewRequest("POST", url+"/api/models", strings.NewReader(body.String()))
+	req, _ := http.NewRequest("POST", url+"/api/v1/models", strings.NewReader(body.String()))
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -104,7 +104,7 @@ func TestUploadListDownloadDelete(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	// 列表
-	resp, _ := http.Get(srv.URL + "/api/models")
+	resp, _ := http.Get(srv.URL + "/api/v1/models")
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	var le env
@@ -115,20 +115,20 @@ func TestUploadListDownloadDelete(t *testing.T) {
 		t.Fatalf("list: %d", len(list))
 	}
 	// 下载原始 IFC
-	resp, _ = http.Get(srv.URL + "/api/models/" + created.ID + "/download")
+	resp, _ = http.Get(srv.URL + "/api/v1/models/" + created.ID + "/download")
 	b, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if !strings.Contains(resp.Header.Get("Content-Disposition"), "ok.ifc") || string(b) != "ISO-10303-21;fake" {
 		t.Fatalf("download: %v %q", resp.Header, b)
 	}
 	// 静态 xkt（文件不存在 → 404）
-	resp, _ = http.Get(srv.URL + "/models/" + created.ID + "/model.xkt")
+	resp, _ = http.Get(srv.URL + "/v1/models/" + created.ID + "/model.xkt")
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("static: %d", resp.StatusCode)
 	}
 	// 删除
-	req, _ := http.NewRequest("DELETE", srv.URL+"/api/models/"+created.ID, nil)
+	req, _ := http.NewRequest("DELETE", srv.URL+"/api/v1/models/"+created.ID, nil)
 	resp, _ = http.DefaultClient.Do(req)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -138,7 +138,7 @@ func TestUploadListDownloadDelete(t *testing.T) {
 		t.Fatalf("after delete: %v", err)
 	}
 	// 未知 id → 404
-	resp, _ = http.Get(srv.URL + "/api/models/m_deadbeefdeadbeef")
+	resp, _ = http.Get(srv.URL + "/api/v1/models/m_deadbeefdeadbeef")
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("404: %d", resp.StatusCode)
@@ -174,7 +174,7 @@ func TestDeleteModelCascadesStores(t *testing.T) {
 		}
 	}
 
-	req, _ := http.NewRequest("DELETE", srv.URL+"/api/models/"+created.ID, nil)
+	req, _ := http.NewRequest("DELETE", srv.URL+"/api/v1/models/"+created.ID, nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +203,7 @@ func TestPutEntityPropertiesBodyTooLarge(t *testing.T) {
 
 	big := `{"entityName":"Wall","fields":{"Name":"` + strings.Repeat("x", 1<<20) + `"}}`
 	req, _ := http.NewRequest("PUT",
-		srv.URL+"/api/models/"+created.ID+"/entities/e1/properties", strings.NewReader(big))
+		srv.URL+"/api/v1/models/"+created.ID+"/entities/e1/properties", strings.NewReader(big))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
