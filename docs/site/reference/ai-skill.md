@@ -8,6 +8,7 @@
 
 - **SKILL.md**：行为宪法（MUST 1-24）——骨架先行、容器必填、世界坐标、开洞纪律、三层校验、design JSON 框定复杂几何。
 - **references/**：103 个 API 分页、8 个组件 recipe（楼梯/屋顶/窗/女儿墙/阳台）、13 个可运行 flows、6 份方法论参考（SKD_OVERVIEW / MODELING_WORKFLOWS / DESIGN_JSON_SCHEMA / SPATIAL_QUALITY 等）。
+- **templates/**：可复制的完整示例脚本（如 `build_skeleton.py` 最小模型）。
 - **requirements.txt**：运行 flows 需要的 Python 依赖（`ifcopenshell` / `ifcquery` / `numpy`，PyPI 官方发布，无本地源码依赖）。
 
 skill 结构源自仓库历史中的 SimpleCADAPI skill 设计解剖（`research/ifc/simplecadapi_skill_anatomy.md`），并按 IFC 领域重写：**按动作拆模块、四层渐进展开、每层单一职责、MUST 条款串联**。
