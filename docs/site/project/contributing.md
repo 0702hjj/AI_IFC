@@ -22,7 +22,7 @@ cd docs && npm ci && npm run docs:build
 ## 文档贡献
 
 - 公开文档站源在 `docs/site/`，唯一信息源；修改后必须 `cd docs && npm run docs:build` 通过（死链会导致构建失败）。
-- `docs/internal/` 与 `docs/archive/` 不进入站点，仅作内部记录与归档。
+- `docs/internal/` 不进入站点，仅作内部记录（原 `docs/archive/` 已随 2026-08-05 清理移除，见 git 历史）。
 - 页面涉及未交付能力时，必须标注为 Roadmap，不得提供不可执行步骤。
 - 移动或归档文档后，全仓 Markdown 相对链接必须同步更新。
 

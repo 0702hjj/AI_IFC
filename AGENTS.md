@@ -23,7 +23,7 @@ AI agent ──► REST 编辑 API ────┘
 | server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（98 测试）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `viewer/converter` | `npm test`（node --test） | 被 server 以子进程调用 |
 | edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run pytest`（54 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
-| skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（11 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
+| skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（9 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
 | 端到端 | `viewer/scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
 | 文档站 | `docs/` | `npm run docs:build`；`npm run check:api`（API 文档漂移检测） | `npm run docs:dev`；内部 wiki `npm run docs:dev:internal` |
 

@@ -14,7 +14,7 @@ AI_IFC 以 **AGPL-3.0-only** 发布（[LICENSE](https://github.com/0702hjj/AI_IF
 - `skills/simplecadapi/`（SimpleCAD API Team）
 - `examples/`（SimpleCAD API Team）
 - 根 `pyproject.toml`（SimpleCADAPI 包元数据，归档）
-- `docs/archive/simplecadapi/`（原 SCAD API/core/stdlib/legacy 文档）
+- `docs/archive/simplecadapi/`（原 SCAD API/core/stdlib/legacy 文档，已随 2026-08-05 清理移除，见 git 历史）
 
 ## 第三方组件
 

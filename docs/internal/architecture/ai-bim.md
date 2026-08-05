@@ -144,7 +144,7 @@ POST /models/{id}/commit
 1. **前端解析栈**：报告未指定；我们选 web-ifc + xeokit-convert（非 IfcOpenShell WASM，调研结论「启动重，不适合生产级前端」）。「同一套 ifcopenshell.api」的符合度由后端 edit-service 承担
 2. **存储**：报告 §4 混合存储（Git+DB）——DB 半已落地（PG 三表 + File 降级），Git 半暂缓（SPF step-id 噪声问题无收益优先级）
 3. **oldValue**：override 阶段记录前次 override 值（历史数据保留）；真改阶段起一律为 IFC 真原值（N+2 已解决）
-4. **几何 diff**：报告 §1.3 全量 IfcDiff——v1 限定属性级（几何 diff 的计算量与语义噪声，见 roadmap 风险节）
+4. **几何 diff**：报告 §1.3 全量 IfcDiff——v1 限定属性级（几何 diff 的计算量与语义噪声，见 [PLAN v0.1.0](../../work/PLAN-v0.1.0.md)）
 
 ## 八、边界与技术债
 

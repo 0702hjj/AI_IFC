@@ -122,7 +122,7 @@ curl -X POST localhost:8090/api/models/$MID/edit/commit
 3. 三份历史（Go change.Store / edit-history.json / 内存 pending）——已出现并修复过一次 operation 漂移，v2 归并单源
 4. ifcdiff 本地 editable 依赖（`../IfcOpenShell`）——N+3 改 vendor/git source + LICENSE 审计
 5. diff 属性级、无超时（大模型阻塞 threadpool）；重转全量（增量后续）
-6. 大模型性能未基准测试（真机验证为 MB 级样例）——roadmap 风险节已列
+6. 大模型性能未基准测试（真机验证为 MB 级样例）——已列入 [docs/work/PLAN-v0.1.0.md](../work/PLAN-v0.1.0.md)
 
 ## 七、下一步
 
