@@ -44,7 +44,9 @@ def _make_skill(root: Path, name: str = "aiifc") -> Path:
         "references/docs/flows/skeleton.py",
         "references/docs/flows/design_review.py",
         "references/docs/flows/ifc_inspect.py",
+        "references/docs/flows/dxf_from_design.py",
         "templates/build_skeleton.py",
+        "workflows/PLAN_DXF_IFC.md",
     ]
     for rel in required:
         path = skill / rel

@@ -25,6 +25,8 @@ metadata:
 4. **Read `references/SPATIAL_QUALITY.md` BEFORE framing any design JSON** — footprint articulation (CP-05), door swing clearance (GI-08), stair continuity (GI-09) must be internalized up front so the design JSON is born compliant. Also read `references/DESIGN_PATTERNS.md` before choosing massing/facade/spatial organization.
 5. **Component recipes — consult before building any element**: check `references/docs/design/` for a matching recipe. The index is in `docs/design/README.md`.
 
+> **Optional workflow**: when a task benefits from staged planning (assist a designer from idea to IFC), consult `workflows/PLAN_DXF_IFC.md` — plan → DXF → IFC. It is a **selective feature, not mandatory**; skip it entirely for simple direct builds (`simple wall/slab` MUST #19) or when the user's input already targets a specific stage.
+
 **API usage:**
 6. All API calls use **keyword arguments**; the first positional argument is always `model`.
 7. Use `ifcopenshell.api.run("<package>.<usecase>", model, **kwargs)`.
@@ -85,9 +87,10 @@ Optional: **Type** (`type.assign_type`), **Material** (`material.assign_material
 | `references/PSET_REFERENCE.md` | Applicable Pset/Qto per element type |
 | `references/SPATIAL_QUALITY.md` | Design review rules (SS/GI/PR/RH/MC/CP/FD/SQ) |
 | `references/docs/api/README.md` + `<pkg>.<usecase>.md` | API index (14 categories, 103 usecases) + exact signatures |
-| `references/docs/flows/README.md` + `*.py` | Runnable per-stage code and tools (tracker / design_review / ifc_inspect) |
+| `references/docs/flows/README.md` + `*.py` | Runnable per-stage code and tools (tracker / design_review / ifc_inspect / **dxf_from_design**) |
 | `references/docs/design/README.md` + recipes | Component building recipes (stairs, roof, windows, parapet, balcony) |
 | `templates/build_skeleton.py` | Minimal complete model (skeleton + wall + slab) — copy and edit |
+| `workflows/PLAN_DXF_IFC.md` | **工作流编排**：plan → DXF → IFC 三阶段顺序与跳步规则（辅助设计师） |
 
 ## Installing the skill
 
