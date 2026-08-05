@@ -20,10 +20,8 @@ import {
   saveDesign,
   fetchDesignVersions,
   postDesignDiff,
-  type DesignState,
-  type DesignVersionsResponse,
-  type DesignDiffResponse,
 } from "@/api/client";
+import type { DesignState, DesignVersionsResponse, DesignDiffResponse } from "@/api/types";
 import { useViewer } from "./ViewerContext";
 import { useViewerStore } from "./store";
 import { DESIGN_PARAM_SCHEMA, findElementByKey, updateElement, type DesignElement } from "./designEdit";

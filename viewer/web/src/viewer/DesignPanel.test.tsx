@@ -33,17 +33,6 @@ const versions = {
   versions: [{ version: "v1", createdAt: "t" }],
 };
 
-function metaObject(designKey: string) {
-  return {
-    id: "g1",
-    name: "Wall",
-    type: "IfcWall",
-    propertySets: [
-      { name: "Pset_AIIFC", properties: [{ name: "designKey", value: designKey }] },
-    ],
-  };
-}
-
 // mock the viewer context and store used by DesignPanel
 vi.mock("@/viewer/ViewerContext", () => ({
   useViewer: () => ({
