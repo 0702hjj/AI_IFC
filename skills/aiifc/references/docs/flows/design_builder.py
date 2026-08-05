@@ -67,7 +67,10 @@ def normalize(design):
         if not fd:
             continue
         base = len(walls)   # 本层墙的起始全局索引(openings.wall 是本层索引 → 全局)
+        wi = oi = si = sti = 0   # 本层各构件计数器(用于自动分配确定性 key)
         for w in fd.get("walls", []):
+            key = w.get("key") or f"{sname}:wall:{wi}"
+            wi += 1
             t = _snap(w.get("t", 0.2), mod)
             kind = w.get("kind", "int")
             if "path" in w:                      # 轴网路径 → axis 折线
@@ -78,7 +81,7 @@ def normalize(design):
                 for i in range(len(pts) - 1):    # 共轴校验
                     if abs(pts[i][0]-pts[i+1][0]) > 1e-6 and abs(pts[i][1]-pts[i+1][1]) > 1e-6:
                         raise SchemaError(f"path 段{i} 不沿轴网(斜线), 改用 axis 折线")
-                walls.append({"storey": sname, "axis": pts, "t": t, "kind": kind})
+                walls.append({"storey": sname, "axis": pts, "t": t, "kind": kind, "key": key})
             elif "arc" in w:                     # 弧形 → axis 多段逼近
                 a = w["arc"]
                 cx, cy = _snap(a["center"][0], mod), _snap(a["center"][1], mod)
@@ -86,21 +89,27 @@ def normalize(design):
                 a0, a1 = math.radians(a.get("a0", 0.0)), math.radians(a.get("a1", 360.0))
                 n = max(4, int(abs(a1 - a0) / math.radians(12)))
                 pts = [(cx + r*math.cos(a0+(a1-a0)*i/n), cy + r*math.sin(a0+(a1-a0)*i/n)) for i in range(n + 1)]
-                walls.append({"storey": sname, "axis": pts, "t": t, "kind": kind})
+                walls.append({"storey": sname, "axis": pts, "t": t, "kind": kind, "key": key})
             else:                                # axis 直墙/多段斜折线
                 pts = _snap_pts(w["axis"], mod)
-                walls.append({"storey": sname, "axis": pts, "t": t, "kind": kind})
+                walls.append({"storey": sname, "axis": pts, "t": t, "kind": kind, "key": key})
         for op in fd.get("openings", []):
+            key = op.get("key") or f"{sname}:opening:{oi}"
+            oi += 1
             openings.append({
-                "storey": sname, "wall": base + op["wall"],
+                "storey": sname, "wall": base + op["wall"], "key": key,
                 "along": _snap(op["along"], mod), "w": _snap(op["w"], mod), "h": _snap(op["h"], mod),
                 "sill": _snap(op.get("sill", 0.0), mod), "type": op.get("type", "window")})
         for s in fd.get("slabs", [{"t": 0.15}]):
+            key = s.get("key") or f"{sname}:slab:{si}"
+            si += 1
             prof = s.get("profile") or fp
-            slabs.append({"storey": sname, "profile": _snap_pts(prof, mod),
+            slabs.append({"storey": sname, "profile": _snap_pts(prof, mod), "key": key,
                           "t": s.get("t", 0.15), "predef": s.get("predef", "FLOOR")})
         for st in fd.get("stairs", []):          # 楼梯：shaft 绑墙(疏散) 或 at+size 独立(开敞)，两种位置标记
-            out = {"storey": sname, "type": st.get("type"), "width": st.get("width")}
+            key = st.get("key") or f"{sname}:stair:{sti}"
+            sti += 1
+            out = {"storey": sname, "type": st.get("type"), "width": st.get("width"), "key": key}
             shaft = st.get("shaft")
             if isinstance(shaft, dict) and isinstance(shaft.get("x"), list) and isinstance(shaft.get("y"), list):
                 # shaft 轴线索引 → 井道矩形坐标（疏散梯，边界=墙轴线）
