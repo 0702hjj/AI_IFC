@@ -145,7 +145,7 @@ Pick the form matching the stair's role: an open spiral must NOT be forced into 
         {"wall":2,"along":3.0,"w":1.5,"h":1.5,"sill":0.9,"type":"window"}
       ],
       "slabs": [{"t":0.15,"predef":"FLOOR"}],
-      "stairs": [{"at":[9.0,5.0],"shaft":{"w":2.0,"l":4.0},"type":"double_run"}]
+      "stairs": [{"shaft":{"x":[2,3],"y":[1,2]},"type":"double_run","width":1.1}]
     },
     "2F": {
       "walls": [
