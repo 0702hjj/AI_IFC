@@ -74,13 +74,16 @@ python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
 ## Repository layout
 
 ```
+AGENTS.md          # human-AI collaboration contract (agent entry point)
 viewer/            # active product: the IFC platform (web / server / converter / edit-service)
 skills/aiifc/      # AI authoring skill (distributable, agent-agnostic)
 tools/             # skill packager (skill_pack_aiifc.py)
 docs/site/         # public docs site (VitePress, published to GitHub Pages)
-docs/internal/     # internal plans and team sync (not published)
-docs/archive/      # archived SimpleCADAPI documentation
-src/  examples/    # archived: SimpleCADAPI (SCAD), the repo's origin
+docs/work/         # work-item board (audit, plans, trackable items)
+docs/internal/     # internal team docs (not published)
+docs/superpowers/  # design specs and implementation plans (process artifacts)
+src/               # archived: SimpleCADAPI (SCAD), the repo's origin (frozen)
+examples/          # IFC-era example scripts
 ```
 
 ## License
