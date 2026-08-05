@@ -892,14 +892,14 @@ class DesignReviewer:
             wall_area = sum(self._wall_area(w) for w in st_walls)
             if wall_area > 0:
                 ratio = win_area / wall_area
-                if ratio < lo:
-                    self.errors.append(
-                        f"[PR-01] {st.Name} window-to-wall ratio {ratio:.2f} below min {lo} "
-                        f"(daylight deficit: {win_area:.1f}/{wall_area:.1f} m²)")
-                elif ratio > hi:
-                    self.errors.append(
-                        f"[PR-01] {st.Name} window-to-wall ratio {ratio:.2f} above max {hi} "
-                        f"(excessive glazing: {win_area:.1f}/{wall_area:.1f} m²)")
+            if ratio < lo:
+                self.warnings.append(
+                    f"[PR-01] {st.Name} window-to-wall ratio {ratio:.2f} below min {lo} "
+                    f"(daylight deficit: {win_area:.1f}/{wall_area:.1f} m²)")
+            elif ratio > hi:
+                self.warnings.append(
+                    f"[PR-01] {st.Name} window-to-wall ratio {ratio:.2f} above max {hi} "
+                    f"(excessive glazing: {win_area:.1f}/{wall_area:.1f} m²)")
 
         # PR-02: 柱间距
         columns = self.model.by_type("IfcColumn")

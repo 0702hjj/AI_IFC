@@ -135,7 +135,7 @@ const internalSidebar = [
   {
     text: '内部 · 架构与评估',
     items: [
-      { text: '总体架构（源）', link: '/internal/architecture/ai-bim' },
+      { text: '总体架构 + plan/cad/bim 远景（全面版）', link: '/internal/architecture/ai-bim-agent-page' },
       { text: 'Viewer 详细（源）', link: '/internal/architecture/viewer-detail' },
       { text: '内部 Roadmap', link: '/internal/architecture/roadmap' },
       { text: 'Viewer 路线图', link: '/internal/architecture/viewer' },

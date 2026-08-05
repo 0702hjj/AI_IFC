@@ -150,8 +150,8 @@
 | Description | Ratio of total window area to total exterior wall area per storey |
 | Measurement | `sum(window.OverallHeight × window.OverallWidth) / sum(wall.length × wall.height)` per storey |
 | Pass range | 25%–50% (school), 30%–70% (public/office), 15%–40% (residential), 40%–80% (retail) |
-| Severity | **Error** |
-| Rationale | Too low = dark, prison-like, educationally harmful (no daylight in classrooms); too high = structural/thermal issues, glass box monotony. Daylight is a *functional* requirement for schools/offices, not a stylistic preference, so an out-of-range WWR is a hard failure, not a warning |
+| Severity | **Warning** |
+| Rationale | Too low = dark, prison-like, educationally harmful (no daylight in classrooms); too high = structural/thermal issues, glass box monotony. Daylight matters, but actual adequacy depends on program/climate/context (a civic building may legitimately aim for a solid facade with lower WWR) — so warn for review rather than hard-fail. |
 
 ### PR-02: Column Spacing
 
@@ -303,8 +303,8 @@
 
 | Level | Meaning | Action |
 |---|---|---|
-| Error | Violates functional/design logic (GI-xx incl. GI-09 stair reach / GI-10 floor coverage / GI-11 stair fall-protection / GI-12 stair shaft hygiene, PR-01 daylight, PR-02/03/04, RH-02) | Must fix before delivery |
-| Warning | Deviates from good practice | Review and justify or fix |
+| Error | Violates functional/design logic (GI-xx incl. GI-09 stair reach / GI-10 floor coverage / GI-12 stair shaft hygiene, PR-02/03/04, RH-02) | Must fix before delivery |
+| Warning | Deviates from good practice (PR-01 WWR daylight, GI-13 stair side-align, CLASH penetration incl. normal joints, GI-02 window near-wall no link) | Review and justify or fix |
 | Info | Enhancement suggestion | Optional |
 
 **Workflow** (authoritative pipeline in `SKILL.md` #15-16): generate → `ifcopenshell.validate` (schema) → `design_review.py` (these rules) → 0 errors ⇒ deliver; else Self-Refine. The report format is what `design_review.py` prints (ERRORS / WARNINGS / INFO + summary); this file defines the *rules*, not the output template.

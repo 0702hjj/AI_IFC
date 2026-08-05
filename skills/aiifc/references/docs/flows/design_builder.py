@@ -29,6 +29,22 @@ def _snap_pts(pts, mod):
     return [(_snap(p[0], mod), _snap(p[1], mod)) for p in pts]
 
 
+def _wall_half_thickness(walls, dim, val, default=0.1):
+    """找垂直 dim、位于 val 轴线的墙，返回其半墙厚（轴线→内墙面偏移用）。
+    dim='x' 找南北墙(沿Y, x 固定)==val；dim='y' 找东西墙(沿X, y 固定)==val。
+    找不到返回 default（假设 200mm 墙的一半 = 0.1）。"""
+    for w in walls:
+        axis = w.get("axis", [])
+        if len(axis) < 2:
+            continue
+        (ax1, ay1), (ax2, ay2) = axis[0], axis[-1]
+        if dim == "x" and abs(ax1 - val) < 1e-3 and abs(ax2 - val) < 1e-3:
+            return w.get("t", 0.2) / 2
+        if dim == "y" and abs(ay1 - val) < 1e-3 and abs(ay2 - val) < 1e-3:
+            return w.get("t", 0.2) / 2
+    return default
+
+
 def normalize(design):
     """design JSON → features(规范化几何数据). 规范化: 模数吸附 + footprint 闭合 + 轴网对齐;
     展开: path轴网→axis折线, arc弧形→axis多段逼近, openings 保留 along(参数化定位)."""
@@ -103,13 +119,21 @@ def normalize(design):
             out = {"storey": sname, "type": st.get("type"), "width": st.get("width")}
             shaft = st.get("shaft")
             if isinstance(shaft, dict) and isinstance(shaft.get("x"), list) and isinstance(shaft.get("y"), list):
-                # shaft 轴线索引 → 井道矩形坐标（疏散梯，边界=墙轴线）
+                # shaft 轴线索引 → 井道内墙面坐标（梯跑贴墙面，非墙轴线/中心）
+                # 轴线 = 墙中心；向内偏移半墙厚得到内墙面，梯跑贴此 = 真贴墙面不嵌墙
                 try:
                     xi, xj = shaft["x"]; yk, yl = shaft["y"]
-                    out["shaft"] = {"x0": ag["x"][xi], "x1": ag["x"][xj],
-                                    "y0": ag["y"][yk], "y1": ag["y"][yl]}
+                    x0a, x1a = ag["x"][xi], ag["x"][xj]
+                    y0a, y1a = ag["y"][yk], ag["y"][yl]
                 except (KeyError, IndexError, ValueError):
                     raise SchemaError(f"stairs shaft 轴网索引越界/格式错: {shaft}")
+                walls_here = [w for w in walls if w["storey"] == sname]
+                out["shaft"] = {
+                    "x0": x0a + _wall_half_thickness(walls_here, "x", x0a),  # 西墙内墙面
+                    "x1": x1a - _wall_half_thickness(walls_here, "x", x1a),  # 东墙内墙面
+                    "y0": y0a + _wall_half_thickness(walls_here, "y", y0a),
+                    "y1": y1a - _wall_half_thickness(walls_here, "y", y1a),
+                }
             elif "at" in st:                       # at + size 独立位置（开敞/螺旋/悬挑/扶梯，不绑墙）
                 at = st["at"]; size = st.get("size", [2, 3])
                 out["at"] = [_snap(at[0], mod), _snap(at[1], mod)]

@@ -142,7 +142,8 @@ def sawtooth_run(name, start, direction, n_risers, tread, rise_total, width, sto
         api("geometry.edit_object_placement", model, product=step, matrix=m, is_si=True)
         api("spatial.assign_container", model, relating_structure=storey, products=[step])
 
-# --- egress double-run: R1 + landing + R2 = full storey (shaft Y∈[a,b]) ---
+# --- egress double-run: R1 + landing + R2 = full storey ---
+# x_west/x_east/a/b = design_builder 输出的 shaft 内墙面坐标（轴线已偏移半墙厚 → 梯跑贴墙面，不嵌墙中心）
 n, tread, rise_run = 9, 0.26, 1.5
 sawtooth_run("R1", (x_west, a, z0), "+Y", n, tread, rise_run, width, storey)   # y a→a+2.34
 # landing: top flush z0+1.5; spans R1-top edge to shaft north wall, across both runs
