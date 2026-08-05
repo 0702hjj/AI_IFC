@@ -137,6 +137,15 @@ func (c *Client) do(ctx context.Context, hc *http.Client, method, path string, b
 	return data, nil
 }
 
+// Do 透传任意 edit-service 端点（design-JSON 编辑/暂存/大版本等），返回原始 body。
+func (c *Client) Do(ctx context.Context, method, path string, body []byte) (json.RawMessage, error) {
+	data, err := c.do(ctx, c.fast, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(data), nil
+}
+
 func (c *Client) PutEntity(ctx context.Context, modelID, guid string, body []byte) (json.RawMessage, error) {
 	return c.do(ctx, c.fast, http.MethodPut, "/models/"+modelID+"/entities/"+guid, body)
 }

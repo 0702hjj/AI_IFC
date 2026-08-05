@@ -65,6 +65,7 @@ func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.S
 	mux.HandleFunc("GET /api/v1/models/{id}/overrides", h.listOverrides)
 	mux.HandleFunc("PUT /api/v1/models/{id}/entities/{entityId}/properties", h.putEntityProperties)
 	h.registerEditRoutes(mux)
+	h.registerDesignRoutes(mux)
 	return cors(mux)
 }
 
