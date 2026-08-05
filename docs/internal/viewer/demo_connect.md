@@ -40,7 +40,7 @@
 | 落盘提交（三连） | Go 事件监听 goroutine | opencode SSE `session.idle` + `file.edited` 双条件 |
 | 版本快照 / history / AI 审计指纹 | edit-service（commit） | 三连调用 |
 | XKT 重转 | Go convert.Queue | commit 编排自动入队 |
-| 从零构建模型初始化 | `POST /api/chat/projects`（骨架 IFC + store.Create） | 用户点「新建」即触发，与 agent 无关 |
+| 从零构建模型初始化 | `POST /api/v1/chat/projects`（骨架 IFC + store.Create） | 用户点「新建」即触发，与 agent 无关 |
 | 回退执行 | Go 固定代码 | 聊天固定指令（如「回退到上一版」） |
 
 ## 1.1 对话界面实现途径（opencode 官网调研）
@@ -210,7 +210,7 @@ rollback_to(modelId, version):
 
 ```
 用户点「新建空白项目」
-→ POST /api/chat/projects：Go 写入骨架 IFC（最小合法文件：IfcProject + 几何上下文 + 单位，
+→ POST /api/v1/chat/projects：Go 写入骨架 IFC（最小合法文件：IfcProject + 几何上下文 + 单位，
   GlobalId 由 Go 按 IFC base64 规则生成）→ store.Create 得 modelId → 入队转换（已实测 ready）
 → 前端跳 /view/{modelId}（正常项目页；进页自动建 bound 会话，幂等）
 → 用户说「建一个两层小楼」→ agent 改 uploads/{id}.ifc（初始为骨架，直接在其上建造）

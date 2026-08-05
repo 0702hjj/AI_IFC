@@ -5,6 +5,12 @@
   "note": "Machine-readable endpoint inventory extracted from Go mux registrations. Human-readable contract: docs/site/reference/rest-api.md.",
   "endpoints": [
     {
+      "method": "POST",
+      "path": "/api/v1/chat/projects",
+      "handler": "h.createProject",
+      "file": "viewer/server/internal/api/chat.go"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/chat/sessions",
       "handler": "h.listSessions",
@@ -165,12 +171,6 @@
       "path": "/api/v1/models/{id}/retry",
       "handler": "h.retry",
       "file": "viewer/server/internal/api/api.go"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v1/projects",
-      "handler": "h.createProject",
-      "file": "viewer/server/internal/api/chat.go"
     },
     {
       "method": "GET",
