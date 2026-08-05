@@ -42,6 +42,7 @@ docs/
 - 文档更新义务：改 API 必须跑 `docs` 的 gen 脚本并保证 `check:api` 通过；完成工作项必须更新 item 状态
 - 工作项领取流程：从 `docs/work/items/` 选 open 项 → 置 in-progress → 按验收标准执行 → 关闭
 - 边界：不碰 `src/`、`skills/simplecadapi/`（归档区，收编前冻结）；不把内部文档内容泄露到 site
+- **Git 工作流**：远程 `main` 受保护，禁止直推；一切改动开分支迭代（`feat/|fix/|docs/` 前缀），用 gh-cli 提 PR（`gh pr create`），CI 绿后合并，合并后删除本地/远程分支
 
 ### 2.2 docs/work/ 工作项体系
 
@@ -142,6 +143,7 @@ docs/
 
 ## 6. 执行顺序
 
+0. **开迭代分支**（远程 main 受保护，本轮回合本身就按新规矩执行）：`docs/work-board-and-cleanup`，完成后 `gh pr create` 提 PR
 1. 本 spec 用户审阅通过 → writing-plans 出实施计划
 2. 删除（§4.1、§4.2）→ 验证 CI 不受影响（本地跑 pytest tests/skill/ 残余、确认无引用）
 3. 新建 `docs/work/`（README + AUDIT + PLAN + ~15 个 item）
