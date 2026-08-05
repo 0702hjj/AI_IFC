@@ -83,7 +83,7 @@ jobs:
       - name: Install test deps
         run: |
           uv venv .ci-venv
-          uv pip install --python .ci-venv pytest
+          uv pip install --python .ci-venv pytest -r skills/aiifc/requirements.txt
           echo "$GITHUB_WORKSPACE/.ci-venv/bin" >> "$GITHUB_PATH"
       - name: Run pack tests
         run: |
@@ -107,9 +107,6 @@ jobs:
           assert not any('__pycache__' in n or n.endswith('.pyc') for n in names), 'bundle leaked pyc'
           print(f'ok: {len(names)} files, clean')
           "
-      - name: Install skill runtime deps (flows smoke)
-        run: |
-          uv pip install --python .ci-venv -r skills/aiifc/requirements.txt
       - name: Flows smoke (skeleton + full_building + template + dxf)
         run: |
           cd skills/aiifc/references/docs
@@ -122,6 +119,9 @@ jobs:
           python /tmp/skill-dist/aiifc/references/docs/flows/dxf_from_design.py /home/runner/work/AI_IFC/AI_IFC/tests/skill/fixtures/sample_design.json -o plan.dxf
           test -s plan.dxf
           rm -f plan.dxf
+          python /tmp/skill-dist/aiifc/references/docs/flows/dxf_from_design.py /home/runner/work/AI_IFC/AI_IFC/tests/skill/fixtures/sample_design_stair.json -o plan_stair.dxf
+          test -s plan_stair.dxf
+          rm -f plan_stair.dxf
           # model.ifc from the template build stays for the validation step below
       - name: Validate generated IFC
         run: |
