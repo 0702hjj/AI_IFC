@@ -1,7 +1,7 @@
 # 技术路线与当前方案（团队同步，2026-07-30）
 
 > 一页读懂 AI_IFC 现在的技术路线、已实现方案、验证证据和下一步分工。
-> 深入阅读：总体架构 [architecture/ai-bim.md](architecture/ai-bim.md) · viewer 细节 [architecture/viewer-detail.md](architecture/viewer-detail.md) · 迭代计划 [architecture/roadmap.md](architecture/roadmap.md) · AI 接入契约 [ai-integration.md](ai-integration.md)
+> 深入阅读：总体架构 [architecture/ai-bim.md](architecture/ai-bim.md) · 迭代计划 [docs/work/PLAN-v0.1.0.md](../work/PLAN-v0.1.0.md) · AI 接入契约 <https://0702hjj.github.io/AI_IFC/reference/ai>
 
 ## 〇、一页速览
 
@@ -89,7 +89,7 @@ graph LR
 
 **Live demo 路径**（5 分钟可复现）：
 ```bash
-# 起服务后（docs/internal/usage.md §二）
+# 起服务后（docs/site/guide/quickstart.md）
 # 1. 上传 viewer/converter/test/fixtures/wall-with-opening-and-window.ifc
 # 2. 经 Go 代理改个 Name 并 commit：
 MID=<上传返回的id>; GUID=$(curl -s localhost:8090/models/$MID/metadata.json | python3 -c 'import sys,json;print([o["id"] for o in json.load(sys.stdin)["metaObjects"] if o.get("type")=="IfcWall"][0])')
@@ -112,7 +112,7 @@ curl -X POST localhost:8090/api/models/$MID/edit/commit
 2. 修改是 pending/commit 两阶段：PUT 不落盘，commit 才生效并产生版本；丢弃用 `DELETE pending`
 3. 字段分两类：`fields`（直接属性，如 Name）与 `psets`（属性集，需显式 pset 名，如 `{"Pset_WallCommon":{"FireRating":"F60"}}`）；校验失败整请求零副作用
 4. commit 可带 `{"operation":"update"|"migrate"}`；GET history 拿真原值 oldValue
-5. 工具目录：`docs/site/public/ai-tools.openapi.json`（可直接喂 LLM；变更后用 `viewer/edit-service/scripts/export_openapi.py` 再导出）；接入指南 `docs/internal/ai-integration.md`
+5. 工具目录：`docs/site/public/ai-tools.openapi.json`（可直接喂 LLM；变更后用 `viewer/edit-service/scripts/export_openapi.py` 再导出）；接入指南 `docs/site/reference/ai.md`
 6. **MCP**：v1.1 候选，薄包装这套 REST（参考 ifcmcp 31 工具模式）；AI 沙箱/代码执行属你们侧，架构不阻塞
 
 ## 六、已知限制与技术债（诚实清单）
@@ -126,7 +126,7 @@ curl -X POST localhost:8090/api/models/$MID/edit/commit
 
 ## 七、下一步
 
-**N+3（开源就绪，方案已细化：[open-source-plan.md](open-source-plan.md)）**
+**N+3（开源就绪，方案已细化：[docs/work/PLAN-v0.1.0.md](../work/PLAN-v0.1.0.md)）**
 1. ifcdiff 依赖处理 + LICENSE 审计（维持 AGPL-3.0：SCAD fork 继承 + xeokit 同为 AGPL，论证见方案 §二）
 2. docker compose 一键起（server/web/PG/edit-service/converter，干净机器验收）
 3. CI（GitHub Actions 六 job：go/python/web/converter/PG/smoke）

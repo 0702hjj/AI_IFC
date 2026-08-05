@@ -23,7 +23,5 @@ npm run docs:build:internal
 ## 本目录内容
 
 - `team-sync.md`：团队同步汇报
-- `usage.md`、`ai-integration.md`：公开内容迁移后的源文档
-- `open-source-plan.md`：开源方案
-- `architecture/`：总体架构、viewer 细节、路线图、现状评估
-- `viewer/`：viewer 历史设计/API/计划文档
+- `architecture/`：总体架构（ai-bim.md）
+- `viewer/`：Chat 模块契约（demo_connect.md）
