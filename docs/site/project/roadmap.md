@@ -7,7 +7,12 @@
 - 审查平台：上传/转换、模型树、属性检查、可见性工具、剖切、测量、Issue + 3D Pin、属性 override 与修改历史；issues/overrides/change log 的 File / PostgreSQL 双实现。
 - 真改 IFC：edit-service（pending → commit）、版本快照、属性级语义 diff、Diff Viewer、override → 真改迁移。
 - AI 接入口：人/AI 双角色编辑 API（provenance 区分）、OpenAPI 工具目录、接入指南。
-- AI Skill（aiifc）：agent 无关的 IfcOpenShell 建模 skill（发现桩 + references + templates），含打包器与 CI 校验。
+- AI Skill（aiifc）：agent 无关的 IfcOpenShell 建模 skill（发现桩 + references + templates + workflows），含打包器与 CI 校验。
+- Plan → DXF → IFC 工作流：可选的「辅助设计师」三阶段编排 skill，DXF 生成器（前端 svg 预览）。
+- 确定性构件身份：design JSON 稳定 `key` → `uuid5` 确定性 GlobalId → `Pset_AIIFC.designKey` 双向映射。
+- WPS 式暂存 + 大版本：design JSON 编辑暂存（10 步 undo/redo）→ 显式保存成大版本（designs/v{n}.json + versions/v{n}.ifc）；不做逐步回溯链。
+- 轻量差异引擎：design JSON 语义 diff（主）+ IFC 语义指纹 diff（兜底），只比大版本之间。
+- 前端 Design 面板：选中构件 → 参数表单 → 暂存/撤销/重做/放弃 → 重生成 + 保存大版本；版本对比。
 - API 统一版本化：对外契约 `/api/v1/{resource}/{id}`，Go server 唯一对外入口。
 - 依赖自包含：`ifcopenshell` / `ifcdiff` / `ifcquery` 全部 PyPI 官方发布，无本地源码依赖。
 - 测试整合：skill 打包测试收拢 `tests/skill/`，CI 覆盖 edit-service / skill-pack / flows 冒烟。
