@@ -1,10 +1,10 @@
 # P0-4: demo 环境文档与实际 venv 不符
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P0
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / fix/post-v2-audit
 
 ## 背景
 

@@ -1,10 +1,10 @@
 # P2-3: DESIGN_JSON_SCHEMA 示例违反自身契约
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P2
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / fix/post-v2-audit
 
 ## 背景
 
