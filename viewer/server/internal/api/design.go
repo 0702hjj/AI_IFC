@@ -19,6 +19,7 @@ func (h *handler) registerDesignRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/models/{id}/design/save", h.designPost("save"))
 	mux.HandleFunc("GET /api/v1/models/{id}/designs", h.designList)
 	mux.HandleFunc("POST /api/v1/models/{id}/design/rollback", h.designPost("rollback"))
+	mux.HandleFunc("POST /api/v1/models/{id}/design/regenerate", h.designPost("regenerate"))
 	mux.HandleFunc("POST /api/v1/models/{id}/design/diff", h.designPost("diff"))
 	mux.HandleFunc("POST /api/v1/models/{id}/design/diff-ifc", h.designPost("diff-ifc"))
 }

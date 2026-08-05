@@ -24,7 +24,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Path, Request
 from pydantic import BaseModel, Field
 
-from . import design_staging, design_versions, versions
+from . import design_staging, design_versions, regenerate, versions
 
 router = APIRouter()
 
@@ -152,6 +152,21 @@ def list_designs(
         "designs": design_versions.list_designs(request.app.state.settings.data_dir, id),
         "versions": versions.list_versions(request.app.state.settings.data_dir, id),
     }
+
+
+@router.post("/models/{id}/design/regenerate")
+def regenerate_design(
+    request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
+) -> Dict[str, Any]:
+    """Regenerate the derived IFC from the current staged design JSON.
+
+    Runs the aiifc build pipeline (design_builder → build_script_template)
+    and atomically replaces ``uploads/{id}.ifc``. Call before ``save`` so the
+    regenerated IFC becomes part of the big version.
+    """
+    ifc_path = _design_upload_path(request, id)
+    staging = request.app.state.design_staging.get(id)
+    return regenerate.regenerate(request.app.state.settings, staging.current(), ifc_path)
 
 
 @router.post("/models/{id}/design/rollback")

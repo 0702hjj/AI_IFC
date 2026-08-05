@@ -23,6 +23,7 @@ vi.mock("@/viewer/ModelTreePanel", () => ({ ModelTreePanel: () => null }));
 vi.mock("@/viewer/PropertyPanel", () => ({ PropertyPanel: () => null }));
 vi.mock("@/viewer/IssuePanel", () => ({ IssuePanel: () => null }));
 vi.mock("@/viewer/DiffPanel", () => ({ DiffPanel: () => null }));
+vi.mock("@/viewer/DesignPanel", () => ({ DesignPanel: () => null }));
 vi.mock("@/viewer/ChatSidebar", () => ({ ChatSidebar: () => null }));
 
 const api = vi.hoisted(() => ({

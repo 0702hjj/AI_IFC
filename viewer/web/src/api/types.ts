@@ -86,3 +86,64 @@ export interface DiffResponse {
   removed: string[];
   changed: DiffChangedEntity[];
 }
+
+// --- design JSON 编辑（WPS 式暂存 + 大版本） ---
+
+export interface DesignState {
+  modelId: string;
+  design: Record<string, unknown>;
+  staged: number;
+  canUndo: boolean;
+  canRedo: boolean;
+  maxSteps: number;
+}
+
+export interface DesignStageResult {
+  modelId: string;
+  staged: number;
+  canUndo: boolean;
+  canRedo: boolean;
+}
+
+export interface DesignSaveResult {
+  modelId: string;
+  version: string;
+  staged: number;
+}
+
+export interface DesignVersion {
+  version: string;
+  createdAt: string;
+}
+
+export interface DesignVersionsResponse {
+  modelId: string;
+  designs: DesignVersion[];
+  versions: DesignVersion[];
+}
+
+export interface DesignChange {
+  key: string;
+  type?: string;
+  human_label?: string;
+  action?: "added" | "removed";
+  changes?: Array<{ field: string; old: unknown; new: unknown }>;
+}
+
+export interface DesignDiffResponse {
+  base: string;
+  target: string;
+  engine: string;
+  changed: DesignChange[];
+  added: number;
+  removed: number;
+  modified: number;
+}
+
+export interface RegenerateResult {
+  ok: boolean;
+  ifc: string;
+  walls: number;
+  openings: number;
+  slabs: number;
+}

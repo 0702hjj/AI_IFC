@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchDesign, stageDesign, designUndo, designRedo, discardDesign, regenerateDesign, saveDesign, fetchDesignVersions, postDesignDiff, rollbackDesign } from "./client";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
 
@@ -119,5 +119,41 @@ describe("issue api", () => {
     expect(patchUrl).toContain("/api/v1/models/m_0123456789abcdef/issues/i_abcdef012345");
     const [, delInit] = spy.mock.calls[1] as unknown as [string, RequestInit];
     expect(delInit.method).toBe("DELETE");
+  });
+
+  it("fetchDesign gets design state", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1", design: { meta: {} }, staged: 0, canUndo: false, canRedo: false, maxSteps: 10 })), { status: 200 })));
+    const s = await fetchDesign("m_1");
+    expect(s.modelId).toBe("m_1");
+    expect(s.maxSteps).toBe(10);
+  });
+  it("stageDesign PUTs the design", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1", staged: 1, canUndo: true, canRedo: false })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await stageDesign("m_1", { meta: { name: "x" } });
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/models/m_1/design");
+    expect(init.method).toBe("PUT");
+  });
+  it("undo/redo/discard/regenerate/save hit the right endpoints", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1" })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await designUndo("m_1");
+    await designRedo("m_1");
+    await discardDesign("m_1");
+    await regenerateDesign("m_1");
+    await saveDesign("m_1");
+    await fetchDesignVersions("m_1");
+    await rollbackDesign("m_1", "v1");
+    await postDesignDiff("m_1", "v1", "v2");
+    const methods = (spy.mock.calls as unknown as [string, RequestInit | undefined][]).map(([url, init]) => `${init?.method ?? "GET"} ${url}`);
+    expect(methods).toContain("POST /api/v1/models/m_1/design/undo");
+    expect(methods).toContain("POST /api/v1/models/m_1/design/redo");
+    expect(methods).toContain("POST /api/v1/models/m_1/design/discard");
+    expect(methods).toContain("POST /api/v1/models/m_1/design/regenerate");
+    expect(methods).toContain("POST /api/v1/models/m_1/design/save");
+    expect(methods).toContain("GET /api/v1/models/m_1/designs");
+    expect(methods).toContain("POST /api/v1/models/m_1/design/rollback");
+    expect(methods).toContain("POST /api/v1/models/m_1/design/diff");
   });
 });

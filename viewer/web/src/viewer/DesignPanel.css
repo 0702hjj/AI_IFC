@@ -1,0 +1,117 @@
+.design-panel {
+  padding: 10px 12px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid #2a2f3a;
+}
+
+.design-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  color: #e6e6e6;
+}
+
+.design-staged {
+  font-weight: 400;
+  color: #8b949e;
+  font-size: 12px;
+}
+
+.design-selected {
+  color: #8b949e;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.design-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.design-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.design-field span {
+  color: #b1bac4;
+  white-space: nowrap;
+}
+
+.design-field input,
+.design-field select {
+  width: 140px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #e6e6e6;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 13px;
+}
+
+.design-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.design-actions button {
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #e6e6e6;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.design-actions button:hover:not(:disabled) {
+  background: #30363d;
+}
+
+.design-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.design-actions button.primary {
+  background: #238636;
+  border-color: #238636;
+}
+
+.design-actions button.primary:hover:not(:disabled) {
+  background: #2ea043;
+}
+
+.design-versions {
+  border-top: 1px solid #2a2f3a;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.design-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: #b1bac4;
+}
+
+.design-diff-item {
+  color: #e6e6e6;
+  word-break: break-all;
+}
+
+.design-error {
+  color: #f85149;
+  font-size: 12px;
+}
