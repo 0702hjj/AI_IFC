@@ -40,7 +40,7 @@ cd viewer && ./scripts/smoke.sh
 
 # 各层测试
 cd viewer/server && go test ./...
-cd viewer/edit-service && uv run pytest
+cd viewer/edit-service && uv run --group dev pytest
 cd viewer/web && npm test
 cd viewer/converter && npm test
 ```

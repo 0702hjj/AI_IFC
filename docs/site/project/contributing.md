@@ -10,7 +10,7 @@
 # 后端
 cd viewer/server && go test ./... && go vet ./...
 # 编辑服务
-cd viewer/edit-service && uv run pytest
+cd viewer/edit-service && uv run --group dev pytest
 # 前端
 cd viewer/web && npm test && npm run build
 # 转换器

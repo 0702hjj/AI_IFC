@@ -10,7 +10,7 @@ See [Environment & Local Deployment](/en/guide/quickstart). Development follows 
 # backend
 cd viewer/server && go test ./... && go vet ./...
 # edit service
-cd viewer/edit-service && uv run pytest
+cd viewer/edit-service && uv run --group dev pytest
 # frontend
 cd viewer/web && npm test && npm run build
 # converter
