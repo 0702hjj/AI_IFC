@@ -3,3 +3,4 @@
 ifcopenshell>=0.8
 ifcquery>=0.8
 numpy>=1.21
+ezdxf>=1.3        # 可选：workflow plan→DXF 阶段（dxf_from_design.py）

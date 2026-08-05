@@ -34,7 +34,9 @@ REQUIRED_PATHS = (
     "references/docs/flows/skeleton.py",
     "references/docs/flows/design_review.py",
     "references/docs/flows/ifc_inspect.py",
+    "references/docs/flows/dxf_from_design.py",
     "templates/build_skeleton.py",
+    "workflows/PLAN_DXF_IFC.md",
 )
 
 # Anything matching these is considered build noise, not skill content.

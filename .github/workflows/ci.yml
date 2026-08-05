@@ -102,13 +102,15 @@ jobs:
           assert 'aiifc/SKILL.md' in names
           assert 'aiifc/requirements.txt' in names
           assert 'aiifc/templates/build_skeleton.py' in names
+          assert 'aiifc/workflows/PLAN_DXF_IFC.md' in names
+          assert 'aiifc/references/docs/flows/dxf_from_design.py' in names
           assert not any('__pycache__' in n or n.endswith('.pyc') for n in names), 'bundle leaked pyc'
           print(f'ok: {len(names)} files, clean')
           "
       - name: Install skill runtime deps (flows smoke)
         run: |
           uv pip install --python .ci-venv -r skills/aiifc/requirements.txt
-      - name: Flows smoke (skeleton + full_building + template)
+      - name: Flows smoke (skeleton + full_building + template + dxf)
         run: |
           cd skills/aiifc/references/docs
           python -m flows.skeleton
@@ -116,6 +118,11 @@ jobs:
           rm -f model.ifc
           cd /tmp
           python /tmp/skill-dist/aiifc/templates/build_skeleton.py
+          cp /home/runner/work/AI_IFC/AI_IFC/skills/aiifc/references/docs/flows/design_builder.py .
+          python /tmp/skill-dist/aiifc/references/docs/flows/dxf_from_design.py /home/runner/work/AI_IFC/AI_IFC/tests/skill/fixtures/sample_design.json -o plan.dxf
+          test -s plan.dxf
+          rm -f plan.dxf
+          # model.ifc from the template build stays for the validation step below
       - name: Validate generated IFC
         run: |
           cd /tmp

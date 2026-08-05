@@ -55,6 +55,22 @@ Every wall has `t` (thickness, m) and `kind` (`"ext"`/`"int"`). Pick ONE geometr
 - `path` points index into `axis_grid` (`{"x":i,"y":j}` = `(axis_grid.x[i], axis_grid.y[j])`); adjacent points must share one axis (orthogonal). This is how you describe a partition run (L/U-shape) **without coordinates**.
 - `arc` angles in degrees; builder approximates with ~12° chord segments.
 
+### `key` — 构件稳定标识（跨版本 diff 的地基）
+
+每个构件（wall / opening / slab / stair）可带 `key`（如 `"1F:wall:2"`、`"1F:opening:0"`）：
+
+- **提供时**：builder 原样保留；**编辑时 key 不变**（插入新元素才分配新 key）→ 跨版本稳定。
+- **缺省时**：builder 自动分配 `{storey}:{kind}:{n}`（n 为本层该类型的序号，0 起）。
+- **约定**：`key` 必须**稳定且唯一**（同一建筑内）。建议格式 `<storey>:<kind>:<n>`。
+- 作用：
+  1. `build_script_template.py` 用 `uuid5(NAMESPACE_AI_IFC, key)` 生成**确定性 GlobalId**（同一 key 多次运行 GlobalId 不变）。
+  2. 生成时写入 `Pset_AIIFC.designKey`，实现 **IFC 构件 ↔ design JSON 条目 双向映射**。
+  3. 大版本 diff 按 `key` 对齐（而非随机 GlobalId）。
+
+```json
+{"axis":[[0,0],[12,0]],"t":0.2,"kind":"ext","key":"1F:wall:0"}
+```
+
 ## floors.<storey>.openings
 
 | field | type | default | meaning |

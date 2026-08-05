@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass(frozen=True)
@@ -15,11 +16,24 @@ class Settings:
 
     port: int = 8100
     data_dir: str = "../data"
+    flows_dir: str = "../../skills/aiifc/references/docs/flows"
+
+
+def _resolve_path(value: str, anchor: Path) -> str:
+    """Resolve a possibly-relative path against the app package location (not cwd)."""
+    p = Path(value)
+    return str(p.resolve()) if p.is_absolute() else str((anchor / p).resolve())
 
 
 def load_settings() -> Settings:
-    """Build Settings from env (EDIT_SERVICE_PORT, VIEWER_DATA_DIR)."""
+    """Build Settings from env (EDIT_SERVICE_PORT, VIEWER_DATA_DIR, AIIFC_FLOWS_DIR)."""
+    anchor = Path(__file__).resolve().parent.parent  # edit-service root
+    data_dir = os.environ.get("VIEWER_DATA_DIR", "../data")
+    flows_dir = os.environ.get(
+        "AIIFC_FLOWS_DIR", "../../skills/aiifc/references/docs/flows"
+    )
     return Settings(
         port=int(os.environ.get("EDIT_SERVICE_PORT", "8100")),
-        data_dir=os.environ.get("VIEWER_DATA_DIR", "../data"),
+        data_dir=data_dir,
+        flows_dir=_resolve_path(flows_dir, anchor),
     )

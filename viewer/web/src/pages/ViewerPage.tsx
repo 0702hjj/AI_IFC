@@ -11,6 +11,7 @@ import { ModelTreePanel } from "@/viewer/ModelTreePanel";
 import { PropertyPanel } from "@/viewer/PropertyPanel";
 import { IssuePanel } from "@/viewer/IssuePanel";
 import { DiffPanel } from "@/viewer/DiffPanel";
+import { DesignPanel } from "@/viewer/DesignPanel";
 import { ChatSidebar } from "@/viewer/ChatSidebar";
 import { useViewerStore } from "@/viewer/store";
 import "./ViewerPage.css";
@@ -96,6 +97,7 @@ export default function ViewerPage() {
         <PropertyPanel modelId={id} />
         <IssuePanel modelId={id} />
         <DiffPanel modelId={id} />
+        <DesignPanel modelId={id} />
       </ViewerProvider>
       {session && <ChatSidebar session={session} />}
     </div>
