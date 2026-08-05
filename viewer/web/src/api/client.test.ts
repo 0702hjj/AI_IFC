@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchDesign, stageDesign, designUndo, designRedo, discardDesign, regenerateDesign, saveDesign, fetchDesignVersions, postDesignDiff, rollbackDesign } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchDesign, stageDesign, designUndo, designRedo, discardDesign, regenerateDesign, saveDesign, fetchDesignVersions, postDesignDiff, rollbackDesign, createChatProject } from "./client";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
 
@@ -155,6 +155,20 @@ describe("issue api", () => {
     expect(methods).toContain("GET /api/v1/models/m_1/designs");
     expect(methods).toContain("POST /api/v1/models/m_1/design/rollback");
     expect(methods).toContain("POST /api/v1/models/m_1/design/diff");
+  });
+});
+
+describe("chat api", () => {
+  it("createChatProject posts to /api/v1/chat/projects and unwraps ModelInfo", async () => {
+    const model = { id: "m_0123456789abcdef", name: "p.ifc", size: 540, status: "converting", createdAt: "2026-08-05T00:00:00Z", error: "" };
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(model)), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const m = await createChatProject("p");
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/chat/projects");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ title: "p" });
+    expect(m).toEqual(model);
   });
 });
 

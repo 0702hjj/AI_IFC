@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/opencode"
+	"ifcviewer/server/internal/store"
 )
 
 func TestNewGlobalID(t *testing.T) {
@@ -306,6 +308,73 @@ func TestAbortSessionNotFound(t *testing.T) {
 	h.mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
+	}
+}
+
+// --- createProject 路径（P0-3：与前端 /api/v1/chat/projects 对齐） ---
+
+// newChatProjectTestHandler 构造带 store + 转换队列的 chat handler（createProject 依赖）。
+func newChatProjectTestHandler(t *testing.T) *ChatHandler {
+	t.Helper()
+	dataDir := t.TempDir()
+	st := store.NewStore(dataDir)
+	q := convert.NewQueue(st, okRunner{}, 1)
+	h := &ChatHandler{
+		deps:     ChatDeps{St: st, Q: q, DataDir: dataDir},
+		mux:      http.NewServeMux(),
+		sessions: map[string]*chatSession{},
+		byOC:     map[string]string{},
+		subs:     map[string]map[chan []byte]struct{}{},
+		creating: map[string]*sync.Mutex{},
+	}
+	h.registerRoutes()
+	return h
+}
+
+// TestCreateProjectViaChatPath 断言 POST /api/v1/chat/projects 经 chat mux 可达：
+// 200 + envelope + 返回 ModelInfo（骨架 IFC 落盘 + 入队转换）。
+func TestCreateProjectViaChatPath(t *testing.T) {
+	h := newChatProjectTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/projects", strings.NewReader(`{"title":"我的项目"}`))
+	rec := httptest.NewRecorder()
+	h.mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s, want 200（chat mux 未注册 /api/v1/chat/projects）", rec.Code, rec.Body)
+	}
+	var e env
+	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
+		t.Fatalf("envelope decode: %v body=%s", err, rec.Body)
+	}
+	if e.Code != 0 {
+		t.Fatalf("envelope code=%d msg=%s, want 0", e.Code, e.Message)
+	}
+	var m store.Model
+	if err := json.Unmarshal(e.Data, &m); err != nil {
+		t.Fatalf("model decode: %v data=%s", err, e.Data)
+	}
+	if !modelIDRe.MatchString(m.ID) {
+		t.Errorf("model id %q 不符合 ^m_[0-9a-f]{16}$", m.ID)
+	}
+	if m.Name != "我的项目.ifc" {
+		t.Errorf("model name = %q, want 我的项目.ifc", m.Name)
+	}
+	content, err := os.ReadFile(filepath.Join(h.deps.DataDir, "uploads", m.ID+".ifc"))
+	if err != nil {
+		t.Fatalf("骨架 IFC 未落盘: %v", err)
+	}
+	if !strings.Contains(string(content), "IFCPROJECT") || !strings.Contains(string(content), "我的项目") {
+		t.Errorf("骨架 IFC 内容不符: %s", content)
+	}
+}
+
+// TestCreateProjectOldPathGone 断言旧路径 POST /api/v1/projects 不再由 chat mux 处理（404）。
+func TestCreateProjectOldPathGone(t *testing.T) {
+	h := newChatProjectTestHandler(t)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects", strings.NewReader(`{"title":"t"}`))
+	rec := httptest.NewRecorder()
+	h.mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d body = %s, want 404（旧路径 /api/v1/projects 应已移除）", rec.Code, rec.Body)
 	}
 }
 
