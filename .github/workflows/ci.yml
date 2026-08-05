@@ -118,10 +118,11 @@ jobs:
           rm -f model.ifc
           cd /tmp
           python /tmp/skill-dist/aiifc/templates/build_skeleton.py
-          rm -f model.ifc
           cp /home/runner/work/AI_IFC/AI_IFC/skills/aiifc/references/docs/flows/design_builder.py .
           python /tmp/skill-dist/aiifc/references/docs/flows/dxf_from_design.py /home/runner/work/AI_IFC/AI_IFC/tests/skill/fixtures/sample_design.json -o plan.dxf
           test -s plan.dxf
+          rm -f plan.dxf
+          # model.ifc from the template build stays for the validation step below
       - name: Validate generated IFC
         run: |
           cd /tmp
