@@ -2,7 +2,7 @@
 
 - **状态：** done
 - **优先级：** P2
-- **Milestone：** M1（见 PLAN-v0.1.0.md）
+- **Milestone：** 本轮（原列 M1）
 - **来源：** AUDIT-2026-08-05
 - **执行者/分支：** docs/work-board-and-cleanup
 - **关闭于：** 本分支 commit 22ac75e（布局块）与 3f8fd51（archive 引用语境）
