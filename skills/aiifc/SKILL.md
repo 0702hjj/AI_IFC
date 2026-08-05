@@ -130,5 +130,5 @@ When this skill runs **inside the AI_IFC demo** (opencode serve + viewer), the h
 
 - Build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context).
 - **design.json** (complex-build artifact, MUST #18) → `viewer/data/staging/{modelId}.design.json`; the system archives it per version to `models/{id}/designs/v{n}.json` alongside the build script.
-- Python runtime: **always `.venv/bin/python`** in the demo workspace (ifcopenshell / ifcquery / numpy preinstalled per `requirements.txt`).
+- Python runtime: **always `viewer/edit-service/.venv/bin/python`** (run from the repo root; the edit-service uv project env has ifcopenshell / ezdxf / ifcquery preinstalled — the root `.venv` does NOT). Equivalent: `cd viewer/edit-service && uv run python ...`.
 - Agent rules live in `.opencode/agent/ifc-demo.md` (write scoping, staging, atomic-replace, no viewer HTTP calls); the Go server auto-handles commit/version/XKT-reconvert on `file.edited` + `session.idle`.
