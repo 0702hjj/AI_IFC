@@ -1,0 +1,26 @@
+{
+  "meta": {"units": "m", "modulus": 0.1, "name": "sample"},
+  "frame": {
+    "footprint": [[0, 0], [12, 0], [12, 8], [0, 8]],
+    "storeys": {"1F": 0.0, "2F": 3.0}
+  },
+  "floors": {
+    "1F": {
+      "walls": [
+        {"axis": [[0, 0], [12, 0]], "t": 0.2, "kind": "ext", "key": "1F:wall:0"},
+        {"axis": [[12, 0], [12, 8]], "t": 0.2, "kind": "ext", "key": "1F:wall:1"}
+      ],
+      "openings": [
+        {"wall": 0, "along": 6.0, "w": 1.0, "h": 2.1, "sill": 0.0, "type": "door", "key": "1F:opening:0"}
+      ],
+      "slabs": [{"t": 0.15, "key": "1F:slab:0"}]
+    },
+    "2F": {
+      "walls": [
+        {"axis": [[0, 0], [12, 0]], "t": 0.2, "kind": "ext", "key": "2F:wall:0"},
+        {"axis": [[12, 0], [12, 8]], "t": 0.2, "kind": "ext", "key": "2F:wall:1"}
+      ],
+      "slabs": [{"t": 0.15, "key": "2F:slab:0"}]
+    }
+  }
+}
