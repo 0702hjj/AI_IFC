@@ -1,7 +1,7 @@
 # AI BIM 总体架构（当前版，2026-07-30）
 
 > 本文是 deep-research-report（`~/Documents/md/dxf_agent/deep-research-report.md`，下称「报告」）愿景的**当前落地形态**。
-> 报告是愿景层，本文是实现层；逐条目标↔实现映射见 `research/overview.md`，迭代计划见 `docs/internal/architecture/roadmap.md`。
+> 报告是愿景层，本文是实现层；逐条目标↔实现映射见 `research/overview.md`，迭代计划见 `docs/work/PLAN-v0.1.0.md`。
 
 ## 一、定位
 
@@ -91,7 +91,7 @@ POST /models/{id}/commit
 
 - pending 存内存，服务重启丢失（v1 文档化限制）；`DELETE /pending` 丢弃并回滚到磁盘状态
 - 多请求并发由「每模型一把锁」串行化；重复 commit 返回 409
-- **AI 直连注意**：直连 Python 的 commit 不经过 Go 编排（无 Go change log、无自动重转）；完整链路走 Go 代理。已在 ai-integration.md 写明
+- **AI 直连注意**：直连 Python 的 commit 不经过 Go 编排（无 Go change log、无自动重转）；完整链路走 Go 代理。已在 `docs/site/reference/ai.md` 写明
 
 ### 4.3 版本与 diff 流（报告 §1.3）
 
@@ -134,7 +134,7 @@ POST /models/{id}/commit
 
 - **人**：浏览器 → Go 代理（`/api/models/{id}/edit/*`）→ edit-service；编排附带 change log + 重转
 - **AI**：REST 直连 edit-service 或经 Go 代理，**同一套端点**；`provenance.source="AI"` 标记来源
-- **工具目录**（报告 §2.3 的 REST 形态）：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，`scripts/export_openapi.py` 再生成，保证文档与实现不漂移）+ `docs/internal/ai-integration.md`（端点目录、JSON Schema、curl 全流程）
+- **工具目录**（报告 §2.3 的 REST 形态）：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，`scripts/export_openapi.py` 再生成，保证文档与实现不漂移）+ `docs/site/reference/ai.md`（端点目录、JSON Schema、curl 全流程）
 - **MCP**：报告 §4.1 建议 REST+MCP 双暴露；v1 REST 先行，MCP 薄包装（参考 ifcmcp 31 工具模式）列 v1.1
 - **沙箱/代码执行**：属 AI 侧范围；架构不阻塞（edit-service 进程隔离，后续可加 execute 端点）
 - **认证**：v1 单机自托管不做（报告 §2.1 的 OAuth2/RBAC 属 v2）；provenance 是声明字段，无防伪语义
@@ -144,7 +144,7 @@ POST /models/{id}/commit
 1. **前端解析栈**：报告未指定；我们选 web-ifc + xeokit-convert（非 IfcOpenShell WASM，调研结论「启动重，不适合生产级前端」）。「同一套 ifcopenshell.api」的符合度由后端 edit-service 承担
 2. **存储**：报告 §4 混合存储（Git+DB）——DB 半已落地（PG 三表 + File 降级），Git 半暂缓（SPF step-id 噪声问题无收益优先级）
 3. **oldValue**：override 阶段记录前次 override 值（历史数据保留）；真改阶段起一律为 IFC 真原值（N+2 已解决）
-4. **几何 diff**：报告 §1.3 全量 IfcDiff——v1 限定属性级（几何 diff 的计算量与语义噪声，见 roadmap 风险节）
+4. **几何 diff**：报告 §1.3 全量 IfcDiff——v1 限定属性级（几何 diff 的计算量与语义噪声，见 [PLAN v0.1.0](../../work/PLAN-v0.1.0.md)）
 
 ## 八、边界与技术债
 
@@ -159,6 +159,6 @@ POST /models/{id}/commit
 
 ## 九、路线
 
-- **N+3（进行中规划）**：docker compose 一键起、README/文档（本文档即其一）、CI、LICENSE 审计、v0.1.0 发布——`docs/internal/open-source-plan.md`
+- **N+3（进行中规划）**：docker compose 一键起、README/文档（本文档即其一）、CI、LICENSE 审计、v0.1.0 发布——`docs/work/PLAN-v0.1.0.md`
 - **v1.1 候选**：MCP 包装、几何 diff、增量重转、execute 沙箱端点（AI 侧）
 - **v2**：多用户/鉴权/冲突合并（版本前置条件 + GlobalId 三方合并，快照与 diff 已备地基）、历史单源化、IFC→Python 管线

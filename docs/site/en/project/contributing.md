@@ -10,7 +10,7 @@ See [Environment & Local Deployment](/en/guide/quickstart). Development follows 
 # backend
 cd viewer/server && go test ./... && go vet ./...
 # edit service
-cd viewer/edit-service && uv run pytest
+cd viewer/edit-service && uv run --group dev pytest
 # frontend
 cd viewer/web && npm test && npm run build
 # converter
@@ -22,7 +22,7 @@ cd docs && npm ci && npm run docs:build && npm run check:api
 ## Documentation contributions
 
 - The public site source lives in `docs/site/`, the single source of truth; after changes you must run `cd docs && npm run docs:build` (dead links fail the build).
-- `docs/internal/` and `docs/archive/` are never part of the site — internal records and archives only.
+- `docs/internal/` is never part of the site — internal records only (the former `docs/archive/` was removed in the 2026-08-05 cleanup; see git history).
 - Pages that describe undelivered capabilities must be marked as Roadmap items and must not provide non-executable steps.
 - After moving or archiving documents, update all Markdown relative links in the repository.
 - Generated files (`docs/site/reference/edit-api-reference.md`, `docs/site/public/go-rest-api.routes.json`) must not be edited by hand; regenerate with `npm run gen:api` and commit the result. `npm run check:api` detects drift.

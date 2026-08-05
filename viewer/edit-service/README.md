@@ -57,5 +57,5 @@ uv run python scripts/export_openapi.py
 ## 测试
 
 ```bash
-uv run pytest
+uv run --group dev pytest
 ```

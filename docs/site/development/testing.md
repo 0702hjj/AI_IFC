@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | converter | node:test | 真实 IFC 转换集成（快照、引用完整性、id 一致性） | `cd viewer/converter && npm test` |
 | server | go test | 单元 + httptest API + 并发（`-race`） | `cd viewer/server && go test ./... && go vet ./...` |
-| edit-service | pytest | 编辑 / 版本 / diff 路由 | `cd viewer/edit-service && uv run pytest` |
+| edit-service | pytest | 编辑 / 版本 / diff 路由 | `cd viewer/edit-service && uv run --group dev pytest` |
 | web | vitest + jsdom | api client / 组件 / store / hook / 纯函数 | `cd viewer/web && npm test` |
 | 端到端 | bash smoke | 上传→转换→下载→Issue→override/changes 全链路 | `cd viewer && ./scripts/smoke.sh`（需 server 运行） |
 

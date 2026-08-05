@@ -44,5 +44,5 @@ uv run uvicorn app.main:app --port 8100
 
 ```bash
 cd viewer/edit-service
-uv run pytest
+uv run --group dev pytest
 ```

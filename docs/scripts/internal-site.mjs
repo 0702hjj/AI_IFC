@@ -14,7 +14,7 @@
 //   node scripts/internal-site.mjs          # assemble only
 //   npm run docs:dev:internal               # assemble + dev server
 //   npm run docs:build:internal             # assemble + build (output: docs/.internal/.vitepress/dist)
-import { cpSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -35,6 +35,7 @@ for (const entry of ['index.md', 'guide', 'viewer', 'development', 'reference', 
 // --- 3. Copy internal docs and iteration plans -------------------------------
 cpSync(join(docsRoot, 'internal'), join(out, 'internal'), { recursive: true })
 cpSync(join(docsRoot, 'superpowers'), join(out, 'superpowers'), { recursive: true })
+if (existsSync(join(docsRoot, 'work'))) cpSync(join(docsRoot, 'work'), join(out, 'work'), { recursive: true })
 
 // --- 4. Internal home page (replaces the public index) -----------------------
 writeFileSync(join(out, 'index.md'), `# AI_IFC 内部 Wiki
@@ -50,10 +51,11 @@ writeFileSync(join(out, 'index.md'), `# AI_IFC 内部 Wiki
 ## 内部文档
 
 - [内部首页](/internal/README) · [团队同步](/internal/team-sync)
-- [总体架构（源）](/internal/architecture/ai-bim) · [Viewer 详细（源）](/internal/architecture/viewer-detail) · [现状评估](/internal/architecture/viewerstatus)
-- [内部 Roadmap](/internal/architecture/roadmap) · [开源方案](/internal/open-source-plan)
-- [使用文档（源）](/internal/usage) · [AI 接入（源）](/internal/ai-integration)
-- [Viewer 历史文档](/internal/viewer/README)
+- [总体架构（源）](/internal/architecture/ai-bim) · [Chat 模块契约](/internal/viewer/demo_connect)
+
+## 工作项看板
+
+- [看板规则](/work/README) · [审计 2026-08-05](/work/AUDIT-2026-08-05) · [v0.1.0 计划](/work/PLAN-v0.1.0)
 
 ## 迭代计划与规范
 
@@ -123,24 +125,20 @@ const publicSidebar = [
 
 const internalSidebar = [
   {
-    text: '内部 · 使用与团队',
+    text: '内部 · 团队',
     items: [
       { text: '内部首页', link: '/internal/README' },
       { text: '团队同步', link: '/internal/team-sync' },
-      { text: '使用文档（源）', link: '/internal/usage' },
-      { text: 'AI 接入（源）', link: '/internal/ai-integration' },
-      { text: '开源方案', link: '/internal/open-source-plan' },
+      { text: '总体架构（源）', link: '/internal/architecture/ai-bim' },
+      { text: 'Chat 模块契约', link: '/internal/viewer/demo_connect' },
     ],
   },
   {
-    text: '内部 · 架构与评估',
+    text: '工作项看板',
     items: [
-      { text: '总体架构（源）', link: '/internal/architecture/ai-bim' },
-      { text: 'Viewer 详细（源）', link: '/internal/architecture/viewer-detail' },
-      { text: '内部 Roadmap', link: '/internal/architecture/roadmap' },
-      { text: 'Viewer 路线图', link: '/internal/architecture/viewer' },
-      { text: '现状评估', link: '/internal/architecture/viewerstatus' },
-      { text: 'Viewer 历史文档', link: '/internal/viewer/README' },
+      { text: '看板规则', link: '/work/README' },
+      { text: '审计 2026-08-05', link: '/work/AUDIT-2026-08-05' },
+      { text: 'v0.1.0 计划', link: '/work/PLAN-v0.1.0' },
     ],
   },
   {

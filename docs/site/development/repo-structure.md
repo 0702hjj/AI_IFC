@@ -17,7 +17,7 @@ AI_IFC/
 │   │   ├── guide/  viewer/  development/  reference/  project/
 │   │   └── public/            # favicon、ai-tools.openapi.json 等静态资源
 │   ├── internal/              # 内部计划、团队同步、阶段评估（不发布）
-│   ├── archive/simplecadapi/  # 原 SCAD API/core/stdlib/legacy 文档（不发布）
+│   ├── work/                  # 工作项看板（审计、计划、可跟踪条目）
 │   └── superpowers/           # 设计规范与实施计划
 ├── research/                  # 调研笔记与目标映射（内部）
 ├── src/simplecadapi/          # 归档：SimpleCADAPI（SCAD → STEP），仓库起点
@@ -31,5 +31,5 @@ AI_IFC/
 ## 文档边界
 
 - `docs/site/` 是唯一公开文档站源，内容由 VitePress 构建并以 `/AI_IFC/` 为 base 发布到 GitHub Pages。
-- `docs/internal/` 与 `docs/archive/simplecadapi/` 不进入站点导航与搜索。
+- `docs/internal/` 不进入站点导航与搜索（原 `docs/archive/` 已随 2026-08-05 清理移除，见 git 历史）。
 - 各服务 README 只保留邻近源码的最小启动提示，详细说明一律链接到公开文档站。

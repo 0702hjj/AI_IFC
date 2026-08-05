@@ -74,13 +74,16 @@ python tools/skill_pack_aiifc.py --archive   # 产出 skills/dist/aiifc.tar.gz
 ## 仓库布局
 
 ```
+AGENTS.md          # 人机协同契约（AI agent 入口）
 viewer/            # 活跃产品：IFC 平台（web / server / converter / edit-service）
 skills/aiifc/      # AI 建模 skill（可分发包，agent 无关）
 tools/             # skill 打包器（skill_pack_aiifc.py）
 docs/site/         # 公开文档站（VitePress，发布到 GitHub Pages）
-docs/internal/     # 内部计划与团队同步（不发布）
-docs/archive/      # 归档的 SimpleCADAPI 文档
-src/  examples/    # 归档：SimpleCADAPI（SCAD），仓库起点
+docs/work/         # 工作项看板（审计/计划/可追踪工作项）
+docs/internal/     # 内部团队文档（不发布）
+docs/superpowers/  # 设计规范与实施计划（过程产物）
+src/               # 已归档：SimpleCADAPI（冻结）
+examples/          # IFC 时代示例脚本
 ```
 
 ## 许可证

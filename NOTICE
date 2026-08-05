@@ -16,7 +16,9 @@ The following archived portions retain their original copyright and license:
   - skills/simplecadapi/     (SimpleCAD API Team)
   - examples/                (SimpleCAD API Team)
   - pyproject.toml           (SimpleCADAPI package metadata, archived)
-  - docs/archive/simplecadapi/legacy/SimpleCADAPI.md
+  - docs/archive/simplecadapi/    (docs only; removed in the 2026-08-05 cleanup —
+                                    see git history. The code parts src/ and
+                                    skills/simplecadapi/ listed above remain)
 
 All new code under viewer/ and docs/ is Copyright (C) 2026 0702hjj,
 licensed AGPL-3.0-only (SPDX-License-Identifier headers in each file).
