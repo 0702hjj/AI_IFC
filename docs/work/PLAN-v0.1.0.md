@@ -1,0 +1,60 @@
+# PLAN v0.1.0：从审计到发布
+
+> 来源：AUDIT-2026-08-05 的四步方案 + 原 `docs/internal/open-source-plan.md`（2026-07-30）仍有效的执行细节。
+> 目标：修掉 P0 → 补齐测试 → Docker Compose 一键部署 + v0.1.0 发布 → 结构加固与 SCAD 遗产收编。
+
+## Milestone 总览
+
+| M | 名称 | 包含工作项 | 完成判据 |
+|---|---|---|---|
+| M1 | 修复冲刺 | P0-1, P0-2, P0-3, P0-4, P2-3, P2-4, P2-9, P2-10 | 全部 done，CI 绿 |
+| M2 | 测试补盲 | P1-5, W-0001, W-0002, W-0003 | 新增测试合入，PG job 在 CI 运行 |
+| M3 | 发布化 | W-0004, W-0005, P2-7 | `docker compose up` 一键起，v0.1.0 tag + Release |
+| M4 | 结构加固 + 身份收编 | P1-1, P1-2, P1-3, P1-4, P2-1, P2-8 | 全部 done，SCAD 遗产收编决策落地 |
+
+## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
+
+顺序：每个 P0 先实测验证 → 写失败测试 → 修 → 测试转绿 → commit。P2 小修随同分支顺带。
+1. P0-1（契约断裂，影响面最大）→ 2. P0-3（同为契约）→ 3. P0-2 + P2-10（同文件）→ 4. P0-4（文档）→ 5. P2-3 / P2-4 / P2-9（小修）
+
+## M2 测试补盲
+
+- **P1-5**：CI 加 Postgres service job，`VIEWER_TEST_PG_DSN` 指向它，跑 `go test ./...`（含 pgstore 测试）
+- **W-0001**：`viewer/server/internal/api/design.go` 全部 11 条路由的 Go 测试（mock edit-service，断言 envelope 包装）——与 P0-1 修复同 PR 或紧随其后
+- **W-0002**：ChatSidebar SSE 测试（viewer/web，MockEventSource）
+- **W-0003**：flows 单测——`design_builder.py` SchemaError 分支、`dxf_from_design.py`（含 shaft fixture）；converter 测试加进 CI（当前 ci.yml 有 converter job，确认其在） 
+- 目标比率（AGENTS.md 纪律）：新增实现代码的测试量 ≥ 3 倍
+
+## M3 发布化（v0.1.0）
+
+- **W-0004**：Docker Compose 一键启动（server / web / PostgreSQL / edit-service / converter），配置外置（env 文件），文档写进 site quickstart
+- **W-0005**：仓库卫生——Issue/PR 模板、CONTRIBUTING 完善、示例模型入库
+- **P2-7**：英文 Viewer 使用 6 页
+- 许可证审计收尾（沿用原 open-source-plan 结论，下表）→ `git tag v0.1.0` + `gh release create`
+
+### 许可证审计表（自 open-source-plan.md 迁入，2026-07-30 核对）
+
+| 依赖 | 许可证 | 结论 |
+|---|---|---|
+| ifcopenshell / ifcdiff / ifcquery | LGPL-3.0 | 独立进程/PyPI 依赖使用，兼容 AGPL；已全部 PyPI 自包含（roadmap 已完成项），原「ifcdiff 本地 editable」问题已关闭 |
+| deepdiff | MIT | 兼容 |
+| pgx/v5 | MIT | 兼容 |
+| xeokit-sdk / xeokit-convert | AGPL-3.0 | 同许可证，保持 AGPL 的现实理由 |
+| web-ifc | MPL-2.0 | 兼容 |
+| React / Vite / zustand / FastAPI / pydantic | MIT/BSD | 兼容 |
+
+LICENSE 策略维持 AGPL-3.0-only + NOTICE 归档边界声明（现状已规范）。
+
+## M4 结构加固 + 身份收编
+
+- P1-2（put_entity 原子性）→ P1-3（状态持久化 + LRU）→ P1-4（chat.go 拆分）→ P1-1（token 中间件）
+- P2-8（diff 去重）：抽 `summarize_changes()` 公共函数
+- **P2-1 SCAD 遗产收编**（需用户裁决，三选一）：
+  1. **保留归档**：pyproject/uv.lock/MANIFEST 改为 aiifc 身份或删除，`src/`、`skills/simplecadapi/` 加归档说明保留
+  2. **移出仓库**：`src/`、`skills/simplecadapi/` 拆到独立 repo，主仓瘦身
+  3. **彻底删除**：靠 git 历史留存
+- 顺带：convert/queue.go 错误吞咽、edit.go metadata 静默降级、diffing.py 跳 GUID 的日志补齐
+
+## 节奏建议
+
+M1（1-2 天）→ M2 与 M3 可并行 → v0.1.0 发布 → M4 排入 v0.2。
