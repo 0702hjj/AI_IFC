@@ -86,9 +86,10 @@ docs/site/         # public docs site (VitePress, published to GitHub Pages)
 docs/work/         # work-item board (audit, plans, trackable items)
 docs/internal/     # internal team docs (not published)
 docs/superpowers/  # design specs and implementation plans (process artifacts)
-src/               # archived: SimpleCADAPI (SCAD), the repo's origin (frozen)
 examples/          # IFC-era example scripts
 ```
+
+The SimpleCADAPI heritage code (`src/`, `skills/simplecadapi/`, SCAD-era packaging files) was moved to the private archive repo [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive) on 2026-08-06; this repo no longer contains it.
 
 ## License
 

@@ -32,7 +32,7 @@ On a commit via the browser (Go proxy), the Go server additionally: expands the 
 
 Key points:
 
-- Pending lives in memory only; uncommitted changes are lost when the edit-service restarts, while history and version snapshots are unaffected.
+- Pending is persisted atomically on every change (`models/{id}/pending.json`) and restored automatically when the edit-service restarts; history and version snapshots are unaffected.
 - A repeated commit (no pending) returns 409.
 - Concurrent requests are serialized by one lock per model.
 

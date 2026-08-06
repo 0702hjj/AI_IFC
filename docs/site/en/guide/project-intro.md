@@ -1,6 +1,6 @@
 # Project Introduction
 
-AI_IFC is a **self-hosted, open-source** IFC model review and editing platform. It was forked from SimpleCADAPI, but the active product is the IFC platform under `viewer/`; SimpleCADAPI-related code is kept as an archive, see [License & third-party components](/project/license) (Chinese).
+AI_IFC is a **self-hosted, open-source** IFC model review and editing platform. It was forked from SimpleCADAPI, but the active product is the IFC platform under `viewer/`; SimpleCADAPI-related code was moved on 2026-08-06 to the private archive repo [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive), see [License & third-party components](/project/license) (Chinese).
 
 ## Positioning
 

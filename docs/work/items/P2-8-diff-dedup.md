@@ -1,10 +1,11 @@
 # P2-8: design_diff 与 ifc_fingerprint 重复实现
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** 8238085
 - **优先级：** P2
 - **Milestone：** M4（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/m4-hardening
 
 ## 背景
 

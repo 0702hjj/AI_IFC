@@ -20,7 +20,7 @@
 | 转换 failed | `POST /api/v1/models/{id}/retry` 重试 |
 | 编辑报 404 model not found | edit-service 的 `VIEWER_DATA_DIR` 与 Go `dataDir` 不是同一目录 |
 | 编辑报 422 | 属性名不存在或值类型不符——请求零副作用，修正后重发 |
-| commit 报 409 | 没有 pending（pending 存内存，edit-service 重启会丢） |
+| commit 报 409 | 没有 pending（pending 已落盘，edit-service 重启不丢） |
 | 改了属性前端没刷新 | 经 Go 代理 commit 才触发重转；直连 edit-service 后需手动刷新或经代理重放 |
 
 完整排查表见 [测试与调试](/development/testing)。

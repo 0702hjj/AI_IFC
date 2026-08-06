@@ -86,9 +86,10 @@ docs/site/         # 公开文档站（VitePress，发布到 GitHub Pages）
 docs/work/         # 工作项看板（审计/计划/可追踪工作项）
 docs/internal/     # 内部团队文档（不发布）
 docs/superpowers/  # 设计规范与实施计划（过程产物）
-src/               # 已归档：SimpleCADAPI（冻结）
 examples/          # IFC 时代示例脚本
 ```
+
+SCAD 遗产代码（`src/`、`skills/simplecadapi/`、SCAD 时代打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
 
 ## 许可证
 

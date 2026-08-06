@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -38,6 +39,9 @@ type config struct {
 	PgDSN           string `json:"pgDSN"`
 	EditServiceURL  string `json:"editServiceURL"`
 	OpenCodeURL     string `json:"openCodeURL"`
+	APIToken        string `json:"apiToken"`
+	CORSOriginsRaw  string `json:"corsOrigins"`
+	CORSOrigins     []string
 }
 
 func loadConfig(path string) (*config, error) {
@@ -66,6 +70,20 @@ func loadConfig(path string) (*config, error) {
 	}
 	if cfg.OpenCodeURL == "" {
 		cfg.OpenCodeURL = "http://127.0.0.1:4096"
+	}
+	if t := os.Getenv("VIEWER_API_TOKEN"); t != "" {
+		cfg.APIToken = t
+	}
+	if o := os.Getenv("VIEWER_CORS_ORIGINS"); o != "" {
+		cfg.CORSOriginsRaw = o
+	}
+	for _, o := range strings.Split(cfg.CORSOriginsRaw, ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			cfg.CORSOrigins = append(cfg.CORSOrigins, o)
+		}
+	}
+	if len(cfg.CORSOrigins) == 0 {
+		cfg.CORSOrigins = api.DefaultCORSOrigins()
 	}
 	return &cfg, nil
 }
@@ -119,7 +137,7 @@ func main() {
 		ovr = override.NewFileStore(cfg.DataDir)
 	}
 	ed := editsvc.New(cfg.EditServiceURL)
-	handler := api.NewHandler(st, q, iss, chg, ovr, ed, cfg.MaxUploadMB<<20)
+	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
 	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
 		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Chg: chg, Q: q, DataDir: cfg.DataDir,
@@ -128,7 +146,10 @@ func main() {
 	root.Handle("/api/v1/chat/", chatHandler)
 	root.Handle("/", handler)
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	srv := &http.Server{Addr: addr, Handler: root}
+	srv := &http.Server{Addr: addr, Handler: api.TokenAuth(cfg.APIToken)(root)}
+	if cfg.APIToken != "" {
+		log.Printf("api token auth: enabled")
+	}
 
 	errCh := make(chan error, 1)
 	go func() {

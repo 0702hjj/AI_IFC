@@ -23,6 +23,8 @@ from typing import Any, Dict, List
 import ifcopenshell
 import ifcopenshell.util.element
 
+from . import diff_summary
+
 # 参与指纹的元素类（排除纯空间/表示基础设施）。
 _ELEMENT_TYPES = ("IfcElement", "IfcSpace")
 
@@ -47,29 +49,13 @@ def _entry_diff_key(entry: Dict[str, Any]) -> str:
     return entry.get("name") or entry.get("type") or "?"
 
 
+def _entry_changes(old: Dict[str, Any], new: Dict[str, Any]) -> List[Dict[str, Any]]:
+    return [{"field": field, "old": old.get(field), "new": new.get(field)}
+            for field in sorted(set(old) | set(new)) if old.get(field) != new.get(field)]
+
+
 def ifc_fingerprint_diff(path_a: str, path_b: str) -> Dict[str, Any]:
     """Element-level semantic diff between two IFC files, keyed by designKey/GlobalId."""
     a = _fingerprint(ifcopenshell.open(path_a))
     b = _fingerprint(ifcopenshell.open(path_b))
-    changed: List[Dict[str, Any]] = []
-    for key in sorted(a):
-        if key not in b:
-            changed.append({"key": key, "type": a[key]["type"],
-                            "human_label": _entry_diff_key(a[key]), "action": "removed"})
-    for key in sorted(b):
-        if key not in a:
-            changed.append({"key": key, "type": b[key]["type"],
-                            "human_label": _entry_diff_key(b[key]), "action": "added"})
-    for key in sorted(a):
-        if key in b and a[key] != b[key]:
-            changes: List[Dict[str, Any]] = []
-            for field in sorted(set(a[key]) | set(b[key])):
-                if a[key].get(field) != b[key].get(field):
-                    changes.append({"field": field, "old": a[key].get(field),
-                                    "new": b[key].get(field)})
-            changed.append({"key": key, "type": b[key]["type"],
-                            "human_label": _entry_diff_key(b[key]), "changes": changes})
-    return {"changed": changed,
-            "added": sum(1 for c in changed if c.get("action") == "added"),
-            "removed": sum(1 for c in changed if c.get("action") == "removed"),
-            "modified": sum(1 for c in changed if "changes" in c)}
+    return diff_summary.summarize_changes(a, b, _entry_diff_key, _entry_changes)

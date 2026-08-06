@@ -1,10 +1,11 @@
 # P1-2: put_entity pset 修改无回滚
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** 5f68cfe + 7389b42
 - **优先级：** P1
 - **Milestone：** M4（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/m4-hardening
 
 ## 背景
 

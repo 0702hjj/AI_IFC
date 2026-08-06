@@ -54,4 +54,4 @@ Typical workflow: upload an IFC → review it in 3D once conversion finishes →
 
 ## Project status
 
-The platform is functional end-to-end (upload → convert → review → edit → commit → diff). The active product is `viewer/`; SimpleCADAPI (SCAD) code from the repository history is kept as an archive, see [License & third-party components](/project/license) (Chinese) and [Roadmap](/project/roadmap) (Chinese).
+The platform is functional end-to-end (upload → convert → review → edit → commit → diff). The active product is `viewer/`; SimpleCADAPI (SCAD) code from the repository history was moved on 2026-08-06 to the private archive repo [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive), see [License & third-party components](/project/license) (Chinese) and [Roadmap](/project/roadmap) (Chinese).

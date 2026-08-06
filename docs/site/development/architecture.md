@@ -84,4 +84,4 @@ POST /models/{id}/commit
 
 change log 条目含：`author`（默认 `local-user`，v1 无认证）、`createdAt`（UTC）、`operation`（`update | migrate`）、`diff`（commit 时 IfcDiff 补充）、`provenance`（`{source: UI|AI}`，API 层枚举校验）。版本为线性快照序列（分支/合并未做，属多用户范围）。
 
-已知技术债（详见 [已知限制](/project/known-limits)）：三份历史记录并存（Go change log / edit-service edit-history / 内存 pending）粒度与用途不同；pending 为内存态；diff 无超时控制；Python 侧存储仅文件模式。
+已知技术债（详见 [已知限制](/project/known-limits)）：三份历史记录并存（Go change log / edit-service edit-history / pending）粒度与用途不同；diff 无超时控制；Python 侧存储仅文件模式。

@@ -20,6 +20,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from . import diff_summary
+
 # 参与字段级比较的标量类型；列表/嵌套结构（axis/profile）整体比较。
 _SCALAR = (str, int, float, bool)
 
@@ -93,22 +95,6 @@ def design_diff(base: Dict[str, Any], target: Dict[str, Any]) -> Dict[str, Any]:
     """Semantic diff of two design JSONs; keyed by stable element ``key``."""
     b = _flatten_elements(base)
     t = _flatten_elements(target)
-    changed: List[Dict[str, Any]] = []
-    for key in sorted(b):
-        if key not in t:
-            changed.append({"key": key, "type": b[key]["type"],
-                            "human_label": _human_label(b[key]), "action": "removed"})
-    for key in sorted(t):
-        if key not in b:
-            changed.append({"key": key, "type": t[key]["type"],
-                            "human_label": _human_label(t[key]), "action": "added"})
-    for key in sorted(b):
-        if key in t:
-            changes = _field_changes(b[key]["data"], t[key]["data"])
-            if changes:
-                changed.append({"key": key, "type": t[key]["type"],
-                                "human_label": _human_label(t[key]),
-                                "changes": changes})
-    return {"changed": changed, "added": sum(1 for c in changed if c.get("action") == "added"),
-            "removed": sum(1 for c in changed if c.get("action") == "removed"),
-            "modified": sum(1 for c in changed if "changes" in c)}
+    return diff_summary.summarize_changes(
+        b, t, _human_label,
+        lambda old, new: _field_changes(old["data"], new["data"]))

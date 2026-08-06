@@ -12,6 +12,8 @@
 | `maxUploadMB` | `200` | — | 上传上限 |
 | `pgDSN` | `""` | `VIEWER_PG_DSN` | 配置即启用 PostgreSQL（自动建表），空则文件存储 |
 | `editServiceURL` | `http://127.0.0.1:8100` | `VIEWER_EDIT_SERVICE_URL` | edit-service 地址 |
+| `apiToken` | `""` | `VIEWER_API_TOKEN` | Bearer token 鉴权；**空 = 关闭**（单机零配置默认），设置后除豁免路径外全部端点要求 `Authorization: Bearer <token>` |
+| `corsOrigins` | `http://localhost:5173,http://localhost:8080` | `VIEWER_CORS_ORIGINS` | CORS 允许来源白名单，逗号分隔；不在白名单的 Origin 不反射 `Access-Control-Allow-Origin` |
 
 ```json
 {
@@ -25,6 +27,13 @@
   "editServiceURL": "http://127.0.0.1:8100"
 }
 ```
+
+## 鉴权与 CORS
+
+- 默认不开启鉴权（`apiToken` 为空），面向单机 localhost 使用。**一旦把 `host` 改成对外地址，务必设置 `apiToken`（或 env `VIEWER_API_TOKEN`）**。
+- 开启后所有端点要求 `Authorization: Bearer <token>`，仅豁免：OPTIONS 预检、`GET /v1/models/{id}/model.xkt`、`GET /v1/models/{id}/metadata.json`、`GET /v1/models/{id}/issues/{file}`（前端 xeokit 与 `<img>` 标签无法携带请求头，需匿名可读）。401 响应为统一 envelope，错误码 `40100`。
+- edit-service（:8100）本身**无鉴权**，依赖网络隔离：务必保持绑定 `127.0.0.1`，不要对外暴露；AI agent 直连 :8100 会绕过 Go server 的 token 校验。
+- CORS 从通配 `*` 收敛为白名单（默认本地开发两个端口），新增部署来源用 `corsOrigins` / `VIEWER_CORS_ORIGINS` 追加。
 
 ## edit-service
 

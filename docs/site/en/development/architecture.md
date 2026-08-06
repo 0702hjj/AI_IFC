@@ -84,4 +84,4 @@ Read all overrides → map per entity (Name/Description/Comments → fields;
 
 Change log entries carry: `author` (default `local-user`, no auth in v1), `createdAt` (UTC), `operation` (`update | migrate`), `diff` (filled by IfcDiff at commit), `provenance` (`{source: UI|AI}`, validated at the API layer). Versions form a linear snapshot sequence (branching/merging is out of scope, belongs to multi-user).
 
-Known technical debt (details in [Known limitations](/project/known-limits), Chinese): three history records coexist (Go change log / edit-service edit-history / in-memory pending) with different granularity and purposes; pending is in-memory; diff has no timeout; the Python side is file-storage only.
+Known technical debt (details in [Known limitations](/project/known-limits), Chinese): three history records coexist (Go change log / edit-service edit-history / pending) with different granularity and purposes; diff has no timeout; the Python side is file-storage only.

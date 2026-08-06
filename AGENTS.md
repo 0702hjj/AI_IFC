@@ -58,7 +58,7 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 边界（不要碰）
 
-- `src/`、`skills/simplecadapi/`：SimpleCADAPI 归档区，收编决策（P2-1）落地前冻结。
+- SCAD 遗产（`src/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不含，勿引用。
 - `docs/site/public/` 下的自动生成物（`go-rest-api.routes.json` 等）：只经 `npm run gen:api` 更新。
 - `viewer/data/`：运行时数据，gitignored，不要手工改。
 - 内部文档（`docs/internal/`、`docs/work/`、`docs/superpowers/`）的内容**不得**复制进 `docs/site/`（公开站）。
@@ -68,3 +68,4 @@ AI agent ──► REST 编辑 API ────┘
 - edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `viewer/data` 绝对路径，配错会 404 或改错文件。
 - demo/flows 用 `viewer/edit-service/.venv`（含 ifcopenshell/ezdxf/ifcquery）；**根 `.venv` 没有这些包**。
 - AI agent 直连 edit-service :8100 时传 `provenance.source="AI"`。
+- Go server 鉴权默认关闭（`apiToken`/`VIEWER_API_TOKEN` 为空）；设置后除 OPTIONS 与 `GET /v1/models/...` 只读文件外全部端点要 `Authorization: Bearer <token>`（401 envelope 码 `40100`）。CORS 为白名单制（`corsOrigins`/`VIEWER_CORS_ORIGINS`，默认 `http://localhost:5173,http://localhost:8080`）。edit-service :8100 无鉴权，务必保持 127.0.0.1；AI agent 直连 :8100 绕过 token 校验。

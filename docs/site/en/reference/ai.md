@@ -82,7 +82,7 @@ curl -X POST "$BASE/models/$MID/diff" \
 
 ## Limits and roadmap
 
-v1 limits (details in [Known limitations](/project/known-limits), Chinese): single-machine single-user, no auth (do not expose publicly); pending is in-memory (lost on service restart); `VIEWER_DATA_DIR` must equal the Go `dataDir`; diff is attribute-level only.
+v1 limits (details in [Known limitations](/project/known-limits), Chinese): single-machine single-user, no auth (do not expose publicly); `VIEWER_DATA_DIR` must equal the Go `dataDir`; diff is attribute-level only.
 
 Roadmap (not delivered yet): an MCP wrapper (REST+MCP dual exposure, modeled on ifcmcp's tool patterns) and a sandbox/execution endpoint — see [Roadmap](/project/roadmap) (Chinese).
 

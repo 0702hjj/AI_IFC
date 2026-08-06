@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 0702hjj
 
-"""Design-JSON staging: WPS-style in-memory edit history (undo/redo ring buffer).
+"""Design-JSON staging: WPS-style edit history (undo/redo ring buffer).
 
 The design JSON is the single source of truth for generated models. Edits to
 it go through a per-model staging buffer instead of a persistent per-step
@@ -13,24 +13,54 @@ commit chain:
 - ``discard`` throws the staging away; nothing is persisted, no diff exists.
 - Only an explicit ``save`` (promote) turns the current staged design into a
   big version (see design_versions.py) and clears the buffer.
+
+When constructed with a ``data_dir``, ``StagingRegistry`` persists every
+mutation to ``{data_dir}/models/{id}/staging.json`` (atomic tmp + replace)
+and restores it lazily on first access, so staging survives a restart.
 """
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 MAX_STEPS = 10
 
 
 @dataclass
 class DesignStaging:
-    """Per-model in-memory design JSON edit history."""
+    """Per-model design JSON edit history."""
 
     model_id: str
     base: Dict[str, Any] = field(default_factory=dict)  # last saved big version's design
     history: List[Dict[str, Any]] = field(default_factory=list)  # staged states, oldest first
     cursor: int = -1  # index into history of the current staged state; -1 = at base
+    on_change: Optional[Callable[["DesignStaging"], None]] = field(
+        default=None, repr=False, compare=False
+    )
+
+    def _notify(self) -> None:
+        if self.on_change is not None:
+            self.on_change(self)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "modelId": self.model_id,
+            "base": self.base,
+            "history": self.history,
+            "cursor": self.cursor,
+        }
+
+    @classmethod
+    def from_dict(cls, payload: Dict[str, Any]) -> "DesignStaging":
+        return cls(
+            model_id=payload["modelId"],
+            base=payload.get("base") or {},
+            history=payload.get("history") or [],
+            cursor=payload.get("cursor", -1),
+        )
 
     def current(self) -> Dict[str, Any]:
         """Current effective design JSON (staged state, or base if none staged)."""
@@ -47,12 +77,14 @@ class DesignStaging:
         if len(self.history) > MAX_STEPS:
             self.history = self.history[-MAX_STEPS:]
         self.cursor = len(self.history) - 1
+        self._notify()
 
     def undo(self) -> bool:
         """Move one step back; returns False when already at the oldest."""
         if self.cursor < 0:
             return False
         self.cursor -= 1
+        self._notify()
         return True
 
     def redo(self) -> bool:
@@ -60,6 +92,7 @@ class DesignStaging:
         if self.cursor >= len(self.history) - 1:
             return False
         self.cursor += 1
+        self._notify()
         return True
 
     def can_undo(self) -> bool:
@@ -77,6 +110,7 @@ class DesignStaging:
         dropped = self.cursor + 1
         self.history = []
         self.cursor = -1
+        self._notify()
         return dropped
 
     def save(self) -> None:
@@ -84,21 +118,60 @@ class DesignStaging:
         self.base = self.current()
         self.history = []
         self.cursor = -1
+        self._notify()
 
 
 class StagingRegistry:
-    """App-wide map of model_id -> DesignStaging."""
+    """App-wide map of model_id -> DesignStaging, optionally persisted to disk."""
 
-    def __init__(self) -> None:
+    def __init__(self, data_dir: Optional[str] = None) -> None:
         self._staging: Dict[str, DesignStaging] = {}
+        self._data_dir = data_dir
+
+    def _path(self, model_id: str) -> str:
+        return os.path.join(self._data_dir, "models", model_id, "staging.json")
+
+    def _load(self, model_id: str) -> Optional[DesignStaging]:
+        path = self._path(model_id)
+        if not os.path.isfile(path):
+            return None
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                return DesignStaging.from_dict(json.load(fh))
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+
+    def _persist(self, staging: DesignStaging) -> None:
+        if self._data_dir is None:
+            return
+        path = self._path(staging.model_id)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(staging.to_dict(), fh, ensure_ascii=False)
+        os.replace(tmp, path)
+
+    def _attach(self, staging: DesignStaging) -> DesignStaging:
+        if self._data_dir is not None:
+            staging.on_change = self._persist
+        return staging
 
     def get(self, model_id: str) -> DesignStaging:
-        return self._staging.setdefault(model_id, DesignStaging(model_id=model_id))
+        """Return the staging for a model, restoring it from disk on first access."""
+        staging = self._staging.get(model_id)
+        if staging is None:
+            if self._data_dir is not None:
+                staging = self._load(model_id)
+            if staging is None:
+                staging = DesignStaging(model_id=model_id)
+            self._staging[model_id] = self._attach(staging)
+        return staging
 
     def reset(self, model_id: str, base: Optional[Dict[str, Any]] = None) -> DesignStaging:
         """Recreate staging for a model (e.g. after external IFC upload)."""
         st = DesignStaging(model_id=model_id)
         if base is not None:
             st.base = base
-        self._staging[model_id] = st
+        self._staging[model_id] = self._attach(st)
+        self._persist(st)
         return st

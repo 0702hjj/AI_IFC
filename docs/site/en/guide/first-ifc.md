@@ -20,7 +20,7 @@ The repository bundles an official buildingSMART sample IFC:
 | Conversion failed | Retry with `POST /api/v1/models/{id}/retry` |
 | Editing returns 404 model not found | `VIEWER_DATA_DIR` and the Go `dataDir` point to different directories |
 | Editing returns 422 | Attribute name or value type is wrong — the request had no side effects, fix and resend |
-| Commit returns 409 | No pending changes (pending lives in memory and is lost when edit-service restarts) |
+| Commit returns 409 | No pending changes (pending is persisted to disk and restored when the edit-service restarts) |
 | Attribute changes not reflected in the UI | Only Go-proxied commits trigger reconversion; direct edit-service calls need a manual refresh or a proxied replay |
 
 The full troubleshooting table: [Testing & Debugging](/development/testing) (Chinese).
