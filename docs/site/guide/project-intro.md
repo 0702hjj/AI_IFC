@@ -1,6 +1,6 @@
 # 项目介绍
 
-AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它从 SimpleCADAPI fork 而来，但活跃产品是 `viewer/` 下的 IFC 平台；SimpleCADAPI 相关代码作为归档保留，详见 [License 与第三方组件](/project/license)。
+AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它从 SimpleCADAPI fork 而来，但活跃产品是 `viewer/` 下的 IFC 平台；SimpleCADAPI 相关代码已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，详见 [License 与第三方组件](/project/license)。
 
 ## 定位
 

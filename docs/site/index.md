@@ -54,6 +54,6 @@ AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平
 
 ## 项目状态
 
-平台已端到端可用（上传 → 转换 → 审查 → 编辑 → commit → diff）。当前仓库以 `viewer/` 为活跃产品；仓库历史中的 SimpleCADAPI（SCAD）代码作为归档保留，详见 [License 与第三方组件](/project/license)。
+平台已端到端可用（上传 → 转换 → 审查 → 编辑 → commit → diff）。当前仓库以 `viewer/` 为活跃产品；仓库历史中的 SimpleCADAPI（SCAD）代码已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，详见 [License 与第三方组件](/project/license)。
 
 版本路线见 [Roadmap](/project/roadmap)，已知边界见 [已知限制](/project/known-limits)。

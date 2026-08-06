@@ -11,14 +11,18 @@ Origin (archived portion)
 This repository was forked from SimpleCADAPI — the CADDesigner research
 artifact (https://562590763.github.io/CADDesigner/), licensed AGPL-3.0.
 
+The SimpleCADAPI heritage code (src/simplecadapi/, skills/simplecadapi/, and
+the SCAD-era packaging files pyproject.toml / uv.lock / MANIFEST.in) was moved
+out of this repository on 2026-08-06 to the private archive repository
+https://github.com/0702hjj/SimpleCADAPI-archive, where it retains its original
+copyright and license (SimpleCAD API Team / 倪旌哲 <nijingzhe@zju.edu.cn>,
+AGPL-3.0). This repository no longer contains that code; see git history for
+the pre-move state.
+
 The following archived portions retain their original copyright and license:
-  - src/simplecadapi/        (SimpleCAD API Team / 倪旌哲 <nijingzhe@zju.edu.cn>)
-  - skills/simplecadapi/     (SimpleCAD API Team)
   - examples/                (SimpleCAD API Team)
-  - pyproject.toml           (SimpleCADAPI package metadata, archived)
   - docs/archive/simplecadapi/    (docs only; removed in the 2026-08-05 cleanup —
-                                    see git history. The code parts src/ and
-                                    skills/simplecadapi/ listed above remain)
+                                    see git history)
 
 All new code under viewer/ and docs/ is Copyright (C) 2026 0702hjj,
 licensed AGPL-3.0-only (SPDX-License-Identifier headers in each file).

@@ -58,7 +58,7 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 边界（不要碰）
 
-- `src/`、`skills/simplecadapi/`：SimpleCADAPI 归档区，收编决策（P2-1）落地前冻结。
+- SCAD 遗产（`src/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不含，勿引用。
 - `docs/site/public/` 下的自动生成物（`go-rest-api.routes.json` 等）：只经 `npm run gen:api` 更新。
 - `viewer/data/`：运行时数据，gitignored，不要手工改。
 - 内部文档（`docs/internal/`、`docs/work/`、`docs/superpowers/`）的内容**不得**复制进 `docs/site/`（公开站）。

@@ -8,12 +8,9 @@ AI_IFC 以 **AGPL-3.0-only** 发布（[LICENSE](https://github.com/0702hjj/AI_IF
 
 ## 归档代码边界
 
-本仓库 fork 自 SimpleCADAPI（OCP 原生 CAD 生成，论文 artifact）。以下部分保留原始版权与许可证，作为归档参考，**不是**活跃产品：
+本仓库 fork 自 SimpleCADAPI（OCP 原生 CAD 生成，论文 artifact）。SCAD 遗产代码（`src/simplecadapi/`、`skills/simplecadapi/`、根 `pyproject.toml` 等 SCAD 时代打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，保留原始版权与许可证（SimpleCAD API Team），**不是**活跃产品，本仓不再包含。本仓内保留原始版权与许可证的归档部分：
 
-- `src/simplecadapi/`（SimpleCAD API Team）
-- `skills/simplecadapi/`（SimpleCAD API Team）
 - `examples/`（SimpleCAD API Team）
-- 根 `pyproject.toml`（SimpleCADAPI 包元数据，归档）
 - `docs/archive/simplecadapi/`（原 SCAD API/core/stdlib/legacy 文档，已随 2026-08-05 清理移除，见 git 历史）
 
 ## 第三方组件

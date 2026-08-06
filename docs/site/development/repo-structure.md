@@ -20,13 +20,13 @@ AI_IFC/
 │   ├── work/                  # 工作项看板（审计、计划、可跟踪条目）
 │   └── superpowers/           # 设计规范与实施计划
 ├── research/                  # 调研笔记与目标映射（内部）
-├── src/simplecadapi/          # 归档：SimpleCADAPI（SCAD → STEP），仓库起点
-├── skills/simplecadapi/       # 归档：SimpleCADAPI skill 包
 ├── examples/                  # 归档：SCAD 示例
 ├── .github/workflows/         # CI（viewer）与 docs（构建 + Pages 部署）
 ├── LICENSE                    # AGPL-3.0-only
 └── NOTICE                     # 三方组件与归档代码边界
 ```
+
+> SCAD 遗产代码（`src/simplecadapi/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
 
 ## 文档边界
 
