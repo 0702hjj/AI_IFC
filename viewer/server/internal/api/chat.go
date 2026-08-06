@@ -47,6 +47,8 @@ type ChatHandler struct {
 	sessions map[string]*chatSession             // chatSessionId → session
 	byOC     map[string]string                   // opencodeSessionId → chatSessionId
 	subs     map[string]map[chan []byte]struct{} // chatSessionId → 浏览器 SSE 订阅者集合
+	seq      map[string]uint64                   // chatSessionId → 已分配的最大 SSE 事件 id
+	evLog    map[string][]sseEvent               // chatSessionId → 重同步环形缓冲（id 升序，≤ sseReplayBufferSize）
 
 	createMu sync.Mutex             // 仅保护下面的 creating map
 	creating map[string]*sync.Mutex // per-modelId 创建串行锁：根治同 modelId 并发 createSession 的 TOCTOU 竞态
@@ -61,6 +63,7 @@ func NewChatHandler(ctx context.Context, d ChatDeps) *ChatHandler {
 		deps: d, agent: chatAgent, mux: http.NewServeMux(), cancel: cancel,
 		sessions: map[string]*chatSession{}, byOC: map[string]string{},
 		subs: map[string]map[chan []byte]struct{}{}, creating: map[string]*sync.Mutex{},
+		seq: map[string]uint64{}, evLog: map[string][]sseEvent{},
 	}
 	h.loadSessions()
 	h.registerRoutes()
