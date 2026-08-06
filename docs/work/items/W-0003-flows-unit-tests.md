@@ -1,10 +1,10 @@
 # W-0003: flows 单测补全 + converter CI 确认
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P1
 - **Milestone：** M2（见 PLAN-v0.1.0.md）
 - **来源：** PLAN-v0.1.0（M2 测试补盲）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / test/m2-coverage
 
 ## 背景
 
