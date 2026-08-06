@@ -3,9 +3,9 @@
 
 """Shared added/removed/changed summary for keyed item mappings.
 
-Both diff engines (design_diff, ifc_fingerprint) reduce their inputs to a
-``{key: entry}`` mapping where each entry carries at least a ``"type"``
-field, then run the same three-pass comparison:
+Diff engines (ifc_fingerprint; the retired design_diff was the other user)
+reduce their inputs to a ``{key: entry}`` mapping where each entry carries
+at least a ``"type"`` field, then run the same three-pass comparison:
 
 - key only in base → ``removed``
 - key only in target → ``added``
