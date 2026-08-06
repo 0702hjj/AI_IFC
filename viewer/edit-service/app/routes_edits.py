@@ -1,14 +1,18 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 0702hjj
 
-"""Entity edit endpoints: in-memory pending changes, two-phase commit, history.
+"""Entity edit endpoints: pending changes, two-phase commit, history.
 
 ``PUT`` applies field/pset edits to the in-memory model and records a
-pending change; nothing touches disk until ``POST .../commit`` saves the
-model and appends the entries to the persistent history. A failed ``PUT``
-rolls the entity back to its pre-request state (fields and psets) and
-leaves no pending entry. ``DELETE
-.../pending`` discards pending changes by reloading the model from disk.
+pending change; nothing touches the IFC on disk until ``POST .../commit``
+saves the model and appends the entries to the persistent history. A failed
+``PUT`` rolls the entity back to its pre-request state (fields and psets)
+and leaves no pending entry. ``DELETE .../pending`` discards pending changes
+by reloading the model from disk.
+
+The pending queue itself is persisted per model (see pending.PendingStore:
+``models/{id}/pending.json``, atomic writes), so uncommitted entries survive
+a service restart.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from fastapi import APIRouter, HTTPException, Path, Request
 from pydantic import BaseModel, Field
 
 from . import history, versions
+from .pending import PendingStore
 
 router = APIRouter()
 
@@ -60,7 +65,7 @@ def _model_path(request: Request, model_id: str) -> str:
     return path
 
 
-def _pending(request: Request) -> Dict[str, List[Dict[str, Any]]]:
+def _pending(request: Request) -> PendingStore:
     return request.app.state.pending
 
 
@@ -187,7 +192,7 @@ def put_entity(
             "provenance": body.provenance.model_dump(),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        _pending(request).setdefault(id, []).append(entry)
+        _pending(request).append(id, entry)
         return entry
 
 
@@ -196,7 +201,7 @@ def get_pending(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> List[Dict[str, Any]]:
     """List the current pending changes for a model."""
-    return _pending(request).get(id, [])
+    return _pending(request).get(id)
 
 
 @router.post("/models/{id}/commit")
@@ -217,7 +222,7 @@ def commit_pending(
     data_dir = request.app.state.settings.data_dir
     operation = body.operation if body is not None else "update"
     with registry.lock(path):
-        pending = _pending(request).get(id, [])
+        pending = _pending(request).get(id)
         if not pending:
             raise HTTPException(status_code=409, detail="no pending changes")
         if not versions.list_versions(data_dir, id):
@@ -226,7 +231,7 @@ def commit_pending(
         versions.snapshot(data_dir, id, path)
         entries = [dict(entry, operation=operation) for entry in pending]
         history.append_history(data_dir, id, entries)
-        _pending(request)[id] = []
+        _pending(request).set(id, [])
     return {"committed": len(entries), "entries": entries}
 
 
@@ -238,8 +243,8 @@ def discard_pending(request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)) 
     with registry.lock(path):
         registry.unload(path)
         registry.load(path)
-        dropped = len(_pending(request).get(id, []))
-        _pending(request)[id] = []
+        dropped = len(_pending(request).get(id))
+        _pending(request).set(id, [])
     return {"discarded": dropped}
 
 

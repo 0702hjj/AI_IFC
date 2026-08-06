@@ -1,27 +1,35 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 0702hjj
 
-"""IFC model registry: load/save with per-path file locks.
+"""IFC model registry: load/save with per-path file locks and LRU eviction.
 
 Models are cached by absolute path so repeated loads return the same
 ``ifcopenshell.file`` object. Saves are atomic (write ``path + ".tmp"``
 then ``os.replace``) and serialized per path via ``threading.Lock``.
+
+The cache is bounded: at most ``max_models`` models stay loaded. ``load``
+refreshes recency; once the cap is exceeded the least-recently-used model is
+evicted (disk writes already go through the atomic ``save``, so eviction
+only drops the cache entry). An evicted model is transparently re-opened
+from disk on its next ``load``.
 """
 
 from __future__ import annotations
 
 import os
 import threading
+from collections import OrderedDict
 from typing import Dict
 
 import ifcopenshell
 
 
 class ModelRegistry:
-    """In-memory cache of opened IFC models with atomic save."""
+    """Bounded in-memory cache of opened IFC models with atomic save."""
 
-    def __init__(self) -> None:
-        self._models: Dict[str, ifcopenshell.file] = {}
+    def __init__(self, max_models: int = 8) -> None:
+        self._max_models = max(1, max_models)
+        self._models: "OrderedDict[str, ifcopenshell.file]" = OrderedDict()
         self._locks: Dict[str, threading.RLock] = {}
         self._guard = threading.Lock()
 
@@ -30,12 +38,38 @@ class ModelRegistry:
 
         The cache check-and-get runs under the per-path lock so a
         concurrent ``unload`` cannot drop the entry between check and get.
+        Loading marks the model most-recently-used and evicts the oldest
+        entry once ``max_models`` is exceeded.
         """
         key = os.path.abspath(path)
         with self.lock(key):
-            if key not in self._models:
-                self._models[key] = ifcopenshell.open(key)
+            model = self._models.get(key)
+            if model is None:
+                model = ifcopenshell.open(key)
+                self._models[key] = model
+            else:
+                self._models.move_to_end(key)
+            self._evict_lru(protect=key)
             return self._models[key]
+
+    def _evict_lru(self, protect: str) -> None:
+        """Drop oldest entries beyond capacity (never the ``protect``ed key).
+
+        The victim's per-path lock is taken non-blocking to avoid lock-order
+        deadlock with a concurrent ``load``/``save`` on that path; under
+        contention eviction is simply deferred to a later ``load``.
+        """
+        while len(self._models) > self._max_models:
+            victim = next((k for k in self._models if k != protect), None)
+            if victim is None:
+                return
+            victim_lock = self.lock(victim)
+            if not victim_lock.acquire(blocking=False):
+                return
+            try:
+                self._models.pop(victim, None)
+            finally:
+                victim_lock.release()
 
     def save(self, path: str) -> None:
         """Atomically write the loaded model back to disk (holds the path lock)."""

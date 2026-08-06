@@ -15,13 +15,13 @@ Every element carries a stable `key` (e.g. `"1F:wall:0"`):
 
 ### 2. Staging (WPS-style, up to 10 steps)
 
-Edits go into an in-memory staging buffer (up to 10 states) with `<-` / `->` navigation:
+Edits go into a staging buffer (up to 10 states, persisted atomically and restored after a restart) with `<-` / `->` navigation:
 
 - **Not saved** → discarding is lossless: **zero diff, zero version**.
 - **Saved** → the staging chain is dropped and a **big version** is created.
 
 ```
-edit staging (10 steps, in-memory, undo/redo)
+edit staging (10 steps, persisted, undo/redo)
    ├─ discard → dropped (no trace)
    └─ save → big version v{n} (designs/v{n}.json + versions/v{n}.ifc)
              └─ one diff between v{n-1} and v{n} only

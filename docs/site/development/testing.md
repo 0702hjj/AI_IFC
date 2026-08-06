@@ -43,6 +43,6 @@ cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
 | 转换 failed | `POST /api/v1/models/{id}/retry` 重试 |
 | 编辑 404 model not found | VIEWER_DATA_DIR 与 dataDir 不同目录 |
 | 编辑 422 | 属性名/类型不符，请求零副作用，修正重发 |
-| commit 409 | 无 pending（内存态，服务重启会丢） |
+| commit 409 | 无 pending（pending 已落盘，重启后自动恢复） |
 | 改了属性前端没刷新 | 直连 edit-service 的 commit 不触发重转；走 Go 代理 |
 | PG 连不上 | 清空 pgDSN 回退文件存储 |

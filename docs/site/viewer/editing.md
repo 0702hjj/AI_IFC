@@ -32,7 +32,7 @@
 
 要点：
 
-- pending 只存内存，edit-service 重启即丢失未 commit 的修改；history 与版本快照不受影响。
+- pending 每次变更原子落盘（`models/{id}/pending.json`），edit-service 重启后自动恢复；history 与版本快照不受影响。
 - 重复 commit（无 pending）返回 409。
 - 多请求并发由每模型一把锁串行化。
 
