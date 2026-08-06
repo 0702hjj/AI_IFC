@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/opencode"
@@ -365,6 +366,27 @@ func TestCreateProjectViaChatPath(t *testing.T) {
 	if !strings.Contains(string(content), "IFCPROJECT") || !strings.Contains(string(content), "我的项目") {
 		t.Errorf("骨架 IFC 内容不符: %s", content)
 	}
+	// 转换是异步的（Queue worker 会写 models/{id}/model.json），
+	// 必须等其完成再结束测试，否则 TempDir 清理与 worker 写盘竞争（flaky）。
+	waitModelStatus(t, h.deps.St, m.ID, "ready", 5*time.Second)
+}
+
+// waitModelStatus 轮询模型状态直到期望值或超时（条件等待，不用固定 sleep）。
+func waitModelStatus(t *testing.T, st *store.Store, id, want string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		m, err := st.Get(id)
+		if err == nil && m.Status == want {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	m, err := st.Get(id)
+	if err != nil {
+		t.Fatalf("等待状态 %q 期间读取模型失败: %v", want, err)
+	}
+	t.Fatalf("等待模型 %s 状态 %q 超时（当前 %q）", id, want, m.Status)
 }
 
 // TestCreateProjectOldPathGone 断言旧路径 POST /api/v1/projects 不再由 chat mux 处理（404）。
