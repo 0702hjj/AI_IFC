@@ -1,10 +1,10 @@
 # P2-7: 文档站英文缺 Viewer 使用 6 页
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P2
 - **Milestone：** M3（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/m3-release
 
 ## 背景
 
