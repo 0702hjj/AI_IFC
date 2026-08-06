@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+data
+web
+edit-service
+scripts
+converter/node_modules
+server/server_config.json
