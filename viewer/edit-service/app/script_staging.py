@@ -1,22 +1,24 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 0702hjj
 
-"""Design-JSON staging: WPS-style edit history (undo/redo ring buffer).
+"""Script staging: WPS-style edit history (undo/redo ring buffer) for build scripts.
 
-The design JSON is the single source of truth for generated models. Edits to
+The build script is the single source of truth (script-as-source). Edits to
 it go through a per-model staging buffer instead of a persistent per-step
 commit chain:
 
-- ``push`` records a new design state; the buffer keeps at most
+- ``push`` records a new script state; the buffer keeps at most
   ``MAX_STEPS`` (10) states, dropping the oldest (WPS-style <- ->).
 - ``undo``/``redo`` move a cursor back/forward through the buffer.
 - ``discard`` throws the staging away; nothing is persisted, no diff exists.
-- Only an explicit ``save`` (promote) turns the current staged design into a
-  big version (see design_versions.py) and clears the buffer.
+- Only an explicit ``save`` (promote) turns the current staged script into a
+  big version (see script_versions.py) and clears the buffer.
 
 When constructed with a ``data_dir``, ``StagingRegistry`` persists every
-mutation to ``{data_dir}/models/{id}/staging.json`` (atomic tmp + replace)
-and restores it lazily on first access, so staging survives a restart.
+mutation to ``{data_dir}/models/{id}/script_staging.json`` (atomic tmp +
+replace) and restores it lazily on first access, so staging survives a
+restart. (The retired design-JSON staging lived at ``staging.json``; the
+payloads are incompatible, so script staging uses a fresh file name.)
 """
 
 from __future__ import annotations
@@ -30,14 +32,14 @@ MAX_STEPS = 10
 
 
 @dataclass
-class DesignStaging:
-    """Per-model design JSON edit history."""
+class ScriptStaging:
+    """Per-model build-script edit history."""
 
     model_id: str
-    base: Dict[str, Any] = field(default_factory=dict)  # last saved big version's design
-    history: List[Dict[str, Any]] = field(default_factory=list)  # staged states, oldest first
+    base: Optional[str] = None  # last saved big version's script
+    history: List[str] = field(default_factory=list)  # staged states, oldest first
     cursor: int = -1  # index into history of the current staged state; -1 = at base
-    on_change: Optional[Callable[["DesignStaging"], None]] = field(
+    on_change: Optional[Callable[["ScriptStaging"], None]] = field(
         default=None, repr=False, compare=False
     )
 
@@ -54,26 +56,26 @@ class DesignStaging:
         }
 
     @classmethod
-    def from_dict(cls, payload: Dict[str, Any]) -> "DesignStaging":
+    def from_dict(cls, payload: Dict[str, Any]) -> "ScriptStaging":
         return cls(
             model_id=payload["modelId"],
-            base=payload.get("base") or {},
-            history=payload.get("history") or [],
+            base=payload.get("base"),
+            history=list(payload.get("history") or []),
             cursor=payload.get("cursor", -1),
         )
 
-    def current(self) -> Dict[str, Any]:
-        """Current effective design JSON (staged state, or base if none staged)."""
+    def current(self) -> Optional[str]:
+        """Current effective script (staged state, or base if none staged)."""
         if self.cursor >= 0 and self.cursor < len(self.history):
             return self.history[self.cursor]
         return self.base
 
-    def push(self, design: Dict[str, Any]) -> None:
+    def push(self, script: str) -> None:
         """Record a new staged state, dropping redo tail and oldest beyond MAX_STEPS."""
         if self.cursor >= 0 and self.cursor < len(self.history) - 1:
             # New edit invalidates the redo tail.
             self.history = self.history[: self.cursor + 1]
-        self.history.append(design)
+        self.history.append(script)
         if len(self.history) > MAX_STEPS:
             self.history = self.history[-MAX_STEPS:]
         self.cursor = len(self.history) - 1
@@ -122,26 +124,26 @@ class DesignStaging:
 
 
 class StagingRegistry:
-    """App-wide map of model_id -> DesignStaging, optionally persisted to disk."""
+    """App-wide map of model_id -> ScriptStaging, optionally persisted to disk."""
 
     def __init__(self, data_dir: Optional[str] = None) -> None:
-        self._staging: Dict[str, DesignStaging] = {}
+        self._staging: Dict[str, ScriptStaging] = {}
         self._data_dir = data_dir
 
     def _path(self, model_id: str) -> str:
-        return os.path.join(self._data_dir, "models", model_id, "staging.json")
+        return os.path.join(self._data_dir, "models", model_id, "script_staging.json")
 
-    def _load(self, model_id: str) -> Optional[DesignStaging]:
+    def _load(self, model_id: str) -> Optional[ScriptStaging]:
         path = self._path(model_id)
         if not os.path.isfile(path):
             return None
         try:
             with open(path, "r", encoding="utf-8") as fh:
-                return DesignStaging.from_dict(json.load(fh))
+                return ScriptStaging.from_dict(json.load(fh))
         except (OSError, ValueError, KeyError, TypeError):
             return None
 
-    def _persist(self, staging: DesignStaging) -> None:
+    def _persist(self, staging: ScriptStaging) -> None:
         if self._data_dir is None:
             return
         path = self._path(staging.model_id)
@@ -151,25 +153,25 @@ class StagingRegistry:
             json.dump(staging.to_dict(), fh, ensure_ascii=False)
         os.replace(tmp, path)
 
-    def _attach(self, staging: DesignStaging) -> DesignStaging:
+    def _attach(self, staging: ScriptStaging) -> ScriptStaging:
         if self._data_dir is not None:
             staging.on_change = self._persist
         return staging
 
-    def get(self, model_id: str) -> DesignStaging:
+    def get(self, model_id: str) -> ScriptStaging:
         """Return the staging for a model, restoring it from disk on first access."""
         staging = self._staging.get(model_id)
         if staging is None:
             if self._data_dir is not None:
                 staging = self._load(model_id)
             if staging is None:
-                staging = DesignStaging(model_id=model_id)
+                staging = ScriptStaging(model_id=model_id)
             self._staging[model_id] = self._attach(staging)
         return staging
 
-    def reset(self, model_id: str, base: Optional[Dict[str, Any]] = None) -> DesignStaging:
-        """Recreate staging for a model (e.g. after external IFC upload)."""
-        st = DesignStaging(model_id=model_id)
+    def reset(self, model_id: str, base: Optional[str] = None) -> ScriptStaging:
+        """Recreate staging for a model (e.g. after rollback to a big version)."""
+        st = ScriptStaging(model_id=model_id)
         if base is not None:
             st.base = base
         self._staging[model_id] = self._attach(st)

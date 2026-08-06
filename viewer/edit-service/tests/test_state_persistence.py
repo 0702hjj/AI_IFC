@@ -17,18 +17,25 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.design_staging import DesignStaging, StagingRegistry
 from app.main import create_app
 from app.pending import PendingStore
+from app.script_staging import ScriptStaging, StagingRegistry
 from conftest import MODEL_ID
 
 WALL_GUID = "3ZYW59sxj8lei475l7EhLU"
 
 
-def _design(**overrides):
-    d = {"meta": {"name": "t"}, "frame": {"storeys": {"1F": 0.0}}, "floors": {}}
-    d.update(overrides)
-    return d
+def _script(marker: str) -> str:
+    return (
+        f'PARAMS = {{"marker": "{marker}"}}\n'
+        "\n"
+        "def build(params, out_path):\n"
+        "    open(out_path, 'w').write('IFC:' + params['marker'])\n"
+        "\n"
+        'if __name__ == "__main__":\n'
+        "    import sys\n"
+        "    build(PARAMS, sys.argv[1])\n"
+    )
 
 
 @pytest.fixture()
@@ -43,7 +50,7 @@ def restart(data_dir: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def _staging_file(data_dir: Path) -> Path:
-    return data_dir / "models" / MODEL_ID / "staging.json"
+    return data_dir / "models" / MODEL_ID / "script_staging.json"
 
 
 def _pending_file(data_dir: Path) -> Path:
@@ -52,76 +59,76 @@ def _pending_file(data_dir: Path) -> Path:
 
 class TestStagingPersistence:
     def test_staging_written_atomically(self, client: TestClient, data_dir: Path) -> None:
-        client.put(f"/models/{MODEL_ID}/design", json={"design": _design(a=1)})
+        client.put(f"/models/{MODEL_ID}/script", json={"script": _script("a")})
         path = _staging_file(data_dir)
         assert path.is_file()
         assert not Path(str(path) + ".tmp").exists()
         payload = json.loads(path.read_text(encoding="utf-8"))
-        assert payload["history"][0]["a"] == 1
+        assert '"marker": "a"' in payload["history"][0]
         assert payload["cursor"] == 0
 
     def test_staging_survives_restart_and_undo_redo_still_works(
         self, restart, data_dir: Path
     ) -> None:
         client = restart()
-        client.put(f"/models/{MODEL_ID}/design", json={"design": _design(a=1)})
-        client.put(f"/models/{MODEL_ID}/design", json={"design": _design(a=2)})
-        client.post(f"/models/{MODEL_ID}/design/undo")
+        client.put(f"/models/{MODEL_ID}/script", json={"script": _script("a")})
+        client.put(f"/models/{MODEL_ID}/script", json={"script": _script("b")})
+        client.post(f"/models/{MODEL_ID}/script/undo")
 
         client2 = restart()
-        body = client2.get(f"/models/{MODEL_ID}/design").json()
-        assert body["design"]["a"] == 1
+        body = client2.get(f"/models/{MODEL_ID}/script").json()
+        assert '"marker": "a"' in body["script"]
         assert body["staged"] == 1
         assert body["canUndo"] is True
         assert body["canRedo"] is True
 
-        r = client2.post(f"/models/{MODEL_ID}/design/undo")
+        r = client2.post(f"/models/{MODEL_ID}/script/undo")
         assert r.status_code == 200
-        assert "a" not in r.json()["design"]  # back to base
-        r = client2.post(f"/models/{MODEL_ID}/design/redo")
-        assert r.json()["design"]["a"] == 1
+        assert r.json()["script"] is None  # back to (empty) base
+        r = client2.post(f"/models/{MODEL_ID}/script/redo")
+        assert '"marker": "a"' in r.json()["script"]
 
     def test_base_survives_restart_after_save(self, restart) -> None:
         client = restart()
-        client.put(f"/models/{MODEL_ID}/design", json={"design": _design(a=1)})
-        client.post(f"/models/{MODEL_ID}/design/save")
+        client.put(f"/models/{MODEL_ID}/script", json={"script": _script("a")})
+        client.post(f"/models/{MODEL_ID}/script/save")
 
         client2 = restart()
-        body = client2.get(f"/models/{MODEL_ID}/design").json()
+        body = client2.get(f"/models/{MODEL_ID}/script").json()
         assert body["staged"] == 0
-        assert body["design"]["a"] == 1  # restored base, not empty
+        assert '"marker": "a"' in body["script"]  # restored base, not empty
 
     def test_discard_persists(self, restart) -> None:
         client = restart()
-        client.put(f"/models/{MODEL_ID}/design", json={"design": _design(a=1)})
-        client.post(f"/models/{MODEL_ID}/design/discard")
+        client.put(f"/models/{MODEL_ID}/script", json={"script": _script("a")})
+        client.post(f"/models/{MODEL_ID}/script/discard")
 
         client2 = restart()
-        assert client2.get(f"/models/{MODEL_ID}/design").json()["staged"] == 0
+        assert client2.get(f"/models/{MODEL_ID}/script").status_code == 404
 
     def test_registry_roundtrip_without_http(self, tmp_path: Path) -> None:
         reg = StagingRegistry(str(tmp_path))
         st = reg.get(MODEL_ID)
-        st.push(_design(a=1))
-        st.push(_design(a=2))
+        st.push("s-a")
+        st.push("s-b")
         st.undo()
 
         reg2 = StagingRegistry(str(tmp_path))
         st2 = reg2.get(MODEL_ID)
-        assert st2.current()["a"] == 1
+        assert st2.current() == "s-a"
         assert st2.staged_count() == 1
         assert st2.can_redo()
         # restored instance keeps persisting
         st2.redo()
         reg3 = StagingRegistry(str(tmp_path))
-        assert reg3.get(MODEL_ID).current()["a"] == 2
+        assert reg3.get(MODEL_ID).current() == "s-b"
 
     def test_corrupt_staging_file_falls_back_to_empty(self, tmp_path: Path) -> None:
-        path = tmp_path / "models" / MODEL_ID / "staging.json"
+        path = tmp_path / "models" / MODEL_ID / "script_staging.json"
         path.parent.mkdir(parents=True)
         path.write_text("{not json", encoding="utf-8")
         st = StagingRegistry(str(tmp_path)).get(MODEL_ID)
-        assert st.current() == {}
+        assert st.current() is None
         assert st.staged_count() == 0
 
 

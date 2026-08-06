@@ -76,13 +76,18 @@ class TestDesignDiff:
 
 
 class TestDesignDiffEndpoints:
-    def _save_design(self, client: TestClient, design, note: str):
-        client.put(f"/models/{MODEL_ID}/design", json={"design": design, "note": note})
-        return client.post(f"/models/{MODEL_ID}/design/save", json={"note": note}).json()["version"]
+    def _save_design(self, data_dir: Path, design, note: str):
+        # design JSON 端点已随 W-0011 下线；直接经 design_versions 落盘造版本。
+        from app import design_versions
 
-    def test_design_diff_between_big_versions(self, client: TestClient):
-        self._save_design(client, _design_a(), "a")
-        self._save_design(client, _design_b(), "b")
+        return design_versions.save(
+            str(data_dir), MODEL_ID, design,
+            str(data_dir / "uploads" / f"{MODEL_ID}.ifc"), note=note,
+        )
+
+    def test_design_diff_between_big_versions(self, client: TestClient, data_dir: Path):
+        self._save_design(data_dir, _design_a(), "a")
+        self._save_design(data_dir, _design_b(), "b")
         r = client.post(f"/models/{MODEL_ID}/design/diff", json={"base": "v1", "target": "v2"})
         assert r.status_code == 200
         body = r.json()
