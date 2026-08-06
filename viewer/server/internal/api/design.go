@@ -8,32 +8,11 @@ import (
 	"net/http"
 )
 
-// registerDesignRoutes 暴露 design-JSON 编辑/暂存/大版本端点（代理到 edit-service）。
-// WPS 式暂存（10 步）→ 显式 save 成为大版本；不做逐步回溯链。
-func (h *handler) registerDesignRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/v1/models/{id}/design", h.designGet)
-	mux.HandleFunc("PUT /api/v1/models/{id}/design", h.designPut)
-	mux.HandleFunc("POST /api/v1/models/{id}/design/undo", h.designPost("undo"))
-	mux.HandleFunc("POST /api/v1/models/{id}/design/redo", h.designPost("redo"))
-	mux.HandleFunc("POST /api/v1/models/{id}/design/discard", h.designPost("discard"))
-	mux.HandleFunc("POST /api/v1/models/{id}/design/save", h.designPost("save"))
-	mux.HandleFunc("GET /api/v1/models/{id}/designs", h.designList)
-	mux.HandleFunc("POST /api/v1/models/{id}/design/rollback", h.designPost("rollback"))
-	mux.HandleFunc("POST /api/v1/models/{id}/design/regenerate", h.designPost("regenerate"))
+// registerDesignDiffRoutes 仅保留 design diff 代理（W-0012 统一切换/下线）。
+// design JSON 编辑/暂存/大版本端点已随 W-0011 替换为 script 端点（见 script.go）。
+func (h *handler) registerDesignDiffRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/models/{id}/design/diff", h.designPost("diff"))
 	mux.HandleFunc("POST /api/v1/models/{id}/design/diff-ifc", h.designPost("diff-ifc"))
-}
-
-func (h *handler) designGet(w http.ResponseWriter, r *http.Request) {
-	h.designProxy(w, r, http.MethodGet, "/models/"+r.PathValue("id")+"/design", nil)
-}
-
-func (h *handler) designPut(w http.ResponseWriter, r *http.Request) {
-	body := readBody(w, r)
-	if body == nil {
-		return
-	}
-	h.designProxy(w, r, http.MethodPut, "/models/"+r.PathValue("id")+"/design", body)
 }
 
 func (h *handler) designPost(action string) func(http.ResponseWriter, *http.Request) {
@@ -46,11 +25,7 @@ func (h *handler) designPost(action string) func(http.ResponseWriter, *http.Requ
 	}
 }
 
-func (h *handler) designList(w http.ResponseWriter, r *http.Request) {
-	h.designProxy(w, r, http.MethodGet, "/models/"+r.PathValue("id")+"/designs", nil)
-}
-
-// designProxy 透传 edit-service 的 design 端点（包络 + 错误映射）。
+// designProxy 透传 edit-service 的 design diff 端点（包络 + 错误映射）。
 func (h *handler) designProxy(w http.ResponseWriter, r *http.Request, method, path string, body []byte) {
 	raw, err := h.ed.Do(r.Context(), method, path, body)
 	if err != nil {
