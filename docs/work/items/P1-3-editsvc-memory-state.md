@@ -1,6 +1,7 @@
 # P1-3: edit-service 全内存状态
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 42c012c
 - **优先级：** P1
 - **Milestone：** M4（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05

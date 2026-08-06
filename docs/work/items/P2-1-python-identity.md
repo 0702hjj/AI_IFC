@@ -1,6 +1,7 @@
 # P2-1: pyproject/uv.lock 仍是 simplecadapi 身份
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** dbb405c + 15eb800（归档仓 0702hjj/SimpleCADAPI-archive）
 - **优先级：** P2
 - **Milestone：** M4（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05

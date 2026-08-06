@@ -1,6 +1,7 @@
 # P1-1: 零鉴权 + CORS *
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 27acf3f + 2866e0c
 - **优先级：** P1
 - **Milestone：** M4（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
