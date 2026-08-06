@@ -1,6 +1,7 @@
 # W-0004: Docker Compose 一键启动
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** e177bea + 5fcdbbb + 332c098 + cc14851（compose-smoke CI 终验）
 - **优先级：** P1
 - **Milestone：** M3（见 PLAN-v0.1.0.md）
 - **来源：** PLAN-v0.1.0（M3 发布化）+ roadmap 近期项

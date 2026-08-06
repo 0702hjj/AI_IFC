@@ -1,6 +1,7 @@
 # W-0005: 仓库卫生（Issue/PR 模板、CONTRIBUTING、示例模型）
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 4c913a3 + e17a28f
 - **优先级：** P2
 - **Milestone：** M3（见 PLAN-v0.1.0.md）
 - **来源：** PLAN-v0.1.0（M3 发布化）+ roadmap 近期项

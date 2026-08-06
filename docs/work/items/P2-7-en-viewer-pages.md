@@ -1,6 +1,7 @@
 # P2-7: 文档站英文缺 Viewer 使用 6 页
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** ebd39b4 + 99fbb11
 - **优先级：** P2
 - **Milestone：** M3（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
