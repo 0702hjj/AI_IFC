@@ -30,6 +30,20 @@ jobs:
   server:
     name: server (Go, race + vet)
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: ai_ifc_viewer_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     defaults:
       run:
         working-directory: viewer/server
@@ -40,6 +54,8 @@ jobs:
           go-version: "1.26"
       - run: go vet ./...
       - run: go test ./... -race -count=1
+        env:
+          VIEWER_TEST_PG_DSN: postgres://postgres:test@127.0.0.1:5432/ai_ifc_viewer_test?sslmode=disable
 
   web:
     name: web (React, vitest + build)
