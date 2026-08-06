@@ -9,6 +9,8 @@ import json
 from pathlib import Path
 
 import ifcopenshell
+import ifcopenshell.api.pset
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -105,6 +107,57 @@ def test_psets_create_missing_pset_old_value_null(client: TestClient, data_dir: 
     from ifcopenshell.util.element import get_psets
 
     assert get_psets(model.by_guid(WALL_GUID))["Pset_Custom"]["Note"] == "hello"
+
+
+def test_pset_failure_rolls_back_fields_and_psets(
+    client: TestClient, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original_edit_pset = ifcopenshell.api.pset.edit_pset
+    calls = {"n": 0}
+
+    def boom_once(*args: object, **kwargs: object) -> object:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("pset edit exploded")
+        return original_edit_pset(*args, **kwargs)
+
+    monkeypatch.setattr(ifcopenshell.api.pset, "edit_pset", boom_once)
+
+    resp = client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={
+            "fields": {"Name": "不应残留"},
+            "psets": {
+                "Pset_WallCommon": {"FireRating": "99"},
+                "Pset_BrandNew": {"Note": "x"},
+            },
+        },
+    )
+    assert resp.status_code == 500
+    assert client.get(f"/models/{MODEL_ID}/pending").json() == []
+
+    # fields 回滚：随后合法 PUT 读到的 oldValue 仍是原值
+    resp = client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={"fields": {"Name": "另一个"}},
+    )
+    assert resp.json()["changes"][0]["oldValue"] == WALL_NAME
+
+    # pset 回滚：既有属性恢复旧值，新建 pset 无残留
+    resp = client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={
+            "psets": {
+                "Pset_WallCommon": {"FireRating": "60"},
+                "Pset_BrandNew": {"Note": "y"},
+            }
+        },
+    )
+    assert resp.json()["changes"] == [
+        {"field": "Pset_WallCommon.FireRating", "oldValue": "", "newValue": "60"},
+        {"field": "Pset_BrandNew.Note", "oldValue": None, "newValue": "y"},
+    ]
+    assert _disk_wall_name(data_dir) == WALL_NAME
 
 
 def test_delete_pending_reverts_to_disk_state(client: TestClient) -> None:

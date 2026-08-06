@@ -5,7 +5,9 @@
 
 ``PUT`` applies field/pset edits to the in-memory model and records a
 pending change; nothing touches disk until ``POST .../commit`` saves the
-model and appends the entries to the persistent history. ``DELETE
+model and appends the entries to the persistent history. A failed ``PUT``
+rolls the entity back to its pre-request state (fields and psets) and
+leaves no pending entry. ``DELETE
 .../pending`` discards pending changes by reloading the model from disk.
 """
 
@@ -89,6 +91,33 @@ def _validate(body: EditBody, entity: ifcopenshell.entity_instance) -> None:
                 )
 
 
+def _rollback_psets(
+    model: ifcopenshell.file,
+    entity: ifcopenshell.entity_instance,
+    requested: Dict[str, Dict[str, Any]],
+    old_values: Dict[str, Dict[str, Any]],
+) -> None:
+    """Restore psets touched by a failed PUT to their pre-request state."""
+    current_values = ifcopenshell.util.element.get_psets(entity)
+    for pset_name in requested:
+        old = old_values.get(pset_name)
+        current = current_values.get(pset_name)
+        old_id = old.get("id") if old else None
+        current_id = current.get("id") if current else None
+        if current_id is not None and current_id != old_id:
+            ifcopenshell.api.pset.remove_pset(
+                model, product=entity, pset=model.by_id(current_id)
+            )
+        if old is not None:
+            old_props = {k: v for k, v in old.items() if k != "id"}
+            now_props = ifcopenshell.util.element.get_psets(entity).get(pset_name, {})
+            restore = {k: None for k in now_props if k not in old_props and k != "id"}
+            restore.update(old_props)
+            ifcopenshell.api.pset.edit_pset(
+                model, pset=model.by_id(old_id), properties=restore
+            )
+
+
 @router.put("/models/{id}/entities/{guid}")
 def put_entity(
     request: Request,
@@ -130,19 +159,25 @@ def put_entity(
             raise HTTPException(status_code=422, detail=f"invalid field value: {exc}")
 
         existing_psets = ifcopenshell.util.element.get_psets(entity)
-        for pset_name, props in body.psets.items():
-            old_props = existing_psets.get(pset_name, {})
-            items = list(props.items())
-            pset = ifcopenshell.api.pset.add_pset(model, product=entity, name=pset_name)
-            ifcopenshell.api.pset.edit_pset(model, pset=pset, properties=dict(props))
-            for key, value in items:
-                changes.append(
-                    {
-                        "field": f"{pset_name}.{key}",
-                        "oldValue": _jsonable(old_props.get(key)),
-                        "newValue": value,
-                    }
-                )
+        try:
+            for pset_name, props in body.psets.items():
+                old_props = existing_psets.get(pset_name, {})
+                items = list(props.items())
+                pset = ifcopenshell.api.pset.add_pset(model, product=entity, name=pset_name)
+                ifcopenshell.api.pset.edit_pset(model, pset=pset, properties=dict(props))
+                for key, value in items:
+                    changes.append(
+                        {
+                            "field": f"{pset_name}.{key}",
+                            "oldValue": _jsonable(old_props.get(key)),
+                            "newValue": value,
+                        }
+                    )
+        except Exception as exc:
+            for field_name, old_value in old_fields.items():
+                setattr(entity, field_name, old_value)
+            _rollback_psets(model, entity, body.psets, existing_psets)
+            raise HTTPException(status_code=500, detail=f"pset edit failed: {exc}")
 
         entry = {
             "id": "e_" + secrets.token_hex(6),
