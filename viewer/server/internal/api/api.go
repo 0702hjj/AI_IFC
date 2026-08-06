@@ -46,6 +46,16 @@ type handler struct {
 }
 
 func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed *editsvc.Client, maxUploadBytes int64) http.Handler {
+	return NewHandlerWithCORS(st, q, iss, chg, ovr, ed, maxUploadBytes, nil)
+}
+
+// DefaultCORSOrigins 是 corsOrigins 为空时的默认白名单（本地开发端口）。
+func DefaultCORSOrigins() []string {
+	return []string{"http://localhost:5173", "http://localhost:8080"}
+}
+
+// NewHandlerWithCORS 同 NewHandler，corsOrigins 指定 CORS 白名单（空 = 默认）。
+func NewHandlerWithCORS(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed *editsvc.Client, maxUploadBytes int64, corsOrigins []string) http.Handler {
 	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, ed: ed, maxUpload: maxUploadBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/models", h.upload)
@@ -66,14 +76,26 @@ func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.S
 	mux.HandleFunc("PUT /api/v1/models/{id}/entities/{entityId}/properties", h.putEntityProperties)
 	h.registerEditRoutes(mux)
 	h.registerDesignRoutes(mux)
-	return cors(mux)
+	return cors(mux, corsOrigins)
 }
 
-func cors(next http.Handler) http.Handler {
+func cors(next http.Handler, origins []string) http.Handler {
+	if len(origins) == 0 {
+		origins = DefaultCORSOrigins()
+	}
+	allowed := make(map[string]struct{}, len(origins))
+	for _, o := range origins {
+		allowed[strings.TrimSpace(o)] = struct{}{}
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if origin := r.Header.Get("Origin"); origin != "" {
+			if _, ok := allowed[origin]; ok {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+			}
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return
