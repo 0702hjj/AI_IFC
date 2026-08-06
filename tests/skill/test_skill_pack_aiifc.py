@@ -41,6 +41,7 @@ def _make_skill(root: Path, name: str = "aiifc") -> Path:
         "references/MODELING_WORKFLOWS.md",
         "references/docs/api/README.md",
         "references/docs/flows/README.md",
+        "references/docs/flows/script_lib.py",
         "references/docs/flows/skeleton.py",
         "references/docs/flows/design_review.py",
         "references/docs/flows/ifc_inspect.py",

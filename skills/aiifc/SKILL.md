@@ -49,8 +49,8 @@ metadata:
 16. **PredefinedType enum**: verify the value is in the entity's allowed enum list (see ENTITY_SPECS.md).
 17. **Pset + material coverage**: every product class must get ≥1 pset AND ≥1 material; spot-check with `util.element.get_psets(e)` / `get_material(e)`.
 
-**Generation (design JSON first for complex geometry):**
-18. **Complex buildings**: **frame the geometry with a design JSON first** — LLM outputs parametric intent, never coordinate math. See `references/DESIGN_JSON_SCHEMA.md` for the contract. Then `flows/design_builder.py` → `features.json` → per-building build script.
+**Generation (script is the single source of truth):**
+18. **Complex buildings**: MAY be framed with a design JSON **draft** first (auxiliary planning info, NOT a complete representation, NOT the deliverable) — LLM outputs parametric intent, never coordinate math. See `references/DESIGN_JSON_SCHEMA.md`. The deliverable is always a **build script** conforming to the script contract below (#25-29); `flows/design_builder.py` → `features.json` → `flows/build_script_template.py` is one way to get there.
 19. **Simple single wall/slab**: may still be coded directly (Pipeline Stages).
 
 **Validation (three layers):**
@@ -61,6 +61,13 @@ metadata:
 **Output:**
 23. **Output paths (generic)**: generated IFC → working directory as **`model.ifc`** (write via staging copy, self-check, then atomic replace). If your host provides a specific output contract, follow that instead.
 24. **No visualization rendering**: do NOT call `ifc_plot` / `ifc_render` / any image output. All verification is **text-only**: `ifcopenshell.validate` + `design_review.py` + `ifc_inspect.py`.
+
+**Script contract (script-as-source — the build script is the single source of truth for the IFC):**
+25. **PARAMS block**: every build script MUST declare a top-level `PARAMS = {...}` **literal dict (JSON-compatible)** holding all tunable parameters. Host UIs render the parameter form from PARAMS, so nothing tunable may live outside it.
+26. **Deterministic identity**: every element's GlobalId MUST come from `script_lib.deterministic_guid(key)` with a stable, unique key `{storey}:{kind}:{n}`; attach the key via `script_lib.attach_design_key` (writes `Pset_AIIFC.designKey`). Same script + same PARAMS → same GlobalIds across runs and versions.
+27. **Entry point**: the script MUST expose `build(params, out_path)`; the `__main__` guard calls `build(PARAMS, out)`. Verify compliance statically with `script_lib.validate_script_contract(path)`.
+28. **Incremental edits, never rewrites**: modifying an existing model = **incrementally editing its existing script** (PARAMS first, then the minimal geometry logic). NEVER regenerate/rewrite the script from scratch — keep the script diff readable, it is the AI's context for the next edit.
+29. **Validate exit**: script output MUST go through `script_lib.write_and_validate(model, out_path)` (model.write + ifcopenshell.validate). No script run is complete without passing schema validation.
 
 ## Entity Mental Model
 
@@ -87,10 +94,10 @@ Optional: **Type** (`type.assign_type`), **Material** (`material.assign_material
 | `references/PSET_REFERENCE.md` | Applicable Pset/Qto per element type |
 | `references/SPATIAL_QUALITY.md` | Design review rules (SS/GI/PR/RH/MC/CP/FD/SQ) |
 | `references/docs/api/README.md` + `<pkg>.<usecase>.md` | API index (14 categories, 103 usecases) + exact signatures |
-| `references/docs/flows/README.md` + `*.py` | Runnable per-stage code and tools (tracker / design_review / ifc_inspect / **dxf_from_design**) |
+| `references/docs/flows/README.md` + `*.py` | Runnable per-stage code and tools (tracker / design_review / ifc_inspect / **script_lib** / dxf_from_design) |
 | `references/docs/design/README.md` + recipes | Component building recipes (stairs, roof, windows, parapet, balcony) |
 | `templates/build_skeleton.py` | Minimal complete model (skeleton + wall + slab) — copy and edit |
-| `workflows/PLAN_DXF_IFC.md` | **工作流编排**：plan → DXF → IFC 三阶段顺序与跳步规则（辅助设计师） |
+| `workflows/PLAN_DXF_IFC.md` | **工作流编排**：plan（可选草稿）→ script（事实源）→ IFC 的阶段顺序与跳步规则（辅助设计师） |
 
 ## Installing the skill
 
@@ -128,7 +135,7 @@ tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 
 When this skill runs **inside the AI_IFC demo** (opencode serve + viewer), the host provides a fixed contract that overrides the generic output paths (MUST #23). This section is maintained in-repo for the demo and is **not** part of the distributable skill bundle.
 
-- Build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context).
-- **design.json** (complex-build artifact, MUST #18) → `viewer/data/staging/{modelId}.design.json`; the system archives it per version to `models/{id}/designs/v{n}.json` alongside the build script.
+- Build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context). Build scripts MUST follow the script contract (#25-29): `PARAMS` block, deterministic GlobalIds, `build(params, out_path)` entry, validate exit.
+- **design.json** (optional planning draft only, MUST #18 — auxiliary info, not versioned, not diffed) → `viewer/data/staging/{modelId}.design.json`.
 - Python runtime: **always `viewer/edit-service/.venv/bin/python`** (run from the repo root; the edit-service uv project env has ifcopenshell / ezdxf / ifcquery preinstalled — the root `.venv` does NOT). Equivalent: `cd viewer/edit-service && uv run python ...`.
 - Agent rules live in `.opencode/agent/ifc-demo.md` (write scoping, staging, atomic-replace, no viewer HTTP calls); the Go server auto-handles commit/version/XKT-reconvert on `file.edited` + `session.idle`.
