@@ -1,0 +1,7 @@
+--editable ./scripts/packages/cadpy
+--editable ./scripts/packages/archdxf
+ezdxf
+ortools
+shapely
+jsonschema
+pytest
