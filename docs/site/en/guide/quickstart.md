@@ -11,7 +11,27 @@
 
 > **Python dependencies**: edit-service depends on `ifcopenshell` / `ifcdiff` / `ifcquery` (all official PyPI releases, aligned with IfcOpenShell 0.8.5); `uv sync` installs them directly. No local IfcOpenShell source checkout needed.
 
-## Start (four terminals)
+## Docker Compose (recommended)
+
+Docker only; one command starts the full stack (web / server / converter / edit-service):
+
+```bash
+cp .env.example .env   # optional: every entry has a default
+docker compose up --build
+```
+
+Open `http://localhost:8080`. Data lives in a named volume (`aiifc-data`); models survive `down`/`up`.
+
+With PostgreSQL (issues/changes/overrides via PG, tables created automatically):
+
+```bash
+# set in .env: VIEWER_PG_DSN=postgres://aiifc:aiifc@postgres:5432/aiifc?sslmode=disable
+docker compose --profile pg up -d
+```
+
+Tunables (ports, `DATA_DIR`, `VIEWER_PG_DSN`, …) are listed in `.env.example`.
+
+## Start (four terminals, no Docker)
 
 ```bash
 # 0. One-time dependency install

@@ -11,7 +11,27 @@
 
 > **Python 依赖说明**：edit-service 依赖 `ifcopenshell` / `ifcdiff` / `ifcquery`（均为 PyPI 官方发布，对齐 IfcOpenShell 0.8.5），`uv sync` 直接安装，无需本机 IfcOpenShell 源码 checkout。
 
-## 启动（四个终端）
+## Docker Compose（推荐）
+
+只需 Docker，一条命令起全栈（web / server / converter / edit-service）：
+
+```bash
+cp .env.example .env   # 可选：所有项均有默认值
+docker compose up --build
+```
+
+打开 `http://localhost:8080` 即可使用。数据存 named volume（`aiifc-data`），`down`/`up` 后模型仍在。
+
+追加 PostgreSQL（issues/changes/overrides 走 PG，建表自动）：
+
+```bash
+# 在 .env 中设置：VIEWER_PG_DSN=postgres://aiifc:aiifc@postgres:5432/aiifc?sslmode=disable
+docker compose --profile pg up -d
+```
+
+可调项（端口、`DATA_DIR`、`VIEWER_PG_DSN` 等）见 `.env.example`。
+
+## 启动（四个终端，无 Docker）
 
 ```bash
 # 0. 一次性：安装依赖
