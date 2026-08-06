@@ -36,13 +36,12 @@ def version_path(data_dir: str, model_id: str, version: str) -> Optional[str]:
     return path if os.path.isfile(path) else None
 
 
-def list_versions(data_dir: str, model_id: str) -> List[Dict[str, Any]]:
-    """List snapshots as {"version": "v1", "createdAt": ...}, oldest first."""
-    directory = versions_dir(data_dir, model_id)
+def list_snapshots(directory: str, file_re: "re.Pattern[str]") -> List[Dict[str, Any]]:
+    """List v{n} snapshot files in a directory as {"version", "createdAt"}, oldest first."""
     entries = []
     if os.path.isdir(directory):
         for name in os.listdir(directory):
-            match = VERSION_FILE_RE.match(name)
+            match = file_re.match(name)
             if match:
                 path = os.path.join(directory, name)
                 created = datetime.fromtimestamp(
@@ -51,6 +50,11 @@ def list_versions(data_dir: str, model_id: str) -> List[Dict[str, Any]]:
                 entries.append((int(match.group(1)), f"v{match.group(1)}", created))
     entries.sort()
     return [{"version": name, "createdAt": created} for _, name, created in entries]
+
+
+def list_versions(data_dir: str, model_id: str) -> List[Dict[str, Any]]:
+    """List snapshots as {"version": "v1", "createdAt": ...}, oldest first."""
+    return list_snapshots(versions_dir(data_dir, model_id), VERSION_FILE_RE)
 
 
 def snapshot(data_dir: str, model_id: str, src_path: str) -> str:

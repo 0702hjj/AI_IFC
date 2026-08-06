@@ -40,19 +40,7 @@ def design_path(data_dir: str, model_id: str, version: str) -> Optional[str]:
 
 def list_designs(data_dir: str, model_id: str) -> List[Dict[str, Any]]:
     """List design big versions as {"version": "v1", "createdAt": ...}, oldest first."""
-    directory = designs_dir(data_dir, model_id)
-    entries = []
-    if os.path.isdir(directory):
-        for name in os.listdir(directory):
-            match = DESIGN_FILE_RE.match(name)
-            if match:
-                path = os.path.join(directory, name)
-                created = datetime.fromtimestamp(
-                    os.path.getmtime(path), timezone.utc
-                ).isoformat()
-                entries.append((int(match.group(1)), f"v{match.group(1)}", created))
-    entries.sort()
-    return [{"version": name, "createdAt": created} for _, name, created in entries]
+    return versions.list_snapshots(designs_dir(data_dir, model_id), DESIGN_FILE_RE)
 
 
 def load_design(data_dir: str, model_id: str, version: str) -> Dict[str, Any]:
