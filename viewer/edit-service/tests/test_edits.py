@@ -10,6 +10,7 @@ from pathlib import Path
 
 import ifcopenshell
 import ifcopenshell.api.pset
+import ifcopenshell.util.element
 import pytest
 from fastapi.testclient import TestClient
 
@@ -109,6 +110,27 @@ def test_psets_create_missing_pset_old_value_null(client: TestClient, data_dir: 
     assert get_psets(model.by_guid(WALL_GUID))["Pset_Custom"]["Note"] == "hello"
 
 
+def _live_psets(client: TestClient, data_dir: Path) -> dict:
+    """Psets of the wall in the in-memory (registry) model, not the disk file."""
+    registry = client.app.state.registry
+    model = registry.load(str(data_dir / "uploads" / f"{MODEL_ID}.ifc"))
+    return ifcopenshell.util.element.get_psets(model.by_guid(WALL_GUID))
+
+
+def _boom_edit_pset(monkeypatch: pytest.MonkeyPatch, boom_on: int) -> None:
+    """Patch edit_pset to raise RuntimeError on the boom_on-th call only."""
+    original_edit_pset = ifcopenshell.api.pset.edit_pset
+    calls = {"n": 0}
+
+    def boom(*args: object, **kwargs: object) -> object:
+        calls["n"] += 1
+        if calls["n"] == boom_on:
+            raise RuntimeError("pset edit exploded")
+        return original_edit_pset(*args, **kwargs)
+
+    monkeypatch.setattr(ifcopenshell.api.pset, "edit_pset", boom)
+
+
 def test_pset_failure_rolls_back_fields_and_psets(
     client: TestClient, data_dir: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -158,6 +180,80 @@ def test_pset_failure_rolls_back_fields_and_psets(
         {"field": "Pset_BrandNew.Note", "oldValue": None, "newValue": "y"},
     ]
     assert _disk_wall_name(data_dir) == WALL_NAME
+
+
+def test_pset_failure_on_second_edit_rolls_back_first_write(
+    client: TestClient, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = {k: v for k, v in _live_psets(client, data_dir)["Pset_WallCommon"].items()}
+    _boom_edit_pset(monkeypatch, boom_on=2)
+
+    resp = client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={
+            "psets": {
+                "Pset_WallCommon": {"FireRating": "99"},
+                "Pset_Boom": {"Note": "x"},
+            }
+        },
+    )
+    assert resp.status_code == 500
+    assert client.get(f"/models/{MODEL_ID}/pending").json() == []
+
+    live = _live_psets(client, data_dir)
+    # 第 1 次 edit_pset 已成功写入 FireRating=99，回滚后必须恢复原值
+    assert live["Pset_WallCommon"] == before
+    assert "Pset_Boom" not in live
+
+
+def test_pset_failure_removes_freshly_created_pset_instance(
+    client: TestClient, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = _live_psets(client, data_dir)["Pset_WallCommon"]
+    _boom_edit_pset(monkeypatch, boom_on=2)
+
+    resp = client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={
+            "psets": {
+                "Pset_BrandNew": {"Note": "x"},
+                "Pset_WallCommon": {"FireRating": "1"},
+            }
+        },
+    )
+    assert resp.status_code == 500
+
+    registry = client.app.state.registry
+    model = registry.load(str(data_dir / "uploads" / f"{MODEL_ID}.ifc"))
+    # remove_pset 分支：重读模型后无新建 pset 实例残留
+    assert "Pset_BrandNew" not in ifcopenshell.util.element.get_psets(
+        model.by_guid(WALL_GUID)
+    )
+    assert not [
+        p for p in model.by_type("IfcPropertySet") if p.Name == "Pset_BrandNew"
+    ]
+    assert _live_psets(client, data_dir)["Pset_WallCommon"] == before
+
+
+def test_pset_failure_deletes_extra_property_and_restores_exact_pset(
+    client: TestClient, data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    before = _live_psets(client, data_dir)["Pset_WallCommon"]
+    _boom_edit_pset(monkeypatch, boom_on=2)
+
+    resp = client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={
+            "psets": {
+                "Pset_WallCommon": {"FireRating": "99", "PhantomProp": "zzz"},
+                "Pset_Boom": {"Note": "x"},
+            }
+        },
+    )
+    assert resp.status_code == 500
+
+    # 多余属性置 None 删除分支：回滚后属性集与原快照精确相等
+    assert _live_psets(client, data_dir)["Pset_WallCommon"] == before
 
 
 def test_delete_pending_reverts_to_disk_state(client: TestClient) -> None:
