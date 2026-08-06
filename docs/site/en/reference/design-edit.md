@@ -73,4 +73,4 @@ Frontend: select a component in the viewer → Design panel param form → stage
 ## Relationship to legacy IFC editing
 
 - Models generated from design JSON: edit / version / diff go through this model.
-- Externally uploaded IFC (no design JSON): diff degrades to IFC fingerprint; attribute overrides remain available (see [IFC property editing](/viewer/editing), Chinese).
+- Externally uploaded IFC (no design JSON): diff degrades to IFC fingerprint; attribute overrides remain available (see [IFC property editing](/en/viewer/editing)).
