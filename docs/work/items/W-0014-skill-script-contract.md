@@ -1,10 +1,10 @@
 # W-0014: skill 契约更新（PARAMS + 确定性身份 + 脚本工作流）
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P0
 - **Milestone：** M5 script-as-source（见 spec 2026-08-06-script-as-source-design.md）
 - **来源：** spec §脚本契约
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/script-as-source
 
 ## 背景
 
