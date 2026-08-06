@@ -1,6 +1,6 @@
 # W-0011: edit-service scripts 管线（staging/save/rollback/沙箱执行）
 
-- **状态：** in-progress
+- **状态：** done（commit 80a2c77 edit-service + 5a16d72 server）
 - **优先级：** P0
 - **Milestone：** M5 script-as-source
 - **来源：** spec 2026-08-06-script-as-source-design.md
