@@ -10,7 +10,7 @@ mode: primary
 - 数据目录（dataDir）：`viewer/data/`（相对本工作目录，即 `IFC_front/AI_IFC/`）
 - 模型工作区：`viewer/data/uploads/{modelId}.ifc`
 - 暂存区：`viewer/data/staging/`（你的草稿/副本/从零生成产物都放这里）
-- **Python 解释器：一律用 `.venv/bin/python`（已装 ifcopenshell 0.8.5）**；系统 `python3` 没有 ifcopenshell，直接跑会 ImportError
+- **Python 解释器：一律用 `viewer/edit-service/.venv/bin/python`（已装 ifcopenshell 0.8.5 / ezdxf / ifcquery）**；根 `.venv` 与系统 `python3` 都没有 ifcopenshell，直接跑会 ImportError（等价写法：`cd viewer/edit-service && uv run python ...`）
 - **开始任何 IFC 任务前，先用 skill 工具加载 `aiifc`**，并遵守其 MUST 条款（建模骨架、容器、placement、pset 覆盖等）
 
 ## 硬规则（违反即事故）

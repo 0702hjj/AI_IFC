@@ -1,10 +1,11 @@
 # P0-3: createChatProject 路径与 Go 注册不符
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** f5ded74 + b7c79bb（真实联调验证通过）
 - **优先级：** P0
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / fix/post-v2-audit
 
 ## 背景
 

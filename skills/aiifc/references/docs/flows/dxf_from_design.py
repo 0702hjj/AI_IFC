@@ -6,7 +6,7 @@ features.json）画成 2D 平面图 DXF：每层一个图层，画 footprint / �
 
 用法:
   python dxf_from_design.py design.json -o plan.dxf
-  python dxf_from_design.py design.json -o plan.dxf --storey "1F" --scale 100
+  python dxf_from_design.py design.json -o plan.dxf --storey "1F"
 """
 
 from __future__ import annotations
@@ -113,20 +113,24 @@ def generate(features: dict, storey_filter: str | None = None) -> ezdxf.document
             dx, dy = x2 - x1, y2 - y1
             L = math.hypot(dx, dy) or 1.0
             ux, uy = dx / L, dy / L
+            nx, ny = -uy, ux  # 墙法向单位向量
+            ht = host.get("t", 0.2) / 2
             start = op.get("along", 0.0)
             w = op.get("w", 1.0)
-            ox1 = x1 + ux * start
-            ox2 = x1 + ux * (start + w)
-            # 垂直线标记开口
-            msp.add_line((ox1, y1), (ox1, y2), dxfattribs={"layer": LAYER_OPENING})
-            msp.add_line((ox2, y1), (ox2, y2), dxfattribs={"layer": LAYER_OPENING})
+            ox1, oy1 = x1 + ux * start, y1 + uy * start
+            ox2, oy2 = x1 + ux * (start + w), y1 + uy * (start + w)
+            # jamb：跨墙厚的垂线（任意朝向墙均非零长）
+            msp.add_line((ox1 - nx * ht, oy1 - ny * ht), (ox1 + nx * ht, oy1 + ny * ht),
+                         dxfattribs={"layer": LAYER_OPENING})
+            msp.add_line((ox2 - nx * ht, oy2 - ny * ht), (ox2 + nx * ht, oy2 + ny * ht),
+                         dxfattribs={"layer": LAYER_OPENING})
             if op.get("type") == "door":
-                # 门：弧线（1/4 圆）
-                center = (ox1, y1)
-                msp.add_arc(center=center, radius=w, start_angle=0, end_angle=90,
+                # 门：弧线（1/4 圆），起始角随墙朝向
+                a0 = math.degrees(math.atan2(uy, ux)) % 360
+                msp.add_arc(center=(ox1, oy1), radius=w, start_angle=a0, end_angle=a0 + 90,
                             dxfattribs={"layer": LAYER_OPENING})
-            segs.append(((ox1, y1), (ox2, y1)))
-            segs.append(((ox1, y1), (ox1, y2)))
+            segs.append(((ox1, oy1), (ox2, oy2)))
+            segs.append(((ox1 - nx * ht, oy1 - ny * ht), (ox1 + nx * ht, oy1 + ny * ht)))
 
         # 楼梯：占用矩形（at 位置 或 shaft 矩形）
         for st in stairs:
@@ -139,10 +143,9 @@ def generate(features: dict, storey_filter: str | None = None) -> ezdxf.document
                                     (x, y + size[1])], close=True,
                                    dxfattribs={"layer": LAYER_STAIR})
             elif "shaft" in st:
-                s = st["shaft"]  # {"x": [i,j], "y": [k,l]}
-                xg, yg = features.get("axis_grid", {}).get("x", []), features.get("axis_grid", {}).get("y", [])
-                x0, x1 = xg[s["x"][0]], xg[s["x"][1]]
-                y0, y1 = yg[s["y"][0]], yg[s["y"][1]]
+                s = st["shaft"]  # {"x0","x1","y0","y1"} 坐标矩形（design_builder.normalize 输出）
+                x0, x1 = s["x0"], s["x1"]
+                y0, y1 = s["y0"], s["y1"]
                 msp.add_lwpolyline([(x0, y0), (x1, y0), (x1, y1), (x0, y1)], close=True,
                                    dxfattribs={"layer": LAYER_STAIR})
 
@@ -157,7 +160,6 @@ def main():
     ap.add_argument("design", help="design.json 或 features.json 路径")
     ap.add_argument("-o", "--out", default="plan.dxf")
     ap.add_argument("--storey", default=None, help="只画某层（如 1F）")
-    ap.add_argument("--scale", type=int, default=100, help="图形单位换算：1m = N DXF 单位（默认 100 即 mm）")
     a = ap.parse_args()
 
     data, kind = _load(Path(a.design))

@@ -19,6 +19,7 @@ No per-step history is persisted: only big versions (save points) exist.
 
 from __future__ import annotations
 
+import os
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException, Path, Request
@@ -53,7 +54,7 @@ class RollbackBody(BaseModel):
 
 def _design_upload_path(request: Request, model_id: str) -> str:
     path = f"{request.app.state.settings.data_dir}/uploads/{model_id}.ifc"
-    if not __import__("os").path.isfile(path):
+    if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="model not found")
     return path
 

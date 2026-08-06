@@ -36,7 +36,7 @@
 
 ## 差异引擎（两个大版本之间）
 
-主路径 **design JSON 语义 diff**（覆盖有 provenance 的模型）：
+主路径 **design JSON 语义 diff**（覆盖有 provenance 的模型，下例为响应 envelope `{code,message,data}` 的 `data` 字段内容）：
 
 ```json
 {

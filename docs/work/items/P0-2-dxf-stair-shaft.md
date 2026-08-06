@@ -1,10 +1,11 @@
 # P0-2: dxf_from_design 楼梯 shaft KeyError
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** 4580884 + 5e96f12
 - **优先级：** P0
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / fix/post-v2-audit
 
 ## 背景
 

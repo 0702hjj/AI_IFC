@@ -58,6 +58,5 @@ func (h *handler) designProxy(w http.ResponseWriter, r *http.Request, method, pa
 		writeEditErr(w, err)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(raw)
+	writeJSON(w, raw)
 }

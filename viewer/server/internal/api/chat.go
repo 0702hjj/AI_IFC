@@ -93,7 +93,7 @@ func (h *ChatHandler) registerRoutes() {
 	h.mux.HandleFunc("GET /api/v1/chat/sessions/{cid}/messages", h.getMessages)
 	h.mux.HandleFunc("GET /api/v1/chat/sessions/{cid}/events", h.events)
 	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/abort", h.abortSession)
-	h.mux.HandleFunc("POST /api/v1/projects", h.createProject)
+	h.mux.HandleFunc("POST /api/v1/chat/projects", h.createProject)
 }
 
 func (h *ChatHandler) sessionsPath() string {

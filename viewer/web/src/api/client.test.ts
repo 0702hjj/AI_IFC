@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchDesign, stageDesign, designUndo, designRedo, discardDesign, regenerateDesign, saveDesign, fetchDesignVersions, postDesignDiff, rollbackDesign } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchDesign, stageDesign, designUndo, designRedo, discardDesign, regenerateDesign, saveDesign, fetchDesignVersions, postDesignDiff, rollbackDesign, createChatProject } from "./client";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
 
@@ -155,5 +155,65 @@ describe("issue api", () => {
     expect(methods).toContain("GET /api/v1/models/m_1/designs");
     expect(methods).toContain("POST /api/v1/models/m_1/design/rollback");
     expect(methods).toContain("POST /api/v1/models/m_1/design/diff");
+  });
+});
+
+describe("chat api", () => {
+  it("createChatProject posts to /api/v1/chat/projects and unwraps ModelInfo", async () => {
+    const model = { id: "m_0123456789abcdef", name: "p.ifc", size: 540, status: "converting", createdAt: "2026-08-05T00:00:00Z", error: "" };
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(model)), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const m = await createChatProject("p");
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/chat/projects");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ title: "p" });
+    expect(m).toEqual(model);
+  });
+});
+
+describe("design api envelope contract", () => {
+  it("fetchDesign unwraps envelope data", async () => {
+    const state = { modelId: "m_1", design: { meta: { name: "x" } }, staged: 0, canUndo: false, canRedo: false, maxSteps: 10 };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope(state)), { status: 200 })));
+    const s = await fetchDesign("m_1");
+    expect(s).toEqual(state);
+  });
+
+  it("stageDesign unwraps envelope data", async () => {
+    const result = { modelId: "m_1", staged: 1, canUndo: true, canRedo: false };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope(result)), { status: 200 })));
+    const r = await stageDesign("m_1", { meta: {} }, "n1");
+    expect(r).toEqual(result);
+  });
+
+  it("saveDesign unwraps envelope data", async () => {
+    const result = { modelId: "m_1", version: "v1", committed: 1 };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope(result)), { status: 200 })));
+    const r = await saveDesign("m_1", "note");
+    expect(r).toEqual(result);
+  });
+
+  it("postDesignDiff unwraps envelope data", async () => {
+    const diff = { base: "v1", target: "v2", added: ["e1"], removed: [], changed: [] };
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(diff)), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const r = await postDesignDiff("m_1", "v1", "v2");
+    expect(JSON.parse((spy.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toEqual({ base: "v1", target: "v2" });
+    expect(r).toEqual(diff);
+  });
+
+  it("rejects when design endpoints return bare JSON without envelope (regression: P0-1)", async () => {
+    const bare = () => new Response(JSON.stringify({ modelId: "m_1", design: {} }), { status: 200 });
+    vi.stubGlobal("fetch", vi.fn(bare));
+    await expect(fetchDesign("m_1")).rejects.toThrow();
+    await expect(stageDesign("m_1", {})).rejects.toThrow();
+    await expect(saveDesign("m_1")).rejects.toThrow();
+    await expect(postDesignDiff("m_1", "v1", "v2")).rejects.toThrow();
+  });
+
+  it("rejects with server message on non-zero design envelope code", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: 40400, message: "design not found", data: null }), { status: 404 })));
+    await expect(fetchDesign("m_1")).rejects.toThrow("design not found");
   });
 });

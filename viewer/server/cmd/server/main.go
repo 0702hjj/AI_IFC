@@ -120,13 +120,12 @@ func main() {
 	}
 	ed := editsvc.New(cfg.EditServiceURL)
 	handler := api.NewHandler(st, q, iss, chg, ovr, ed, cfg.MaxUploadMB<<20)
-	// chat 模块（demo）：独立 handler，/api/v1/chat/ 与 /api/v1/projects 子树优先匹配，其余走既有 handler。
+	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
 	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
 		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Chg: chg, Q: q, DataDir: cfg.DataDir,
 	})
 	root := http.NewServeMux()
 	root.Handle("/api/v1/chat/", chatHandler)
-	root.Handle("/api/v1/projects", chatHandler)
 	root.Handle("/", handler)
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: root}
