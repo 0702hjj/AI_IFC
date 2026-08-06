@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+.git
+.github
+node_modules
+dist
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+viewer/data
+viewer/web/node_modules
+viewer/web/dist
+viewer/converter/node_modules
+viewer/edit-service/.venv
+.env
+docs/node_modules
+.superpowers

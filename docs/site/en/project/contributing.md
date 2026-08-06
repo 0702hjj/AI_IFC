@@ -30,7 +30,7 @@ cd docs && npm ci && npm run docs:build && npm run check:api
 
 ## Commits and PRs
 
-- Commit messages follow the repository convention: `feat:` / `fix:` / `docs:` / `ci:` / `chore:` prefix plus a short Chinese or English description.
+- Commit messages follow the repository convention: `feat:` / `fix:` / `docs:` / `ci:` / `chore:` prefix plus a short Chinese description.
 - PRs to `main` run the viewer CI and the docs build; both must pass.
 - Never commit personal machine paths, secrets or runtime data (`viewer/data/`).
 

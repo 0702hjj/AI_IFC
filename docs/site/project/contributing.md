@@ -28,7 +28,7 @@ cd docs && npm ci && npm run docs:build
 
 ## Commit 与 PR
 
-- Commit 消息遵循仓库惯例：`feat:` / `fix:` / `docs:` / `ci:` / `chore:` 前缀 + 中文或英文简短描述。
+- Commit 消息遵循仓库惯例：`feat:` / `fix:` / `docs:` / `ci:` / `chore:` 前缀 + 中文简短描述。
 - PR 到 `main`：GitHub Actions 会运行现有 viewer CI 与文档构建；两者都必须通过。
 - 不提交个人本机路径、密钥、运行时数据（`viewer/data/`）。
 

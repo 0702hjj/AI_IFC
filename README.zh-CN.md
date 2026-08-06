@@ -48,6 +48,10 @@ AI agent ──► REST 编辑 API ────────┘
 
 见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`viewer/web`（React + xeokit）、`viewer/server`（Go）、`viewer/converter`（Node）、`viewer/edit-service`（Python FastAPI + IfcOpenShell）。
 
+一键启动（推荐，只需 Docker）：`docker compose up --build` → 打开 http://localhost:8080（可调项见 `.env.example`）。
+
+手工启动：
+
 ```bash
 cd viewer/converter && npm install
 cd ../edit-service && uv sync

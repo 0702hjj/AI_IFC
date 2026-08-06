@@ -144,6 +144,17 @@ export default defineConfig({
             ],
           },
           {
+            text: 'Viewer Usage',
+            items: [
+              { text: 'Model Library & Upload', link: '/en/viewer/library' },
+              { text: 'Model Tree & Property Inspection', link: '/en/viewer/model-tree' },
+              { text: 'Visibility, Sectioning & Measurement', link: '/en/viewer/viewing' },
+              { text: 'Issues & 3D Pins', link: '/en/viewer/issues' },
+              { text: 'IFC Property Editing', link: '/en/viewer/editing' },
+              { text: 'Versions & Diff Viewer', link: '/en/viewer/versions-diff' },
+            ],
+          },
+          {
             text: 'Development',
             items: [
               { text: 'Architecture', link: '/en/development/architecture' },

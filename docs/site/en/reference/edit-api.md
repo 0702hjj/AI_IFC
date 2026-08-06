@@ -83,7 +83,7 @@ Body: `{"base": "v1", "target": "v2"}` (`target` may be `"current"` for the live
 }
 ```
 
-Missing version → 404; missing `base`/`target` → 422. Diff is attribute-level (no geometric diff), see [Versions & Diff Viewer](/viewer/versions-diff) (Chinese).
+Missing version → 404; missing `base`/`target` → 422. Diff is attribute-level (no geometric diff), see [Versions & Diff Viewer](/en/viewer/versions-diff).
 
 ## Via the Go proxy
 

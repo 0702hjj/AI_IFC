@@ -48,6 +48,10 @@ AI agent ──► REST editing API ────┘
 
 See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `viewer/web` (React + xeokit), `viewer/server` (Go), `viewer/converter` (Node), `viewer/edit-service` (Python FastAPI + IfcOpenShell).
 
+One-command start (recommended, Docker only): `docker compose up --build` → open http://localhost:8080 (tunables in `.env.example`).
+
+Manual start:
+
 ```bash
 cd viewer/converter && npm install
 cd ../edit-service && uv sync
