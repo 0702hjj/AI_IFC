@@ -1,10 +1,10 @@
 # W-0011: edit-service scripts 管线（staging/save/rollback/沙箱执行）
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P0
 - **Milestone：** M5 script-as-source
 - **来源：** spec 2026-08-06-script-as-source-design.md
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/script-as-source
 
 ## 背景
 
