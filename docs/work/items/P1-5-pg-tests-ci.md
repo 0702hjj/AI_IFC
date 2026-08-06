@@ -1,6 +1,7 @@
 # P1-5: PG 测试默认 skip
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 5e5b955（PR CI 终验见合并后 main 运行）
 - **优先级：** P1
 - **Milestone：** M2（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05

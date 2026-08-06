@@ -1,6 +1,7 @@
 # W-0003: flows 单测补全 + converter CI 确认
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** d499d1f
 - **优先级：** P1
 - **Milestone：** M2（见 PLAN-v0.1.0.md）
 - **来源：** PLAN-v0.1.0（M2 测试补盲）

@@ -1,6 +1,7 @@
 # W-0002: ChatSidebar SSE 测试
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 059f757
 - **优先级：** P1
 - **Milestone：** M2（见 PLAN-v0.1.0.md）
 - **来源：** PLAN-v0.1.0（M2 测试补盲）
