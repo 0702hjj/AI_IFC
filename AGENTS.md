@@ -33,6 +33,7 @@ AI agent ──► REST 编辑 API ────┘
 2. 修 bug：先写**复现该 bug 的失败测试**，再改实现，测试转绿才允许 commit。
 3. 新功能：TDD，先失败测试后实现。
 4. 测试与源码同目录（`*_test.go` / `*.test.ts(x)` / `test_*.py`）。
+5. **异步写盘必须等落地**：涉及 `convert.Queue`、SSE、后台 goroutine 等异步写盘的测试，结束（尤其 `t.TempDir()` 清理）前必须用**条件等待**（轮询状态 + 超时）确认异步完成——禁止固定 sleep。教训：2026-08-06 main CI flake（TestCreateProjectViaChatPath，PR #12）。
 
 ## API 契约
 
