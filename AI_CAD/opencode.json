@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": ["skills"]
+  },
+  "mcp": {
+    "aiblueprint": {
+      "type": "local",
+      "command": ["/home/cyvol0521/.code/gaiahub/CADapi/IFC_front/AI_IFC/AI_CAD/resource/aiblueprint-mcp/.venv/bin/aiblueprint-mcp"],
+      "enabled": true,
+      "environment": {
+        "AIBLUEPRINT_WORKSPACE": "/home/cyvol0521/.code/gaiahub/CADapi/IFC_front/AI_IFC/AI_CAD/results/mcp"
+      }
+    }
+  }
+}
