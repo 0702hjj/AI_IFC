@@ -10,6 +10,8 @@ vi.mock("./ViewerContext", () => ({ useViewer: () => mockCtx.current }));
 const api = vi.hoisted(() => ({
   fetchEditVersions: vi.fn(),
   postEditDiff: vi.fn(),
+  fetchScriptVersions: vi.fn(),
+  postScriptDiff: vi.fn(),
 }));
 vi.mock("@/api/client", () => api);
 
@@ -59,6 +61,22 @@ function setup(opts?: { versions?: unknown; diff?: unknown }) {
   api.postEditDiff.mockResolvedValue(
     opts && "diff" in opts ? opts.diff : diff
   );
+  api.fetchScriptVersions.mockResolvedValue({
+    modelId: "m_1",
+    scripts: [
+      { version: "v1", createdAt: "t1", note: "" },
+      { version: "v2", createdAt: "t2", note: "" },
+    ],
+    versions: [],
+  });
+  api.postScriptDiff.mockResolvedValue({
+    base: "v1",
+    target: "v2",
+    engine: "script",
+    text_diff: "--- v1\n+++ v2\n-old\n+new\n",
+    params_changes: [{ key: "wall_t", action: "modified", old: 0.2, new: 0.3 }],
+    stats: { added: 1, removed: 1 },
+  });
   return { objects };
 }
 
@@ -144,5 +162,61 @@ describe("DiffPanel", () => {
     };
     expect(ctx.viewer.cameraFlight.flyTo).toHaveBeenCalledWith(objects.g_chg);
     expect(useViewerStore.getState().selectedId).toBe("g_chg");
+  });
+});
+
+describe("DiffPanel 脚本 diff tab", () => {
+  beforeEach(() => {
+    setup();
+  });
+
+  it("script tab lists script versions and defaults base/target to the last two", async () => {
+    render(<DiffPanel modelId="m_1" />);
+    fireEvent.click(screen.getByText("脚本 diff"));
+    await waitFor(() => expect(api.fetchScriptVersions).toHaveBeenCalledWith("m_1"));
+    const base = (await screen.findByLabelText("脚本 base 版本")) as HTMLSelectElement;
+    const target = screen.getByLabelText("脚本 target 版本") as HTMLSelectElement;
+    expect(base.value).toBe("v1");
+    expect(target.value).toBe("v2");
+  });
+
+  it("compares two script versions and renders pre text + params summary", async () => {
+    render(<DiffPanel modelId="m_1" />);
+    fireEvent.click(screen.getByText("脚本 diff"));
+    await screen.findByLabelText("脚本 base 版本");
+    fireEvent.click(screen.getByText("对比"));
+    await waitFor(() => expect(api.postScriptDiff).toHaveBeenCalledWith("m_1", "v1", "v2"));
+    expect((await screen.findByTestId("script-diff-text")).textContent).toContain("+new");
+    expect(screen.getByText(/wall_t: 0.2 → 0.3/)).toBeTruthy();
+    expect(screen.getByText(/\+1 -1/)).toBeTruthy();
+  });
+
+  it("script diff does not colorize the 3D scene", async () => {
+    const { objects } = setup();
+    render(<DiffPanel modelId="m_1" />);
+    fireEvent.click(screen.getByText("脚本 diff"));
+    await screen.findByLabelText("脚本 base 版本");
+    fireEvent.click(screen.getByText("对比"));
+    await screen.findByTestId("script-diff-text");
+    expect(objects.g_add.colorize).toBeNull();
+    expect(objects.g_chg.colorize).toBeNull();
+  });
+
+  it("shows an empty hint for legacy models without script versions", async () => {
+    api.fetchScriptVersions.mockResolvedValue({ modelId: "m_1", scripts: [], versions: [] });
+    render(<DiffPanel modelId="m_1" />);
+    fireEvent.click(screen.getByText("脚本 diff"));
+    expect(await screen.findByText("无脚本版本可对比")).toBeTruthy();
+  });
+
+  it("switching tabs keeps the IFC diff result intact", async () => {
+    render(<DiffPanel modelId="m_1" />);
+    await screen.findByLabelText("base 版本");
+    fireEvent.click(screen.getByText("对比"));
+    await screen.findByText("g_add");
+    fireEvent.click(screen.getByText("脚本 diff"));
+    await screen.findByLabelText("脚本 base 版本");
+    fireEvent.click(screen.getByText("语义 diff"));
+    expect(screen.getByText("g_add")).toBeTruthy();
   });
 });

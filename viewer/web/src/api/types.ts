@@ -87,63 +87,66 @@ export interface DiffResponse {
   changed: DiffChangedEntity[];
 }
 
-// --- design JSON 编辑（WPS 式暂存 + 大版本） ---
+// --- script-as-source 编辑（WPS 式暂存 + 大版本，W-0013） ---
 
-export interface DesignState {
+export interface ScriptState {
   modelId: string;
-  design: Record<string, unknown>;
+  script: string;
   staged: number;
   canUndo: boolean;
   canRedo: boolean;
   maxSteps: number;
 }
 
-export interface DesignStageResult {
+export interface ScriptStageResult {
   modelId: string;
   staged: number;
   canUndo: boolean;
   canRedo: boolean;
 }
 
-export interface DesignSaveResult {
+export interface ScriptSaveResult {
   modelId: string;
   version: string;
   staged: number;
 }
 
-export interface DesignVersion {
+export interface ScriptParamsResponse {
+  modelId: string;
+  params: Record<string, unknown>;
+}
+
+export interface ScriptVersion {
   version: string;
   createdAt: string;
+  note?: string;
 }
 
-export interface DesignVersionsResponse {
+export interface ScriptVersionsResponse {
   modelId: string;
-  designs: DesignVersion[];
-  versions: DesignVersion[];
+  scripts: ScriptVersion[];
+  versions: EditVersion[];
 }
 
-export interface DesignChange {
+export interface ScriptParamChange {
   key: string;
-  type?: string;
-  human_label?: string;
-  action?: "added" | "removed";
-  changes?: Array<{ field: string; old: unknown; new: unknown }>;
+  action: "added" | "removed" | "modified";
+  old?: unknown;
+  new?: unknown;
 }
 
-export interface DesignDiffResponse {
-  base: string;
-  target: string;
-  engine: string;
-  changed: DesignChange[];
-  added: number;
-  removed: number;
-  modified: number;
+export interface ScriptDiffResponse {
+  base?: string;
+  target?: string;
+  from?: number;
+  to?: number;
+  engine?: string;
+  text_diff: string;
+  params_changes: ScriptParamChange[];
+  stats: { added: number; removed: number };
 }
 
-export interface RegenerateResult {
+export interface ScriptRunResult {
+  modelId: string;
   ok: boolean;
-  ifc: string;
-  walls: number;
-  openings: number;
-  slabs: number;
 }

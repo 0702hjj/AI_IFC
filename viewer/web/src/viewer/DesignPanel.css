@@ -115,3 +115,59 @@
   color: #f85149;
   font-size: 12px;
 }
+
+.design-field textarea {
+  width: 140px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  color: #e6e6e6;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: monospace;
+  resize: vertical;
+}
+
+.script-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.script-editor-body {
+  display: flex;
+  border: 1px solid #30363d;
+  border-radius: 4px;
+  background: #0d1117;
+  max-height: 260px;
+  overflow: hidden;
+}
+
+.script-gutter {
+  margin: 0;
+  padding: 6px 6px 6px 8px;
+  color: #484f58;
+  background: #161b22;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+}
+
+.script-textarea {
+  flex: 1;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: #e6e6e6;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 6px 8px;
+  min-height: 160px;
+  white-space: pre;
+  overflow: auto;
+}
