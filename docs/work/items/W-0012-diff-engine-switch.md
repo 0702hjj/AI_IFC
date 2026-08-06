@@ -1,10 +1,11 @@
 # W-0012: diff 引擎切换（脚本 diff + design_diff 退役）
 
-- **状态：** in-progress
+- **状态：** done
 - **优先级：** P0
 - **Milestone：** M5 script-as-source
 - **来源：** spec 2026-08-06-script-as-source-design.md
 - **执行者/分支：** opencode / feat/script-as-source
+- **关闭 commit：** ed83c07（edit-service）、9d0c8c1（server）
 
 ## 背景
 
