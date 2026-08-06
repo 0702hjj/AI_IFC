@@ -1,6 +1,7 @@
 # P2-9: routes_design.py:56 `__import__("os")` 手误
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 9907f6c
 - **优先级：** P2
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05

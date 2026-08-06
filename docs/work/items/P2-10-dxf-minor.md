@@ -1,6 +1,7 @@
 # P2-10: dxf_from_design 次要问题
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 4580884
 - **优先级：** P2
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05

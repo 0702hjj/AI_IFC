@@ -1,6 +1,7 @@
 # P2-3: DESIGN_JSON_SCHEMA 示例违反自身契约
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 7a150fc
 - **优先级：** P2
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
 - **来源：** AUDIT-2026-08-05

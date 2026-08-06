@@ -1,6 +1,7 @@
 # P0-1: design 代理契约断裂
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 5ff8b33 + 36326cb（真实联调验证通过）
 - **执行者/分支：** opencode / fix/post-v2-audit
 - **优先级：** P0
 - **Milestone：** M1（见 PLAN-v0.1.0.md）
