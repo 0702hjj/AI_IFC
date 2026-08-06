@@ -12,7 +12,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const apiDir = join(repoRoot, 'viewer', 'server', 'internal', 'api')
 const outPath = join(repoRoot, 'docs', 'site', 'public', 'go-rest-api.routes.json')
 
-const files = ['api.go', 'edit.go', 'chat.go', 'script.go', 'design.go']
+const files = ['api.go', 'edit.go', 'chat.go', 'script.go']
 const endpointRe = /mux\.HandleFunc\(\s*"([A-Z]+)\s+([^"]+)"\s*,\s*(\w+(?:\.\w+)?(?:\("[^"]*"\))?)\)/g
 const endpoints = []
 for (const f of files) {

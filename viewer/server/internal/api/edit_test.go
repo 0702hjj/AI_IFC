@@ -26,9 +26,10 @@ import (
 )
 
 type pyCall struct {
-	Method string
-	Path   string
-	Body   string
+	Method   string
+	Path     string
+	RawQuery string
+	Body     string
 }
 
 type pyResp struct {
@@ -49,7 +50,7 @@ func newFakePy(t *testing.T) (*fakePy, string) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		f.mu.Lock()
-		f.calls = append(f.calls, pyCall{Method: r.Method, Path: r.URL.Path, Body: string(body)})
+		f.calls = append(f.calls, pyCall{Method: r.Method, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Body: string(body)})
 		resp, ok := f.routes[r.Method+" "+r.URL.Path]
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")

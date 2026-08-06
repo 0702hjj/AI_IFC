@@ -76,7 +76,6 @@ func NewHandlerWithCORS(st *store.Store, q *convert.Queue, iss issue.Store, chg 
 	mux.HandleFunc("PUT /api/v1/models/{id}/entities/{entityId}/properties", h.putEntityProperties)
 	h.registerEditRoutes(mux)
 	h.registerScriptRoutes(mux)
-	h.registerDesignDiffRoutes(mux)
 	return cors(mux, corsOrigins)
 }
 

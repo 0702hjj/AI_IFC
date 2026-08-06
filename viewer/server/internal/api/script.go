@@ -21,6 +21,8 @@ func (h *handler) registerScriptRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/models/{id}/script/run", h.scriptPost("run"))
 	mux.HandleFunc("POST /api/v1/models/{id}/script/save", h.scriptPost("save"))
 	mux.HandleFunc("POST /api/v1/models/{id}/script/rollback", h.scriptPost("rollback"))
+	mux.HandleFunc("POST /api/v1/models/{id}/script/diff", h.scriptPost("diff"))
+	mux.HandleFunc("GET /api/v1/models/{id}/script/staging/diff", h.scriptStagingDiff)
 	mux.HandleFunc("GET /api/v1/models/{id}/scripts", h.scriptList)
 }
 
@@ -52,6 +54,15 @@ func (h *handler) scriptPost(action string) func(http.ResponseWriter, *http.Requ
 
 func (h *handler) scriptList(w http.ResponseWriter, r *http.Request) {
 	h.scriptProxy(w, r, http.MethodGet, "/models/"+r.PathValue("id")+"/scripts", nil)
+}
+
+// scriptStagingDiff 小版本 diff（暂存链步间）：query（from/to）原样透传。
+func (h *handler) scriptStagingDiff(w http.ResponseWriter, r *http.Request) {
+	path := "/models/" + r.PathValue("id") + "/script/staging/diff"
+	if r.URL.RawQuery != "" {
+		path += "?" + r.URL.RawQuery
+	}
+	h.scriptProxy(w, r, http.MethodGet, path, nil)
 }
 
 // scriptProxy 透传 edit-service 的 script 端点（包 envelope + 错误映射，P0-1 教训）。

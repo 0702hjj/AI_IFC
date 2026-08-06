@@ -44,6 +44,7 @@ func scriptRoutes(modelID string) []struct {
 		mk("POST", "/script/run", "/script/run"),
 		mk("POST", "/script/save", "/script/save"),
 		mk("POST", "/script/rollback", "/script/rollback"),
+		mk("POST", "/script/diff", "/script/diff"),
 		mk("GET", "/scripts", "/scripts"),
 	}
 }
@@ -53,8 +54,8 @@ func TestScriptProxyEnvelope(t *testing.T) {
 	env := newEditEnv(t, pyURL)
 	mockBody := `{"modelId":"` + env.modelID + `","script":"PARAMS = {}"}`
 	routes := scriptRoutes(env.modelID)
-	if len(routes) != 10 {
-		t.Fatalf("script routes = %d, want 10", len(routes))
+	if len(routes) != 11 {
+		t.Fatalf("script routes = %d, want 11", len(routes))
 	}
 	for _, rt := range routes {
 		py.set(rt.method, rt.pyPath, 200, mockBody)
@@ -150,32 +151,33 @@ func TestScriptProxyErrorMapping(t *testing.T) {
 	}
 }
 
-// design diff 代理（W-0012 前保留）：只剩 diff / diff-ifc 两个端点。
-func TestDesignDiffProxyEnvelope(t *testing.T) {
+// 小版本 diff（暂存链步间）：GET + query 透传，包 envelope（W-0012）。
+func TestScriptStagingDiffProxy(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
-	mockBody := `{"base":"v1","target":"v2","engine":"design-json"}`
-	for _, action := range []string{"diff", "diff-ifc"} {
-		pyPath := "/models/" + env.modelID + "/design/" + action
-		goPath := "/api/v1/models/" + env.modelID + "/design/" + action
-		py.set("POST", pyPath, 200, mockBody)
-		rec := doEditReq(t, env.mux, "POST", goPath, `{"base":"v1","target":"v2"}`)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("%s: status = %d body = %s", goPath, rec.Code, rec.Body)
-		}
-		e := decodeEnv(t, rec)
-		if e.Code != 0 || e.Message == "" {
-			t.Fatalf("%s: envelope = %+v", goPath, e)
-		}
-		var got, want interface{}
-		if err := json.Unmarshal(e.Data, &got); err != nil {
-			t.Fatalf("%s: data not JSON: %v", goPath, err)
-		}
-		if err := json.Unmarshal([]byte(mockBody), &want); err != nil {
-			t.Fatal(err)
-		}
-		if !reflect.DeepEqual(got, want) {
-			t.Fatalf("%s: data = %s, want %s", goPath, e.Data, mockBody)
-		}
+	mockBody := `{"from":0,"to":1,"text_diff":"--- step0\n+++ step1\n","params_changes":[],"stats":{"added":1,"removed":1}}`
+	pyPath := "/models/" + env.modelID + "/script/staging/diff"
+	goPath := "/api/v1/models/" + env.modelID + "/script/staging/diff"
+	py.set("GET", pyPath, 200, mockBody)
+	rec := doEditReq(t, env.mux, "GET", goPath+"?from=0&to=1", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	if call := py.lastCall(); call.Path != pyPath || call.RawQuery != "from=0&to=1" {
+		t.Fatalf("forwarded = %s?%s, want %s?from=0&to=1", call.Path, call.RawQuery, pyPath)
+	}
+	e := decodeEnv(t, rec)
+	if e.Code != 0 || e.Message == "" {
+		t.Fatalf("envelope = %+v", e)
+	}
+	var got, want interface{}
+	if err := json.Unmarshal(e.Data, &got); err != nil {
+		t.Fatalf("data not JSON: %v", err)
+	}
+	if err := json.Unmarshal([]byte(mockBody), &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("data = %s, want %s", e.Data, mockBody)
 	}
 }

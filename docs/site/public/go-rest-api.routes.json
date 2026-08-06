@@ -77,18 +77,6 @@
       "file": "viewer/server/internal/api/api.go"
     },
     {
-      "method": "POST",
-      "path": "/api/v1/models/{id}/design/diff",
-      "handler": "h.designPost(\"diff\")",
-      "file": "viewer/server/internal/api/design.go"
-    },
-    {
-      "method": "POST",
-      "path": "/api/v1/models/{id}/design/diff-ifc",
-      "handler": "h.designPost(\"diff-ifc\")",
-      "file": "viewer/server/internal/api/design.go"
-    },
-    {
       "method": "GET",
       "path": "/api/v1/models/{id}/download",
       "handler": "h.download",
@@ -198,6 +186,12 @@
     },
     {
       "method": "POST",
+      "path": "/api/v1/models/{id}/script/diff",
+      "handler": "h.scriptPost(\"diff\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
       "path": "/api/v1/models/{id}/script/discard",
       "handler": "h.scriptPost(\"discard\")",
       "file": "viewer/server/internal/api/script.go"
@@ -230,6 +224,12 @@
       "method": "POST",
       "path": "/api/v1/models/{id}/script/save",
       "handler": "h.scriptPost(\"save\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/models/{id}/script/staging/diff",
+      "handler": "h.scriptStagingDiff",
       "file": "viewer/server/internal/api/script.go"
     },
     {
