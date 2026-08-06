@@ -30,13 +30,22 @@ staging（5-10 步）    ← 短回溯链：每步 = 脚本一次修改的快照
 3. 入口：`build(params: dict, out_path: str) -> None`；脚本 `__main__` 读 PARAMS 调 build
 4. 产物必须过 `ifcopenshell.validate`
 
-## diff 引擎（三层）
+## diff 引擎（三层 × 两级）
+
+两级粒度：**大版本**（v{n-1} ↔ v{n}）与**小版本**（暂存链 5-10 步之间，轻量行内 diff）。AI 与用户都可见两级。
 
 | 层 | 对象 | 受众 |
 |---|---|---|
-| 脚本 unified text diff | scripts/v{n-1}.py ↔ v{n}.py | AI（下次输出的上下文） |
+| 脚本 unified text diff | scripts/v{n-1}.py ↔ v{n}.py；暂存步与步之间 | AI（下次输出的上下文）+ 用户（脚本 diff 视图） |
 | IFC 语义 diff（ifcdiff 属性级 GlobalId 对齐） | versions/v{n-1}.ifc ↔ v{n}.ifc | 用户（Diff Viewer 不变） |
 | IFC 指纹 diff | 外部上传模型兜底 | 不变 |
+
+## 多 Agent 编排（M6 展望，2026-08-06 用户补充）
+
+- **整体 Agent（orchestrator）**：与设计师对话的总交互面；调用子 Agent（IFCagent / CADAgent / designerAgent）；封装各子 Agent 的提示词设计
+- **用户输入归一**：上传 DXF 样例 / 上传 IFC 样例 / 修改 IFC 某部分 / 修改 DXF 某部分 → 统一解析为「用户修改」事件
+- **MCP server 解析修改**：解析对应文件的修改并**标注是用户修改的内容**（provenance=USER），与 diff 引擎结果互通；可参考本机 ~/projects/work/IfcOpenShell 源码中的 ifcmcp
+- **diff 贯通**：大版本与小版本 diff 都注入整体 Agent 上下文（AI 可见），也都有用户视图（用户可见）
 
 ## UI（设计师为主）
 

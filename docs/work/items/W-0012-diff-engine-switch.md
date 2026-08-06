@@ -20,6 +20,7 @@ design JSON diff 引擎（design_diff.py）废弃。大版本 diff 三层：脚�
 
 1. **script_diff.py**：`difflib.unified_diff` 生成 scripts/v{a}.py ↔ v{b}.py 的文本 diff；附摘要（+/- 行数、PARAMS 块变化键列表——解析两版 PARAMS dict 对比，供 AI 快速定位）
 2. 端点：`POST /models/{id}/script/diff {base,target}` → `{text_diff, params_changes, stats}`；IFC 语义 diff 端点保留（/diff 现役）
+2b. **小版本 diff（2026-08-06 用户补充）**：暂存链步与步之间的轻量 diff——`GET /models/{id}/script/staging/diff?from={i}&to={j}`（默认相邻两步），返回行内文本 diff + PARAMS 变化；AI 与用户均可见（前端 staging 区加 diff 视图，W-0013 落地）
 3. `POST .../design/diff` 与 `/design/diff-ifc` 删除；design_diff.py 删除；ifc_fingerprint 保留作外部模型兜底
 4. Diff Viewer 前端：大版本对比增加「脚本 diff」tab（语法纯文本展示即可）（前端部分可在 W-0013 一并，本项负责 API + 数据）
 
