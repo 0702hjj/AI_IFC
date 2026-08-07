@@ -13,6 +13,7 @@
 | M2 | 测试补盲 ✅（PR #13，2026-08-06）| P1-5, W-0001, W-0002, W-0003 | 新增测试合入，PG job 在 CI 运行 |
 | M3 | 发布化 ✅（PR #15，2026-08-06）| W-0004, W-0005, P2-7 | `docker compose up` 一键起，v0.1.0 tag + Release |
 | M4 | 结构加固 + 身份收编 ✅（PR #17，2026-08-06）| P1-1, P1-2, P1-3, P1-4, P2-1, P2-8 | 全部 done，SCAD 遗产收编决策落地（移出至 SimpleCADAPI-archive） |
+| M5 | script-as-source 转向 ✅（2026-08-07，spec: 2026-08-06-script-as-source-design.md）| W-0011..W-0016 | 脚本为唯一事实源；diff 三层×两级；PARAMS 表单 + 脚本下钻；沙箱执行；design JSON 下线 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 

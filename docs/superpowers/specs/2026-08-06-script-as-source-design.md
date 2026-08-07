@@ -38,7 +38,7 @@ staging（5-10 步）    ← 短回溯链：每步 = 脚本一次修改的快照
 |---|---|---|
 | 脚本 unified text diff | scripts/v{n-1}.py ↔ v{n}.py；暂存步与步之间 | AI（下次输出的上下文）+ 用户（脚本 diff 视图） |
 | IFC 语义 diff（ifcdiff 属性级 GlobalId 对齐） | versions/v{n-1}.ifc ↔ v{n}.ifc | 用户（Diff Viewer 不变） |
-| IFC 指纹 diff | 外部上传模型兜底 | 不变 |
+| IFC 指纹 diff | ~~外部上传模型兜底~~ | **已随 W-0015 删除**（fceed2e）：ifcdiff 的 GlobalId 对齐天然覆盖外部模型，兜底无独立消费者——终审 I3 裁决销账（2026-08-07） |
 
 ## 多 Agent 编排（M6 展望，2026-08-06 用户补充）
 

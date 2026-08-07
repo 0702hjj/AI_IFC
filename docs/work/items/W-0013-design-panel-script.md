@@ -1,6 +1,7 @@
 # W-0013: 前端 DesignPanel 重构（PARAMS 表单 + 脚本编辑器）
 
-- **状态：** in-progress
+- **状态：** done
+- **关闭于：** 1e8bf15（PR 见 M5 合并）
 - **优先级：** P1
 - **Milestone：** M5 script-as-source
 - **来源：** spec 2026-08-06-script-as-source-design.md
