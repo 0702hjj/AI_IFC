@@ -3,7 +3,7 @@
 > 本文以 **plan → cad → bim** 三个核心入口为框架，概述 AI_IFC 的总体架构与 AGENT 工作流。
 > plan / cad / bim 设计为**可框定的 subagent**，通过 **Agent-to-Agent（A2A）协议**连接到外部项目主 agent，供其按需调用。
 > 当前落地体系集中在 bim 入口（五组件审查/编辑平台），plan / cad 为远景扩展。
-> 迭代计划见 [roadmap.md](./roadmap.md)；目标↔实现映射见 `research/overview.md`。
+> 迭代计划见公开站 roadmap 与 `docs/work/`；目标↔实现映射见 `research/overview.md`。
 > **前端 UI 实现属项目另一成员职责，本文档不规定前端实现。**
 
 ## 1. 定位
@@ -198,7 +198,7 @@ graph TB
 
 ## 5. 后续 skill 化工作
 
-本管线落地依赖以下 skill 侧封装（排期并入 [roadmap.md](./roadmap.md)）：
+本管线落地依赖以下 skill 侧封装（排期并入 `docs/work/`）：
 
 | 工作项 | 归属 | 说明 |
 | --- | --- | --- |
