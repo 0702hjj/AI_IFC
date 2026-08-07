@@ -22,7 +22,8 @@ AI agent ──► REST 编辑 API ────┘
 | web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，160 用例 / 18 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
 | server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（125 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `viewer/converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（131 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（151 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| mcp-server (Python + mcp 2.x MCPServer，stdio) | `viewer/mcp-server` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
 | skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（60 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
 | 端到端 | `viewer/scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
 | 文档站 | `docs/` | `npm run docs:build`；`npm run check:api`（API 文档漂移检测） | `npm run docs:dev`；内部 wiki `npm run docs:dev:internal` |
