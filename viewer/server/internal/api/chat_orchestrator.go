@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"ifcviewer/server/internal/editsvc"
 	"ifcviewer/server/internal/opencode"
 )
 
@@ -280,4 +281,57 @@ func (h *ChatHandler) archiveStagingArtifact(modelID, version, stagingName, subd
 	}
 	os.Remove(src)
 	log.Printf("chat: archived %s/%s.%s", subdir, version, dstSuffix)
+}
+
+// --- W-0016：AI 循环接入——把最近两个大版本的脚本 diff 注入下次 prompt ---
+
+// scriptDiffContextMaxBytes 是注入 prompt 的脚本 diff 全量文本上限（4KB）；
+// 超长降级为 stats + PARAMS 摘要（不含全量文本），防爆上下文。
+const scriptDiffContextMaxBytes = 4096
+
+// scriptDiffContext 拉取模型最近两个大版本的脚本 diff，渲染为系统上下文片段。
+// 不足两个大版本（含无脚本的 legacy 模型）、edit-service 不可达、diff 拉取失败：
+// 均返回 ""——调用方保持现行为（只注入模型路径），不阻塞消息下发。
+func (h *ChatHandler) scriptDiffContext(ctx context.Context, modelID string) string {
+	if h.deps.Ed == nil {
+		return ""
+	}
+	vers, err := h.deps.Ed.GetScriptVersions(ctx, modelID)
+	if err != nil {
+		log.Printf("chat: script versions %s: %v（降级不注入 diff）", modelID, err)
+		return ""
+	}
+	if len(vers.Scripts) < 2 {
+		return ""
+	}
+	base := vers.Scripts[len(vers.Scripts)-2].Version
+	target := vers.Scripts[len(vers.Scripts)-1].Version
+	d, err := h.deps.Ed.PostScriptDiff(ctx, modelID, base, target)
+	if err != nil {
+		log.Printf("chat: script diff %s %s→%s: %v（降级不注入 diff）", modelID, base, target, err)
+		return ""
+	}
+	return formatScriptDiffContext(modelID, d)
+}
+
+// formatScriptDiffContext 渲染注入文本：脚本 diff（超 4KB 给摘要）+ PARAMS 变化 + 纪律提示。
+func formatScriptDiffContext(modelID string, d *editsvc.ScriptDiffResult) string {
+	params := "无"
+	if len(d.ParamsChanges) > 0 {
+		if b, err := json.Marshal(d.ParamsChanges); err == nil {
+			params = string(b)
+		}
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "本模型由构建脚本生成（script-as-source：脚本是唯一事实源，改模型 = 改脚本后 save）。最近两个大版本（%s → %s）的脚本变化：", d.Base, d.Target)
+	if len(d.TextDiff) <= scriptDiffContextMaxBytes {
+		fmt.Fprintf(&b, "\n脚本 diff（+%d/-%d 行）：\n```diff\n%s\n```",
+			d.Stats.Added, d.Stats.Removed, strings.TrimRight(d.TextDiff, "\n"))
+	} else {
+		fmt.Fprintf(&b, "\n脚本 diff 超 4KB，仅给摘要：+%d/-%d 行（全量可经 POST /api/v1/models/%s/script/diff 拉取）。",
+			d.Stats.Added, d.Stats.Removed, modelID)
+	}
+	fmt.Fprintf(&b, "\nPARAMS 变化：%s", params)
+	b.WriteString("\n纪律：在既有构建脚本上做增量修改，禁止整体重写；保持 PARAMS 的 key 稳定（只改值或新增 key，不改既有 key 名）。")
+	return b.String()
 }

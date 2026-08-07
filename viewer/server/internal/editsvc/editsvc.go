@@ -52,6 +52,41 @@ type CommitResult struct {
 	Entries   []Entry `json:"entries"`
 }
 
+// ScriptVersion 是脚本大版本条目（GET /models/{id}/scripts 的 scripts 元素）。
+type ScriptVersion struct {
+	Version   string `json:"version"`
+	CreatedAt string `json:"createdAt"`
+	Note      string `json:"note"`
+}
+
+// ScriptVersions 是 GET /models/{id}/scripts 的响应（只看 scripts；legacy 模型为空表）。
+type ScriptVersions struct {
+	Scripts []ScriptVersion `json:"scripts"`
+}
+
+// ScriptParamChange 是脚本 diff 的单条 PARAMS key 变化（added/removed/modified）。
+type ScriptParamChange struct {
+	Key    string `json:"key"`
+	Action string `json:"action"`
+	Old    any    `json:"old,omitempty"`
+	New    any    `json:"new,omitempty"`
+}
+
+// ScriptDiffStats 是 unified diff 的 +/- 行数。
+type ScriptDiffStats struct {
+	Added   int `json:"added"`
+	Removed int `json:"removed"`
+}
+
+// ScriptDiffResult 是 POST /models/{id}/script/diff 的响应（AI 面向的主 diff）。
+type ScriptDiffResult struct {
+	Base          string              `json:"base"`
+	Target        string              `json:"target"`
+	TextDiff      string              `json:"text_diff"`
+	ParamsChanges []ScriptParamChange `json:"params_changes"`
+	Stats         ScriptDiffStats     `json:"stats"`
+}
+
 type Version struct {
 	Version   string `json:"version"`
 	CreatedAt string `json:"createdAt"`
@@ -189,6 +224,33 @@ func (c *Client) Diff(ctx context.Context, modelID, base, target string) (*DiffR
 	var d DiffResult
 	if err := json.Unmarshal(data, &d); err != nil {
 		return nil, fmt.Errorf("edit service: decode diff: %w", err)
+	}
+	return &d, nil
+}
+
+// GetScriptVersions 列出脚本大版本（chat 注入 diff 前判断是否 ≥2 个）。
+func (c *Client) GetScriptVersions(ctx context.Context, modelID string) (*ScriptVersions, error) {
+	data, err := c.do(ctx, c.fast, http.MethodGet, "/models/"+modelID+"/scripts", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v ScriptVersions
+	if err := json.Unmarshal(data, &v); err != nil {
+		return nil, fmt.Errorf("edit service: decode scripts: %w", err)
+	}
+	return &v, nil
+}
+
+// PostScriptDiff 拉两个大版本的脚本 diff（text_diff + params_changes + stats）。
+func (c *Client) PostScriptDiff(ctx context.Context, modelID, base, target string) (*ScriptDiffResult, error) {
+	body, _ := json.Marshal(map[string]string{"base": base, "target": target})
+	data, err := c.do(ctx, c.slow, http.MethodPost, "/models/"+modelID+"/script/diff", body)
+	if err != nil {
+		return nil, err
+	}
+	var d ScriptDiffResult
+	if err := json.Unmarshal(data, &d); err != nil {
+		return nil, fmt.Errorf("edit service: decode script diff: %w", err)
 	}
 	return &d, nil
 }
