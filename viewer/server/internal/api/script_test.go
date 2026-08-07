@@ -151,6 +151,59 @@ func TestScriptProxyErrorMapping(t *testing.T) {
 	}
 }
 
+// run/save/rollback 会让 edit-service 重写 uploads/{id}.ifc（routes_scripts.py
+// _run_into_uploads），成功后必须 Enqueue 重转 XKT，否则前端 3D 永远不刷新（M5 缺口）。
+func TestScriptMutatingActionsEnqueueReconvert(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	for _, action := range []string{"run", "save", "rollback"} {
+		py.set("POST", "/models/"+env.modelID+"/script/"+action, 200, `{"ok":true}`)
+		rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/script/"+action, `{}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d body = %s", action, rec.Code, rec.Body)
+		}
+		if in := waitRun(t, env.runs); !strings.Contains(in, env.modelID) {
+			t.Fatalf("%s: runner input = %q, want model %s", action, in, env.modelID)
+		}
+		waitReady(t, env.st, env.modelID)
+	}
+}
+
+// 不改 IFC 的动作（undo/redo/discard/diff）与只读端点不触发重转。
+func TestScriptNonMutatingActionsNoEnqueue(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	for _, action := range []string{"undo", "redo", "discard", "diff"} {
+		py.set("POST", "/models/"+env.modelID+"/script/"+action, 200, `{"ok":true}`)
+		rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/script/"+action, `{}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d body = %s", action, rec.Code, rec.Body)
+		}
+	}
+	assertNoRun(t, env.runs)
+}
+
+// edit-service 失败（4xx/5xx 透传）时不排重转。
+func TestScriptMutatingActionFailureNoEnqueue(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	for _, c := range []struct {
+		action   string
+		pyStatus int
+	}{
+		{"save", 409},
+		{"run", 500},
+		{"rollback", 404},
+	} {
+		py.set("POST", "/models/"+env.modelID+"/script/"+c.action, c.pyStatus, `{"detail":"boom"}`)
+		rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/script/"+c.action, `{}`)
+		if rec.Code == http.StatusOK {
+			t.Fatalf("%s py %d: go status = 200, want error (body %s)", c.action, c.pyStatus, rec.Body)
+		}
+	}
+	assertNoRun(t, env.runs)
+}
+
 // 小版本 diff（暂存链步间）：GET + query 透传，包 envelope（W-0012）。
 func TestScriptStagingDiffProxy(t *testing.T) {
 	py, pyURL := newFakePy(t)

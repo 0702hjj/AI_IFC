@@ -18,9 +18,9 @@ func (h *handler) registerScriptRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/models/{id}/script/undo", h.scriptPost("undo"))
 	mux.HandleFunc("POST /api/v1/models/{id}/script/redo", h.scriptPost("redo"))
 	mux.HandleFunc("POST /api/v1/models/{id}/script/discard", h.scriptPost("discard"))
-	mux.HandleFunc("POST /api/v1/models/{id}/script/run", h.scriptPost("run"))
-	mux.HandleFunc("POST /api/v1/models/{id}/script/save", h.scriptPost("save"))
-	mux.HandleFunc("POST /api/v1/models/{id}/script/rollback", h.scriptPost("rollback"))
+	mux.HandleFunc("POST /api/v1/models/{id}/script/run", h.scriptMutatingPost("run"))
+	mux.HandleFunc("POST /api/v1/models/{id}/script/save", h.scriptMutatingPost("save"))
+	mux.HandleFunc("POST /api/v1/models/{id}/script/rollback", h.scriptMutatingPost("rollback"))
 	mux.HandleFunc("POST /api/v1/models/{id}/script/diff", h.scriptPost("diff"))
 	mux.HandleFunc("GET /api/v1/models/{id}/script/staging/diff", h.scriptStagingDiff)
 	mux.HandleFunc("GET /api/v1/models/{id}/scripts", h.scriptList)
@@ -52,8 +52,29 @@ func (h *handler) scriptPost(action string) func(http.ResponseWriter, *http.Requ
 	}
 }
 
-func (h *handler) scriptList(w http.ResponseWriter, r *http.Request) {
-	h.scriptProxy(w, r, http.MethodGet, "/models/"+r.PathValue("id")+"/scripts", nil)
+// scriptMutatingPost 用于会重写 uploads/{id}.ifc 的动作（run/save/rollback，
+// 见 edit-service routes_scripts.py _run_into_uploads）：成功后排 XKT 重转，
+// 否则前端 3D 不刷新（M5 集成缺口）。
+func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		body := readBody(w, r)
+		if body == nil {
+			return
+		}
+		modelID := r.PathValue("id")
+		if !h.scriptProxy(w, r, http.MethodPost, "/models/"+modelID+"/script/"+action, body) {
+			return
+		}
+		if err := h.st.SetStatus(modelID, "converting", ""); err != nil {
+			log.Printf("script %s %s: set converting: %v", action, modelID, err)
+		}
+		if !h.q.Enqueue(modelID) {
+			log.Printf("script %s %s: conversion already pending", action, modelID)
+		}
+	}
+}
+
+func (h *handler) scriptList(w http.ResponseWriter, r *http.Request) {	h.scriptProxy(w, r, http.MethodGet, "/models/"+r.PathValue("id")+"/scripts", nil)
 }
 
 // scriptStagingDiff 小版本 diff（暂存链步间）：query（from/to）原样透传。
@@ -66,12 +87,14 @@ func (h *handler) scriptStagingDiff(w http.ResponseWriter, r *http.Request) {
 }
 
 // scriptProxy 透传 edit-service 的 script 端点（包 envelope + 错误映射，P0-1 教训）。
-func (h *handler) scriptProxy(w http.ResponseWriter, r *http.Request, method, path string, body []byte) {
+// 返回 edit-service 调用是否成功（供成功后编排重转）。
+func (h *handler) scriptProxy(w http.ResponseWriter, r *http.Request, method, path string, body []byte) bool {
 	raw, err := h.ed.Do(r.Context(), method, path, body)
 	if err != nil {
 		log.Printf("script %s %s: %v", method, path, err)
 		writeEditErr(w, err)
-		return
+		return false
 	}
 	writeJSON(w, raw)
+	return true
 }

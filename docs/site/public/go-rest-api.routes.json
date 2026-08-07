@@ -211,19 +211,19 @@
     {
       "method": "POST",
       "path": "/api/v1/models/{id}/script/rollback",
-      "handler": "h.scriptPost(\"rollback\")",
+      "handler": "h.scriptMutatingPost(\"rollback\")",
       "file": "viewer/server/internal/api/script.go"
     },
     {
       "method": "POST",
       "path": "/api/v1/models/{id}/script/run",
-      "handler": "h.scriptPost(\"run\")",
+      "handler": "h.scriptMutatingPost(\"run\")",
       "file": "viewer/server/internal/api/script.go"
     },
     {
       "method": "POST",
       "path": "/api/v1/models/{id}/script/save",
-      "handler": "h.scriptPost(\"save\")",
+      "handler": "h.scriptMutatingPost(\"save\")",
       "file": "viewer/server/internal/api/script.go"
     },
     {
