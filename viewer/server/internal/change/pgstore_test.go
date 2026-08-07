@@ -43,7 +43,7 @@ func TestPgAppendAndList(t *testing.T) {
 		OldValue: "100", NewValue: "200",
 		Author: "local-user", Provenance: Provenance{Source: "UI"},
 	}
-	e2 := &Entry{EntityID: "e1", EntityName: "Wall", Field: "height", OldValue: "3000", NewValue: "3200", Author: "ai-bot", Provenance: Provenance{Source: "AI"}}
+	e2 := &Entry{EntityID: "e1", EntityName: "Wall", Field: "height", OldValue: "3000", NewValue: "3200", Author: "ai-bot", Provenance: Provenance{Source: "USER", Origin: "upload"}}
 	if err := ps.Append(modelID, e, e2); err != nil {
 		t.Fatalf("append: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestPgAppendAndList(t *testing.T) {
 	if list[1].Author != "local-user" || list[1].Provenance.Source != "UI" {
 		t.Fatalf("provenance = %+v", list[1])
 	}
-	if list[0].Author != "ai-bot" || list[0].Provenance.Source != "AI" {
+	if list[0].Author != "ai-bot" || list[0].Provenance.Source != "USER" || list[0].Provenance.Origin != "upload" {
 		t.Fatalf("provenance = %+v", list[0])
 	}
 }

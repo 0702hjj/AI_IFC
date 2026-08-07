@@ -17,7 +17,7 @@ uv run uvicorn app.main:app --port 8100
 
 | 端点 | 语义 |
 | --- | --- |
-| `PUT /models/{id}/entities/{guid}` | 把 `fields`（实体直接属性）/`psets`（pset 单值属性，不存在则创建）应用到内存模型并记为一条 pending change（不落盘）。body：`{"fields": {...}, "psets": {...}, "author": "local-user", "provenance": {"source": "UI"\|"AI"}}`。先全量校验再应用（原子）；属性不存在 / 类型不符 / 坏 provenance → 422；guid 或模型不存在 → 404 |
+| `PUT /models/{id}/entities/{guid}` | 把 `fields`（实体直接属性）/`psets`（pset 单值属性，不存在则创建）应用到内存模型并记为一条 pending change（不落盘）。body：`{"fields": {...}, "psets": {...}, "author": "local-user", "provenance": {"source": "UI"\|"AI"\|"USER", "origin"?}}`。先全量校验再应用（原子）；属性不存在 / 类型不符 / 坏 provenance → 422；guid 或模型不存在 → 404 |
 | `GET /models/{id}/pending` | 列出当前 pending changes |
 | `POST /models/{id}/commit` | 全部 pending 原子落盘（持锁）→ 追加 history（entries 补 `"operation": "update"`）→ 清空 pending；返回 `{committed, entries}`；无 pending → 409 |
 | `DELETE /models/{id}/pending` | 丢弃 pending：卸载并重新从磁盘加载模型 |

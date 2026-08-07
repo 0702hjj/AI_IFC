@@ -83,7 +83,7 @@ func provenanceSource(body []byte) (string, error) {
 		source = in.Provenance.Source
 	}
 	if !change.ValidSource(source) {
-		return "", fmt.Errorf("provenance.source must be UI or AI")
+		return "", fmt.Errorf("provenance.source must be UI, AI or USER")
 	}
 	return source, nil
 }
@@ -98,7 +98,7 @@ func (h *handler) editPutEntity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := provenanceSource(body); err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
 		return
 	}
 	data, err := h.ed.PutEntity(r.Context(), m.ID, r.PathValue("guid"), body)
@@ -241,7 +241,7 @@ func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := provenanceSource(body); err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
 		return
 	}
 	resp, err := commitOrchestrate(r.Context(), h.ed, h.st, h.chg, h.q, m.ID)
@@ -387,7 +387,7 @@ func (h *handler) migrateOverrides(w http.ResponseWriter, r *http.Request) {
 		source = in.Provenance.Source
 	}
 	if !change.ValidSource(source) {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
 		return
 	}
 	all, err := h.ovr.GetAll(m.ID)

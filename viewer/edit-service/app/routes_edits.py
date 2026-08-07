@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 import secrets
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 import ifcopenshell.api.pset
 import ifcopenshell.util.element
@@ -36,9 +36,14 @@ MODEL_ID_PATTERN = r"^m_[0-9a-f]{16}$"
 
 
 class Provenance(BaseModel):
-    """Who performed an edit: the web UI or an AI agent."""
+    """Who performed an edit: the web UI, an AI agent, or an external user edit.
 
-    source: Literal["UI", "AI"] = "UI"
+    ``origin`` further qualifies USER edits (e.g. ``upload`` for a modified
+    IFC/DXF file parsed by the MCP server).
+    """
+
+    source: Literal["UI", "AI", "USER"] = "UI"
+    origin: Optional[str] = None
 
 
 class EditBody(BaseModel):
@@ -189,7 +194,7 @@ def put_entity(
             "guid": guid,
             "changes": changes,
             "author": body.author,
-            "provenance": body.provenance.model_dump(),
+            "provenance": body.provenance.model_dump(exclude_none=True),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         _pending(request).append(id, entry)

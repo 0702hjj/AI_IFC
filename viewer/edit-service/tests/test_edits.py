@@ -351,6 +351,16 @@ def test_unknown_attribute_returns_422_without_side_effects(client: TestClient) 
     assert client.get(f"/models/{MODEL_ID}/pending").json() == []
 
 
+def test_user_provenance_with_origin_accepted(client: TestClient) -> None:
+    resp = client.put(
+        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
+        json={"fields": {"Name": "x"},
+              "provenance": {"source": "USER", "origin": "upload"}},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["provenance"] == {"source": "USER", "origin": "upload"}
+
+
 def test_bad_provenance_source_returns_422(client: TestClient) -> None:
     resp = client.put(
         f"/models/{MODEL_ID}/entities/{WALL_GUID}",
