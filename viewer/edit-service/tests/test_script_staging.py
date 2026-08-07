@@ -272,6 +272,83 @@ class TestRunSaveRollback:
         assert r.status_code == 200
 
 
+def _archive_big_version(data_dir: Path, version: str, marker: str) -> None:
+    """模拟 chat 归档形态：只有 scripts/v{n}.py，无 staging 缓冲。"""
+    scripts = data_dir / "models" / MODEL_ID / "scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    (scripts / f"{version}.py").write_text(_script(marker), encoding="utf-8")
+
+
+class TestSeedFromBigVersion:
+    """chat 产出的模型：agent 写 staging，Go 只归档 scripts/v{n}.py，edit-service
+    无 staging 记录 → GET /script 曾 404（M5 终审 C1）。staging 为空且存在大版本时，
+    以最新大版本脚本 seed base；已有 staging 不被覆盖。"""
+
+    def test_get_script_seeds_from_latest_big_version(
+        self, client: TestClient, data_dir: Path
+    ):
+        _archive_big_version(data_dir, "v1", "chat-v1")
+        r = client.get(f"/models/{MODEL_ID}/script")
+        assert r.status_code == 200
+        body = r.json()
+        assert '"marker": "chat-v1"' in body["script"]
+        assert body["staged"] == 0
+        assert body["canUndo"] is False and body["canRedo"] is False
+        # 幂等：再 GET 不变
+        assert client.get(f"/models/{MODEL_ID}/script").json() == body
+
+    def test_get_params_seeded(self, client: TestClient, data_dir: Path):
+        _archive_big_version(data_dir, "v1", "chat-v1")
+        r = client.get(f"/models/{MODEL_ID}/script/params")
+        assert r.status_code == 200
+        assert r.json()["params"] == {"marker": "chat-v1"}
+
+    def test_seed_uses_newest_big_version(self, client: TestClient, data_dir: Path):
+        _archive_big_version(data_dir, "v1", "old")
+        _archive_big_version(data_dir, "v2", "new")
+        r = client.get(f"/models/{MODEL_ID}/script")
+        assert '"marker": "new"' in r.json()["script"]
+
+    def test_seed_persisted_to_disk(self, client: TestClient, data_dir: Path):
+        """seed 落盘：重启（新 registry）后 GET 仍 200。"""
+        _archive_big_version(data_dir, "v1", "persisted")
+        assert client.get(f"/models/{MODEL_ID}/script").status_code == 200
+        staging_file = data_dir / "models" / MODEL_ID / "script_staging.json"
+        assert staging_file.is_file()
+        assert "persisted" in staging_file.read_text(encoding="utf-8")
+
+    def test_seed_does_not_override_existing_staging(
+        self, client: TestClient, data_dir: Path
+    ):
+        _archive_big_version(data_dir, "v1", "base")
+        client.put(f"/models/{MODEL_ID}/script", json={"script": _script("edit")})
+        r = client.get(f"/models/{MODEL_ID}/script")
+        assert '"marker": "edit"' in r.json()["script"]
+        assert r.json()["staged"] == 1
+
+    def test_reseed_after_discard(self, client: TestClient, data_dir: Path):
+        """seed 后 discard 清掉暂存 → current 回 base（seed 的 v1）而非 404。"""
+        _archive_big_version(data_dir, "v1", "base")
+        client.get(f"/models/{MODEL_ID}/script")  # seed base
+        client.put(f"/models/{MODEL_ID}/script", json={"script": _script("edit")})
+        r = client.post(f"/models/{MODEL_ID}/script/discard")
+        assert '"marker": "base"' in r.json()["script"]
+
+    def test_concurrent_gets_seed_consistently(
+        self, client: TestClient, data_dir: Path
+    ):
+        _archive_big_version(data_dir, "v1", "conc")
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            bodies = list(
+                pool.map(
+                    lambda _: client.get(f"/models/{MODEL_ID}/script").json(),
+                    range(4),
+                )
+            )
+        assert all('"marker": "conc"' in b["script"] for b in bodies)
+        assert len({b["script"] for b in bodies}) == 1
+
+
 class TestPerModelLock:
     def test_concurrent_saves_serialize_into_distinct_versions(
         self, client: TestClient, data_dir: Path

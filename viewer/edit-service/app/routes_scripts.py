@@ -98,6 +98,31 @@ def _staging(request: Request, model_id: str) -> script_staging.ScriptStaging:
     return request.app.state.script_staging.get(model_id)
 
 
+def _staging_or_seed(request: Request, model_id: str) -> script_staging.ScriptStaging:
+    """Staging for read endpoints; empty staging + existing big versions → seed
+    base from the newest big version (chat-archived models have scripts/v{n}.py
+    but no staging buffer, so GET /script used to 404 — M5 终审 C1).
+
+    Idempotent (seed_base is a no-op once a current script exists); the seed
+    mutation runs under the per-model lock with a re-check.
+    """
+    staging = _staging(request, model_id)
+    if staging.current() is not None:
+        return staging
+    data_dir = request.app.state.settings.data_dir
+    scripts = script_versions.list_scripts(data_dir, model_id)
+    if not scripts:
+        return staging
+    with _lock(request, model_id):
+        staging = _staging(request, model_id)
+        if staging.current() is None:
+            latest = script_versions.load_script(
+                data_dir, model_id, scripts[-1]["version"]
+            )
+            staging.seed_base(latest)
+    return staging
+
+
 def _current_or_409(staging: script_staging.ScriptStaging) -> str:
     current = staging.current()
     if current is None:
@@ -111,7 +136,7 @@ def get_script(
 ) -> Dict[str, Any]:
     """Return the current script (staged state, or last saved base)."""
     _upload_path(request, id)
-    staging = _staging(request, id)
+    staging = _staging_or_seed(request, id)
     current = staging.current()
     if current is None:
         raise HTTPException(status_code=404, detail="no script for model")
@@ -171,7 +196,7 @@ def get_script_params(
 ) -> Dict[str, Any]:
     """Return the current script's PARAMS dict (ast extraction, no execution)."""
     _upload_path(request, id)
-    staging = _staging(request, id)
+    staging = _staging_or_seed(request, id)
     current = staging.current()
     if current is None:
         raise HTTPException(status_code=404, detail="no script for model")

@@ -28,8 +28,10 @@ afterwards. A successful run publishes ``out.ifc`` atomically (tmp +
 
 from __future__ import annotations
 
+import logging
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -39,19 +41,44 @@ from fastapi import HTTPException
 
 from .config import Settings
 
+logger = logging.getLogger(__name__)
+
 RUN_TIMEOUT_S = 60
 MEM_LIMIT_BYTES = 1 << 30  # 1 GiB (RLIMIT_AS, virtual address space)
+MAX_PROCS = 256  # RLIMIT_NPROC：防 fork 炸弹
 STDERR_TAIL_BYTES = 2048
 
 _BACKEND: Optional[str] = None
 
 
-def _limits() -> None:
+def _limits(nproc: int) -> None:
     """preexec_fn: apply resource limits (inherited by bwrap and its child)."""
     import resource
 
     resource.setrlimit(resource.RLIMIT_CPU, (RUN_TIMEOUT_S + 30, RUN_TIMEOUT_S + 60))
     resource.setrlimit(resource.RLIMIT_AS, (MEM_LIMIT_BYTES, MEM_LIMIT_BYTES))
+    resource.setrlimit(resource.RLIMIT_NPROC, (nproc, nproc))
+
+
+def _nproc_budget() -> int:
+    """RLIMIT_NPROC 目标值：当前 uid 的 task 数 + MAX_PROCS 余量。
+
+    RLIMIT_NPROC 按 uid 的全部 task（含既有线程）计数，固定上限会让高线程
+    环境下的沙箱连 fork/userns 都建不了（EAGAIN）；「现有 + 余量」把脚本
+    能新增的进程数约束在 MAX_PROCS 以内，与环境无关。
+    """
+    uid = os.getuid()
+    current = 0
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit():
+            continue
+        try:
+            if os.stat(f"/proc/{entry}").st_uid != uid:
+                continue
+            current += len(os.listdir(f"/proc/{entry}/task"))
+        except OSError:
+            continue
+    return current + MAX_PROCS
 
 
 def detect_backend() -> str:
@@ -71,6 +98,12 @@ def detect_backend() -> str:
             _BACKEND = "bwrap"
         except (subprocess.SubprocessError, OSError):
             _BACKEND = "rlimit"
+    if _BACKEND == "bwrap":
+        logger.info("script sandbox backend: bwrap (ro root + unshare-net)")
+    else:
+        logger.warning(
+            "script sandbox backend: rlimit 降级（bwrap 不可用；沙箱外 FS 写与网络不拦截）"
+        )
     return _BACKEND
 
 
@@ -157,24 +190,34 @@ def run_script(
         tmp_out = os.path.join(workdir, "out.ifc")
 
         cmd = _sandbox_cmd(workdir) + [sys.executable, script_path, tmp_out]
+        nproc = _nproc_budget()  # 在父进程算好，preexec 里不做 /proc 扫描
+        proc = subprocess.Popen(
+            cmd,
+            cwd=workdir,
+            env=_sandbox_env(settings, workdir),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            preexec_fn=lambda: _limits(nproc),
+            start_new_session=True,  # child 成进程组组长，超时杀整组
+        )
         try:
-            proc = subprocess.run(
-                cmd,
-                cwd=workdir,
-                env=_sandbox_env(settings, workdir),
-                timeout=timeout,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                preexec_fn=_limits,
-                start_new_session=True,
-            )
+            _, stderr = proc.communicate(timeout=timeout)
         except subprocess.TimeoutExpired:
-            raise HTTPException(
-                status_code=422, detail=f"脚本执行超时(>{timeout}s),已终止"
-            )
+            # killpg 杀整个进程组：只杀直接子进程会让脚本 fork 出的孙进程
+            # 成孤儿继续跑（M5 终审 I2）。
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                proc.kill()
+            _, stderr = proc.communicate()
+            detail = f"脚本执行超时(>{timeout}s),已终止进程组"
+            tail = _tail(stderr)
+            if tail:
+                detail += ": " + tail
+            raise HTTPException(status_code=422, detail=detail)
 
         if proc.returncode != 0:
-            tail = _tail(proc.stderr) or f"exit code {proc.returncode}"
+            tail = _tail(stderr) or f"exit code {proc.returncode}"
             raise HTTPException(
                 status_code=422, detail=f"脚本执行失败(exit {proc.returncode}): {tail}"
             )

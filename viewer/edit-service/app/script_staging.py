@@ -122,6 +122,18 @@ class ScriptStaging:
         self.cursor = -1
         self._notify()
 
+    def seed_base(self, base: str) -> None:
+        """Seed base from a saved big version; no-op when a script already exists.
+
+        Chat-archived models only have ``scripts/v{n}.py`` on disk and no
+        staging buffer — seeding lets the read endpoints serve the latest big
+        version instead of 404 (idempotent).
+        """
+        if self.current() is not None:
+            return
+        self.base = base
+        self._notify()
+
 
 class StagingRegistry:
     """App-wide map of model_id -> ScriptStaging, optionally persisted to disk."""

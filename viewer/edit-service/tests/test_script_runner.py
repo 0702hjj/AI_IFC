@@ -11,7 +11,12 @@ outside the sandbox cwd (bwrap read-only root).
 
 from __future__ import annotations
 
+import json
 import os
+import re
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -156,6 +161,37 @@ if __name__ == "__main__":
     build(PARAMS, sys.argv[1])
 '''
 
+FORK_LOOP_SCRIPT = '''\
+PARAMS = {"a": 1}
+
+def build(params, out_path):
+    import os, sys, time
+    if os.fork() == 0:
+        sys.stderr.write("CHILD:%d\\n" % os.getpid())
+        sys.stderr.flush()
+        while True:
+            time.sleep(1)
+    while True:
+        time.sleep(1)
+
+if __name__ == "__main__":
+    import sys
+    build(PARAMS, sys.argv[1])
+'''
+
+
+def _pid_gone(pid: int) -> bool:
+    """进程已消失或已僵死（待 reap，等同已死）。"""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    try:
+        with open(f"/proc/{pid}/stat", "r", encoding="ascii") as fh:
+            return fh.read().rsplit(") ", 1)[1].split()[0] == "Z"
+    except OSError:
+        return True
+
 
 @pytest.fixture()
 def settings():
@@ -296,3 +332,62 @@ class TestMalicious:
         out = tmp_path / "net.ifc"
         script_runner.run_script(settings, script, str(out))
         assert out.read_text(encoding="utf-8") == "NET-BLOCKED"
+
+
+class TestProcessGroupKill:
+    """超时必须杀整个进程组（start_new_session + killpg）：脚本 fork 出的
+    孙进程不得成孤儿继续跑（M5 终审 I2）。"""
+
+    def test_timeout_kills_forked_children(self, settings, tmp_path: Path):
+        out = tmp_path / "fork.ifc"
+        with pytest.raises(HTTPException) as exc:
+            script_runner.run_script(settings, FORK_LOOP_SCRIPT, str(out), timeout=2)
+        assert exc.value.status_code == 422
+        assert "超时" in str(exc.value.detail)
+        assert not out.exists()
+        m = re.search(r"CHILD:(\d+)", str(exc.value.detail))
+        assert m, f"fork 出的子进程 pid 应随 stderr 截尾带出: {exc.value.detail}"
+        child_pid = int(m.group(1))
+        # 条件等待 killpg 生效（禁止固定 sleep）
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if _pid_gone(child_pid):
+                break
+            time.sleep(0.05)
+        else:
+            pytest.fail(f"forked child {child_pid} survived process-group kill")
+
+    def test_limits_include_nproc(self):
+        """preexec 的 rlimits 含 RLIMIT_NPROC（现有 task 数 + MAX_PROCS 余量，防 fork 炸弹）。"""
+        budget = script_runner._nproc_budget()
+        assert budget >= script_runner.MAX_PROCS
+        code = (
+            "import json, resource, sys\n"
+            "sys.stdout.write(json.dumps(resource.getrlimit(resource.RLIMIT_NPROC)))\n"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            preexec_fn=lambda: script_runner._limits(budget),
+            capture_output=True,
+            timeout=10,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert json.loads(proc.stdout) == [budget, budget]
+
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root 可能绕过 RLIMIT_NPROC")
+    def test_nproc_budget_blocks_fork_bomb(self, settings, tmp_path: Path):
+        """超出余量的 fork 被 RLIMIT_NPROC 拦截 → 422 且不产出文件。"""
+        script = GOOD_SCRIPT.replace(
+            'fh.write("ISO-10303-21; /* " + params["name"] + " */")',
+            "import os, time\n"
+            f"        for _ in range({script_runner.MAX_PROCS} + 50):\n"
+            "            if os.fork() == 0:\n"
+            "                time.sleep(5)\n"
+            "                os._exit(0)\n"
+            "        fh.write('FORKED')",
+        )
+        out = tmp_path / "bomb.ifc"
+        with pytest.raises(HTTPException) as exc:
+            script_runner.run_script(settings, script, str(out), timeout=30)
+        assert exc.value.status_code == 422
+        assert not out.exists()
