@@ -1,10 +1,10 @@
 # W-0016: AI 循环接入（脚本 diff 注入下次 prompt）
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P1
 - **Milestone：** M5 script-as-source
 - **来源：** spec 2026-08-06-script-as-source-design.md（「让 AI 下一次输出看到差异」）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/script-as-source
 
 ## 背景
 
