@@ -134,7 +134,7 @@ POST /models/{id}/commit
 
 - **人**：浏览器 → Go 代理（`/api/models/{id}/edit/*`）→ edit-service；编排附带 change log + 重转
 - **AI**：REST 直连 edit-service 或经 Go 代理，**同一套端点**；`provenance.source="AI"` 标记来源
-- **工具目录**（报告 §2.3 的 REST 形态）：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，`scripts/export_openapi.py` 再生成，保证文档与实现不漂移）+ `docs/site/reference/ai.md`（端点目录、JSON Schema、curl 全流程）
+- **工具目录**（报告 §2.3 的 REST 形态）：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，`viewer/edit-service/scripts/export_openapi.py` 再生成，保证文档与实现不漂移）+ `docs/site/reference/ai.md`（端点目录、JSON Schema、curl 全流程）
 - **MCP**：报告 §4.1 建议 REST+MCP 双暴露；v1 REST 先行，MCP 薄包装（参考 ifcmcp 31 工具模式）列 v1.1
 - **沙箱/代码执行**：属 AI 侧范围；架构不阻塞（edit-service 进程隔离，后续可加 execute 端点）
 - **认证**：v1 单机自托管不做（报告 §2.1 的 OAuth2/RBAC 属 v2）；provenance 是声明字段，无防伪语义
@@ -145,6 +145,7 @@ POST /models/{id}/commit
 2. **存储**：报告 §4 混合存储（Git+DB）——DB 半已落地（PG 三表 + File 降级），Git 半暂缓（SPF step-id 噪声问题无收益优先级）
 3. **oldValue**：override 阶段记录前次 override 值（历史数据保留）；真改阶段起一律为 IFC 真原值（N+2 已解决）
 4. **几何 diff**：报告 §1.3 全量 IfcDiff——v1 限定属性级（几何 diff 的计算量与语义噪声，见 [PLAN v0.1.0](../../work/PLAN-v0.1.0.md)）
+5. **script-as-source（2026-08-06 用户裁决，M5 已落地）**：Python 构建脚本取代 design JSON 成为 IFC 的唯一一一对应表示。design JSON 降级为 AI 起草阶段的辅助草稿——不是完整表示、不是 IFC 标注文件、不进版本、不参与 diff。存量 design JSON 管线（regenerate / design 表单 / design 大版本与 diff 引擎）直接下线，老模型仅保留 IFC 快照。版本模型不变（大版本回退 + 5-10 步短回溯暂存链），diff 三层×两级（脚本 text/PARAMS diff + ifcdiff 属性级 + 外部模型兜底）。完整 spec：`docs/superpowers/specs/2026-08-06-script-as-source-design.md`
 
 ## 八、边界与技术债
 

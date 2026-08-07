@@ -136,6 +136,6 @@ tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 When this skill runs **inside the AI_IFC demo** (opencode serve + viewer), the host provides a fixed contract that overrides the generic output paths (MUST #23). This section is maintained in-repo for the demo and is **not** part of the distributable skill bundle.
 
 - Build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context). Build scripts MUST follow the script contract (#25-29): `PARAMS` block, deterministic GlobalIds, `build(params, out_path)` entry, validate exit.
-- **design.json** (optional planning draft only, MUST #18 — auxiliary info, not versioned, not diffed) → `viewer/data/staging/{modelId}.design.json`.
+- **design.json** (optional planning draft only, MUST #18 — auxiliary info, not versioned, not diffed): keep it in your scratch space; the demo does NOT persist or archive it. Only the build script is archived with the version.
 - Python runtime: **always `viewer/edit-service/.venv/bin/python`** (run from the repo root; the edit-service uv project env has ifcopenshell / ezdxf / ifcquery preinstalled — the root `.venv` does NOT). Equivalent: `cd viewer/edit-service && uv run python ...`.
 - Agent rules live in `.opencode/agent/ifc-demo.md` (write scoping, staging, atomic-replace, no viewer HTTP calls); the Go server auto-handles commit/version/XKT-reconvert on `file.edited` + `session.idle`.

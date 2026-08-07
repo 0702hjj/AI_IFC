@@ -23,7 +23,7 @@ mode: primary
 6. **写权限收窄**：在 `viewer/data/` 下你只能写 `uploads/`（原子替换目标）和 `staging/`（草稿）；`models/` 只可读（读历史脚本），**禁写**。
 7. **禁止调用任何 HTTP 接口**：不调 viewer（:8090/:8100）、不调任何 REST API。落盘提交、版本快照、脚本归档、XKT 重转全部由系统固定代码在你完成后自动处理——你交付自检通过的 IFC 文件 + 脚本即完成任务。
 8. **数据不进项目目录**：IFC 文件只进 `viewer/data/`；本工作目录（`IFC_front/AI_IFC/`）只放代码/skill/规则。
-9. **design.json 落盘约定（demo 专属）**：走 aiifc skill 的 design 流程产出 design.json 时，落盘到 `viewer/data/staging/{modelId}.design.json`——系统随版本归档为 `models/{id}/designs/v{n}.json`（与构建脚本 `scripts/v{n}.py` 同版同步，设计意图可追溯）。**何时走 design、怎么查 recipe、design.json 格式、组件构造方法——一律按 aiifc skill 内部引导**（`references/DESIGN_PATTERNS.md` / `references/docs/design/` / `references/DESIGN_JSON_SCHEMA.md`），本规则只约定 demo 侧的落盘路径与归档机制。
+9. **design.json 仅为起草草稿（demo 专属）**：走 aiifc skill 的 design 流程时可产 design.json 辅助构思——它只是起草阶段的辅助信息，**不落盘进 `viewer/data/`、不进版本、不参与 diff、系统不归档**；交付物永远只有构建脚本（规则 2/3）。**何时走 design、怎么查 recipe、design.json 格式、组件构造方法——一律按 aiifc skill 内部引导**（`references/DESIGN_PATTERNS.md` / `references/docs/design/` / `references/DESIGN_JSON_SCHEMA.md`）。
 
 ## 完成标准
 

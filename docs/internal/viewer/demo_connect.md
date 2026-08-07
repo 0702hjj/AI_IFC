@@ -223,8 +223,8 @@ rollback_to(modelId, version):
 - **改文件统一走主链路**：修改/从零构建目标都是 `uploads/{modelId}.ifc`（从零时初始为骨架）
 - 流程一律：`staging/` 改副本 → 自检 → 原子替换（写 `.new` 再 `os.replace`）
 - staging **仅作草稿区**（原 `staging/{chatSessionId}.ifc` 从零生成约定已废弃）
-- **复杂建模 design 先行**：多房间/异形/多层等复杂几何，先读 `DESIGN_PATTERNS.md` + `docs/design/` + `DESIGN_JSON_SCHEMA.md` 选型，产出 design.json 落盘 `staging/{modelId}.design.json`，经 `design_builder.py` → 构建脚本。简单单墙/板可跳过。
-- **制品随版本同步归档**（Go notify 在 commit 后自动）：`staging/{modelId}.py` → `models/{id}/scripts/v{n}.py`；`staging/{modelId}.design.json` → `models/{id}/designs/v{n}.json`。两制品同版归档、设计意图与构建脚本可追溯。无对应 staging 文件则跳过（手术式编辑无脚本、简单改动无 design.json）。
+- **复杂建模 design 先行**：多房间/异形/多层等复杂几何，先读 `DESIGN_PATTERNS.md` + `docs/design/` + `DESIGN_JSON_SCHEMA.md` 选型，可产 design.json 作起草草稿（仅辅助构思，不落盘进 dataDir、不进版本不归档），经 `design_builder.py` → 构建脚本。简单单墙/板可跳过。
+- **制品随版本同步归档**（Go notify 在 commit 后自动）：`staging/{modelId}.py` → `models/{id}/scripts/v{n}.py`——构建脚本是唯一随版本归档的制品（与 IFC 一一对应，可重现）。无 staging 脚本则跳过（手术式编辑无脚本）。
 - 自检三件套（可打开 / 唯一 IfcProject / 骨架完整）；写权限仅 uploads 与 staging；禁调 HTTP
 
 ## 5.3 会话连续性（已实现）

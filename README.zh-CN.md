@@ -67,7 +67,7 @@ cd ../web && npm install && npm run dev
 | 路径 | 适用 | 入口 |
 |---|---|---|
 | [REST 编辑 API](https://0702hjj.github.io/AI_IFC/reference/ai) | 细粒度属性/属性集编辑，pending → commit，带版本与 diff | `:8100/models/{id}/...` |
-| [AI Skill (aiifc)](https://0702hjj.github.io/AI_IFC/reference/ai-skill) | 从零建模型 / 大改几何 | `skills/aiifc/`——agent 直接写 `ifcopenshell.api` 代码 |
+| [AI Skill (aiifc)](https://0702hjj.github.io/AI_IFC/reference/ai-skill) | 从零建模型 / 大改几何 | `skills/aiifc/`——agent 产出完整 Python **构建脚本**（顶层 `PARAMS` + `build()`），脚本与 IFC 一一对应、进版本、可 diff（script-as-source） |
 
 skill 与 agent 无关（opencode、Claude Code、Cursor 等皆可）。打包分发包：
 

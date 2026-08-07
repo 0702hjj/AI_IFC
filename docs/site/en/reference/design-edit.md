@@ -1,56 +1,67 @@
-# Design JSON editing & version diff (designer assist)
+# Script-as-source: script editing & version diff (designer assist)
 
-A "designer assist" editing/version model: **the design JSON is the single source of truth**; IFC is a derived artifact. Edits land on the design JSON (semantic parameter layer). No per-step history — diffs are computed only **between big versions**, and they are deliberately lightweight.
+A "designer assist" editing/version model: **the Python build script is the only one-to-one representation of the IFC model (script-as-source)**; the IFC file is a derived artifact produced by sandboxed script execution. Edits land on the script (PARAMS or the script body). No per-step history — diffs are computed between big versions and between staging steps, and they are deliberately lightweight.
+
+## Boundary: where design JSON fits
+
+**Design JSON is an auxiliary draft from the AI drafting stage** — it is NOT a complete representation of the model, NOT an annotation file for the IFC, NOT versioned, and NOT diffed. **The only artifact that corresponds one-to-one with the IFC is the build script**: `scripts/v{n}.py` → (sandboxed run) → `versions/v{n}.ifc`. The AI may produce a design JSON draft to organize its thinking for complex models (see the [aiifc skill](/en/reference/ai-skill)), but the deliverable is always the script.
+
+## Workflow: plan draft → script → IFC
+
+```
+plan / design draft (optional, AI thinking aid, never versioned)
+   → build script v{n}.py (single source of truth: PARAMS + build())
+   → sandboxed execution → IFC v{n} (derived artifact, rebuildable from the script)
+```
 
 ## Three core concepts
 
-### 1. Design JSON (the edit surface)
+### 1. The build script (the edit surface)
 
-`design JSON` expresses design intent (wall axes / along-axis openings / thickness / storey heights) — never coordinate math. The frontend locates a selected component's design entry via `Pset_AIIFC.designKey`, edits parameters, then regenerates the IFC.
+Every AI-generated model corresponds to a complete Python build script following the script contract:
 
-Every element carries a stable `key` (e.g. `"1F:wall:0"`):
-
-- The key never changes across edits → cross-version diff stays aligned.
-- At build time it derives a **deterministic GlobalId** (`uuid5(NAMESPACE, key)`, identical across runs) and is written back to `Pset_AIIFC.designKey`.
+- A top-level literal `PARAMS = {...}` dict (JSON-compatible) holding every tunable parameter.
+- Deterministic identity: each element's GlobalId derives from `uuid5(NAMESPACE_AI_IFC, key)` and is written to `Pset_AIIFC.designKey` — same script + same PARAMS → identical GlobalIds across runs, so cross-version diffs stay aligned.
+- Entry point `build(params: dict, out_path: str)`; the output must pass `ifcopenshell.validate`.
 
 ### 2. Staging (WPS-style, up to 10 steps)
 
-Edits go into a staging buffer (up to 10 states, persisted atomically and restored after a restart) with `<-` / `->` navigation:
+Script edits (full replace or PARAMS-only rewrite) go into a staging buffer (up to 10 steps, persisted atomically and restored after a restart) with undo / redo:
 
-- **Not saved** → discarding is lossless: **zero diff, zero version**.
-- **Saved** → the staging chain is dropped and a **big version** is created.
+- **Discard** → the staging chain is dropped: **zero diff, zero version**.
+- **Run** → the staged script executes in the sandbox for a preview, without creating a version.
+- **Save** → the script runs, and script + IFC are snapshotted together as a **big version**.
 
 ```
-edit staging (10 steps, persisted, undo/redo)
+script staging (10 steps, persisted, undo/redo)
    ├─ discard → dropped (no trace)
-   └─ save → big version v{n} (designs/v{n}.json + versions/v{n}.ifc)
-             └─ one diff between v{n-1} and v{n} only
+   ├─ run → sandboxed preview into uploads (no version)
+   └─ save → big version v{n} (scripts/v{n}.py + versions/v{n}.ifc)
 ```
 
-### 3. Big versions & diff
+### 3. Big versions & rollback
 
-- **Big version** = an explicit save point (AI auto-saves one on first generation; the designer saves subsequent ones).
-- Paired snapshots: `models/{id}/designs/v{n}.json` + `models/{id}/versions/v{n}.ifc`.
-- **Rollback** = restore a design JSON version, then regenerate the IFC (never per-step, never copying IFC).
-- Diff is computed only between two big versions — lightweight, stateless, independent.
+- **Big version** = an explicit save point, snapshotted as a pair: `models/{id}/scripts/v{n}.py` + `models/{id}/versions/v{n}.ifc`.
+- **Rollback** = restore a script version, then re-run it to rebuild the IFC (script and IFC can never diverge).
+- The next AI iteration receives: current script + script diff + IFC semantic diff summary → incremental edits instead of rewrites.
 
-## Diff engine (between two big versions)
+## Diff engine (three layers × two granularities)
 
-Primary path — **design JSON semantic diff** (covers models with provenance):
+Two granularities: **big versions** (v{n-1} ↔ v{n}) and **small versions** (between staging steps, lightweight inline diff). Both are visible to the AI and the user.
 
-```json
-{
-  "base": "v1", "target": "v2", "engine": "design-json",
-  "changed": [
-    {"key": "1F:wall:0", "type": "IfcWall", "human_label": "1F wall 1 seg @ [0,0]→[14,0]",
-     "changes": [{"field": "t", "old": 0.2, "new": 0.3}, {"field": "axis[1]", "old": [12,0], "new": [14,0]}]},
-    {"key": "1F:wall:1", "type": "IfcWall", "human_label": "1F wall 1 seg @ [0,8]→[12,8]", "action": "removed"},
-    {"key": "1F:opening:1", "type": "IfcDoor", "human_label": "1F door w=1.0m", "action": "added"}
-  ]
-}
-```
+| Layer | Object | Audience |
+|---|---|---|
+| Script unified text diff + PARAMS key-level changes | `scripts/v{n-1}.py` ↔ `v{n}.py`; between staging steps | AI (context for the next output) + user (script diff view) |
+| IFC semantic diff (ifcdiff, attribute-level, GlobalId-aligned) | `versions/v{n-1}.ifc` ↔ `v{n}.ifc` | User (Diff Viewer, see [version diff](/en/viewer/versions-diff)) |
+| Externally uploaded models | attribute-level semantic diff (by GlobalId) when no script exists | User |
 
-Fallback path — **IFC semantic fingerprint diff** (covers externally uploaded / non-design models): compares element fingerprints (type / name / psets, keyed by designKey or GlobalId), no raw STEP parsing.
+## PARAMS form & script editor (frontend)
+
+The Design panel parses the current script's `PARAMS` block to generate a parameter form automatically (AST extraction, no execution); drilling down opens the script editor for direct edits. Form submit / script save = one staging step; "save version" = run the script → big version. The compare panel shows script diff and IFC semantic diff between two big versions, or small-version diffs between adjacent staging steps.
+
+## Execution safety
+
+The edit-service runs scripts in a subprocess with a 60s timeout, rlimits (CPU/memory) and an isolated temporary directory; failures return 422 with the last 2KB of stderr. Container deployments are naturally offline (compose internal network).
 
 ## API
 
@@ -58,19 +69,18 @@ All proxied through the Go server (`/api/v1`):
 
 | Endpoint | Meaning |
 |---|---|
-| `GET /api/v1/models/{id}/design` | current design JSON (staged or last saved) |
-| `PUT /api/v1/models/{id}/design` | stage one design JSON edit |
-| `POST /api/v1/models/{id}/design/undo\|redo\|discard` | staging navigation / discard |
-| `POST /api/v1/models/{id}/design/regenerate` | regenerate IFC from staged design (design_builder → build_script) |
-| `POST /api/v1/models/{id}/design/save` | promote staged design to a big version (paired snapshot) |
-| `GET /api/v1/models/{id}/designs` | list big versions |
-| `POST /api/v1/models/{id}/design/rollback` | restore a design JSON version |
-| `POST /api/v1/models/{id}/design/diff` | design JSON semantic diff (primary) |
-| `POST /api/v1/models/{id}/design/diff-ifc` | IFC fingerprint diff (fallback) |
+| `GET /api/v1/models/{id}/script` | current script (staged state or last saved) |
+| `PUT /api/v1/models/{id}/script` | stage a script edit (full replace or PARAMS-only) |
+| `GET /api/v1/models/{id}/script/params` | the current script's PARAMS dict (AST extraction, no execution) |
+| `POST /api/v1/models/{id}/script/undo\|redo\|discard` | staging navigation / discard |
+| `POST /api/v1/models/{id}/script/run` | sandbox-run the staged script (preview, no version) |
+| `POST /api/v1/models/{id}/script/save` | promote the staged script to a big version (run + paired snapshot) |
+| `GET /api/v1/models/{id}/scripts` | list big versions |
+| `POST /api/v1/models/{id}/script/rollback` | restore a script version and re-run it |
+| `POST /api/v1/models/{id}/script/diff` | script diff between two big versions (text + PARAMS changes) |
+| `GET /api/v1/models/{id}/script/staging/diff` | small-version diff between staging steps |
 
-Frontend: select a component in the viewer → Design panel param form → stage / undo / redo / discard → regenerate + save big version; the version-compare panel shows the semantic diff between two big versions.
+## Relationship to IFC attribute editing
 
-## Relationship to legacy IFC editing
-
-- Models generated from design JSON: edit / version / diff go through this model.
-- Externally uploaded IFC (no design JSON): diff degrades to IFC fingerprint; attribute overrides remain available (see [IFC property editing](/en/viewer/editing)).
+- Script-generated models: edit / version / diff go through this model; fine-grained attribute edits remain available via [IFC attribute editing](/en/viewer/editing) (pending → commit).
+- Externally uploaded IFC (no script): no script diff; version compare uses attribute-level semantic diff (by GlobalId).
