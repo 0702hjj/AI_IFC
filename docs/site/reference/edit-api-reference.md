@@ -85,6 +85,25 @@ Diff two model versions (or base version vs the current upload state).
 | 200 | Successful Response |
 | 422 | Validation Error |
 
+### POST /models/{id}/diff/upload
+
+Post Diff Upload
+
+Diff an uploaded (user-modified) IFC against the current model state.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
 ### PUT /models/{id}/entities/{guid}
 
 Put Entity
@@ -445,6 +464,33 @@ List script big versions (empty for legacy IFC-only models).
 | 200 | Successful Response |
 | 422 | Validation Error |
 
+### POST /models/{id}/user-edits
+
+Post User Edits
+
+Append USER-annotated modification events to the model's edit history.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "$ref": "#/components/schemas/UserEditsBody"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
 ### GET /models/{id}/versions
 
 Get Versions
@@ -465,6 +511,25 @@ List version snapshots for a model (empty + current=null before any commit).
 | 422 | Validation Error |
 
 ## 组件 Schema
+
+### Body_post_diff_upload_models__id__diff_upload_post
+
+```json
+{
+  "properties": {
+    "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "File"
+    }
+  },
+  "type": "object",
+  "required": [
+    "file"
+  ],
+  "title": "Body_post_diff_upload_models__id__diff_upload_post"
+}
+```
 
 ### CommitBody
 
@@ -571,15 +636,27 @@ List version snapshots for a model (empty + current=null before any commit).
       "type": "string",
       "enum": [
         "UI",
-        "AI"
+        "AI",
+        "USER"
       ],
       "title": "Source",
       "default": "UI"
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Origin"
     }
   },
   "type": "object",
   "title": "Provenance",
-  "description": "Who performed an edit: the web UI or an AI agent."
+  "description": "Who performed an edit: the web UI, an AI agent, or an external user edit.\n\n``origin`` further qualifies USER edits (e.g. ``upload`` for a modified\nIFC/DXF file parsed by the MCP server)."
 }
 ```
 
@@ -683,6 +760,108 @@ List version snapshots for a model (empty + current=null before any commit).
   ],
   "title": "ScriptDiffBody",
   "description": "Body of POST /models/{id}/script/diff: two big versions."
+}
+```
+
+### UserEditEvent
+
+```json
+{
+  "properties": {
+    "guid": {
+      "type": "string",
+      "title": "Guid"
+    },
+    "name": {
+      "type": "string",
+      "title": "Name",
+      "default": ""
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "added",
+        "removed",
+        "modified"
+      ],
+      "title": "Kind"
+    },
+    "changes": {
+      "items": {
+        "$ref": "#/components/schemas/UserFieldChange"
+      },
+      "type": "array",
+      "title": "Changes"
+    }
+  },
+  "type": "object",
+  "required": [
+    "guid",
+    "kind"
+  ],
+  "title": "UserEditEvent",
+  "description": "One located user modification (IFC element or DXF entity/layer)."
+}
+```
+
+### UserEditsBody
+
+```json
+{
+  "properties": {
+    "origin": {
+      "type": "string",
+      "enum": [
+        "ifc-upload",
+        "dxf-upload"
+      ],
+      "title": "Origin"
+    },
+    "author": {
+      "type": "string",
+      "title": "Author",
+      "default": "user-upload"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/components/schemas/UserEditEvent"
+      },
+      "type": "array",
+      "title": "Events"
+    }
+  },
+  "type": "object",
+  "required": [
+    "origin",
+    "events"
+  ],
+  "title": "UserEditsBody",
+  "description": "Body of POST /models/{id}/user-edits."
+}
+```
+
+### UserFieldChange
+
+```json
+{
+  "properties": {
+    "field": {
+      "type": "string",
+      "title": "Field"
+    },
+    "oldValue": {
+      "title": "Oldvalue"
+    },
+    "newValue": {
+      "title": "Newvalue"
+    }
+  },
+  "type": "object",
+  "required": [
+    "field"
+  ],
+  "title": "UserFieldChange",
+  "description": "One field-level change inside a user modification event."
 }
 ```
 

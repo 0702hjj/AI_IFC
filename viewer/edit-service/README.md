@@ -39,6 +39,8 @@ history 持久化在 `{VIEWER_DATA_DIR}/models/{id}/edit-history.json`（原子�
 | --- | --- |
 | `GET /models/{id}/versions` | `{"versions": [{"version": "v1", "createdAt": ...}, ...], "current": "v2"}`；未 commit 过时 versions 为空、current 为 null |
 | `POST /models/{id}/diff` | body `{"base": "v1", "target": "v2"}`（target 也接受 `"current"` = uploads 现态）。返回 `{"base", "target", "added": [guid], "removed": [guid], "changed": [{"guid", "changes": [{"field", "old", "new"}]}]}`；版本不存在 → 404；缺参 → 422 |
+| `POST /models/{id}/diff/upload` | multipart 上传用户改后的 IFC，与 uploads 现态跑同一套语义 diff（不落盘、不缓存）。返回 `{"base": "current", "target": "upload", ...diff, "labels": {guid: {"name", "type"}}}`（removed 的 label 取自基线文件）；模型不存在 → 404；非 IFC → 422 |
+| `POST /models/{id}/user-edits` | 把结构化「用户修改事件」追加到 edit-history：body `{"origin": "ifc-upload"\|"dxf-upload", "author"?, "events": [{"guid", "name"?, "kind": "added"\|"removed"\|"modified", "changes": [{"field", "oldValue", "newValue"}]}]}`，每条 stamped `provenance={"source": "USER", "origin"}` + `operation="upload"`；events 空 → 422；模型不存在 → 404 |
 
 diff 语义（`app/diffing.py`，基于 ifcdiff 的 `IfcDiff`，仅以 `attributes`/`property` 两种 relationship 运行）：以 GlobalId 为实体标识；changed 归约为实体直接属性与 pset 属性的字段级 old→new，entity 引用属性（ObjectPlacement/Representation 等几何表示层）不参与比较，天然过滤几何噪声。
 

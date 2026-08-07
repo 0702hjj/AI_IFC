@@ -72,6 +72,22 @@ def _element_changes(
     return changes
 
 
+def element_labels(path: str, guids: List[str]) -> Dict[str, Dict[str, str]]:
+    """Human-readable labels {"name", "type"} for guids in the IFC at path."""
+    model = ifcopenshell.open(path)
+    labels: Dict[str, Dict[str, str]] = {}
+    for guid in guids:
+        try:
+            element = model.by_guid(guid)
+        except RuntimeError:
+            continue
+        labels[guid] = {
+            "name": element.Name or "",
+            "type": element.is_a(),
+        }
+    return labels
+
+
 def compute_diff(old_path: str, new_path: str) -> Dict[str, Any]:
     """Diff two IFC files; return {"added", "removed", "changed"} by GlobalId."""
     old = ifcopenshell.open(old_path)
