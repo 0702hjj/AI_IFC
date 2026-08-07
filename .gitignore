@@ -12,11 +12,6 @@ wheels/
 
 .env
 
-output/
-
-# Sandbox artifacts
-sandbox/
-
 # Generated skills archives
 skills/*.tar.gz
 skills/dist/
@@ -26,7 +21,6 @@ skills/dist/
 # CAD/export artifacts
 *.step
 *.stl
-examples.py
 
 # AI skill 运行期产物（design_review / ifc_inspect 自动写出）
 analysis_results/
