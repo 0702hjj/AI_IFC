@@ -4,6 +4,8 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 )
@@ -54,7 +56,8 @@ func (h *handler) scriptPost(action string) func(http.ResponseWriter, *http.Requ
 
 // scriptMutatingPost 用于会重写 uploads/{id}.ifc 的动作（run/save/rollback，
 // 见 edit-service routes_scripts.py _run_into_uploads）：成功后排 XKT 重转，
-// 否则前端 3D 不刷新（M5 集成缺口）。
+// 否则前端 3D 不刷新（M5 集成缺口）。沙箱执行最长 60s（RUN_TIMEOUT_S），
+// 必须走 slow client（M5 终审 C2）。
 func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body := readBody(w, r)
@@ -62,7 +65,7 @@ func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *h
 			return
 		}
 		modelID := r.PathValue("id")
-		if !h.scriptProxy(w, r, http.MethodPost, "/models/"+modelID+"/script/"+action, body) {
+		if !h.scriptProxyDo(w, r, http.MethodPost, "/models/"+modelID+"/script/"+action, body, h.ed.DoSlow) {
 			return
 		}
 		if err := h.st.SetStatus(modelID, "converting", ""); err != nil {
@@ -87,9 +90,15 @@ func (h *handler) scriptStagingDiff(w http.ResponseWriter, r *http.Request) {
 }
 
 // scriptProxy 透传 edit-service 的 script 端点（包 envelope + 错误映射，P0-1 教训）。
-// 返回 edit-service 调用是否成功（供成功后编排重转）。
+// 返回 edit-service 调用是否成功（供成功后编排重转）。只读/轻量端点走 fast client。
 func (h *handler) scriptProxy(w http.ResponseWriter, r *http.Request, method, path string, body []byte) bool {
-	raw, err := h.ed.Do(r.Context(), method, path, body)
+	return h.scriptProxyDo(w, r, method, path, body, h.ed.Do)
+}
+
+// scriptProxyDo 用指定 client 方法转发（Do=fast 只读；DoSlow=slow 沙箱执行）。
+func (h *handler) scriptProxyDo(w http.ResponseWriter, r *http.Request, method, path string, body []byte,
+	do func(context.Context, string, string, []byte) (json.RawMessage, error)) bool {
+	raw, err := do(r.Context(), method, path, body)
 	if err != nil {
 		log.Printf("script %s %s: %v", method, path, err)
 		writeEditErr(w, err)

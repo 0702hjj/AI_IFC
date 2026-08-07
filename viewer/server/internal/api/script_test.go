@@ -6,9 +6,13 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
+
+	"ifcviewer/server/internal/editsvc"
 )
 
 // script 代理契约：edit-service 返回裸 JSON，Go 侧必须包 {code,message,data} envelope，
@@ -202,6 +206,35 @@ func TestScriptMutatingActionFailureNoEnqueue(t *testing.T) {
 		}
 	}
 	assertNoRun(t, env.runs)
+}
+
+// run/save/rollback 的沙箱执行最长 60s（edit-service RUN_TIMEOUT_S=60s），Go 侧 fast
+// client（10s）会先超时而 edit-service 继续跑完落盘 → 三方状态分叉（M5 终审 C2）。
+// 用注入的短超时 + 延迟 mock 断言 client 选择：fast=50ms < delay < slow=2s。
+func TestScriptSandboxActionsUseSlowClient(t *testing.T) {
+	delay := 300 * time.Millisecond
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(delay)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"ok":true}`))
+	}))
+	t.Cleanup(srv.Close)
+	env := newEditEnvWithClient(t, editsvc.NewWithTimeouts(srv.URL, 50*time.Millisecond, 2*time.Second), nil)
+
+	// run/save/rollback 走 slow client：300ms 延迟下必须成功。
+	for _, action := range []string{"run", "save", "rollback"} {
+		rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/script/"+action, `{}`)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: status = %d, want 200（应走 slow client，body %s）", action, rec.Code, rec.Body)
+		}
+		waitRun(t, env.runs)
+		waitReady(t, env.st, env.modelID)
+	}
+	// 只读端点保持 fast：同样的延迟必须超时（证明不是全局放宽超时）。
+	rec := doEditReq(t, env.mux, "GET", "/api/v1/models/"+env.modelID+"/script", "")
+	if rec.Code == http.StatusOK {
+		t.Fatal("GET /script 应走 fast client 并在 300ms 延迟下超时，实际 200")
+	}
 }
 
 // 小版本 diff（暂存链步间）：GET + query 透传，包 envelope（W-0012）。

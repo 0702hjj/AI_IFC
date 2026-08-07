@@ -111,6 +111,16 @@ func newEditEnv(t *testing.T, pyURL string) *editEnv {
 // newEditEnvChg 允许注入自定义 change.Store（nil 用默认 FileStore）。
 func newEditEnvChg(t *testing.T, pyURL string, chg change.Store) *editEnv {
 	t.Helper()
+	var ed *editsvc.Client
+	if pyURL != "" {
+		ed = editsvc.New(pyURL)
+	}
+	return newEditEnvWithClient(t, ed, chg)
+}
+
+// newEditEnvWithClient 允许注入自定义 editsvc.Client（如短超时断言 client 选择）。
+func newEditEnvWithClient(t *testing.T, ed *editsvc.Client, chg change.Store) *editEnv {
+	t.Helper()
 	st := store.NewStore(t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -121,10 +131,6 @@ func newEditEnvChg(t *testing.T, pyURL string, chg change.Store) *editEnv {
 		chg = change.NewFileStore(st.DataDir)
 	}
 	ovr := override.NewFileStore(st.DataDir)
-	var ed *editsvc.Client
-	if pyURL != "" {
-		ed = editsvc.New(pyURL)
-	}
 	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), chg, ovr, ed, 1<<20)
 	m, err := st.Create("ok.ifc", 4, strings.NewReader("fake"))
 	if err != nil {

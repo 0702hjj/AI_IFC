@@ -124,10 +124,15 @@ type Client struct {
 }
 
 func New(baseURL string) *Client {
+	return NewWithTimeouts(baseURL, 10*time.Second, 120*time.Second)
+}
+
+// NewWithTimeouts 注入 fast/slow 超时（测试用短超时断言 client 选择；生产用 New）。
+func NewWithTimeouts(baseURL string, fast, slow time.Duration) *Client {
 	return &Client{
 		base: baseURL,
-		fast: &http.Client{Timeout: 10 * time.Second},
-		slow: &http.Client{Timeout: 120 * time.Second},
+		fast: &http.Client{Timeout: fast},
+		slow: &http.Client{Timeout: slow},
 	}
 }
 
@@ -175,6 +180,17 @@ func (c *Client) do(ctx context.Context, hc *http.Client, method, path string, b
 // Do 透传任意 edit-service 端点（design-JSON 编辑/暂存/大版本等），返回原始 body。
 func (c *Client) Do(ctx context.Context, method, path string, body []byte) (json.RawMessage, error) {
 	data, err := c.do(ctx, c.fast, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(data), nil
+}
+
+// DoSlow 与 Do 同形但走 slow client：script run/save/rollback 触发沙箱执行
+//（edit-service script_runner.RUN_TIMEOUT_S=60s），fast 的 10s 会先于 edit-service
+// 超时，造成 Go 报错而 edit-service 已跑完落盘的三方状态分叉（M5 终审 C2）。
+func (c *Client) DoSlow(ctx context.Context, method, path string, body []byte) (json.RawMessage, error) {
+	data, err := c.do(ctx, c.slow, method, path, body)
 	if err != nil {
 		return nil, err
 	}
