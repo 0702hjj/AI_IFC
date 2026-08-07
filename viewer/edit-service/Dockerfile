@@ -6,6 +6,11 @@
 FROM python:3.10-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# bubblewrap：脚本沙箱的 bwrap backend（ro root + unshare-net）；缺它降级为 rlimit。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends bubblewrap \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY viewer/edit-service/pyproject.toml viewer/edit-service/uv.lock ./
 RUN uv sync --frozen --no-group dev

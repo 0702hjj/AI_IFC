@@ -61,7 +61,12 @@ Design 面板解析当前脚本的 `PARAMS` 块自动生成参数表单（ast �
 
 ## 执行安全
 
-edit-service 以 subprocess + timeout（60s）+ rlimits（CPU/内存）+ 独立临时目录执行脚本；失败返回 422 + stderr 截尾 2KB。容器部署天然无网（compose 内网）。
+edit-service 以 subprocess + 进程组杀死（timeout 60s，`start_new_session` + `killpg`，fork 出的孙进程一并终止）+ rlimits（CPU/内存/NPROC=现有 task 数 +256 余量）+ 独立临时目录执行脚本；失败返回 422 + stderr 截尾 2KB。文件系统与网络隔离分两层：
+
+- **bwrap backend（首选）**：官方镜像已装 bubblewrap，脚本跑在只读 root bind + `--unshare-net` 的沙箱里——沙箱外写操作直接 EROFS，网络不可达。
+- **rlimit 降级**：bwrap 不可用时（如裸机开发环境未安装）自动降级，只剩 rlimits + 独立 cwd，沙箱外 FS 写与网络**不拦截**；启动日志会打印所用 backend（`script sandbox backend: ...`），部署时确认看到 `bwrap` 字样。
+
+网络可达性取决于部署形态而非「天然无网」：compose 里 edit-service 与其他容器同处内网，脚本沙箱的网络隔离由 bwrap `--unshare-net` 提供；且 edit-service 自身无鉴权，compose 端口只绑 `127.0.0.1:8100`（loopback），不对宿主机外部发布，外部一律经 Go server 代理。
 
 ## API
 
