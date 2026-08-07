@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # Copyright (C) 2026 0702hjj
 
-"""Script diff (big versions + staging steps) and retained IFC fingerprint tests."""
+"""Script diff tests (big versions + staging steps)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app import ifc_fingerprint, script_diff, script_versions
-from tests.conftest import FIXTURE_IFC, MODEL_ID
+from app import script_diff, script_versions
+from tests.conftest import MODEL_ID
 
 SCRIPT_A = (
     'PARAMS = {"width": 12.0, "height": 3.0, "name": "a"}\n'
@@ -150,11 +150,3 @@ class TestStagingDiffEndpoint:
     def test_unknown_model_404(self, client: TestClient):
         r = client.get("/models/m_0000000000000000/script/staging/diff")
         assert r.status_code == 404
-
-
-class TestIfcFingerprint:
-    """指纹 diff 保留作外部模型兜底（design/diff-ifc 端点已随 W-0012 删除）。"""
-
-    def test_identical_files_no_diff(self):
-        r = ifc_fingerprint.ifc_fingerprint_diff(str(FIXTURE_IFC), str(FIXTURE_IFC))
-        assert r["changed"] == []

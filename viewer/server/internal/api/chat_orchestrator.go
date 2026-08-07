@@ -225,12 +225,10 @@ func (h *ChatHandler) notify(cs *chatSession, summary string) {
 	if vers, err := h.deps.Ed.GetVersions(ctx, modelID); err == nil {
 		version = vers.Current
 	}
-	// ⑤ 制品归档（过程与结果同存，随版本同步）：构建脚本 + 设计意图 JSON
-	// staging 命名：{modelId}.py（脚本）、{modelId}.design.json（设计意图）；
-	// 归档：models/{id}/scripts/v{n}.py、models/{id}/designs/v{n}.json。
-	// 无对应 staging 文件则跳过（手术式编辑无脚本；简单改动无 design.json）。
+	// ⑤ 制品归档（过程与结果同存，随版本同步）：构建脚本
+	// staging 命名：{modelId}.py；归档：models/{id}/scripts/v{n}.py。
+	// 无对应 staging 文件则跳过（手术式编辑无脚本）。
 	h.archiveStagingArtifact(modelID, version, modelID+".py", "scripts", "py")
-	h.archiveStagingArtifact(modelID, version, modelID+".design.json", "designs", "json")
 	out := map[string]any{
 		"modelId": modelID, "version": version, "committed": resp["committed"],
 	}
@@ -260,7 +258,7 @@ func copyFile(src, dst string) error {
 }
 
 // archiveStagingArtifact 把 staging 区的一个制品归档到 models/{id}/{subdir}/v{n}.{dstSuffix}（随版本同步）。
-// stagingName 是 staging 区文件全名（如 "{id}.py"、"{id}.design.json"）；不存在则跳过。
+// stagingName 是 staging 区文件全名（如 "{id}.py"）；不存在则跳过。
 // 归档成功后删除 staging 源文件（同脚本归档语义）。version 为空（commit 未产生版本）则整体跳过。
 func (h *ChatHandler) archiveStagingArtifact(modelID, version, stagingName, subdir, dstSuffix string) {
 	if version == "" {

@@ -245,7 +245,7 @@ func TestCreateSessionConcurrentIdempotent(t *testing.T) {
 	}
 }
 
-// TestArchiveStagingArtifact 验证脚本 + design.json 两个制品都随版本归档到 models/{id}/，且 staging 源被清。
+// TestArchiveStagingArtifact 验证构建脚本随版本归档到 models/{id}/scripts/，且 staging 源被清。
 func TestArchiveStagingArtifact(t *testing.T) {
 	var createCount int32
 	srv := fakeOC(t, &createCount)
@@ -256,20 +256,14 @@ func TestArchiveStagingArtifact(t *testing.T) {
 	staging := filepath.Join(h.deps.DataDir, "staging")
 	os.MkdirAll(staging, 0o755)
 	os.WriteFile(filepath.Join(staging, mid+".py"), []byte("# build script"), 0o644)
-	os.WriteFile(filepath.Join(staging, mid+".design.json"), []byte(`{"meta":{}}`), 0o644)
 
 	h.archiveStagingArtifact(mid, version, mid+".py", "scripts", "py")
-	h.archiveStagingArtifact(mid, version, mid+".design.json", "designs", "json")
 
 	script := filepath.Join(h.deps.DataDir, "models", mid, "scripts", version+".py")
-	design := filepath.Join(h.deps.DataDir, "models", mid, "designs", version+".json")
 	if !fileExists(script) {
 		t.Fatal("脚本未归档到 scripts/v3.py")
 	}
-	if !fileExists(design) {
-		t.Fatal("design.json 未归档到 designs/v3.json")
-	}
-	if fileExists(filepath.Join(staging, mid+".py")) || fileExists(filepath.Join(staging, mid+".design.json")) {
+	if fileExists(filepath.Join(staging, mid+".py")) {
 		t.Fatal("归档后 staging 源文件应被删除")
 	}
 
