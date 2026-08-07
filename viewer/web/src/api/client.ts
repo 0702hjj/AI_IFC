@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 0702hjj
 
-import type { ModelInfo, Issue, NewIssue, OverridesMap, EntityFields, ChangeEntry, EditVersionsResponse, DiffResponse, DesignState, DesignStageResult, DesignSaveResult, DesignVersionsResponse, DesignDiffResponse, RegenerateResult } from "./types";
+import type { ModelInfo, Issue, NewIssue, OverridesMap, EntityFields, ChangeEntry, EditVersionsResponse, DiffResponse, ScriptState, ScriptStageResult, ScriptSaveResult, ScriptParamsResponse, ScriptVersionsResponse, ScriptDiffResponse, ScriptRunResult } from "./types";
 
 interface Envelope<T> { code: number; message: string; data: T }
 
@@ -128,55 +128,69 @@ export function postEditDiff(modelId: string, base: string, target: string) {
   });
 }
 
-// --- design JSON 编辑（WPS 式暂存 + 大版本 + 语义 diff） ---
+// --- script-as-source 编辑（WPS 式暂存 + 大版本 + 脚本 diff，W-0013） ---
 
-export function fetchDesign(modelId: string) {
-  return request<DesignState>(`/api/v1/models/${modelId}/design`);
+export function fetchScript(modelId: string) {
+  return request<ScriptState>(`/api/v1/models/${modelId}/script`);
 }
-export function stageDesign(modelId: string, design: Record<string, unknown>, note = "") {
-  return request<DesignStageResult>(`/api/v1/models/${modelId}/design`, {
+export function fetchScriptParams(modelId: string) {
+  return request<ScriptParamsResponse>(`/api/v1/models/${modelId}/script/params`);
+}
+export function stageScript(modelId: string, script: string, note = "") {
+  return request<ScriptStageResult>(`/api/v1/models/${modelId}/script`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ design, note }),
+    body: JSON.stringify({ script, note }),
   });
 }
-export function designUndo(modelId: string) {
-  return request<{ modelId: string; design: Record<string, unknown>; canRedo: boolean }>(
-    `/api/v1/models/${modelId}/design/undo`, { method: "POST" });
+export function stageScriptParams(modelId: string, params: Record<string, unknown>, note = "") {
+  return request<ScriptStageResult>(`/api/v1/models/${modelId}/script`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ params, note }),
+  });
 }
-export function designRedo(modelId: string) {
-  return request<{ modelId: string; design: Record<string, unknown>; canUndo: boolean }>(
-    `/api/v1/models/${modelId}/design/redo`, { method: "POST" });
+export function scriptUndo(modelId: string) {
+  return request<{ modelId: string; script: string; canRedo: boolean }>(
+    `/api/v1/models/${modelId}/script/undo`, { method: "POST" });
 }
-export function discardDesign(modelId: string) {
-  return request<{ modelId: string; discarded: number; design: Record<string, unknown> }>(
-    `/api/v1/models/${modelId}/design/discard`, { method: "POST" });
+export function scriptRedo(modelId: string) {
+  return request<{ modelId: string; script: string; canUndo: boolean }>(
+    `/api/v1/models/${modelId}/script/redo`, { method: "POST" });
 }
-export function regenerateDesign(modelId: string) {
-  return request<RegenerateResult>(`/api/v1/models/${modelId}/design/regenerate`, { method: "POST" });
+export function discardScript(modelId: string) {
+  return request<{ modelId: string; discarded: number; script: string }>(
+    `/api/v1/models/${modelId}/script/discard`, { method: "POST" });
 }
-export function saveDesign(modelId: string, note = "") {
-  return request<DesignSaveResult>(`/api/v1/models/${modelId}/design/save`, {
+export function runScript(modelId: string) {
+  return request<ScriptRunResult>(`/api/v1/models/${modelId}/script/run`, { method: "POST" });
+}
+export function saveScript(modelId: string, note = "") {
+  return request<ScriptSaveResult>(`/api/v1/models/${modelId}/script/save`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ note }),
   });
 }
-export function fetchDesignVersions(modelId: string) {
-  return request<DesignVersionsResponse>(`/api/v1/models/${modelId}/designs`);
+export function rollbackScript(modelId: string, version: string) {
+  return request<{ modelId: string; version: string; script: string }>(
+    `/api/v1/models/${modelId}/script/rollback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ version }),
+    });
 }
-export function postDesignDiff(modelId: string, base: string, target: string) {
-  return request<DesignDiffResponse>(`/api/v1/models/${modelId}/design/diff`, {
+export function fetchScriptVersions(modelId: string) {
+  return request<ScriptVersionsResponse>(`/api/v1/models/${modelId}/scripts`);
+}
+export function postScriptDiff(modelId: string, base: string, target: string) {
+  return request<ScriptDiffResponse>(`/api/v1/models/${modelId}/script/diff`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ base, target }),
   });
 }
-export function rollbackDesign(modelId: string, version: string) {
-  return request<{ modelId: string; version: string; design: Record<string, unknown> }>(
-    `/api/v1/models/${modelId}/design/rollback`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ version }),
-    });
+export function fetchStagingDiff(modelId: string, from?: number, to?: number) {
+  const qs = from != null && to != null ? `?from=${from}&to=${to}` : "";
+  return request<ScriptDiffResponse>(`/api/v1/models/${modelId}/script/staging/diff${qs}`);
 }

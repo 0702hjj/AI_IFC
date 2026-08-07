@@ -1,6 +1,6 @@
 {
   "service": "viewer server (Go)",
-  "source": "viewer/server/internal/api/{api,edit}.go",
+  "source": "viewer/server/internal/api/{api,edit,chat,script,design}.go",
   "generatedBy": "docs/scripts/gen-go-routes.mjs",
   "note": "Machine-readable endpoint inventory extracted from Go mux registrations. Human-readable contract: docs/site/reference/rest-api.md.",
   "endpoints": [
@@ -174,8 +174,92 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/models/{id}/script",
+      "handler": "h.scriptGet",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/models/{id}/script",
+      "handler": "h.scriptPut",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/models/{id}/script/diff",
+      "handler": "h.scriptPost(\"diff\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/models/{id}/script/discard",
+      "handler": "h.scriptPost(\"discard\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/models/{id}/script/params",
+      "handler": "h.scriptParams",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/models/{id}/script/redo",
+      "handler": "h.scriptPost(\"redo\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/models/{id}/script/rollback",
+      "handler": "h.scriptMutatingPost(\"rollback\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/models/{id}/script/run",
+      "handler": "h.scriptMutatingPost(\"run\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/models/{id}/script/save",
+      "handler": "h.scriptMutatingPost(\"save\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/models/{id}/script/staging/diff",
+      "handler": "h.scriptStagingDiff",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/models/{id}/script/undo",
+      "handler": "h.scriptPost(\"undo\")",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/models/{id}/scripts",
+      "handler": "h.scriptList",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "GET",
       "path": "/v1/models/{id}/issues/{file}",
       "handler": "h.serveIssueFile",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models/{id}/metadata.json",
+      "handler": "h.serveModelFile(\"metadata.json\")",
+      "file": "viewer/server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models/{id}/model.xkt",
+      "handler": "h.serveModelFile(\"model.xkt\")",
       "file": "viewer/server/internal/api/api.go"
     }
   ]

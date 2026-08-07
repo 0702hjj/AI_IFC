@@ -19,11 +19,11 @@ AI agent ──► REST 编辑 API ────┘
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，107 用例）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
-| server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（100 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
+| web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，160 用例 / 18 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（125 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `viewer/converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（54 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
-| skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（9 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（131 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（60 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
 | 端到端 | `viewer/scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
 | 文档站 | `docs/` | `npm run docs:build`；`npm run check:api`（API 文档漂移检测） | `npm run docs:dev`；内部 wiki `npm run docs:dev:internal` |
 
@@ -45,7 +45,7 @@ AI agent ──► REST 编辑 API ────┘
 ## Git 工作流（硬规则）
 
 - 远程 `main` **受保护，禁止直推**。一切改动开分支：`feat/...`、`fix/...`、`docs/...`。
-- 用 gh-cli 提 PR：`gh pr create`；CI（ci.yml 6 job + docs.yml）绿后合并；合并后删本地/远程分支。
+- 用 gh-cli 提 PR：`gh pr create`；CI（ci.yml 7 job + docs.yml 3 job）绿后合并；合并后删本地/远程分支。
 - commit 信息中文、前缀式（`feat(server): ...` / `fix(web): ...` / `docs: ...` / `chore: ...`）。
 - 多任务实施计划默认用 superpowers:subagent-driven-development 执行（每任务派 fresh subagent + 任务级 review + 全分支终审）；进度记入 `.superpowers/sdd/<plan>/progress.md` ledger。
 

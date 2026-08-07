@@ -7,45 +7,33 @@
 并写入 Pset_AIIFC.designKey。同一 design JSON 多次运行, 同一构件的 GlobalId 不变——
 跨版本 diff 与 IFC↔design JSON 双向映射的地基(见 DESIGN_JSON_SCHEMA.md §key)。
 
+本模板是 script_lib 的薄封装: 确定性机制(NAMESPACE_AI_IFC / deterministic_guid /
+create_entity / attach_design_key)、骨架创建(create_skeleton)、validate 出口
+(write_and_validate)均由 script_lib 提供。
+
 用法: python build_script_template.py features.json -o model.ifc
 """
-import json, math, sys, uuid
+import json, math, sys
 from pathlib import Path
 import numpy as np
-import ifcopenshell, ifcopenshell.api, ifcopenshell.validate
-import ifcopenshell.guid as ifc_guid
+import ifcopenshell, ifcopenshell.api
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from style_color import make_style, colorize
+from script_lib import (
+    NAMESPACE_AI_IFC,
+    attach_design_key,
+    create_entity,
+    create_skeleton,
+    deterministic_guid,
+    write_and_validate,
+)
 
 api = ifcopenshell.api.run
 MM = 0.001
 
-# 确定性 GlobalId 的命名空间(固定不变; 改动会使所有已生成模型的 GlobalId 变化)
-NAMESPACE_AI_IFC = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
-
-
-def global_id(key: str) -> str:
-    """由稳定 key 派生确定性 GlobalId(IFC base64 22 字符, 首字符 0-3)。
-
-    同一 key 多次运行 GlobalId 不变(确定性)。IFC base64 编码用 ifcopenshell.guid.compress。
-    """
-    return ifc_guid.compress(str(uuid.uuid5(NAMESPACE_AI_IFC, key)))
-
-
-def create_entity(model, ifc_class: str, key: str, **kwargs):
-    """创建实体并写入确定性 GlobalId(create_entity 不接受 GlobalId 参数)。"""
-    product = api("root.create_entity", model, ifc_class=ifc_class, **kwargs)
-    product.GlobalId = global_id(key)
-    return product
-
-
-def attach_design_identity(model, product, key: str):
-    """把 key 写入 Pset_AIIFC.designKey(IFC ↔ design JSON 双向映射)。"""
-    if not key:
-        return
-    pset = api("pset.add_pset", model, product=product, name="Pset_AIIFC")
-    api("pset.edit_pset", model, pset=pset,
-        properties={"designKey": key, "designId": str(product.GlobalId)[:8]})
+# 兼容别名(旧脚本可能直接引用这些名字)
+global_id = deterministic_guid
+attach_design_identity = attach_design_key
 
 
 def wall_matrix(x1, y1, x2, y2, t, elev):
@@ -69,20 +57,8 @@ def opening_matrices(x1, y1, phi, start_m, sill, fill_half, OT):
 def build(features_path, out_path):
     feat = json.loads(Path(features_path).read_text())
     model = api("project.create_file")
-    prj = api("root.create_entity", model, ifc_class="IfcProject", name=feat["meta"].get("name", "building"))
-    api("unit.assign_unit", model)
-    m3d = api("context.add_context", model, context_type="Model")
-    body = api("context.add_context", model, context_identifier="Body", target_view="MODEL_VIEW", parent=m3d)
-    site = api("root.create_entity", model, ifc_class="IfcSite", name="Site")
-    bldg = api("root.create_entity", model, ifc_class="IfcBuilding", name=feat["meta"].get("name", "building"))
-    api("aggregate.assign_object", model, relating_object=prj, products=[site])
-    api("aggregate.assign_object", model, relating_object=site, products=[bldg])
-    smap = {}
-    for sn, elev in feat["storeys"].items():
-        st = api("root.create_entity", model, ifc_class="IfcBuildingStorey", name=sn)
-        st.Elevation = elev * 1000
-        api("aggregate.assign_object", model, relating_object=bldg, products=[st])
-        smap[sn] = st
+    body, smap = create_skeleton(
+        model, feat["meta"].get("name", "building"), feat["storeys"])
     st_ext = make_style(model, "ExtWall", (0.80, 0.70, 0.55))
     st_int = make_style(model, "IntWall", (0.93, 0.93, 0.91))
     st_conc = make_style(model, "Conc", (0.62, 0.62, 0.62))
@@ -113,7 +89,7 @@ def build(features_path, out_path):
                 rep = api("geometry.add_wall_representation", model, context=body, length=L, height=fh, thickness=t)
                 api("geometry.assign_representation", model, product=wall, representation=rep)
                 api("spatial.assign_container", model, relating_structure=storey, products=[wall])
-                attach_design_identity(model, wall, seg_key)
+                attach_design_key(model, wall, seg_key)
                 colorize(model, [wall], st_ext if kind == "ext" else st_int)
                 if first is None:
                     first = (wall, x1, y1, phi, t)
@@ -145,7 +121,7 @@ def build(features_path, out_path):
             api("geometry.edit_object_placement", model, product=fe, matrix=fm, is_si=True)
             api("feature.add_filling", model, opening=opening, element=fe)
             api("spatial.assign_container", model, relating_structure=storey, products=[fe])
-            attach_design_identity(model, fe, opkey)
+            attach_design_key(model, fe, opkey)
             colorize(model, [fe], st_wood if is_door else st_glass)
         # slabs
         for si, s in enumerate([x for x in feat.get("slabs", []) if x["storey"] == sn]):
@@ -159,14 +135,11 @@ def build(features_path, out_path):
             mz = np.eye(4); mz[2][3] = elev - t
             api("geometry.edit_object_placement", model, product=slab, matrix=mz, is_si=True)
             api("spatial.assign_container", model, relating_structure=storey, products=[slab])
-            attach_design_identity(model, slab, skey)
+            attach_design_key(model, slab, skey)
             colorize(model, [slab], st_conc)
-    model.write(out_path)
-    lg = ifcopenshell.validate.json_logger()
-    ifcopenshell.validate.validate(out_path, lg)
-    ok = not lg.statements
+    ok = write_and_validate(model, out_path)
     print(f"walls={len(model.by_type('IfcWall'))} openings={len(model.by_type('IfcOpeningElement'))} "
-          f"slabs={len(model.by_type('IfcSlab'))} → {out_path} [validate {'OK' if ok else f'{len(lg.statements)} err'}]")
+          f"slabs={len(model.by_type('IfcSlab'))} → {out_path} [validate {'OK' if ok else 'ERR'}]")
     return ok
 
 

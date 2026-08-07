@@ -63,8 +63,21 @@ def snapshot(data_dir: str, model_id: str, src_path: str) -> str:
     os.makedirs(directory, exist_ok=True)
     existing = list_versions(data_dir, model_id)
     next_n = int(existing[-1]["version"][1:]) + 1 if existing else 1
-    dest = os.path.join(directory, f"v{next_n}.ifc")
+    return snapshot_as(data_dir, model_id, src_path, f"v{next_n}")
+
+
+def snapshot_as(data_dir: str, model_id: str, src_path: str, version: str) -> str:
+    """Atomically copy src_path to an explicitly named snapshot; return the name.
+
+    Used by script_versions.save to keep ``scripts/v{n}.py`` and
+    ``versions/v{n}.ifc`` in lockstep (n chosen by the caller).
+    """
+    if not VERSION_NAME_RE.match(version):
+        raise ValueError(f"invalid version name: {version}")
+    directory = versions_dir(data_dir, model_id)
+    os.makedirs(directory, exist_ok=True)
+    dest = os.path.join(directory, f"{version}.ifc")
     tmp = dest + ".tmp"
     shutil.copyfile(src_path, tmp)
     os.replace(tmp, dest)
-    return f"v{next_n}"
+    return version

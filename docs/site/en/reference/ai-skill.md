@@ -6,7 +6,7 @@ An **IfcOpenShell authoring skill** for AI agents — letting an agent write `if
 
 `skills/aiifc/` is a thin reference skill following the [Anthropic Agent Skills spec](https://github.com/anthropics/anthropic-sdk-python):
 
-- **SKILL.md**: behavioral constitution (MUST 1–24) — skeleton-first, container required, world coordinates, opening discipline, three-layer validation, design-JSON framing for complex geometry.
+- **SKILL.md**: behavioral constitution (MUST 1–29) — skeleton-first, container required, world coordinates, opening discipline, three-layer validation, script contract (PARAMS + deterministic GlobalIds + build entry); design JSON is only a drafting aid for complex geometry.
 - **references/**: 103 API pages, 8 component recipes (stairs / roof / windows / parapet / balcony), 13 runnable flows, 6 methodology references (SKD_OVERVIEW / MODELING_WORKFLOWS / DESIGN_JSON_SCHEMA / SPATIAL_QUALITY, etc.).
 - **templates/**: copyable complete example scripts (e.g. `build_skeleton.py` minimal model).
 - **requirements.txt**: Python deps for the flows (`ifcopenshell` / `ifcquery` / `numpy`, official PyPI releases, no local source dependency).

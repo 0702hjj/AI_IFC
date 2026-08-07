@@ -52,6 +52,41 @@ type CommitResult struct {
 	Entries   []Entry `json:"entries"`
 }
 
+// ScriptVersion 是脚本大版本条目（GET /models/{id}/scripts 的 scripts 元素）。
+type ScriptVersion struct {
+	Version   string `json:"version"`
+	CreatedAt string `json:"createdAt"`
+	Note      string `json:"note"`
+}
+
+// ScriptVersions 是 GET /models/{id}/scripts 的响应（只看 scripts；legacy 模型为空表）。
+type ScriptVersions struct {
+	Scripts []ScriptVersion `json:"scripts"`
+}
+
+// ScriptParamChange 是脚本 diff 的单条 PARAMS key 变化（added/removed/modified）。
+type ScriptParamChange struct {
+	Key    string `json:"key"`
+	Action string `json:"action"`
+	Old    any    `json:"old,omitempty"`
+	New    any    `json:"new,omitempty"`
+}
+
+// ScriptDiffStats 是 unified diff 的 +/- 行数。
+type ScriptDiffStats struct {
+	Added   int `json:"added"`
+	Removed int `json:"removed"`
+}
+
+// ScriptDiffResult 是 POST /models/{id}/script/diff 的响应（AI 面向的主 diff）。
+type ScriptDiffResult struct {
+	Base          string              `json:"base"`
+	Target        string              `json:"target"`
+	TextDiff      string              `json:"text_diff"`
+	ParamsChanges []ScriptParamChange `json:"params_changes"`
+	Stats         ScriptDiffStats     `json:"stats"`
+}
+
 type Version struct {
 	Version   string `json:"version"`
 	CreatedAt string `json:"createdAt"`
@@ -89,10 +124,15 @@ type Client struct {
 }
 
 func New(baseURL string) *Client {
+	return NewWithTimeouts(baseURL, 10*time.Second, 120*time.Second)
+}
+
+// NewWithTimeouts 注入 fast/slow 超时（测试用短超时断言 client 选择；生产用 New）。
+func NewWithTimeouts(baseURL string, fast, slow time.Duration) *Client {
 	return &Client{
 		base: baseURL,
-		fast: &http.Client{Timeout: 10 * time.Second},
-		slow: &http.Client{Timeout: 120 * time.Second},
+		fast: &http.Client{Timeout: fast},
+		slow: &http.Client{Timeout: slow},
 	}
 }
 
@@ -146,6 +186,17 @@ func (c *Client) Do(ctx context.Context, method, path string, body []byte) (json
 	return json.RawMessage(data), nil
 }
 
+// DoSlow 与 Do 同形但走 slow client：script run/save/rollback 触发沙箱执行
+//（edit-service script_runner.RUN_TIMEOUT_S=60s），fast 的 10s 会先于 edit-service
+// 超时，造成 Go 报错而 edit-service 已跑完落盘的三方状态分叉（M5 终审 C2）。
+func (c *Client) DoSlow(ctx context.Context, method, path string, body []byte) (json.RawMessage, error) {
+	data, err := c.do(ctx, c.slow, method, path, body)
+	if err != nil {
+		return nil, err
+	}
+	return json.RawMessage(data), nil
+}
+
 func (c *Client) PutEntity(ctx context.Context, modelID, guid string, body []byte) (json.RawMessage, error) {
 	return c.do(ctx, c.fast, http.MethodPut, "/models/"+modelID+"/entities/"+guid, body)
 }
@@ -189,6 +240,33 @@ func (c *Client) Diff(ctx context.Context, modelID, base, target string) (*DiffR
 	var d DiffResult
 	if err := json.Unmarshal(data, &d); err != nil {
 		return nil, fmt.Errorf("edit service: decode diff: %w", err)
+	}
+	return &d, nil
+}
+
+// GetScriptVersions 列出脚本大版本（chat 注入 diff 前判断是否 ≥2 个）。
+func (c *Client) GetScriptVersions(ctx context.Context, modelID string) (*ScriptVersions, error) {
+	data, err := c.do(ctx, c.fast, http.MethodGet, "/models/"+modelID+"/scripts", nil)
+	if err != nil {
+		return nil, err
+	}
+	var v ScriptVersions
+	if err := json.Unmarshal(data, &v); err != nil {
+		return nil, fmt.Errorf("edit service: decode scripts: %w", err)
+	}
+	return &v, nil
+}
+
+// PostScriptDiff 拉两个大版本的脚本 diff（text_diff + params_changes + stats）。
+func (c *Client) PostScriptDiff(ctx context.Context, modelID, base, target string) (*ScriptDiffResult, error) {
+	body, _ := json.Marshal(map[string]string{"base": base, "target": target})
+	data, err := c.do(ctx, c.slow, http.MethodPost, "/models/"+modelID+"/script/diff", body)
+	if err != nil {
+		return nil, err
+	}
+	var d ScriptDiffResult
+	if err := json.Unmarshal(data, &d); err != nil {
+		return nil, fmt.Errorf("edit service: decode script diff: %w", err)
 	}
 	return &d, nil
 }

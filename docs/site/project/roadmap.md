@@ -9,13 +9,11 @@
 - AI 接入口：人/AI 双角色编辑 API（provenance 区分）、OpenAPI 工具目录、接入指南。
 - AI Skill（aiifc）：agent 无关的 IfcOpenShell 建模 skill（发现桩 + references + templates + workflows），含打包器与 CI 校验。
 - Plan → DXF → IFC 工作流：可选的「辅助设计师」三阶段编排 skill，DXF 生成器（前端 svg 预览）。
-- 确定性构件身份：design JSON 稳定 `key` → `uuid5` 确定性 GlobalId → `Pset_AIIFC.designKey` 双向映射。
-- WPS 式暂存 + 大版本：design JSON 编辑暂存（10 步 undo/redo）→ 显式保存成大版本（designs/v{n}.json + versions/v{n}.ifc）；不做逐步回溯链。
-- 轻量差异引擎：design JSON 语义 diff（主）+ IFC 语义指纹 diff（兜底），只比大版本之间。
-- 前端 Design 面板：选中构件 → 参数表单 → 暂存/撤销/重做/放弃 → 重生成 + 保存大版本；版本对比。
+- 确定性构件身份：稳定 `key` → `uuid5` 确定性 GlobalId → `Pset_AIIFC.designKey` 双向映射（脚本契约 #25-29 沿用）。
 - API 统一版本化：对外契约 `/api/v1/{resource}/{id}`，Go server 唯一对外入口。
 - 依赖自包含：`ifcopenshell` / `ifcdiff` / `ifcquery` 全部 PyPI 官方发布，无本地源码依赖。
 - 测试整合：skill 打包测试收拢 `tests/skill/`，CI 覆盖 edit-service / skill-pack / flows 冒烟。
+- Script-as-source（M5）：Python 构建脚本成为 IFC 唯一事实源——脚本契约（PARAMS + 确定性 GlobalId + build 入口）、脚本沙箱执行、WPS 式脚本暂存 + 大版本成对快照（scripts/v{n}.py + versions/v{n}.ifc）、脚本 diff（text + PARAMS 键级，大/小版本两级）、Design 面板 PARAMS 表单 + 脚本编辑器；design JSON 编辑管线直接下线（降级为 AI 起草辅助草稿，不进版本不参与 diff）。
 - 文档站：本 VitePress 站点、PR 构建校验与 GitHub Pages 自动部署。
 - 文档增强：英文 locale（首页、快速开始、总体架构、贡献、API 入口）、edit-service API 参考页与 Go 端点清单的机器生成 + CI 漂移检测。
 
@@ -30,7 +28,7 @@
 - **双语扩展（后续）**：其余页面（Viewer 使用、开发指南细节、项目组）的英文版本。
 - **API 自动生成（后续）**：edit-service 的"代码 vs schema"漂移检测；Go server 请求/响应 schema 的完整自动生成。
 - 编辑 API 的 MCP 封装；几何 diff；增量重转；diff 超时控制。
-- 前端参数化编辑（改 design JSON 语义参数层）；计划 → 2D DXF → IFC 完整工作流。
+- 前端参数化编辑增强（脚本 PARAMS 表单与脚本编辑器体验）；计划 → 2D DXF → IFC 完整工作流。
 
 ## v1 范围外
 

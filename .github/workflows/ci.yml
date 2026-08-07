@@ -213,13 +213,78 @@ jobs:
             sleep 2
           done
           [ "$STATUS" = "ready" ] || { echo "timeout"; docker compose logs; exit 1; }
-      - name: Verify xkt + edit-service connectivity (design endpoint)
+      - name: Verify xkt + script pipeline smoke (PUT → run → save → list)
         run: |
           curl -sf -o /dev/null -w "xkt: %{http_code} %{size_download}B\n" \
             "http://127.0.0.1:8080/v1/models/$MODEL_ID/model.xkt"
-          curl -sf "http://127.0.0.1:8080/api/v1/models/$MODEL_ID/design" \
-            | python3 -c 'import sys,json,os;d=json.load(sys.stdin);assert d["data"]["modelId"]==os.environ["MODEL_ID"],d'
-          echo "edit-service OK"
+          python3 - <<'PY'
+          import json, os, urllib.request
+
+          MODEL_ID = os.environ["MODEL_ID"]
+          BASE = "http://127.0.0.1:8080/api/v1/models/" + MODEL_ID
+
+          # 最小契约合法脚本（script_lib.validate_script_contract：顶层 PARAMS
+          # 字面量 dict + build(params, out_path) + __main__ 守卫）；沙箱 env
+          # PYTHONPATH=flows_dir（script_runner._sandbox_env），可 import script_lib。
+          SCRIPT = '''
+          PARAMS = {"storeys": {"L0": 0.0}}
+
+          import ifcopenshell
+          from script_lib import create_skeleton, write_and_validate
+
+
+          def build(params, out_path):
+              model = ifcopenshell.file()
+              create_skeleton(model, name="ci-smoke", storeys=params["storeys"])
+              write_and_validate(model, out_path)
+
+
+          if __name__ == "__main__":
+              import sys
+
+              build(PARAMS, sys.argv[1])
+          '''
+
+          def call(method, path, body=None):
+              data = None if body is None else json.dumps(body).encode()
+              req = urllib.request.Request(
+                  BASE + path, data=data, method=method,
+                  headers={"Content-Type": "application/json"})
+              with urllib.request.urlopen(req, timeout=180) as resp:
+                  d = json.load(resp)
+              assert d["code"] == 0, d  # Go proxy 统一 envelope（api.go writeJSON）
+              return d["data"]
+
+          # PUT /script：整脚本入暂存（routes_scripts.stage_script 返回
+          # modelId/staged/canUndo/canRedo；空 staging 首次 push 后 staged=1）
+          put = call("PUT", "/script", {"script": SCRIPT, "note": "ci smoke"})
+          assert put["modelId"] == MODEL_ID, put
+          assert put["staged"] == 1 and put["canUndo"] and not put["canRedo"], put
+          print("PUT /script OK:", put)
+
+          # POST /script/run：沙箱执行入 uploads（routes_scripts 返回 {modelId, ok}）
+          run = call("POST", "/script/run")
+          assert run["modelId"] == MODEL_ID and run["ok"] is True, run
+          print("POST /script/run OK")
+
+          # POST /script/save：产大版本 v1（script_versions.save 首次 n=1；返回
+          # {modelId, version, staged:0}）
+          save = call("POST", "/script/save", {"note": "ci smoke"})
+          assert save["modelId"] == MODEL_ID, save
+          assert save["version"] == "v1" and save["staged"] == 0, save
+          print("POST /script/save OK:", save)
+
+          # GET /scripts：版本列表非空（routes_scripts.list_scripts 返回
+          # {modelId, scripts:[{version,createdAt,note}], versions:[...]}）
+          lst = call("GET", "/scripts")
+          assert lst["modelId"] == MODEL_ID, lst
+          vers = [s["version"] for s in lst["scripts"]]
+          assert vers == ["v1"], lst
+          assert lst["versions"], lst
+          print("GET /scripts OK:", vers)
+
+          print("script pipeline smoke OK")
+          PY
       - name: Restart without -v and verify persistence
         run: |
           docker compose down

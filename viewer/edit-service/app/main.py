@@ -8,12 +8,12 @@ from __future__ import annotations
 from fastapi import FastAPI
 
 from .config import load_settings
-from .design_staging import StagingRegistry
 from .pending import PendingStore
 from .registry import ModelRegistry
-from .routes_design import router as design_router
 from .routes_diff import router as diff_router
 from .routes_edits import router as edits_router
+from .routes_scripts import router as scripts_router
+from .script_staging import StagingRegistry
 
 
 def create_app() -> FastAPI:
@@ -23,10 +23,10 @@ def create_app() -> FastAPI:
     app.state.settings = settings
     app.state.registry = ModelRegistry(max_models=settings.max_models)
     app.state.pending = PendingStore(settings.data_dir)
-    app.state.design_staging = StagingRegistry(settings.data_dir)
+    app.state.script_staging = StagingRegistry(settings.data_dir)
     app.include_router(edits_router)
     app.include_router(diff_router)
-    app.include_router(design_router)
+    app.include_router(scripts_router)
 
     @app.get("/health")
     def health() -> dict:

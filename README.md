@@ -67,7 +67,7 @@ Open http://localhost:5173 and upload `viewer/converter/test/fixtures/wall-with-
 | Route | For | Entry |
 |---|---|---|
 | [REST editing API](https://0702hjj.github.io/AI_IFC/reference/ai) | Fine-grained attribute / pset edits with pending → commit, version and diff | `:8100/models/{id}/...` |
-| [AI Skill (aiifc)](https://0702hjj.github.io/AI_IFC/reference/ai-skill) | Building models from scratch / large geometry changes | `skills/aiifc/` — agent writes `ifcopenshell.api` code |
+| [AI Skill (aiifc)](https://0702hjj.github.io/AI_IFC/reference/ai-skill) | Building models from scratch / large geometry changes | `skills/aiifc/` — the agent writes a complete Python **build script** (top-level `PARAMS` + `build()`); the script is the single source of truth that maps one-to-one to the IFC, and is versioned and diffed (script-as-source) |
 
 The skill is agent-agnostic (opencode, Claude Code, Cursor, …). Bundle it with:
 

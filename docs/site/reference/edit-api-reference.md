@@ -170,6 +170,281 @@ List the current pending changes for a model.
 | 200 | Successful Response |
 | 422 | Validation Error |
 
+### GET /models/{id}/script
+
+Get Script
+
+Return the current script (staged state, or last saved base).
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### PUT /models/{id}/script
+
+Stage Script
+
+Stage a script edit: full replace, or params-only PARAMS-block rewrite.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "$ref": "#/components/schemas/ScriptBody"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/diff
+
+Diff Script Versions
+
+Big-version script diff: unified text diff + PARAMS changes + stats.
+
+This is the primary AI-facing diff (the retired design-JSON diff's
+replacement); the IFC semantic diff stays at POST /models/{id}/diff.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "$ref": "#/components/schemas/ScriptDiffBody"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/discard
+
+Discard Script
+
+Throw staged edits away; back to the last saved big version. No version.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### GET /models/{id}/script/params
+
+Get Script Params
+
+Return the current script's PARAMS dict (ast extraction, no execution).
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/redo
+
+Redo Script
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/rollback
+
+Rollback Script
+
+Restore a big version's script into staging and re-run it into uploads.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "$ref": "#/components/schemas/RollbackBody"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/run
+
+Run Script Endpoint
+
+Sandbox-run the current staged script into uploads (preview; no version).
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/save
+
+Save Script
+
+Promote the staged script to a big version (run → snapshot script+IFC).
+
+A failed sandbox run → 422 and no version; staging is preserved so the
+script can be fixed and saved again.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "anyOf": [
+    {
+      "$ref": "#/components/schemas/SaveBody"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "title": "Body"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### GET /models/{id}/script/staging/diff
+
+Diff Staging Steps
+
+Small-version diff between two staging steps (default: the last two).
+
+Step indices address the staged states ``history[0..cursor]`` (0-based).
+Lightweight inline text diff + PARAMS changes; visible to both AI and user.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+| `from` | query | 否 |  |  |
+| `to` | query | 否 |  |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/undo
+
+Undo Script
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### GET /models/{id}/scripts
+
+List Scripts
+
+List script big versions (empty for legacy IFC-only models).
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
 ### GET /models/{id}/versions
 
 Get Versions
@@ -305,6 +580,109 @@ List version snapshots for a model (empty + current=null before any commit).
   "type": "object",
   "title": "Provenance",
   "description": "Who performed an edit: the web UI or an AI agent."
+}
+```
+
+### RollbackBody
+
+```json
+{
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^v\\d+$",
+      "title": "Version"
+    }
+  },
+  "type": "object",
+  "required": [
+    "version"
+  ],
+  "title": "RollbackBody",
+  "description": "Body of POST /models/{id}/script/rollback."
+}
+```
+
+### SaveBody
+
+```json
+{
+  "properties": {
+    "note": {
+      "type": "string",
+      "title": "Note",
+      "default": ""
+    }
+  },
+  "type": "object",
+  "title": "SaveBody",
+  "description": "Optional body of POST /models/{id}/script/save."
+}
+```
+
+### ScriptBody
+
+```json
+{
+  "properties": {
+    "script": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Script"
+    },
+    "params": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Params"
+    },
+    "note": {
+      "type": "string",
+      "title": "Note",
+      "default": ""
+    }
+  },
+  "type": "object",
+  "title": "ScriptBody",
+  "description": "Body of PUT /models/{id}/script: exactly one of script / params."
+}
+```
+
+### ScriptDiffBody
+
+```json
+{
+  "properties": {
+    "base": {
+      "type": "string",
+      "pattern": "^v\\d+$",
+      "title": "Base"
+    },
+    "target": {
+      "type": "string",
+      "pattern": "^v\\d+$",
+      "title": "Target"
+    }
+  },
+  "type": "object",
+  "required": [
+    "base",
+    "target"
+  ],
+  "title": "ScriptDiffBody",
+  "description": "Body of POST /models/{id}/script/diff: two big versions."
 }
 ```
 

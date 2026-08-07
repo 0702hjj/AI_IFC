@@ -6,7 +6,7 @@
 
 `skills/aiifc/` 是一个遵循 [Anthropic Agent Skills 规范](https://github.com/anthropics/anthropic-sdk-python) 的薄参考 skill：
 
-- **SKILL.md**：行为宪法（MUST 1-24）——骨架先行、容器必填、世界坐标、开洞纪律、三层校验、design JSON 框定复杂几何。
+- **SKILL.md**：行为宪法（MUST 1-29）——骨架先行、容器必填、世界坐标、开洞纪律、三层校验、脚本契约（PARAMS + 确定性 GlobalId + build 入口），design JSON 仅作复杂几何的起草草稿。
 - **references/**：103 个 API 分页、8 个组件 recipe（楼梯/屋顶/窗/女儿墙/阳台）、13 个可运行 flows、6 份方法论参考（SKD_OVERVIEW / MODELING_WORKFLOWS / DESIGN_JSON_SCHEMA / SPATIAL_QUALITY 等）。
 - **templates/**：可复制的完整示例脚本（如 `build_skeleton.py` 最小模型）。
 - **requirements.txt**：运行 flows 需要的 Python 依赖（`ifcopenshell` / `ifcquery` / `numpy`，PyPI 官方发布，无本地源码依赖）。

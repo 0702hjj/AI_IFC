@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchDesign, stageDesign, designUndo, designRedo, discardDesign, regenerateDesign, saveDesign, fetchDesignVersions, postDesignDiff, rollbackDesign, createChatProject } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, createChatProject } from "./client";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
 
@@ -121,40 +121,68 @@ describe("issue api", () => {
     expect(delInit.method).toBe("DELETE");
   });
 
-  it("fetchDesign gets design state", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1", design: { meta: {} }, staged: 0, canUndo: false, canRedo: false, maxSteps: 10 })), { status: 200 })));
-    const s = await fetchDesign("m_1");
+  it("fetchScript gets script state", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1", script: "PARAMS = {}", staged: 0, canUndo: false, canRedo: false, maxSteps: 10 })), { status: 200 })));
+    const s = await fetchScript("m_1");
     expect(s.modelId).toBe("m_1");
     expect(s.maxSteps).toBe(10);
   });
-  it("stageDesign PUTs the design", async () => {
+  it("fetchScriptParams unwraps params", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1", params: { wall_t: 0.2 } })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const r = await fetchScriptParams("m_1");
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/v1/models/m_1/script/params");
+    expect(r.params).toEqual({ wall_t: 0.2 });
+  });
+  it("stageScript PUTs a full script, stageScriptParams PUTs params only", async () => {
     const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1", staged: 1, canUndo: true, canRedo: false })), { status: 200 }));
     vi.stubGlobal("fetch", spy);
-    await stageDesign("m_1", { meta: { name: "x" } });
-    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toBe("/api/v1/models/m_1/design");
-    expect(init.method).toBe("PUT");
+    await stageScript("m_1", "PARAMS = {}");
+    await stageScriptParams("m_1", { wall_t: 0.3 });
+    const [url1, init1] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url1).toBe("/api/v1/models/m_1/script");
+    expect(init1.method).toBe("PUT");
+    expect(JSON.parse(init1.body as string)).toEqual({ script: "PARAMS = {}", note: "" });
+    const [, init2] = spy.mock.calls[1] as unknown as [string, RequestInit];
+    expect(JSON.parse(init2.body as string)).toEqual({ params: { wall_t: 0.3 }, note: "" });
   });
-  it("undo/redo/discard/regenerate/save hit the right endpoints", async () => {
+  it("undo/redo/discard/run/save/rollback/versions/diff hit the right script endpoints", async () => {
     const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1" })), { status: 200 }));
     vi.stubGlobal("fetch", spy);
-    await designUndo("m_1");
-    await designRedo("m_1");
-    await discardDesign("m_1");
-    await regenerateDesign("m_1");
-    await saveDesign("m_1");
-    await fetchDesignVersions("m_1");
-    await rollbackDesign("m_1", "v1");
-    await postDesignDiff("m_1", "v1", "v2");
+    await scriptUndo("m_1");
+    await scriptRedo("m_1");
+    await discardScript("m_1");
+    await runScript("m_1");
+    await saveScript("m_1");
+    await rollbackScript("m_1", "v1");
+    await fetchScriptVersions("m_1");
+    await postScriptDiff("m_1", "v1", "v2");
+    await fetchStagingDiff("m_1");
     const methods = (spy.mock.calls as unknown as [string, RequestInit | undefined][]).map(([url, init]) => `${init?.method ?? "GET"} ${url}`);
-    expect(methods).toContain("POST /api/v1/models/m_1/design/undo");
-    expect(methods).toContain("POST /api/v1/models/m_1/design/redo");
-    expect(methods).toContain("POST /api/v1/models/m_1/design/discard");
-    expect(methods).toContain("POST /api/v1/models/m_1/design/regenerate");
-    expect(methods).toContain("POST /api/v1/models/m_1/design/save");
-    expect(methods).toContain("GET /api/v1/models/m_1/designs");
-    expect(methods).toContain("POST /api/v1/models/m_1/design/rollback");
-    expect(methods).toContain("POST /api/v1/models/m_1/design/diff");
+    expect(methods).toContain("POST /api/v1/models/m_1/script/undo");
+    expect(methods).toContain("POST /api/v1/models/m_1/script/redo");
+    expect(methods).toContain("POST /api/v1/models/m_1/script/discard");
+    expect(methods).toContain("POST /api/v1/models/m_1/script/run");
+    expect(methods).toContain("POST /api/v1/models/m_1/script/save");
+    expect(methods).toContain("POST /api/v1/models/m_1/script/rollback");
+    expect(methods).toContain("GET /api/v1/models/m_1/scripts");
+    expect(methods).toContain("POST /api/v1/models/m_1/script/diff");
+    expect(methods).toContain("GET /api/v1/models/m_1/script/staging/diff");
+  });
+  it("fetchStagingDiff passes from/to as query params", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ from: 1, to: 2 })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await fetchStagingDiff("m_1", 1, 2);
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/v1/models/m_1/script/staging/diff?from=1&to=2");
+  });
+  it("postScriptDiff posts base/target and unwraps", async () => {
+    const diff = { base: "v1", target: "v2", engine: "script", text_diff: "@@", params_changes: [{ key: "wall_t", action: "modified", old: 0.2, new: 0.3 }], stats: { added: 1, removed: 1 } };
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(diff)), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const r = await postScriptDiff("m_1", "v1", "v2");
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ base: "v1", target: "v2" });
+    expect(r).toEqual(diff);
   });
 });
 
@@ -172,48 +200,53 @@ describe("chat api", () => {
   });
 });
 
-describe("design api envelope contract", () => {
-  it("fetchDesign unwraps envelope data", async () => {
-    const state = { modelId: "m_1", design: { meta: { name: "x" } }, staged: 0, canUndo: false, canRedo: false, maxSteps: 10 };
+describe("script api envelope contract", () => {
+  it("fetchScript unwraps envelope data", async () => {
+    const state = { modelId: "m_1", script: "PARAMS = {}", staged: 0, canUndo: false, canRedo: false, maxSteps: 10 };
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope(state)), { status: 200 })));
-    const s = await fetchDesign("m_1");
+    const s = await fetchScript("m_1");
     expect(s).toEqual(state);
   });
 
-  it("stageDesign unwraps envelope data", async () => {
+  it("stageScript unwraps envelope data", async () => {
     const result = { modelId: "m_1", staged: 1, canUndo: true, canRedo: false };
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope(result)), { status: 200 })));
-    const r = await stageDesign("m_1", { meta: {} }, "n1");
+    const r = await stageScript("m_1", "PARAMS = {}", "n1");
     expect(r).toEqual(result);
   });
 
-  it("saveDesign unwraps envelope data", async () => {
-    const result = { modelId: "m_1", version: "v1", committed: 1 };
+  it("saveScript unwraps envelope data", async () => {
+    const result = { modelId: "m_1", version: "v1", staged: 0 };
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope(result)), { status: 200 })));
-    const r = await saveDesign("m_1", "note");
+    const r = await saveScript("m_1", "note");
     expect(r).toEqual(result);
   });
 
-  it("postDesignDiff unwraps envelope data", async () => {
-    const diff = { base: "v1", target: "v2", added: ["e1"], removed: [], changed: [] };
-    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(diff)), { status: 200 }));
+  it("rollbackScript posts the version", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ modelId: "m_1", version: "v1", script: "x" })), { status: 200 }));
     vi.stubGlobal("fetch", spy);
-    const r = await postDesignDiff("m_1", "v1", "v2");
-    expect(JSON.parse((spy.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toEqual({ base: "v1", target: "v2" });
-    expect(r).toEqual(diff);
+    await rollbackScript("m_1", "v1");
+    expect(JSON.parse((spy.mock.calls[0] as unknown as [string, RequestInit])[1].body as string)).toEqual({ version: "v1" });
   });
 
-  it("rejects when design endpoints return bare JSON without envelope (regression: P0-1)", async () => {
-    const bare = () => new Response(JSON.stringify({ modelId: "m_1", design: {} }), { status: 200 });
+  it("fetchScriptVersions unwraps script + ifc version lists", async () => {
+    const res = { modelId: "m_1", scripts: [{ version: "v1", createdAt: "t", note: "" }], versions: [{ version: "v1", createdAt: "t" }] };
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(envelope(res)), { status: 200 })));
+    const r = await fetchScriptVersions("m_1");
+    expect(r).toEqual(res);
+  });
+
+  it("rejects when script endpoints return bare JSON without envelope (regression: P0-1)", async () => {
+    const bare = () => new Response(JSON.stringify({ modelId: "m_1", script: "" }), { status: 200 });
     vi.stubGlobal("fetch", vi.fn(bare));
-    await expect(fetchDesign("m_1")).rejects.toThrow();
-    await expect(stageDesign("m_1", {})).rejects.toThrow();
-    await expect(saveDesign("m_1")).rejects.toThrow();
-    await expect(postDesignDiff("m_1", "v1", "v2")).rejects.toThrow();
+    await expect(fetchScript("m_1")).rejects.toThrow();
+    await expect(stageScript("m_1", "x")).rejects.toThrow();
+    await expect(saveScript("m_1")).rejects.toThrow();
+    await expect(postScriptDiff("m_1", "v1", "v2")).rejects.toThrow();
   });
 
-  it("rejects with server message on non-zero design envelope code", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: 40400, message: "design not found", data: null }), { status: 404 })));
-    await expect(fetchDesign("m_1")).rejects.toThrow("design not found");
+  it("rejects with server message on non-zero script envelope code (legacy model 404)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: 40400, message: "no script for model", data: null }), { status: 404 })));
+    await expect(fetchScript("m_1")).rejects.toThrow("no script for model");
   });
 });

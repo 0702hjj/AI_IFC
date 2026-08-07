@@ -225,8 +225,13 @@ func (h *ChatHandler) postMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	text := body.Text
 	if cs.ModelID != "" {
-		text = fmt.Sprintf("[系统上下文] 当前会话绑定模型文件 viewer/data/uploads/%s.ifc（改它即改该模型；若是从零构建需求，该文件初始为骨架，直接在其上建造）。本会话 chatSessionId：%s。\n\n[用户需求] %s",
-			cs.ModelID, cs.ID, body.Text)
+		sys := fmt.Sprintf("当前会话绑定模型文件 viewer/data/uploads/%s.ifc（改它即改该模型；若是从零构建需求，该文件初始为骨架，直接在其上建造）。本会话 chatSessionId：%s。",
+			cs.ModelID, cs.ID)
+		// W-0016：≥2 个脚本大版本时追加「与上一大版本的脚本 diff」上下文（拉取失败自动降级）。
+		if dc := h.scriptDiffContext(r.Context(), cs.ModelID); dc != "" {
+			sys += "\n" + dc
+		}
+		text = "[系统上下文] " + sys + "\n\n[用户需求] " + body.Text
 	}
 	if err := h.deps.OC.PromptAsync(r.Context(), cs.OpencodeID, text, h.agent); err != nil {
 		writeChatErr(w, err)

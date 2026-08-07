@@ -20,9 +20,12 @@ AGPL-3.0). This repository no longer contains that code; see git history for
 the pre-move state.
 
 The following archived portions retain their original copyright and license:
-  - examples/                (SimpleCAD API Team)
   - docs/archive/simplecadapi/    (docs only; removed in the 2026-08-05 cleanup —
                                     see git history)
+
+The current examples/ directory was rewritten for the IFC era after the move
+(2026-08) and is new content of this repository; the historical SimpleCADAPI
+examples (gearbox/robot etc.) live only in the archive repo / git history.
 
 All new code under viewer/ and docs/ is Copyright (C) 2026 0702hjj,
 licensed AGPL-3.0-only (SPDX-License-Identifier headers in each file).
@@ -49,10 +52,8 @@ Runtime dependencies and their licenses:
   pydantic                           MIT                https://github.com/pydantic/pydantic
   deepdiff                           MIT                https://github.com/seperman/deepdiff
 
-Note: ifcdiff is currently referenced as a local editable path dependency
-(../IfcOpenShell/src/ifcdiff) and is NOT distributed with this repository.
-Before the v0.1.0 release it will be vendored (with its LGPL-3.0 header
-preserved) or pinned as a git source — see docs/internal/open-source-plan.md §二.
+Note: ifcdiff is consumed as an official PyPI release (`ifcdiff>=0.8`,
+LGPL-3.0-or-later) and is NOT distributed with this repository.
 
 Full dependency manifests:
   viewer/server/go.mod, viewer/web/package.json,

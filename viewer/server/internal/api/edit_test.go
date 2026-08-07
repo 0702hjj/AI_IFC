@@ -26,9 +26,10 @@ import (
 )
 
 type pyCall struct {
-	Method string
-	Path   string
-	Body   string
+	Method   string
+	Path     string
+	RawQuery string
+	Body     string
 }
 
 type pyResp struct {
@@ -49,7 +50,7 @@ func newFakePy(t *testing.T) (*fakePy, string) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		f.mu.Lock()
-		f.calls = append(f.calls, pyCall{Method: r.Method, Path: r.URL.Path, Body: string(body)})
+		f.calls = append(f.calls, pyCall{Method: r.Method, Path: r.URL.Path, RawQuery: r.URL.RawQuery, Body: string(body)})
 		resp, ok := f.routes[r.Method+" "+r.URL.Path]
 		f.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
@@ -110,6 +111,16 @@ func newEditEnv(t *testing.T, pyURL string) *editEnv {
 // newEditEnvChg 允许注入自定义 change.Store（nil 用默认 FileStore）。
 func newEditEnvChg(t *testing.T, pyURL string, chg change.Store) *editEnv {
 	t.Helper()
+	var ed *editsvc.Client
+	if pyURL != "" {
+		ed = editsvc.New(pyURL)
+	}
+	return newEditEnvWithClient(t, ed, chg)
+}
+
+// newEditEnvWithClient 允许注入自定义 editsvc.Client（如短超时断言 client 选择）。
+func newEditEnvWithClient(t *testing.T, ed *editsvc.Client, chg change.Store) *editEnv {
+	t.Helper()
 	st := store.NewStore(t.TempDir())
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -120,10 +131,6 @@ func newEditEnvChg(t *testing.T, pyURL string, chg change.Store) *editEnv {
 		chg = change.NewFileStore(st.DataDir)
 	}
 	ovr := override.NewFileStore(st.DataDir)
-	var ed *editsvc.Client
-	if pyURL != "" {
-		ed = editsvc.New(pyURL)
-	}
 	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), chg, ovr, ed, 1<<20)
 	m, err := st.Create("ok.ifc", 4, strings.NewReader("fake"))
 	if err != nil {
