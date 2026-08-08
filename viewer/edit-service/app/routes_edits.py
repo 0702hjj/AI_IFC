@@ -251,11 +251,15 @@ def _ensure_replayed(request: Request, model_id: str, model: ifcopenshell.file) 
     describe edits the current in-memory model never saw. Entries that fail
     to replay (e.g. entity gone from the on-disk file) are marked ``stale``
     and persisted; commit refuses stale entries.
+
+    The restore (``_ensure``) runs before the flag check: after a cold
+    restart the flag only gets set when the entries are restored, so a
+    read-only first request (e.g. editable-schema) must restore first.
     """
     store = _pending(request)
+    entries = store._ensure(model_id)
     if not store.needs_replay(model_id):
         return
-    entries = store._ensure(model_id)
     for entry in entries:
         try:
             _replay_entry(model, entry)

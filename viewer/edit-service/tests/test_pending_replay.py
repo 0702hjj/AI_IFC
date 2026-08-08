@@ -116,6 +116,63 @@ class TestReplayAfterRestart:
         assert psets["Pset_WallCommon"]["FireRating"] == "90"
 
 
+class TestReplayOnColdReadPath:
+    def test_editable_schema_after_restart_reflects_pending(
+        self, restart, data_dir: Path
+    ) -> None:
+        client = restart()
+        _put_wall_edit(client, name="冷启动读路径")
+
+        # First request after the restart is a read-only GET: it must still
+        # restore pending.json and replay it onto the freshly opened model.
+        client2 = restart()
+        resp = client2.get(f"/models/{MODEL_ID}/entities/{WALL_GUID}/editable-schema")
+        assert resp.status_code == 200
+        body = resp.json()
+        fields = {f["name"]: f["value"] for f in body["fields"]}
+        assert fields["Name"] == "冷启动读路径"
+        psets = {p["name"]: p for p in body["psets"]}
+        props = {p["name"]: p["value"] for p in psets["Pset_WallCommon"]["properties"]}
+        assert props["FireRating"] == "90"
+
+
+class TestReplayAfterScriptRun:
+    def _stage_copy_fixture_script(self, client: TestClient) -> None:
+        script = (
+            f"PARAMS = {{'src': {str(FIXTURE_IFC)!r}}}\n"
+            "\n"
+            "def build(params, out_path):\n"
+            "    import shutil\n"
+            "    shutil.copyfile(params['src'], out_path)\n"
+            "\n"
+            'if __name__ == "__main__":\n'
+            "    import sys\n"
+            "    build(PARAMS, sys.argv[1])\n"
+        )
+        resp = client.put(f"/models/{MODEL_ID}/script", json={"script": script})
+        assert resp.status_code == 200
+
+    def test_script_run_marks_pending_for_replay_on_commit(
+        self, restart, data_dir: Path
+    ) -> None:
+        client = restart()
+        entry = _put_wall_edit(client, name="脚本覆盖前的编辑")
+        self._stage_copy_fixture_script(client)
+
+        # Script run replaces uploads/{id}.ifc and drops the in-memory model;
+        # the pending entry must survive that and replay on commit.
+        resp = client.post(f"/models/{MODEL_ID}/script/run")
+        assert resp.status_code == 200
+
+        resp = client.post(f"/models/{MODEL_ID}/commit")
+        assert resp.status_code == 200
+        assert resp.json()["committed"] == 1
+        snapshot = _latest_snapshot(data_dir)
+        assert snapshot.by_guid(WALL_GUID).Name == "脚本覆盖前的编辑"
+        history = client.get(f"/models/{MODEL_ID}/history").json()
+        assert [e["id"] for e in history] == [entry["id"]]
+
+
 class TestReplayAfterLruEviction:
     def test_evicted_model_replays_pending_on_commit(
         self, restart, data_dir: Path
