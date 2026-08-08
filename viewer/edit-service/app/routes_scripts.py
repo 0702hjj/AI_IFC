@@ -23,6 +23,8 @@ The build script is the single source of truth for generated models:
   into staging, re-run it into uploads.
 - ``GET  /models/{id}/script/locate?guid=...`` — guid → designKey →
   CallSite (from ``models/{id}/current.map.json``).
+- ``POST /models/{id}/script/edit-call`` — libcst scalar-argument rewrite at
+  a located callsite; sandbox-validated, staged on success (Task 4).
 
 All mutating endpoints hold the per-model lock (keyed by the uploads path,
 shared with entity edits) — the retired design routes lacked this and could
@@ -41,6 +43,7 @@ from pydantic import BaseModel, Field
 
 from . import (
     script_diff,
+    script_edit,
     script_params,
     script_runner,
     script_staging,
@@ -79,6 +82,14 @@ class ScriptDiffBody(BaseModel):
 
     base: str = Field(..., pattern=VERSION_NAME_PATTERN)
     target: str = Field(..., pattern=VERSION_NAME_PATTERN)
+
+
+class EditCallBody(BaseModel):
+    """Body of POST /models/{id}/script/edit-call: scalar argument rewrite."""
+
+    designKey: str
+    argument: str
+    value: Any  # 服务端强校验为标量（str/int/float/bool）
 
 
 def _upload_path(request: Request, model_id: str) -> str:
@@ -430,3 +441,41 @@ def locate_callsite(
     if entry is None:
         return {"found": False, "designKey": key}
     return {"found": True, "designKey": key, **entry}
+
+
+@router.post("/models/{id}/script/edit-call")
+def edit_call(
+    request: Request, body: EditCallBody, id: str = Path(pattern=MODEL_ID_PATTERN)
+) -> Dict[str, Any]:
+    """Rewrite one scalar argument at a located callsite, then sandbox-run.
+
+    顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。
+    origin=traced 的调用点不可自动改写 → 422。
+    """
+    _upload_path(request, id)
+    with _lock(request, id):
+        staging = _staging(request, id)
+        current = _current_or_409(staging)
+        map_path = _current_map_path(request, id)
+        entry = None
+        if os.path.isfile(map_path):
+            with open(map_path, encoding="utf-8") as fh:
+                entry = json.load(fh).get(body.designKey)
+        if entry is None:
+            raise HTTPException(
+                status_code=404, detail=f"callsite not found: {body.designKey}"
+            )
+        if entry.get("origin") == "traced":
+            raise HTTPException(
+                status_code=422,
+                detail="callsite not auto-editable (traced); edit the script directly",
+            )
+        try:
+            text = script_edit.rewrite_call_argument(
+                current, entry["line"], body.argument, body.value
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        _run_into_uploads(request, id, text)
+        staging.push(text)
+        return {"modelId": id, "staged": staging.staged_count(), "script": text}
