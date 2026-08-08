@@ -186,6 +186,12 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/models/{id}/script/locate",
+      "handler": "h.scriptLocate",
+      "file": "viewer/server/internal/api/script.go"
+    },
+    {
+      "method": "GET",
       "path": "/api/v1/models/{id}/script/params",
       "handler": "h.scriptParams",
       "file": "viewer/server/internal/api/script.go"

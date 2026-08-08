@@ -270,3 +270,53 @@ func TestScriptStagingDiffProxy(t *testing.T) {
 		t.Fatalf("data = %s, want %s", e.Data, mockBody)
 	}
 }
+
+// guid → 脚本调用点定位：GET + query（guid）原样透传，包 envelope（Task 9）。
+func TestScriptLocateProxy(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	mockBody := `{"found":true,"designKey":"wall-1","line":12,"col":4,"snippet":"make_wall(key='wall-1')","origin":"params"}`
+	pyPath := "/models/" + env.modelID + "/script/locate"
+	goPath := "/api/v1/models/" + env.modelID + "/script/locate"
+	py.set("GET", pyPath, 200, mockBody)
+	rec := doEditReq(t, env.mux, "GET", goPath+"?guid=3abcDEF", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	if call := py.lastCall(); call.Path != pyPath || call.RawQuery != "guid=3abcDEF" {
+		t.Fatalf("forwarded = %s?%s, want %s?guid=3abcDEF", call.Path, call.RawQuery, pyPath)
+	}
+	e := decodeEnv(t, rec)
+	if e.Code != 0 || e.Message == "" {
+		t.Fatalf("envelope = %+v", e)
+	}
+	var got, want interface{}
+	if err := json.Unmarshal(e.Data, &got); err != nil {
+		t.Fatalf("data not JSON: %v", err)
+	}
+	if err := json.Unmarshal([]byte(mockBody), &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("data = %s, want %s", e.Data, mockBody)
+	}
+}
+
+// locate miss（found:false）也是 200 契约，不映射为错误（契约违规属 bug，不 5xx）。
+func TestScriptLocateMissPassthrough(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	py.set("GET", "/models/"+env.modelID+"/script/locate", 200, `{"found":false}`)
+	rec := doEditReq(t, env.mux, "GET", "/api/v1/models/"+env.modelID+"/script/locate?guid=x", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	e := decodeEnv(t, rec)
+	if e.Code != 0 {
+		t.Fatalf("envelope code = %d, want 0", e.Code)
+	}
+	var data map[string]interface{}
+	if err := json.Unmarshal(e.Data, &data); err != nil || data["found"] != false {
+		t.Fatalf("data = %s, want found=false", e.Data)
+	}
+}

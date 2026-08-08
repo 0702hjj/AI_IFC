@@ -25,6 +25,7 @@ func (h *handler) registerScriptRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/models/{id}/script/rollback", h.scriptMutatingPost("rollback"))
 	mux.HandleFunc("POST /api/v1/models/{id}/script/diff", h.scriptPost("diff"))
 	mux.HandleFunc("GET /api/v1/models/{id}/script/staging/diff", h.scriptStagingDiff)
+	mux.HandleFunc("GET /api/v1/models/{id}/script/locate", h.scriptLocate)
 	mux.HandleFunc("GET /api/v1/models/{id}/scripts", h.scriptList)
 }
 
@@ -83,6 +84,16 @@ func (h *handler) scriptList(w http.ResponseWriter, r *http.Request) {	h.scriptP
 // scriptStagingDiff 小版本 diff（暂存链步间）：query（from/to）原样透传。
 func (h *handler) scriptStagingDiff(w http.ResponseWriter, r *http.Request) {
 	path := "/models/" + r.PathValue("id") + "/script/staging/diff"
+	if r.URL.RawQuery != "" {
+		path += "?" + r.URL.RawQuery
+	}
+	h.scriptProxy(w, r, http.MethodGet, path, nil)
+}
+
+// scriptLocate guid → 脚本调用点（designKey/line/col/snippet/origin）：query（guid）原样透传。
+// miss 返回 200 {found:false}（契约违规属 bug，不 5xx）。
+func (h *handler) scriptLocate(w http.ResponseWriter, r *http.Request) {
+	path := "/models/" + r.PathValue("id") + "/script/locate"
 	if r.URL.RawQuery != "" {
 		path += "?" + r.URL.RawQuery
 	}
