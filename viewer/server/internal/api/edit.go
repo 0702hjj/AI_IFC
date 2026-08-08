@@ -30,6 +30,8 @@ const (
 
 func (h *handler) registerEditRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("PUT /api/v1/models/{id}/edit/entities/{guid}", h.editPutEntity)
+	mux.HandleFunc("GET /api/v1/models/{id}/edit/entities/{guid}/editable-schema", h.editGetEditableSchema)
+	mux.HandleFunc("DELETE /api/v1/models/{id}/edit/entities/{guid}", h.editDeleteEntity)
 	mux.HandleFunc("GET /api/v1/models/{id}/edit/pending", h.editGetPending)
 	mux.HandleFunc("DELETE /api/v1/models/{id}/edit/pending", h.editDeletePending)
 	mux.HandleFunc("GET /api/v1/models/{id}/edit/history", h.editHistory)
@@ -109,8 +111,41 @@ func (h *handler) editPutEntity(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, json.RawMessage(data))
 }
 
-func (h *handler) editGetPending(w http.ResponseWriter, r *http.Request) {
+func (h *handler) editGetEditableSchema(w http.ResponseWriter, r *http.Request) {
 	m := h.modelOrErr(w, r.PathValue("id"))
+	if m == nil {
+		return
+	}
+	data, err := h.ed.GetEditableSchema(r.Context(), m.ID, r.PathValue("guid"))
+	if err != nil {
+		writeEditErr(w, err)
+		return
+	}
+	writeJSON(w, json.RawMessage(data))
+}
+
+func (h *handler) editDeleteEntity(w http.ResponseWriter, r *http.Request) {
+	m := h.modelOrErr(w, r.PathValue("id"))
+	if m == nil {
+		return
+	}
+	body := readBody(w, r)
+	if body == nil {
+		return
+	}
+	if _, err := provenanceSource(body); err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
+		return
+	}
+	data, err := h.ed.DeleteEntity(r.Context(), m.ID, r.PathValue("guid"), body)
+	if err != nil {
+		writeEditErr(w, err)
+		return
+	}
+	writeJSON(w, json.RawMessage(data))
+}
+
+func (h *handler) editGetPending(w http.ResponseWriter, r *http.Request) {	m := h.modelOrErr(w, r.PathValue("id"))
 	if m == nil {
 		return
 	}

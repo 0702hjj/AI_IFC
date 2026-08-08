@@ -518,6 +518,8 @@ func TestEditServiceUnreachable(t *testing.T) {
 	for _, tc := range []struct{ method, path, body string }{
 		{"GET", "/edit/pending", ""},
 		{"PUT", "/edit/entities/g1", `{"fields":{"Name":"x"}}`},
+		{"GET", "/edit/entities/g1/editable-schema", ""},
+		{"DELETE", "/edit/entities/g1", ""},
 		{"POST", "/edit/commit", ""},
 	} {
 		rec := doEditReq(t, env.mux, tc.method, "/api/v1/models/"+env.modelID+tc.path, tc.body)
@@ -801,6 +803,127 @@ func TestMigrateEmptyOverrides(t *testing.T) {
 		t.Fatalf("python received %d calls, want 0", py.callCount())
 	}
 	assertNoRun(t, env.runs)
+}
+
+func TestEditEditableSchemaPassthrough(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	schema := `{"guid":"g1","ifcType":"IfcWall","fields":[{"name":"Name","kind":"string","value":"Wall A"},
+	  {"name":"PredefinedType","kind":"enum","value":null,"enumValues":["STANDARD","NOTDEFINED"]}],
+	  "psets":[{"name":"Pset_WallCommon","properties":[{"name":"FireRating","kind":"string","value":""}]}]}`
+	py.set("GET", "/models/"+env.modelID+"/entities/g1/editable-schema", 200, schema)
+
+	rec := doEditReq(t, env.mux, "GET", "/api/v1/models/"+env.modelID+"/edit/entities/g1/editable-schema", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	e := decodeEnv(t, rec)
+	if e.Code != 0 {
+		t.Fatalf("envelope code = %d msg = %s", e.Code, e.Message)
+	}
+	if !strings.Contains(string(e.Data), `"enumValues"`) || !strings.Contains(string(e.Data), `"Pset_WallCommon"`) {
+		t.Fatalf("data = %s", e.Data)
+	}
+	call := py.lastCall()
+	if call.Method != "GET" || call.Path != "/models/"+env.modelID+"/entities/g1/editable-schema" {
+		t.Fatalf("call = %+v", call)
+	}
+}
+
+func TestEditEditableSchemaStatusMapping(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	py.set("GET", "/models/"+env.modelID+"/entities/g9/editable-schema", 404, `{"detail":"entity not found"}`)
+	rec := doEditReq(t, env.mux, "GET", "/api/v1/models/"+env.modelID+"/edit/entities/g9/editable-schema", "")
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	if e := decodeEnv(t, rec); e.Code != codeNotFound {
+		t.Fatalf("code = %d, want %d", e.Code, codeNotFound)
+	}
+}
+
+func TestEditDeleteEntityPassthrough(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	entry := `{"id":"e_del001","guid":"g1","action":"delete","changes":[
+	  {"field":"__deleted__","oldValue":"Wall A","newValue":null}],
+	  "author":"local-user","provenance":{"source":"UI"},"timestamp":"t"}`
+	py.set("DELETE", "/models/"+env.modelID+"/entities/g1", 200, entry)
+
+	body := `{"author":"local-user","provenance":{"source":"UI"}}`
+	rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1", body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	e := decodeEnv(t, rec)
+	if e.Code != 0 {
+		t.Fatalf("envelope code = %d msg = %s", e.Code, e.Message)
+	}
+	var got map[string]interface{}
+	if err := json.Unmarshal(e.Data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["action"] != "delete" || got["guid"] != "g1" {
+		t.Fatalf("data = %s", e.Data)
+	}
+	call := py.lastCall()
+	if call.Method != "DELETE" || call.Path != "/models/"+env.modelID+"/entities/g1" {
+		t.Fatalf("call = %+v", call)
+	}
+	if call.Body != body {
+		t.Fatalf("forwarded body = %q, want %q", call.Body, body)
+	}
+}
+
+func TestEditDeleteEntityEmptyBodyAllowed(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	py.set("DELETE", "/models/"+env.modelID+"/entities/g1", 200, `{"id":"e_1","guid":"g1","action":"delete"}`)
+	rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEditDeleteEntityBadProvenance(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1",
+		`{"provenance":{"source":"robot"}}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	if e := decodeEnv(t, rec); e.Code != codeInvalidType {
+		t.Fatalf("code = %d, want %d", e.Code, codeInvalidType)
+	}
+	if py.callCount() != 0 {
+		t.Fatalf("python received %d calls, want 0", py.callCount())
+	}
+}
+
+func TestEditDeleteEntityStatusMapping(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	cases := []struct {
+		pyStatus   int
+		wantStatus int
+		wantCode   int
+	}{
+		{404, http.StatusNotFound, codeNotFound},
+		{422, http.StatusBadRequest, codeInvalidType},
+		{500, http.StatusBadGateway, codeBadGateway},
+	}
+	for _, c := range cases {
+		py.set("DELETE", "/models/"+env.modelID+"/entities/g1", c.pyStatus, `{"detail":"boom"}`)
+		rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1", "")
+		if rec.Code != c.wantStatus {
+			t.Fatalf("py %d: go status = %d, want %d (body %s)", c.pyStatus, rec.Code, c.wantStatus, rec.Body)
+		}
+		if e := decodeEnv(t, rec); e.Code != c.wantCode {
+			t.Fatalf("py %d: envelope code = %d, want %d", c.pyStatus, e.Code, c.wantCode)
+		}
+	}
 }
 
 func TestMigrateBadProvenance(t *testing.T) {

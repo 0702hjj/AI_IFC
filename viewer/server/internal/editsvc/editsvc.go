@@ -201,6 +201,16 @@ func (c *Client) PutEntity(ctx context.Context, modelID, guid string, body []byt
 	return c.do(ctx, c.fast, http.MethodPut, "/models/"+modelID+"/entities/"+guid, body)
 }
 
+// GetEditableSchema 透传实体可编辑属性 schema（类型化表单用）。
+func (c *Client) GetEditableSchema(ctx context.Context, modelID, guid string) (json.RawMessage, error) {
+	return c.do(ctx, c.fast, http.MethodGet, "/models/"+modelID+"/entities/"+guid+"/editable-schema", nil)
+}
+
+// DeleteEntity 透传构件删除（进 pending 流，commit 生效）。
+func (c *Client) DeleteEntity(ctx context.Context, modelID, guid string, body []byte) (json.RawMessage, error) {
+	return c.do(ctx, c.fast, http.MethodDelete, "/models/"+modelID+"/entities/"+guid, body)
+}
+
 func (c *Client) GetPending(ctx context.Context, modelID string) (json.RawMessage, error) {
 	return c.do(ctx, c.fast, http.MethodGet, "/models/"+modelID+"/pending", nil)
 }
