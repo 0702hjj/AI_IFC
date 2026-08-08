@@ -50,7 +50,7 @@ metadata:
 17. **Pset + material coverage**: every product class must get ≥1 pset AND ≥1 material; spot-check with `util.element.get_psets(e)` / `get_material(e)`.
 
 **Generation (script is the single source of truth):**
-18. **Complex buildings**: MAY be framed with a design JSON **draft** first (auxiliary planning info, NOT a complete representation, NOT the deliverable) — LLM outputs parametric intent, never coordinate math. See `references/DESIGN_JSON_SCHEMA.md`. The deliverable is always a **build script** conforming to the script contract below (#25-29); `flows/design_builder.py` → `features.json` → `flows/build_script_template.py` is one way to get there.
+18. **Complex buildings**: MAY be framed with a design JSON **draft** first (auxiliary planning info, NOT a complete representation, NOT the deliverable) — LLM outputs parametric intent, never coordinate math. See `references/DESIGN_JSON_SCHEMA.md`. The deliverable is always a **build script** conforming to the script contract below (#25-31); `flows/design_builder.py` → `features.json` → `flows/build_script_template.py` is one way to get there.
 19. **Simple single wall/slab**: may still be coded directly (Pipeline Stages).
 
 **Validation (three layers):**
@@ -64,7 +64,7 @@ metadata:
 
 **Script contract (script-as-source — the build script is the single source of truth for the IFC):**
 25. **PARAMS block**: every build script MUST declare a top-level `PARAMS = {...}` **literal dict (JSON-compatible)** holding all tunable parameters. Host UIs render the parameter form from PARAMS, so nothing tunable may live outside it.
-26. **Deterministic identity**: every element's GlobalId MUST come from `script_lib.deterministic_guid(key)` with a stable, unique key `{storey}:{kind}:{n}`; attach the key via `script_lib.attach_design_key` (writes `Pset_AIIFC.designKey`). Same script + same PARAMS → same GlobalIds across runs and versions.
+26. **Deterministic identity**: every element's GlobalId MUST come from `script_lib.deterministic_guid(key)` with a stable, unique key `{storey}:{kind}:{n}`. `script_lib.create_entity` derives the GlobalId and writes `Pset_AIIFC.designKey` automatically — only entities created via raw `root.create_entity` need an explicit `script_lib.attach_design_key`, and that explicit key MUST equal the creation key (mismatch = designKey/GlobalId drift, breaks the locate chain). Same script + same PARAMS → same GlobalIds across runs and versions.
 27. **Entry point**: the script MUST expose `build(params, out_path)`; the `__main__` guard calls `build(PARAMS, out)`. Verify compliance statically with `script_lib.validate_script_contract(path)`.
 28. **Incremental edits, never rewrites**: modifying an existing model = **incrementally editing its existing script** (PARAMS first, then the minimal geometry logic). NEVER regenerate/rewrite the script from scratch — keep the script diff readable, it is the AI's context for the next edit.
 29. **Validate exit**: script output MUST go through `script_lib.write_and_validate(model, out_path)` (model.write + ifcopenshell.validate). No script run is complete without passing schema validation.
@@ -137,7 +137,7 @@ tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 
 When this skill runs **inside the AI_IFC demo** (opencode serve + viewer), the host provides a fixed contract that overrides the generic output paths (MUST #23). This section is maintained in-repo for the demo and is **not** part of the distributable skill bundle.
 
-- Build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context). Build scripts MUST follow the script contract (#25-29): `PARAMS` block, deterministic GlobalIds, `build(params, out_path)` entry, validate exit.
+- Build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context). Build scripts MUST follow the script contract (#25-31): `PARAMS` block, deterministic GlobalIds, `build(params, out_path)` entry, validate exit.
 - **design.json** (optional planning draft only, MUST #18 — auxiliary info, not versioned, not diffed): keep it in your scratch space; the demo does NOT persist or archive it. Only the build script is archived with the version.
 - Python runtime: **always `viewer/edit-service/.venv/bin/python`** (run from the repo root; the edit-service uv project env has ifcopenshell / ezdxf / ifcquery preinstalled — the root `.venv` does NOT). Equivalent: `cd viewer/edit-service && uv run python ...`.
 - Agent rules live in `.opencode/agent/ifc-demo.md` (write scoping, staging, atomic-replace, no viewer HTTP calls); the Go server auto-handles commit/version/XKT-reconvert on `file.edited` + `session.idle`.

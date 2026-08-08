@@ -173,7 +173,8 @@ class TestSkillDocContractDrift:
         text = SKILL_MD.read_text(encoding="utf-8")
         for marker in ("PARAMS", "deterministic_guid", "attach_design_key",
                        "build(params, out_path)", "write_and_validate",
-                       "validate_script_contract", "25.", "26.", "27.", "28.", "29."):
+                       "validate_script_contract", "25.", "26.", "27.", "28.", "29.",
+                       "30.", "31.", "#25-31"):
             assert marker in text, f"SKILL.md 缺少契约标记: {marker}"
 
     def test_script_lib_exports_documented_names(self):
