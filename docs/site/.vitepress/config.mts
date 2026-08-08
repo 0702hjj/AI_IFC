@@ -25,6 +25,7 @@ export default defineConfig({
           { text: '开发指南', link: '/development/architecture' },
           { text: 'API 与 AI', link: '/reference/rest-api' },
           { text: '项目', link: '/project/roadmap' },
+          { text: 'v0.1.0', link: '/project/changelog' },
         ],
 
         sidebar: [
@@ -76,6 +77,7 @@ export default defineConfig({
             text: '项目',
             items: [
               { text: 'Roadmap', link: '/project/roadmap' },
+              { text: '更新日志', link: '/project/changelog' },
               { text: '已知限制', link: '/project/known-limits' },
               { text: '贡献指南', link: '/project/contributing' },
               { text: 'License 与第三方组件', link: '/project/license' },
@@ -132,6 +134,7 @@ export default defineConfig({
           { text: 'Architecture', link: '/en/development/architecture' },
           { text: 'API Reference', link: '/en/reference/rest-api' },
           { text: 'Contributing', link: '/en/project/contributing' },
+          { text: 'v0.1.0', link: '/en/project/changelog' },
         ],
 
         sidebar: [
@@ -176,6 +179,7 @@ export default defineConfig({
           {
             text: 'Project',
             items: [
+              { text: 'Changelog', link: '/en/project/changelog' },
               { text: 'Contributing', link: '/en/project/contributing' },
             ],
           },

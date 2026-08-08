@@ -15,14 +15,14 @@ AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它�
 - IFC 上传与队列化转换（XKT 几何 + 语义元数据）。
 - 三维审查：模型树、属性检查、可见性工具、剖切、测量、NavCube。
 - Issue 与 3D Pin：带相机视角与截图创建、状态流转、点击定位。
-- 属性编辑：白名单字段 override（显示层）与 pending → commit 两阶段真改 IFC。
-- 版本快照与属性级语义 diff（Diff Viewer）。
-- 人与 AI 共用同一套编辑 API，provenance 区分 `UI` / `AI`。
+- 属性编辑：pending → commit 两阶段真改 IFC（无 override 中间层）。
+- 版本快照与属性级语义 diff（Diff Viewer）；Python 构建脚本作为 IFC 事实源（script-as-source）。
+- 人与 AI 共用同一套编辑 API，provenance 区分 `UI` / `AI` / `USER`；MCP server 薄封装编辑 API（stdio）。
 - PostgreSQL 可选存储（issues / overrides / change log）；不配置时文件存储零依赖可跑。
 
 **未交付（见 [已知限制](/project/known-limits) 与 [Roadmap](/project/roadmap)）：**
 
-- 多用户/鉴权；AI 生成 IFC 本体；MCP 封装；几何 diff；Docker Compose 一键部署；完整中英文双语站点；OpenAPI 自动生成。
+- 多用户/鉴权；几何 diff；Docker Compose 一键部署；Viewer 使用与开发指南细节页的英文版本。
 
 ## 四组件架构
 

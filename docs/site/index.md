@@ -4,38 +4,41 @@ layout: home
 hero:
   name: AI_IFC
   text: IFC 审查与编辑平台
-  tagline: 自托管、开源。在浏览器里审查 IFC 模型、真实修改属性、做语义版本对比，并把同一套编辑 API 开放给人与 AI。
+  tagline: 自托管开源的 IFC 审查与编辑平台：真改 IFC、语义 diff、人/AI 同一套 API。
   actions:
     - theme: brand
-      text: 快速开始
-      link: /guide/project-intro
+      text: 开始使用
+      link: /guide/quickstart
     - theme: alt
-      text: 上传第一个 IFC
-      link: /guide/first-ifc
+      text: GitHub
+      link: https://github.com/0702hjj/AI_IFC
 
 features:
-  - title: 三维审查
-    details: 上传 IFC 即转为 XKT 快速渲染；模型树、属性检查、剖切、测量与 3D Issue 钉一应俱全。
-  - title: 真实编辑
-    details: 属性 override 与 pending → commit 两阶段真改 IFC，每次 commit 生成不可变版本快照。
-  - title: 语义版本对比
+  - icon: ✏️
+    title: 真改 IFC
+    details: 属性编辑直接走 pending → commit 两阶段真改 IFC 文件，每次 commit 生成不可变版本快照。
+  - icon: 🔍
+    title: 语义版本 diff
     details: 按 GlobalId 的属性级 diff：新增/删除/修改着色与 old → new 明细，不带几何噪声。
-  - title: 人 / AI 双角色
-    details: 人与 AI 共用同一套 REST 编辑 API，provenance 区分 UI / AI；OpenAPI 工具目录可直接喂给 LLM。
-  - title: AI 建模 Skill
-    details: agent 无关的 aiifc skill 让 AI 直接写 ifcopenshell.api 代码，从自然语言生成或大改 IFC 模型。
+  - icon: 📜
+    title: 脚本即事实源
+    details: Python 构建脚本是 IFC 唯一事实源：沙箱执行、大版本成对快照、脚本 diff 两级粒度。
+  - icon: 🤖
+    title: 人/AI 双角色 API
+    details: 人与 AI 共用同一套 REST 编辑 API，provenance 区分来源；OpenAPI 工具目录可直接喂给 LLM。
+  - icon: 🔌
+    title: MCP 接入
+    details: MCP server 薄封装编辑 API（stdio），可解析用户在外部工具改后的 IFC/DXF 并标注 USER 来源。
+  - icon: 🏠
+    title: 自托管
+    details: 四个本地进程即可跑全平台，文件存储零依赖；可选 PostgreSQL。AGPL-3.0 开源。
 ---
 
-## 它能做什么
+## 什么是 AI_IFC
 
-AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平台，由四个组件构成：
+AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平台：在浏览器里三维审查模型、对构件提 Issue、真实修改 IFC 属性并生成版本快照，再用语义 diff 对比版本变化。人与 AI agent 通过同一套 API 完成编辑，AI 还可以借助 aiifc skill 直接写 IfcOpenShell 代码生成模型。
 
-- **web**：React + xeokit 浏览器端，负责模型库、三维查看、属性检查、Issue、属性编辑与版本对比。
-- **server**：Go 后端，负责上传、转换队列、REST API 与编辑编排，存储可选文件或 PostgreSQL。
-- **converter**：Node 转换器，把 IFC 转为 XKT 几何与语义元数据。
-- **edit-service**：Python（FastAPI + IfcOpenShell）编辑服务，负责真改 IFC、版本快照与语义 diff。
-
-典型工作流：上传 IFC → 转换完成后三维审查 → 对构件提 Issue → 编辑属性（override 或真改）→ commit 生成版本 → 用 Diff 对比版本变化。
+典型工作流：上传 IFC → 转换完成后三维审查 → 对构件提 Issue → 编辑属性 → commit 生成版本 → 用 Diff 对比版本变化。定位与四组件架构详见 [项目介绍](/guide/project-intro)。
 
 ## 界面截图
 
@@ -45,15 +48,14 @@ AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平
 |---|---|---|---|
 | ![模型库](/screenshots/library.png) | ![属性编辑](/screenshots/properties.png) | ![版本对比](/screenshots/diff.png) | ![AI 对话](/screenshots/chat.png) |
 
-## 开始路径
+## 开始使用
 
-1. [项目介绍](/guide/project-intro) — 了解定位、能力边界与四组件架构。
-2. [环境要求与本地部署](/guide/quickstart) — 装好依赖，用四个终端启动全部组件。
-3. [上传第一个 IFC](/guide/first-ifc) — 上传样例模型，走一遍审查 → Issue → 编辑 → Diff 全流程。
-4. [Viewer REST API](/reference/rest-api) 与 [IFC 编辑 API](/reference/edit-api) — 接口契约；[AI 接入](/reference/ai) 面向 AI agent。
+1. [环境要求与本地部署](/guide/quickstart) — 装好依赖，用四个终端启动全部组件。
+2. [上传第一个 IFC](/guide/first-ifc) — 上传样例模型，走一遍审查 → Issue → 编辑 → Diff 全流程。
+3. [AI 接入](/reference/ai) — 把同一套编辑 API 开放给 AI agent。
 
-## 项目状态
+## 链接
 
-平台已端到端可用（上传 → 转换 → 审查 → 编辑 → commit → diff）。当前仓库以 `viewer/` 为活跃产品；仓库历史中的 SimpleCADAPI（SCAD）代码已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，详见 [License 与第三方组件](/project/license)。
-
-版本路线见 [Roadmap](/project/roadmap)，已知边界见 [已知限制](/project/known-limits)。
+- [GitHub 仓库](https://github.com/0702hjj/AI_IFC) — 源码、Issue 与 PR
+- [更新日志](/project/changelog) — 版本变更记录（当前 v0.1.0）
+- [Roadmap](/project/roadmap) · [已知限制](/project/known-limits) · [贡献指南](/project/contributing)

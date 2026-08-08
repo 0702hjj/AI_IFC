@@ -20,6 +20,5 @@
 
 - **diff 仅属性级**：不提供几何 diff；entity 引用属性不参与比较。
 - **AI 生成 IFC 本体为 skill 形态**：aiifc skill 让 AI 直接写 `ifcopenshell.api` 代码生成模型（见 [AI Skill](/reference/ai-skill)）；平台的编辑 API 用于改已有模型。
-- **MCP 封装未交付**：当前为 REST 形态。
-- **OpenAPI 为仓库内静态文件**：自动生成与漂移检测属后续迭代。
-- **仅中文文档**：英文 locale 为后续迭代。
+- **OpenAPI 为仓库内生成文件**：edit-service API 参考与 Go 端点清单由机器生成并有 CI 漂移检测；请求/响应 schema 的完整自动生成属后续迭代。
+- **英文文档为子集**：仅首页、快速开始、总体架构、贡献与 API 入口页有英文版。
