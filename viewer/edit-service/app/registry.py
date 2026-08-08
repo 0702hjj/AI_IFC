@@ -19,7 +19,7 @@ from __future__ import annotations
 import os
 import threading
 from collections import OrderedDict
-from typing import Dict
+from typing import Callable, Dict, List
 
 import ifcopenshell
 
@@ -32,6 +32,15 @@ class ModelRegistry:
         self._models: "OrderedDict[str, ifcopenshell.file]" = OrderedDict()
         self._locks: Dict[str, threading.RLock] = {}
         self._guard = threading.Lock()
+        self._evict_callbacks: List[Callable[[str], None]] = []
+
+    def on_evict(self, callback: Callable[[str], None]) -> None:
+        """Register a hook called with the path of each LRU-evicted model.
+
+        Used to flag pending entries as needing replay: eviction drops the
+        in-memory edits those entries describe.
+        """
+        self._evict_callbacks.append(callback)
 
     def load(self, path: str) -> ifcopenshell.file:
         """Open (or return cached) model for an absolute path.
@@ -70,6 +79,8 @@ class ModelRegistry:
                 self._models.pop(victim, None)
             finally:
                 victim_lock.release()
+            for callback in self._evict_callbacks:
+                callback(victim)
 
     def save(self, path: str) -> None:
         """Atomically write the loaded model back to disk (holds the path lock)."""

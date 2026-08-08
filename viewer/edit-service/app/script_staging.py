@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -136,11 +137,16 @@ class ScriptStaging:
 
 
 class StagingRegistry:
-    """App-wide map of model_id -> ScriptStaging, optionally persisted to disk."""
+    """App-wide map of model_id -> ScriptStaging, optionally persisted to disk.
 
-    def __init__(self, data_dir: Optional[str] = None) -> None:
-        self._staging: Dict[str, ScriptStaging] = {}
+    The in-memory map is bounded (``max_staging``, LRU): evicted stagings are
+    restored from disk on next access, so eviction only drops the cache.
+    """
+
+    def __init__(self, data_dir: Optional[str] = None, max_staging: int = 32) -> None:
+        self._staging: "OrderedDict[str, ScriptStaging]" = OrderedDict()
         self._data_dir = data_dir
+        self._max_staging = max(1, max_staging)
 
     def _path(self, model_id: str) -> str:
         return os.path.join(self._data_dir, "models", model_id, "script_staging.json")
@@ -179,7 +185,14 @@ class StagingRegistry:
             if staging is None:
                 staging = ScriptStaging(model_id=model_id)
             self._staging[model_id] = self._attach(staging)
+        else:
+            self._staging.move_to_end(model_id)
+        self._evict_lru()
         return staging
+
+    def _evict_lru(self) -> None:
+        while len(self._staging) > self._max_staging:
+            self._staging.popitem(last=False)
 
     def reset(self, model_id: str, base: Optional[str] = None) -> ScriptStaging:
         """Recreate staging for a model (e.g. after rollback to a big version)."""
@@ -187,5 +200,7 @@ class StagingRegistry:
         if base is not None:
             st.base = base
         self._staging[model_id] = self._attach(st)
+        self._staging.move_to_end(model_id)
+        self._evict_lru()
         self._persist(st)
         return st

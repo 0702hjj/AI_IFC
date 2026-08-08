@@ -92,6 +92,75 @@ func TestAuthEnabledAcceptsCorrectToken(t *testing.T) {
 	}
 }
 
+// 附带小项（W-0010）：强制 Bearer scheme——裸 token（无 "Bearer " 前缀）必须拒绝。
+func TestAuthRejectsBareTokenWithoutBearerScheme(t *testing.T) {
+	srv, _ := setupSecure(t, "s3cret", nil)
+	req, err := http.NewRequest("GET", srv.URL+"/api/v1/models", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "s3cret")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("裸 token（无 Bearer scheme）应 401: %d", resp.StatusCode)
+	}
+}
+
+// SSE 回退（W-0010）：EventSource 无法携带自定义头，仅 chat events 路径允许 ?token= 传 token。
+func TestAuthAcceptsQueryTokenForSSEEventsPath(t *testing.T) {
+	srv, _ := setupSecure(t, "s3cret", nil)
+	resp := do(t, "GET", srv.URL+"/api/v1/chat/sessions/c_nope/events?token=s3cret", "", "")
+	if resp.StatusCode == http.StatusUnauthorized {
+		t.Fatalf("events 路径带正确 query token 不应 401: %d", resp.StatusCode)
+	}
+}
+
+func TestAuthRejectsWrongQueryTokenForSSEEventsPath(t *testing.T) {
+	srv, _ := setupSecure(t, "s3cret", nil)
+	resp := do(t, "GET", srv.URL+"/api/v1/chat/sessions/c_nope/events?token=wrong", "", "")
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("events 路径带错 query token 应 401: %d", resp.StatusCode)
+	}
+}
+
+func TestAuthRejectsQueryTokenOnNonSSEPath(t *testing.T) {
+	srv, _ := setupSecure(t, "s3cret", nil)
+	resp := do(t, "GET", srv.URL+"/api/v1/models?token=s3cret", "", "")
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("非 events 路径不允许 query token 回退: %d", resp.StatusCode)
+	}
+}
+
+// 豁免白名单 guard（W-0010）：当前豁免路由仅以下三条——
+//   GET /v1/models/{id}/model.xkt
+//   GET /v1/models/{id}/metadata.json
+//   GET /v1/models/{id}/issues/{file}
+// 其余 /v1/models/ 下的 GET 一律 401。未来新增 /v1/models/ 路由默认受保护；
+// 若确需匿名豁免，必须显式扩充白名单并同步更新本测试清单。
+func TestAuthExemptWhitelistGuard(t *testing.T) {
+	srv, st := setupSecure(t, "s3cret", nil)
+	m, err := st.Create("a.ifc", 4, strings.NewReader("fake"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range []string{
+		"/v1/models/" + m.ID + "/evil.bin",
+		"/v1/models/" + m.ID + "/issues",
+		"/v1/models/" + m.ID + "/model.xkt.bak",
+		"/v1/models/" + m.ID,
+		"/v1/models/",
+	} {
+		resp := do(t, "GET", srv.URL+p, "", "")
+		if resp.StatusCode != http.StatusUnauthorized {
+			t.Fatalf("白名单外路径应 401（防前缀静默豁免）: %s -> %d", p, resp.StatusCode)
+		}
+	}
+}
+
 // 豁免清单：GET /v1/models/{id}/model.xkt|metadata.json、GET /v1/models/{id}/issues/{file}
 // 为前端 xeokit/img 标签匿名可读（无法携带 Authorization 头）。
 func TestAuthExemptsReadOnlyModelFiles(t *testing.T) {

@@ -1,10 +1,11 @@
 # W-0009: 重启/LRU 淘汰后 pending 回放（edit-service）
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** b4e4f48 + fa8c1a4
 - **优先级：** P2
 - **Milestone：** 待排（v0.2）
 - **来源：** P1-3 审查发现（2026-08-06）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / docs-site-redesign
 
 ## 背景
 

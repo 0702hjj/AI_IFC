@@ -241,9 +241,17 @@ def discard_script(
 
 
 def _run_into_uploads(request: Request, id: str, script: str) -> str:
-    """Sandbox-run script into uploads/{id}.ifc and drop the registry cache."""
+    """Sandbox-run script into uploads/{id}.ifc and drop the registry cache.
+
+    The run replaces the IFC the pending entries were applied to, so any
+    pending entries are flagged ``needs_replay`` before the unload (the LRU
+    ``on_evict`` hook only fires on capacity eviction, not here).
+    """
     ifc_path = _upload_path(request, id)
     script_runner.run_script(request.app.state.settings, script, ifc_path)
+    store = request.app.state.pending
+    store._ensure(id)
+    store.mark_needs_replay(id)
     request.app.state.registry.unload(ifc_path)
     return ifc_path
 

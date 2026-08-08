@@ -31,7 +31,9 @@ Paths are resolved relative to the process working directory (not the executable
 ## Auth & CORS
 
 - Auth is off by default (`apiToken` empty) for single-machine localhost use. **If you change `host` to a non-loopback address, set `apiToken` (or env `VIEWER_API_TOKEN`).**
-- When enabled, every endpoint requires `Authorization: Bearer <token>` except: OPTIONS preflights, `GET /v1/models/{id}/model.xkt`, `GET /v1/models/{id}/metadata.json`, `GET /v1/models/{id}/issues/{file}` (xeokit and `<img>` tags cannot send headers, so these stay anonymously readable). 401 responses use the standard envelope with error code `40100`.
+- When enabled, every endpoint requires `Authorization: Bearer <token>` (the Bearer scheme is enforced; a bare token is rejected) except: OPTIONS preflights, `GET /v1/models/{id}/model.xkt`, `GET /v1/models/{id}/metadata.json`, `GET /v1/models/{id}/issues/{file}` (xeokit and `<img>` tags cannot send headers, so these stay anonymously readable). 401 responses use the standard envelope with error code `40100`.
+- **Browser UI**: the web app automatically attaches the token stored in localStorage (key `aiifc_token`) to every API request. If no token is stored or it becomes invalid, the first 401 pops up a token input dialog; saving retries the original request. The chat SSE event stream (EventSource cannot send custom headers) passes the token via a `?token=` query parameter (the server only allows this fallback on the events path).
+- With docker compose, set `VIEWER_API_TOKEN` in `.env` (see `.env.example`); compose passes it through to the server container.
 - edit-service (:8100) has **no auth of its own** and relies on network isolation: keep it bound to `127.0.0.1` and never expose it; AI agents connecting directly to :8100 bypass the Go server token check.
 - CORS is tightened from `*` to a whitelist (two local dev ports by default); add deployment origins via `corsOrigins` / `VIEWER_CORS_ORIGINS`.
 

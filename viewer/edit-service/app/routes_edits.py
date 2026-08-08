@@ -211,6 +211,67 @@ def _rollback_psets(
             )
 
 
+def _replay_entry(model: ifcopenshell.file, entry: Dict[str, Any]) -> None:
+    """Re-apply one pending entry to a model freshly opened from disk.
+
+    Entries carry complete edit instructions: ``changes[].field`` is either a
+    direct attribute name or ``"<pset>.<prop>"`` and ``newValue`` the scalar
+    to set; delete entries carry ``action: "delete"``.
+    """
+    guid = entry.get("guid")
+    try:
+        entity = model.by_guid(guid)
+    except RuntimeError:
+        if entry.get("action") == "delete":
+            return  # already gone from the on-disk model
+        raise
+    if entry.get("action") == "delete":
+        ifcopenshell.api.root.remove_product(model, product=entity)
+        return
+    fields: Dict[str, Any] = {}
+    psets: Dict[str, Dict[str, Any]] = {}
+    for change in entry.get("changes", []):
+        field = change["field"]
+        if "." in field:
+            pset_name, key = field.split(".", 1)
+            psets.setdefault(pset_name, {})[key] = change["newValue"]
+        else:
+            fields[field] = change["newValue"]
+    for field_name, value in fields.items():
+        setattr(entity, field_name, value)
+    for pset_name, props in psets.items():
+        pset = ifcopenshell.api.pset.add_pset(model, product=entity, name=pset_name)
+        ifcopenshell.api.pset.edit_pset(model, pset=pset, properties=props)
+
+
+def _ensure_replayed(request: Request, model_id: str, model: ifcopenshell.file) -> None:
+    """Replay restored/evicted pending entries onto the in-memory model.
+
+    Entries restored from ``pending.json`` (or whose model was LRU-evicted)
+    describe edits the current in-memory model never saw. Entries that fail
+    to replay (e.g. entity gone from the on-disk file) are marked ``stale``
+    and persisted; commit refuses stale entries.
+
+    The restore (``_ensure``) runs before the flag check: after a cold
+    restart the flag only gets set when the entries are restored, so a
+    read-only first request (e.g. editable-schema) must restore first.
+    """
+    store = _pending(request)
+    entries = store._ensure(model_id)
+    if not store.needs_replay(model_id):
+        return
+    for entry in entries:
+        try:
+            _replay_entry(model, entry)
+        except Exception:  # noqa: BLE001 - any replay failure marks the entry stale
+            entry["stale"] = True
+    store.set(model_id, entries)
+
+
+def _stale_entries(entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [entry for entry in entries if entry.get("stale")]
+
+
 @router.put("/models/{id}/entities/{guid}")
 def put_entity(
     request: Request,
@@ -225,6 +286,7 @@ def put_entity(
     registry = request.app.state.registry
     with registry.lock(path):
         model = registry.load(path)
+        _ensure_replayed(request, id, model)
         try:
             entity = model.by_guid(guid)
         except RuntimeError:
@@ -301,6 +363,7 @@ def get_editable_schema(
     registry = request.app.state.registry
     with registry.lock(path):
         model = registry.load(path)
+        _ensure_replayed(request, id, model)
         try:
             entity = model.by_guid(guid)
         except RuntimeError:
@@ -354,6 +417,7 @@ def delete_entity(
     registry = request.app.state.registry
     with registry.lock(path):
         model = registry.load(path)
+        _ensure_replayed(request, id, model)
         try:
             entity = model.by_guid(guid)
         except RuntimeError:
@@ -406,16 +470,32 @@ def commit_pending(
     The first commit snapshots the original upload as ``v1`` before saving;
     every commit snapshots the newly saved file as the next version. The
     optional body stamps ``operation`` onto the committed entries (default
-    ``update``; Go's override migration passes ``migrate``).
+    ``update``; Go's override migration passes ``migrate``). Pending entries
+    restored from disk (or orphaned by LRU eviction) are replayed onto the
+    re-opened model first; entries that cannot be replayed are ``stale``
+    and refuse the commit (409) instead of snapshotting an unmodified IFC.
     """
     path = _model_path(request, id)
     registry = request.app.state.registry
     data_dir = request.app.state.settings.data_dir
     operation = body.operation if body is not None else "update"
     with registry.lock(path):
-        pending = _pending(request).get(id)
+        model = registry.load(path)
+        store = _pending(request)
+        pending = store._ensure(id)
         if not pending:
             raise HTTPException(status_code=409, detail="no pending changes")
+        _ensure_replayed(request, id, model)
+        stale = _stale_entries(pending)
+        if stale:
+            ids = ", ".join(entry.get("id", "?") for entry in stale)
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"stale pending entries cannot be replayed: {ids}; "
+                    "discard pending changes (DELETE /pending) to proceed"
+                ),
+            )
         if not versions.list_versions(data_dir, id):
             versions.snapshot(data_dir, id, path)
         registry.save(path)

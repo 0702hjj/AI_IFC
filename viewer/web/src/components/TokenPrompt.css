@@ -1,0 +1,61 @@
+/* SPDX-License-Identifier: AGPL-3.0-only */
+/* Copyright (C) 2026 0702hjj */
+
+.token-prompt-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.token-prompt {
+  background: #1e1e1e;
+  color: #eee;
+  border-radius: 8px;
+  padding: 24px;
+  width: 360px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.token-prompt h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.token-prompt p {
+  margin: 0;
+  font-size: 13px;
+  color: #aaa;
+}
+
+.token-prompt label {
+  font-size: 12px;
+  color: #888;
+}
+
+.token-prompt input {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #444;
+  background: #111;
+  color: #eee;
+}
+
+.token-prompt button {
+  padding: 8px;
+  border-radius: 4px;
+  border: none;
+  background: #3b82f6;
+  color: #fff;
+  cursor: pointer;
+}
+
+.token-prompt button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

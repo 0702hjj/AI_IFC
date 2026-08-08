@@ -4,6 +4,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LibraryPage from "@/pages/LibraryPage";
 import ViewerPage from "@/pages/ViewerPage";
+import TokenPrompt from "@/components/TokenPrompt";
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <Route path="/" element={<LibraryPage />} />
         <Route path="/view/:id" element={<ViewerPage />} />
       </Routes>
+      <TokenPrompt />
     </BrowserRouter>
   );
 }

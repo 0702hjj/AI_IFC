@@ -15,14 +15,14 @@ AI_IFC is a **self-hosted, open-source** IFC model review and editing platform. 
 - IFC upload with queued conversion (XKT geometry + semantic metadata).
 - 3D review: model tree, property inspection, visibility tools, section planes, measurements, NavCube.
 - Issues and 3D pins: creation with camera state + screenshot, status workflow, click-to-locate.
-- Property editing: whitelisted overrides (display layer) and the two-phase pending → commit real IFC edit flow.
-- Version snapshots and attribute-level semantic diffs (Diff Viewer).
-- One editing API shared by humans and AI, distinguished by `UI` / `AI` provenance.
+- Property editing: a two-phase pending → commit flow that really edits IFC (no override layer).
+- Version snapshots and attribute-level semantic diffs (Diff Viewer); Python build scripts as the IFC source of truth (script-as-source).
+- One editing API shared by humans and AI, distinguished by `UI` / `AI` / `USER` provenance; an MCP server thinly wraps the editing API (stdio).
 - Optional PostgreSQL storage (issues / overrides / change log); file storage runs with zero external dependencies when unconfigured.
 
 **Not delivered (see [Known limitations](/project/known-limits) and [Roadmap](/project/roadmap), Chinese):**
 
-- Multi-user/auth; AI IFC generation itself; MCP wrapper; geometric diff; Docker Compose one-command deployment; fully bilingual site; automated OpenAPI generation (partially delivered, see [OpenAPI Files](/en/reference/openapi)).
+- Multi-user/auth; geometric diff; Docker Compose one-command deployment; English versions of the Viewer usage and detailed development pages.
 
 ## Four-component architecture
 
