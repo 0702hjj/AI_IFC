@@ -24,6 +24,7 @@
 | 双轨（按模型类型分流：script-backed 改脚本 / 纯上传 IFC 保留直改） | 用户裁决：先试全量脚本化单轨，走不通再从 git log 回捞直改链路 |
 | script-backed 模型上允许直改 + stale 标记 | 引入分叉状态，正是本轮要消除的债 |
 | 内嵌 git（dulwich/pygit2）作为脚本版本存储 | 平台版本模型是「大版本检查点 + staging 环」，不需要分支/合并语义（v1 范围外的多用户领域）；git 表达不了三件成对 lockstep 约束；运行时依赖膨胀 |
+| edit-service 重写为 Go/Rust/TS | 脚本运行时由契约锁定为 Python（aiifc 构建脚本 = ifcopenshell.api 代码）；可迁移的只是编排壳，而 diff 依赖 ifcdiff（Python）；性能瓶颈在 ifcopenshell C++ 内核而非 FastAPI；Go agent 框架（Eino，W-0017）经 REST 调用，进程边界即语言边界——既有 polyglot 设计不是债 |
 
 ## 2. 核心不变量（设计意图的确定性表达）
 
@@ -146,6 +147,16 @@ AI 路线（有 AI 的唯一入口）：
 - **IFC**：只物化最新大版本；历史版本 IFC 在 diff/下载请求时从脚本**按需重建**（沙箱重跑）+ 结果缓存（容量上限 LRU 淘汰）。存量 `versions/v{n}.ifc` 迁移期保留，新模型不再逐版本落盘。
 - **staging**：`MAX_STEPS=10` 环 + save 压实清空（现状沿用）。
 - **PG**：`changes` / `overrides` 表随直改退役萎缩（新数据不再写入，历史只读）；`issues`（BCF 协同）保留。
+
+### 5.6 大/小版本：语义分层，而非存储分层
+
+脚本全量快照（KB 级）使大小版本在**存储与 diff 实现上完全统一**：同一个 `script_diff.diff_scripts(a, b)`（difflib 全文 diff + PARAMS 键级），无链式重建、无压缩、无两级引擎。剩余区别是纯语义/生命周期的：
+
+| | 大版本 | 小版本（staging 步） |
+|---|---|---|
+| 语义 | 设计师认可的检查点 | 草稿步（"我刚改了什么"的即时确认） |
+| 生命周期 | append-only、可 rollback、进版本列表 | 10 步环窗、save 压实丢弃 |
+| diff 场景 | 版本间审查（脚本 diff + IFC 语义 diff/3D 着色，后者按需重建） | 相邻步 diff |
 
 ## 6. API 变更清单
 
