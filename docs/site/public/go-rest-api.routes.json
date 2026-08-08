@@ -84,32 +84,8 @@
     },
     {
       "method": "POST",
-      "path": "/api/v1/models/{id}/edit/commit",
-      "handler": "h.editCommit",
-      "file": "viewer/server/internal/api/edit.go"
-    },
-    {
-      "method": "POST",
       "path": "/api/v1/models/{id}/edit/diff",
       "handler": "h.editDiff",
-      "file": "viewer/server/internal/api/edit.go"
-    },
-    {
-      "method": "DELETE",
-      "path": "/api/v1/models/{id}/edit/entities/{guid}",
-      "handler": "h.editDeleteEntity",
-      "file": "viewer/server/internal/api/edit.go"
-    },
-    {
-      "method": "PUT",
-      "path": "/api/v1/models/{id}/edit/entities/{guid}",
-      "handler": "h.editPutEntity",
-      "file": "viewer/server/internal/api/edit.go"
-    },
-    {
-      "method": "GET",
-      "path": "/api/v1/models/{id}/edit/entities/{guid}/editable-schema",
-      "handler": "h.editGetEditableSchema",
       "file": "viewer/server/internal/api/edit.go"
     },
     {
