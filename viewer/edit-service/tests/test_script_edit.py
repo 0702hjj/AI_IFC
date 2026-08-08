@@ -151,6 +151,22 @@ class TestRewriteCallArgument:
                 'w = f(key="k", name="x")\n', 1, "name", bad
             )
 
+    @pytest.mark.parametrize("bad_arg", ["na me", '**{"k": 1}, x', "", "1abc", "name;x"])
+    def test_rewrite_rejects_non_identifier_argument(self, bad_arg):
+        """非法参数名会让 libcst 抛 CSTValidationError(非 ValueError) → 提前 422。"""
+        with pytest.raises(ValueError):
+            script_edit.rewrite_call_argument(
+                'w = f(key="k", name="x")\n', 1, bad_arg, "v"
+            )
+
+    @pytest.mark.parametrize("bad_float", [float("nan"), float("inf"), float("-inf")])
+    def test_rewrite_rejects_non_finite_float(self, bad_float):
+        """nan/inf 的 repr 不是合法 Python 字面量 → ValueError。"""
+        with pytest.raises(ValueError):
+            script_edit.rewrite_call_argument(
+                'w = f(key="k", height=3.0)\n', 1, "height", bad_float
+            )
+
 
 def _uploads_ifc(data_dir: Path) -> Path:
     return data_dir / "uploads" / f"{MODEL_ID}.ifc"
@@ -268,6 +284,31 @@ class TestEditCallFailures:
         r = _edit_call(
             client,
             {"designKey": "s1:wall:1", "argument": "name", "value": {"x": 1}},
+        )
+        assert r.status_code == 422
+        assert _wall_name(data_dir) == "W1"
+
+    def test_edit_call_non_identifier_argument_422(
+        self, client: TestClient, data_dir: Path
+    ):
+        """非法参数名（libcst CSTValidationError 路径）→ 422 而非 500。"""
+        _save_script(client, WALL_SCRIPT.format(key="s1:wall:1"))
+        r = _edit_call(
+            client,
+            {"designKey": "s1:wall:1", "argument": "na me", "value": "X"},
+        )
+        assert r.status_code == 422
+        assert _wall_name(data_dir) == "W1"
+
+    def test_edit_call_non_finite_float_422(
+        self, client: TestClient, data_dir: Path
+    ):
+        """NaN 值（json.loads 接受 NaN 字面量）→ 422 而非 500。"""
+        _save_script(client, WALL_SCRIPT.format(key="s1:wall:1"))
+        r = client.post(
+            f"/models/{MODEL_ID}/script/edit-call",
+            content=b'{"designKey": "s1:wall:1", "argument": "name", "value": NaN}',
+            headers={"Content-Type": "application/json"},
         )
         assert r.status_code == 422
         assert _wall_name(data_dir) == "W1"

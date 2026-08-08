@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import math
 from typing import Any, Union
 
 import libcst as cst
@@ -60,6 +61,10 @@ def rewrite_call_argument(script: str, line: int, argument: str, value: Any) -> 
     """Rewrite `argument=` of the factory call starting at `line`; return new source."""
     if not isinstance(value, (str, int, float, bool)):
         raise ValueError(f"value must be a scalar literal, got {type(value).__name__}")
+    if isinstance(value, float) and not math.isfinite(value):
+        raise ValueError(f"value must be finite, got {value!r}")
+    if not argument.isidentifier():
+        raise ValueError(f"argument must be a valid identifier, got {argument!r}")
     try:
         module = cst.parse_module(script)
     except cst.ParserSyntaxError as exc:
