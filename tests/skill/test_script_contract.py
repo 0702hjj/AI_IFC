@@ -52,7 +52,7 @@ class TestAttachDesignKey:
     def test_empty_key_noop(self):
         model = ifcopenshell.api.run("project.create_file")
         ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcProject")
-        wall = script_lib.create_entity(model, "IfcWall", "1F:wall:0")
+        wall = ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcWall")
         script_lib.attach_design_key(model, wall, "")
         from ifcopenshell.util.element import get_psets
         assert "Pset_AIIFC" not in get_psets(wall)
@@ -138,6 +138,32 @@ class TestTemplateThinWrapper:
         assert walls1 and walls1 == walls2
         assert m1.by_type("IfcSlab")
         assert m1.by_type("IfcOpeningElement")
+
+
+def test_contract_has_locatability_clauses():
+    text = Path("skills/aiifc/SKILL.md").read_text(encoding="utf-8")
+    assert "C-locate" in text
+    assert "C-scalar" in text
+
+
+class TestCreateEntityAutoAttach:
+    """create_entity 必须自动写 Pset_AIIFC.designKey（C-locate 定位链的地基）。"""
+
+    def test_auto_attaches_design_key(self):
+        model = ifcopenshell.api.run("project.create_file")
+        ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcProject")
+        wall = script_lib.create_entity(model, "IfcWall", "1F:wall:0")
+        from ifcopenshell.util.element import get_psets
+        psets = get_psets(wall)
+        assert psets["Pset_AIIFC"]["designKey"] == "1F:wall:0"
+
+    def test_explicit_attach_is_idempotent_no_duplicate_pset(self):
+        model = ifcopenshell.api.run("project.create_file")
+        ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcProject")
+        wall = script_lib.create_entity(model, "IfcWall", "1F:wall:0")
+        script_lib.attach_design_key(model, wall, "1F:wall:0")
+        psets = [p for p in model.by_type("IfcPropertySet") if p.Name == "Pset_AIIFC"]
+        assert len(psets) == 1
 
 
 class TestSkillDocContractDrift:

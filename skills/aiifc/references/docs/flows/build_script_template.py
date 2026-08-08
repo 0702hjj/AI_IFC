@@ -8,7 +8,7 @@
 跨版本 diff 与 IFC↔design JSON 双向映射的地基(见 DESIGN_JSON_SCHEMA.md §key)。
 
 本模板是 script_lib 的薄封装: 确定性机制(NAMESPACE_AI_IFC / deterministic_guid /
-create_entity / attach_design_key)、骨架创建(create_skeleton)、validate 出口
+create_entity, 自动写 Pset_AIIFC.designKey)、骨架创建(create_skeleton)、validate 出口
 (write_and_validate)均由 script_lib 提供。
 
 用法: python build_script_template.py features.json -o model.ifc
@@ -89,7 +89,6 @@ def build(features_path, out_path):
                 rep = api("geometry.add_wall_representation", model, context=body, length=L, height=fh, thickness=t)
                 api("geometry.assign_representation", model, product=wall, representation=rep)
                 api("spatial.assign_container", model, relating_structure=storey, products=[wall])
-                attach_design_key(model, wall, seg_key)
                 colorize(model, [wall], st_ext if kind == "ext" else st_int)
                 if first is None:
                     first = (wall, x1, y1, phi, t)
@@ -121,7 +120,6 @@ def build(features_path, out_path):
             api("geometry.edit_object_placement", model, product=fe, matrix=fm, is_si=True)
             api("feature.add_filling", model, opening=opening, element=fe)
             api("spatial.assign_container", model, relating_structure=storey, products=[fe])
-            attach_design_key(model, fe, opkey)
             colorize(model, [fe], st_wood if is_door else st_glass)
         # slabs
         for si, s in enumerate([x for x in feat.get("slabs", []) if x["storey"] == sn]):
@@ -135,7 +133,6 @@ def build(features_path, out_path):
             mz = np.eye(4); mz[2][3] = elev - t
             api("geometry.edit_object_placement", model, product=slab, matrix=mz, is_si=True)
             api("spatial.assign_container", model, relating_structure=storey, products=[slab])
-            attach_design_key(model, slab, skey)
             colorize(model, [slab], st_conc)
     ok = write_and_validate(model, out_path)
     print(f"walls={len(model.by_type('IfcWall'))} openings={len(model.by_type('IfcOpeningElement'))} "

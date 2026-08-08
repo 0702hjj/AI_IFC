@@ -68,6 +68,8 @@ metadata:
 27. **Entry point**: the script MUST expose `build(params, out_path)`; the `__main__` guard calls `build(PARAMS, out)`. Verify compliance statically with `script_lib.validate_script_contract(path)`.
 28. **Incremental edits, never rewrites**: modifying an existing model = **incrementally editing its existing script** (PARAMS first, then the minimal geometry logic). NEVER regenerate/rewrite the script from scratch — keep the script diff readable, it is the AI's context for the next edit.
 29. **Validate exit**: script output MUST go through `script_lib.write_and_validate(model, out_path)` (model.write + ifcopenshell.validate). No script run is complete without passing schema validation.
+30. **C-locate（创建点可定位）**：审查可见构件必须经 `script_lib.create_entity(...)` 创建；禁止绕过工厂直接 `root.create_entity`——工厂记录调用点供 web 端「选中构件→定位脚本」。
+31. **C-scalar（web 可编辑参数为标量）**：需要 web 端编辑的参数必须是标量字面量或 `params` 引用；表达式参数只能手改脚本（edit-call 拒绝）。
 
 ## Entity Mental Model
 

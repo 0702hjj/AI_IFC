@@ -1,8 +1,9 @@
 """script_lib.py — 构建脚本公共 helper(script-as-source 契约的实现层)。
 
-契约(见 SKILL.md MUST #25-29):
+契约(见 SKILL.md MUST #25-31):
 - 脚本头部有 `PARAMS = {...}` 顶层字面量 dict(JSON-compatible, 所有可调参数集中于此)
-- 构件 GlobalId = deterministic_guid(key); key 稳定唯一 `{storey}:{kind}:{n}`, 写 Pset_AIIFC.designKey
+- 构件 GlobalId = deterministic_guid(key); key 稳定唯一 `{storey}:{kind}:{n}`,
+  create_entity 自动写 Pset_AIIFC.designKey
 - 入口 `build(params, out_path)`; `__main__` 用 PARAMS 调 build
 - 出口经 write_and_validate(model.write + ifcopenshell.validate)
 
@@ -88,18 +89,34 @@ def _record_callsite(key: str) -> None:
 
 
 def create_entity(model, ifc_class: str, key: str, **kwargs):
-    """创建实体并写入确定性 GlobalId(create_entity 不接受 GlobalId 参数)。"""
+    """创建实体并写入确定性 GlobalId(create_entity 不接受 GlobalId 参数)。
+
+    自动写 Pset_AIIFC.designKey(C-locate: locate 链路经 designKey 反查调用点),
+    无需再单独调 attach_design_key。
+    """
     _record_callsite(key)
     product = api("root.create_entity", model, ifc_class=ifc_class, **kwargs)
     product.GlobalId = deterministic_guid(key)
+    attach_design_key(model, product, key)
     return product
 
 
 def attach_design_key(model, product, key: str):
-    """把 key 写入 Pset_AIIFC.designKey(IFC ↔ 脚本/版本 双向映射)。"""
+    """把 key 写入 Pset_AIIFC.designKey(IFC ↔ 脚本/版本 双向映射)。
+
+    幂等: 已有 Pset_AIIFC 时原地更新, 不产生重复 pset。
+    """
     if not key:
         return
-    pset = api("pset.add_pset", model, product=product, name="Pset_AIIFC")
+    pset = None
+    for rel in getattr(product, "IsDefinedBy", None) or []:
+        if rel.is_a("IfcRelDefinesByProperties"):
+            candidate = rel.RelatingPropertyDefinition
+            if candidate.is_a("IfcPropertySet") and candidate.Name == "Pset_AIIFC":
+                pset = candidate
+                break
+    if pset is None:
+        pset = api("pset.add_pset", model, product=product, name="Pset_AIIFC")
     api("pset.edit_pset", model, pset=pset,
         properties={"designKey": key, "designId": str(product.GlobalId)[:8]})
 
