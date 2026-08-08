@@ -22,8 +22,6 @@ from app.pending import PendingStore
 from app.script_staging import ScriptStaging, StagingRegistry
 from conftest import MODEL_ID
 
-WALL_GUID = "3ZYW59sxj8lei475l7EhLU"
-
 
 def _script(marker: str) -> str:
     return (
@@ -133,50 +131,42 @@ class TestStagingPersistence:
 
 
 class TestPendingPersistence:
-    def test_pending_written_atomically(self, client: TestClient, data_dir: Path) -> None:
-        resp = client.put(
-            f"/models/{MODEL_ID}/entities/{WALL_GUID}",
-            json={"fields": {"Name": "新名字"}},
-        )
-        assert resp.status_code == 200
+    def test_pending_written_atomically(self, data_dir: Path) -> None:
+        store = PendingStore(str(data_dir))
+        store.append(MODEL_ID, {"id": "e_1", "guid": "g"})
         path = _pending_file(data_dir)
         assert path.is_file()
         assert not Path(str(path) + ".tmp").exists()
         payload = json.loads(path.read_text(encoding="utf-8"))
-        assert [e["id"] for e in payload] == [resp.json()["id"]]
+        assert [e["id"] for e in payload] == ["e_1"]
 
-    def test_pending_survives_restart(self, restart) -> None:
+    def test_pending_survives_restart(self, restart, data_dir: Path) -> None:
+        # Legacy pending.json (pre-retirement) stays visible via the
+        # surviving read-only endpoint after a restart.
+        entry = {
+            "id": "e_legacy",
+            "guid": "g",
+            "changes": [{"field": "Name", "oldValue": "a", "newValue": "b"}],
+            "author": "ai-agent",
+            "provenance": {"source": "AI"},
+            "timestamp": "2026-08-08T00:00:00+00:00",
+        }
+        path = _pending_file(data_dir)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps([entry]), encoding="utf-8")
+
         client = restart()
-        resp = client.put(
-            f"/models/{MODEL_ID}/entities/{WALL_GUID}",
-            json={"fields": {"Name": "新名字"}, "author": "ai-agent",
-                  "provenance": {"source": "AI"}},
-        )
-        entry = resp.json()
-
-        client2 = restart()
-        pending = client2.get(f"/models/{MODEL_ID}/pending").json()
-        assert [e["id"] for e in pending] == [entry["id"]]
+        pending = client.get(f"/models/{MODEL_ID}/pending").json()
+        assert [e["id"] for e in pending] == ["e_legacy"]
         assert pending[0]["changes"] == entry["changes"]
         assert pending[0]["provenance"] == {"source": "AI"}
 
-    def test_commit_clears_persisted_pending(self, restart, data_dir: Path) -> None:
-        client = restart()
-        client.put(
-            f"/models/{MODEL_ID}/entities/{WALL_GUID}",
-            json={"fields": {"Name": "新名字"}},
-        )
-        client.post(f"/models/{MODEL_ID}/commit")
-        assert not _pending_file(data_dir).exists()
-        assert restart().get(f"/models/{MODEL_ID}/pending").json() == []
-
     def test_discard_clears_persisted_pending(self, restart, data_dir: Path) -> None:
+        PendingStore(str(data_dir)).append(MODEL_ID, {"id": "e_1", "guid": "g"})
         client = restart()
-        client.put(
-            f"/models/{MODEL_ID}/entities/{WALL_GUID}",
-            json={"fields": {"Name": "新名字"}},
-        )
-        client.delete(f"/models/{MODEL_ID}/pending")
+        resp = client.delete(f"/models/{MODEL_ID}/pending")
+        assert resp.status_code == 200
+        assert resp.json() == {"discarded": 1}
         assert not _pending_file(data_dir).exists()
         assert restart().get(f"/models/{MODEL_ID}/pending").json() == []
 
