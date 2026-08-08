@@ -3,36 +3,81 @@
 
 import { useEffect, useState } from "react";
 import type { MetaObject } from "@xeokit/xeokit-sdk";
-import { saveEntityProperties } from "@/api/client";
+import {
+  commitEdits,
+  deleteEntity,
+  fetchEditableSchema,
+  fetchEditPending,
+  putEntityEdit,
+} from "@/api/client";
+import type { EditableKind, EditableSchema, EditScalar } from "@/api/types";
 import { useViewer } from "./ViewerContext";
 import { useViewerStore } from "./store";
-import { applyOverrides, EDITABLE_FIELDS, type EditableField } from "./overrides";
+import { applyOverrides } from "./overrides";
 import "./PropertyPanel.css";
+
+const AUTHOR = "local-user";
+const PROVENANCE = { source: "UI" as const };
+
+interface EditTarget {
+  key: string;
+  name: string;
+  kind: EditableKind;
+  value: unknown;
+  pset?: string;
+  enumValues?: string[];
+}
+
+function coerceNumber(kind: EditableKind, raw: string): EditScalar | undefined {
+  if (kind !== "int" && kind !== "float") return raw;
+  const n = Number(raw);
+  if (raw.trim() === "" || Number.isNaN(n)) return undefined;
+  if (kind === "int" && !Number.isInteger(n)) return undefined;
+  return n;
+}
 
 export function PropertyPanel({ modelId }: { modelId: string }) {
   const ctx = useViewer();
   const selectedId = useViewerStore((s) => s.selectedId);
   const overrides = useViewerStore((s) => s.overrides);
   const loadOverrides = useViewerStore((s) => s.loadOverrides);
-  const setEntityOverrides = useViewerStore((s) => s.setEntityOverrides);
   const bumpChanges = useViewerStore((s) => s.bumpChanges);
+  const flagPendingModelReload = useViewerStore((s) => s.flagPendingModelReload);
 
   const [query, setQuery] = useState("");
   const [toggled, setToggled] = useState<Record<string, boolean>>({});
-  const [editing, setEditing] = useState<EditableField | null>(null);
+  const [schema, setSchema] = useState<EditableSchema | null>(null);
+  const [schemaFailed, setSchemaFailed] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [localEdits, setLocalEdits] = useState<Record<string, EditScalar>>({});
+  const [pendingCount, setPendingCount] = useState(0);
+  const [deleted, setDeleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
     loadOverrides(modelId).catch(() => {});
+    fetchEditPending(modelId)
+      .then((list) => setPendingCount(list?.length ?? 0))
+      .catch(() => {});
   }, [modelId, loadOverrides]);
 
   useEffect(() => {
     setToggled({});
     setQuery("");
     setEditing(null);
+    setLocalEdits({});
+    setDeleted(false);
     setError(null);
-  }, [selectedId]);
+    setNotice(null);
+    setSchema(null);
+    setSchemaFailed(false);
+    if (!selectedId) return;
+    fetchEditableSchema(modelId, selectedId)
+      .then((s) => setSchema(s))
+      .catch(() => setSchemaFailed(true));
+  }, [modelId, selectedId]);
 
   const metaModel = ctx?.metaModel ?? null;
   const metaObjects = metaModel
@@ -48,45 +93,160 @@ export function PropertyPanel({ modelId }: { modelId: string }) {
       )
     : null;
 
-  const psets = entity?.propertySets ?? [];
   const q = query.trim().toLowerCase();
   const searching = q !== "";
-
-  const propMatches = (p: { name: string; value: unknown }) =>
-    p.name.toLowerCase().includes(q) ||
-    (p.value != null && String(p.value).toLowerCase().includes(q));
 
   const isOpen = (id: string, index: number) =>
     searching || (id in toggled ? toggled[id] : index === 0);
 
-  const startEdit = (field: EditableField) => {
-    if (!entity) return;
-    setEditing(field);
-    setDraft(entity.fields[field]);
-    setError(null);
-  };
+  const matches = (name: string, value: unknown) =>
+    name.toLowerCase().includes(q) ||
+    (value != null && String(value).toLowerCase().includes(q));
 
-  const cancelEdit = () => {
-    setEditing(null);
-    setError(null);
-  };
+  const refreshPending = () =>
+    fetchEditPending(modelId)
+      .then((list) => setPendingCount(list?.length ?? 0))
+      .catch(() => {});
 
-  const save = (field: EditableField) => {
-    if (!entity || !selectedId || editing !== field) return;
-    const value = draft;
-    setEditing(null);
-    if (value === entity.fields[field]) return;
-    saveEntityProperties(modelId, selectedId, { [field]: value }, entity.name)
-      .then((effective) => {
-        setEntityOverrides(selectedId, effective ?? {});
-        bumpChanges();
+  const save = (target: EditTarget, value: EditScalar) => {
+    if (!selectedId || deleted) return;
+    const payload = target.pset
+      ? { psets: { [target.pset]: { [target.name]: value } }, author: AUTHOR, provenance: PROVENANCE }
+      : { fields: { [target.name]: value }, author: AUTHOR, provenance: PROVENANCE };
+    putEntityEdit(modelId, selectedId, payload)
+      .then(() => {
+        setLocalEdits((prev) => ({ ...prev, [target.key]: value }));
         setError(null);
+        setEditing(null);
+        refreshPending();
       })
-      .catch((e: Error) => {
-        setError(e.message);
-        setEditing(field);
-      });
+      .catch((e: Error) => setError(e.message));
   };
+
+  const submitDraft = (target: EditTarget) => {
+    const value = coerceNumber(target.kind, draft);
+    if (value === undefined) {
+      setError("无效数字");
+      return;
+    }
+    setEditing(null);
+    if (value === (target.value ?? "")) return;
+    save(target, value);
+  };
+
+  const commit = () => {
+    commitEdits(modelId)
+      .then(() => {
+        setPendingCount(0);
+        setLocalEdits({});
+        setError(null);
+        setNotice("已提交，模型重转中…");
+        bumpChanges();
+        flagPendingModelReload();
+      })
+      .catch((e: Error) => setError(e.message));
+  };
+
+  const remove = () => {
+    if (!entity || !selectedId || deleted) return;
+    if (!window.confirm(`删除构件「${entity.name || selectedId}」？提交后生效。`)) return;
+    deleteEntity(modelId, selectedId, { author: AUTHOR, provenance: PROVENANCE })
+      .then(() => {
+        setDeleted(true);
+        setNotice("构件已标记删除，提交后生效");
+        setError(null);
+        refreshPending();
+      })
+      .catch((e: Error) => setError(e.message));
+  };
+
+  const displayValue = (t: EditTarget): EditScalar | undefined =>
+    t.key in localEdits ? localEdits[t.key] : (t.value as EditScalar);
+
+  const renderValueCell = (t: EditTarget) => {
+    const value = displayValue(t);
+    if (t.kind === "bool") {
+      return (
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          disabled={deleted}
+          aria-label={`编辑 ${t.name}`}
+          onChange={(e) => save(t, e.target.checked)}
+        />
+      );
+    }
+    if (editing === t.key) {
+      if (t.kind === "enum") {
+        const options = t.enumValues ?? [];
+        return (
+          <select
+            className="editable-input"
+            aria-label={`编辑 ${t.name}`}
+            autoFocus
+            defaultValue={value == null ? "" : String(value)}
+            onChange={(e) => {
+              setEditing(null);
+              save(t, e.target.value === "" ? null : e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setEditing(null);
+            }}
+            onBlur={() => setEditing(null)}
+          >
+            <option value="">（空）</option>
+            {options.map((v) => (
+              <option key={v} value={v}>
+                {v}
+              </option>
+            ))}
+          </select>
+        );
+      }
+      return (
+        <input
+          className="editable-input"
+          type={t.kind === "int" || t.kind === "float" ? "number" : "text"}
+          step={t.kind === "int" ? 1 : "any"}
+          aria-label={`编辑 ${t.name}`}
+          value={draft}
+          autoFocus
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") submitDraft(t);
+            if (e.key === "Escape") setEditing(null);
+          }}
+          onBlur={() => submitDraft(t)}
+        />
+      );
+    }
+    return (
+      <span
+        className="editable-value"
+        title={deleted ? undefined : "点击编辑"}
+        onClick={() => {
+          if (deleted) return;
+          setEditing(t.key);
+          setDraft(value == null ? "" : String(value));
+          setError(null);
+        }}
+      >
+        {value == null || value === "" ? "（空）" : String(value)}
+      </span>
+    );
+  };
+
+  const fieldTargets: EditTarget[] = (schema?.fields ?? []).map((f) => ({
+    key: `field:${f.name}`,
+    name: f.name,
+    kind: f.kind,
+    value: f.value,
+    enumValues: f.enumValues,
+  }));
+
+  const visibleFields = fieldTargets.filter(
+    (t) => !searching || matches(t.name, displayValue(t))
+  );
 
   return (
     <aside className="property-panel">
@@ -107,104 +267,148 @@ export function PropertyPanel({ modelId }: { modelId: string }) {
             <dt>类型</dt>
             <dd>{entity.type}</dd>
           </dl>
-          <section className="property-set editable-section">
-            <h3 className="property-set-title">可编辑属性</h3>
-            {error && <p className="editable-error">{error}</p>}
-            <table>
-              <tbody>
-                {EDITABLE_FIELDS.map((field) => {
-                  const overridden =
-                    (selectedId && overrides[selectedId]?.[field]) !== undefined;
-                  return (
-                    <tr
-                      key={field}
-                      data-testid={`editable-${field}`}
-                      className={overridden ? "overridden" : ""}
-                    >
-                      <td className="property-name">
-                        {overridden && <span className="override-dot" title="已修改" />}
-                        {field}
-                      </td>
-                      <td className="property-value">
-                        {editing === field ? (
-                          <input
-                            className="editable-input"
-                            aria-label={`编辑 ${field}`}
-                            value={draft}
-                            autoFocus
-                            onChange={(e) => setDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") save(field);
-                              if (e.key === "Escape") cancelEdit();
-                            }}
-                            onBlur={() => save(field)}
-                          />
-                        ) : (
-                          <span
-                            className="editable-value"
-                            title="点击编辑"
-                            onClick={() => startEdit(field)}
-                          >
-                            {entity.fields[field] || "（空）"}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </section>
-          {psets.map((pset, index) => {
-            const props = (pset.properties ?? []).filter(
-              (p) => !searching || propMatches(p) || pset.name.toLowerCase().includes(q)
-            );
-            if (searching && props.length === 0) return null;
-            return (
-              <section key={pset.id} className="property-set">
-                <h3
-                  className="property-set-title"
-                  onClick={() =>
-                    setToggled((prev) => ({
-                      ...prev,
-                      [pset.id]: !isOpen(pset.id, index),
-                    }))
-                  }
-                >
-                  {isOpen(pset.id, index) ? "▾ " : "▸ "}
-                  <span>{pset.name}</span>
-                </h3>
-                {isOpen(pset.id, index) && (
-                  <table>
-                    <tbody>
-                      {props.map((prop, i) => (
-                        <tr key={`${prop.name}-${i}`}>
-                          <td className="property-name">{prop.name}</td>
-                          <td className="property-value">
-                            {prop.value == null ? "" : String(prop.value)}
-                          </td>
-                          <td className="property-copy">
-                            <button
-                              type="button"
-                              className="property-copy-btn"
-                              aria-label={`复制 ${prop.name}`}
-                              onClick={() =>
-                                navigator.clipboard.writeText(
-                                  `${prop.name}: ${prop.value == null ? "" : String(prop.value)}`
-                                )
-                              }
-                            >
-                              复制
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
+          {pendingCount > 0 && (
+            <p className="pending-banner">
+              有未提交修改（{pendingCount}）
+              <button type="button" className="pending-commit-btn" onClick={commit}>
+                提交
+              </button>
+            </p>
+          )}
+          {notice && <p className="property-notice">{notice}</p>}
+          {error && <p className="editable-error">{error}</p>}
+          {!deleted && (
+            <button type="button" className="delete-entity-btn" onClick={remove}>
+              删除构件
+            </button>
+          )}
+          {schema && (
+            <>
+              <section className="property-set editable-section">
+                <h3 className="property-set-title">可编辑属性</h3>
+                <table>
+                  <tbody>
+                    {visibleFields.map((t) => (
+                      <tr key={t.name} data-testid={`field-${t.name}`}>
+                        <td className="property-name">{t.name}</td>
+                        <td className="property-value">{renderValueCell(t)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </section>
-            );
-          })}
+              {schema.psets.map((pset, index) => {
+                const targets = pset.properties
+                  .map((p) => ({
+                    key: `pset:${pset.name}.${p.name}`,
+                    name: p.name,
+                    kind: p.kind,
+                    value: p.value,
+                    pset: pset.name,
+                  }))
+                  .filter(
+                    (t) =>
+                      !searching ||
+                      matches(t.name, displayValue(t)) ||
+                      pset.name.toLowerCase().includes(q)
+                  );
+                if (searching && targets.length === 0) return null;
+                const sid = `schema-pset-${pset.name}`;
+                return (
+                  <section key={pset.name} className="property-set">
+                    <h3
+                      className="property-set-title"
+                      onClick={() =>
+                        setToggled((prev) => ({ ...prev, [sid]: !isOpen(sid, index) }))
+                      }
+                    >
+                      {isOpen(sid, index) ? "▾ " : "▸ "}
+                      <span>{pset.name}</span>
+                    </h3>
+                    {isOpen(sid, index) && (
+                      <table>
+                        <tbody>
+                          {targets.map((t) => (
+                            <tr key={t.name} data-testid={`pset-${pset.name}.${t.name}`}>
+                              <td className="property-name">{t.name}</td>
+                              <td className="property-value">{renderValueCell(t)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </section>
+                );
+              })}
+            </>
+          )}
+          {schemaFailed && (
+            <>
+              <p className="property-notice">编辑服务不可用，只读模式</p>
+              {entity.propertySets.map((pset, index) => {
+                const props = (pset.properties ?? []).filter(
+                  (p) => !searching || matches(p.name, p.value) || pset.name.toLowerCase().includes(q)
+                );
+                if (searching && props.length === 0) return null;
+                return (
+                  <section key={pset.id} className="property-set">
+                    <h3
+                      className="property-set-title"
+                      onClick={() =>
+                        setToggled((prev) => ({
+                          ...prev,
+                          [pset.id]: !isOpen(pset.id, index),
+                        }))
+                      }
+                    >
+                      {isOpen(pset.id, index) ? "▾ " : "▸ "}
+                      <span>{pset.name}</span>
+                    </h3>
+                    {isOpen(pset.id, index) && (
+                      <table>
+                        <tbody>
+                          {props.map((prop, i) => {
+                            const overridden =
+                              (selectedId && overrides[selectedId]?.[prop.name]) !== undefined;
+                            return (
+                              <tr
+                                key={`${prop.name}-${i}`}
+                                className={overridden ? "overridden" : ""}
+                              >
+                                <td className="property-name">
+                                  {overridden && (
+                                    <span className="override-dot" title="历史 override" />
+                                  )}
+                                  {prop.name}
+                                </td>
+                                <td className="property-value">
+                                  {prop.value == null ? "" : String(prop.value)}
+                                </td>
+                                <td className="property-copy">
+                                  <button
+                                    type="button"
+                                    className="property-copy-btn"
+                                    aria-label={`复制 ${prop.name}`}
+                                    onClick={() =>
+                                      navigator.clipboard.writeText(
+                                        `${prop.name}: ${prop.value == null ? "" : String(prop.value)}`
+                                      )
+                                    }
+                                  >
+                                    复制
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    )}
+                  </section>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
     </aside>
