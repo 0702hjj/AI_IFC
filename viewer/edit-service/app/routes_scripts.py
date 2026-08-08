@@ -21,6 +21,8 @@ The build script is the single source of truth for generated models:
 - ``GET  /models/{id}/scripts`` — list big versions.
 - ``POST /models/{id}/script/rollback`` — restore a big version's script
   into staging, re-run it into uploads.
+- ``GET  /models/{id}/script/locate?guid=...`` — guid → designKey →
+  CallSite (from ``models/{id}/current.map.json``).
 
 All mutating endpoints hold the per-model lock (keyed by the uploads path,
 shared with entity edits) — the retired design routes lacked this and could
@@ -29,9 +31,11 @@ lose versions under concurrent saves.
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any, Dict, Optional
 
+import ifcopenshell.util.element
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
@@ -401,3 +405,28 @@ def diff_staging_steps(
         "to": j,
         **script_diff.diff_scripts(base, target, f"step{i}", f"step{j}"),
     }
+
+
+@router.get("/models/{id}/script/locate")
+def locate_callsite(
+    request: Request, guid: str = Query(...), id: str = Path(pattern=MODEL_ID_PATTERN)
+) -> Dict[str, Any]:
+    """Locate the script callsite for an IFC element (guid → designKey → CallSite)."""
+    ifc_path = _upload_path(request, id)
+    model = request.app.state.registry.load(ifc_path)
+    try:
+        element = model.by_guid(guid)
+    except RuntimeError:
+        raise HTTPException(status_code=404, detail=f"element not found: {guid}")
+    psets = ifcopenshell.util.element.get_psets(element)
+    key = (psets.get("Pset_AIIFC") or {}).get("designKey")
+    if not key:
+        return {"found": False}
+    map_path = _current_map_path(request, id)
+    entry = None
+    if os.path.isfile(map_path):
+        with open(map_path, encoding="utf-8") as fh:
+            entry = json.load(fh).get(key)
+    if entry is None:
+        return {"found": False, "designKey": key}
+    return {"found": True, "designKey": key, **entry}
