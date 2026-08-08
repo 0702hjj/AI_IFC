@@ -122,6 +122,9 @@ func TestScriptProxySaveForwardsNote(t *testing.T) {
 	if err := json.Unmarshal(e.Data, &data); err != nil || data["version"] != "v1" {
 		t.Fatalf("data = %s, want version v1", e.Data)
 	}
+	// save 成功会排 XKT 重转（异步写 models/{id}/），等其落地再结束，避免 TempDir 清理竞争
+	waitRun(t, env.runs)
+	waitReady(t, env.st, env.modelID)
 }
 
 func TestScriptProxyErrorMapping(t *testing.T) {
