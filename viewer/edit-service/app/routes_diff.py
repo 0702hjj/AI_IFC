@@ -11,6 +11,10 @@ Diff results between two immutable snapshots are cached next to them at
 ``versions/diff-{base}-{target}.json``. Diffs against ``target="current"``
 are never cached: the uploads file is mutable, so there is no stable cache
 key.
+
+Historical big versions keep no materialized IFC (spec §5.5): a missing
+snapshot with a surviving script is rebuilt on demand into the LRU cache
+(``ifc_materialize.materialize_version``); with neither it is a 404.
 """
 
 from __future__ import annotations
@@ -22,7 +26,8 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Path, Request
 from pydantic import BaseModel
 
-from . import diffing, versions
+from . import diffing, ifc_materialize, versions
+from .config import Settings
 from .routes_edits import MODEL_ID_PATTERN, _model_path
 
 router = APIRouter()
@@ -35,11 +40,14 @@ class DiffBody(BaseModel):
     target: str
 
 
-def _version_or_404(data_dir: str, model_id: str, version: str) -> str:
-    path = versions.version_path(data_dir, model_id, version)
-    if path is None:
+def _version_or_404(
+    settings: Settings, data_dir: str, model_id: str, version: str
+) -> str:
+    """Snapshot path, rebuilding from the version's script when pruned (I5)."""
+    try:
+        return ifc_materialize.materialize_version(data_dir, model_id, version, settings)
+    except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"version not found: {version}")
-    return path
 
 
 @router.get("/models/{id}/versions")
@@ -62,14 +70,15 @@ def post_diff(
 ) -> Dict[str, Any]:
     """Diff two model versions (or base version vs the current upload state)."""
     current_path = _model_path(request, id)
-    data_dir = request.app.state.settings.data_dir
-    base_path = _version_or_404(data_dir, id, body.base)
+    settings = request.app.state.settings
+    data_dir = settings.data_dir
+    base_path = _version_or_404(settings, data_dir, id, body.base)
 
     cache_path = None
     if body.target == "current":
         target_path = current_path
     else:
-        target_path = _version_or_404(data_dir, id, body.target)
+        target_path = _version_or_404(settings, data_dir, id, body.target)
         cache_path = os.path.join(
             versions.versions_dir(data_dir, id), f"diff-{body.base}-{body.target}.json"
         )

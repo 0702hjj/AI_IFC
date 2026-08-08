@@ -4,15 +4,18 @@
 """Big-version snapshots for script-as-source models.
 
 A big version is a designer-approved checkpoint. It stores the build script
-(``{data_dir}/models/{id}/scripts/v{n}.py`` — the single source of truth)
-alongside the derived IFC snapshot (``versions/v{n}.ifc``). Only explicit
-"save" points create big versions; in-between staging edits do not persist
-and produce no version.
+(``{data_dir}/models/{id}/scripts/v{n}.py`` — the single source of truth).
+Only the latest big version keeps its derived IFC snapshot
+(``versions/v{n}.ifc``); older snapshots with a rebuildable script are
+deleted on save and regenerated on demand (see ifc_materialize, spec §5.5
+/I5). Only explicit "save" points create big versions; in-between staging
+edits do not persist and produce no version.
 
 Script and IFC numbering stay in lockstep: ``n = max(next script n, next IFC
 n)``, so a script version never collides with an entity-edit commit snapshot
-(routes_edits shares ``versions/``). A sidecar ``v{n}.meta.json`` holds the
-note/timestamp; listings read the ``*.py`` files only.
+(routes_edits shares ``versions/``). Entity-edit snapshots (no script) are
+migration-period state and are never pruned. A sidecar ``v{n}.meta.json``
+holds the note/timestamp; listings read the ``*.py`` files only.
 
 Rollback = restore a saved script (re-run is downstream), never a per-step
 revert.
@@ -77,6 +80,24 @@ def _write_atomic(path: str, content: str) -> None:
     os.replace(tmp, path)
 
 
+def _prune_rebuildable_snapshots(data_dir: str, model_id: str, keep_version: str) -> None:
+    """Delete older ``versions/v{m}.ifc`` snapshots that have a script (I5).
+
+    Only the latest big version stays materialized; versions with
+    ``scripts/v{m}.py`` are rebuildable on demand (ifc_materialize).
+    Entity-edit snapshots without a script are migration-period state and
+    are preserved.
+    """
+    keep_n = int(keep_version[1:])
+    for m in range(1, keep_n):
+        version = f"v{m}"
+        if script_path(data_dir, model_id, version) is None:
+            continue
+        snapshot = versions.version_path(data_dir, model_id, version)
+        if snapshot is not None:
+            os.remove(snapshot)
+
+
 def save(
     data_dir: str,
     model_id: str,
@@ -91,6 +112,8 @@ def save(
     ``scripts/v{n}.py`` and ``versions/v{n}.ifc`` always pair up. ``map_text``
     (the run's ScriptMap JSON) is snapshotted as ``scripts/v{n}.map.json`` in
     the same lockstep; scripts that produced no map get no map sidecar.
+    After the new snapshot lands, older rebuildable IFC snapshots are pruned
+    (only the latest stays materialized, spec §5.5).
     """
     directory = scripts_dir(data_dir, model_id)
     os.makedirs(directory, exist_ok=True)
@@ -114,4 +137,5 @@ def save(
     if map_text is not None:
         _write_atomic(os.path.join(directory, f"{version}.map.json"), map_text)
     versions.snapshot_as(data_dir, model_id, ifc_src_path, version)
+    _prune_rebuildable_snapshots(data_dir, model_id, version)
     return version
