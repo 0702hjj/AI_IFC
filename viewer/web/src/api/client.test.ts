@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 0702hjj
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, createChatProject, fetchEditableSchema, putEntityEdit, deleteEntity, fetchEditPending, commitEdits } from "./client";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, createChatProject, fetchEditableSchema, putEntityEdit, deleteEntity, fetchEditPending, commitEdits, chatEventsUrl } from "./client";
+import { setToken, clearToken, onUnauthorized } from "./auth";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
 
@@ -250,6 +251,73 @@ describe("chat api", () => {
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ title: "p" });
     expect(m).toEqual(model);
+  });
+});
+
+describe("api token 注入（W-0010）", () => {
+  afterEach(() => clearToken());
+
+  it("localStorage 有 token 时注入 Authorization: Bearer 头", async () => {
+    setToken("s3cret");
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope([])), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await listModels();
+    const headers = new Headers((spy.mock.calls[0] as unknown as [string, RequestInit])[1].headers);
+    expect(headers.get("Authorization")).toBe("Bearer s3cret");
+  });
+
+  it("无 token 时不注入 Authorization 头（零行为变化）", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope([])), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await listModels();
+    const headers = new Headers((spy.mock.calls[0] as unknown as [string, RequestInit])[1].headers);
+    expect(headers.get("Authorization")).toBeNull();
+  });
+
+  it("401 触发 unauthorized 订阅，保存 token 后带新 token 重试原请求", async () => {
+    const on401 = vi.fn();
+    const off = onUnauthorized(on401);
+    const spy = vi.fn(async (_url: string, init?: RequestInit) => {
+      const auth = new Headers(init?.headers).get("Authorization");
+      if (auth !== "Bearer s3cret") {
+        return new Response(JSON.stringify({ code: 40100, message: "missing or invalid bearer token", data: null }), { status: 401 });
+      }
+      return new Response(JSON.stringify(envelope([{ id: "m_1" }])), { status: 200 });
+    });
+    vi.stubGlobal("fetch", spy);
+    const pending = listModels();
+    await vi.waitFor(() => expect(on401).toHaveBeenCalledTimes(1));
+    setToken("s3cret");
+    const models = await pending;
+    expect(models).toEqual([{ id: "m_1" }]);
+    expect(spy).toHaveBeenCalledTimes(2);
+    off();
+  });
+
+  it("重试后仍 401 则抛出服务端错误信息（不无限重试）", async () => {
+    const on401 = vi.fn();
+    const off = onUnauthorized(on401);
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify({ code: 40100, message: "missing or invalid bearer token", data: null }), { status: 401 })));
+    const pending = listModels();
+    const assertion = expect(pending).rejects.toThrow("missing or invalid bearer token");
+    await vi.waitFor(() => expect(on401).toHaveBeenCalledTimes(1));
+    setToken("wrong");
+    await assertion;
+    // 挂起的 promise 已 settle，无额外重试
+    expect(vi.mocked(fetch).mock.calls.length).toBe(2);
+    off();
+  });
+
+  it("chatEventsUrl 有 token 时拼 ?token=（SSE EventSource 无法带自定义头）", () => {
+    expect(chatEventsUrl("c1")).toBe("/api/v1/chat/sessions/c1/events");
+    setToken("s3cret");
+    expect(chatEventsUrl("c1")).toBe("/api/v1/chat/sessions/c1/events?token=s3cret");
+  });
+
+  it("chatEventsUrl 对 token 做 URL 编码", () => {
+    setToken("a b+c=");
+    expect(chatEventsUrl("c1")).toBe(`/api/v1/chat/sessions/c1/events?token=${encodeURIComponent("a b+c=")}`);
   });
 });
 

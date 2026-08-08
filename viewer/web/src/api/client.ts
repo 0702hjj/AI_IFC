@@ -2,11 +2,22 @@
 // Copyright (C) 2026 0702hjj
 
 import type { ModelInfo, Issue, NewIssue, OverridesMap, ChangeEntry, EditVersionsResponse, DiffResponse, ScriptState, ScriptStageResult, ScriptSaveResult, ScriptParamsResponse, ScriptVersionsResponse, ScriptDiffResponse, ScriptRunResult, EditableSchema, PendingEntry, EditCommitResult, EntityEditPayload } from "./types";
+import { getToken, notifyUnauthorized, waitForToken } from "./auth";
 
 interface Envelope<T> { code: number; message: string; data: T }
 
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const resp = await fetch(url, init);
+async function request<T>(url: string, init?: RequestInit, retried = false): Promise<T> {
+  const headers = new Headers(init?.headers);
+  const token = getToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const resp = await fetch(url, { ...init, headers });
+  if (resp.status === 401) {
+    notifyUnauthorized();
+    if (!retried) {
+      await waitForToken();
+      return request<T>(url, init, true);
+    }
+  }
   const env: Envelope<T> = await resp.json();
   if (!resp.ok || env.code !== 0) throw new Error(env.message || `HTTP ${resp.status}`);
   return env.data;
@@ -62,7 +73,12 @@ export function fetchChatMessages(cid: string) {
 export function abortChatSession(cid: string) {
   return request<{ aborted: boolean }>(`/api/v1/chat/sessions/${cid}/abort`, { method: "POST" });
 }
-export const chatEventsUrl = (cid: string) => `/api/v1/chat/sessions/${cid}/events`;
+// EventSource 不支持自定义头：token 经 query 传递（server 侧仅 events 路径放行 ?token= 回退）
+export const chatEventsUrl = (cid: string) => {
+  const base = `/api/v1/chat/sessions/${cid}/events`;
+  const token = getToken();
+  return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+};
 export function uploadModel(file: File) {
   const fd = new FormData();
   fd.append("file", file);

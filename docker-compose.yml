@@ -23,6 +23,8 @@ services:
     environment:
       VIEWER_EDIT_SERVICE_URL: http://edit-service:8100
       VIEWER_PG_DSN: ${VIEWER_PG_DSN:-}
+      # Bearer token 鉴权（默认空 = 关闭；对外暴露 web 端口时务必设置）
+      VIEWER_API_TOKEN: ${VIEWER_API_TOKEN:-}
     volumes:
       - "${DATA_DIR:-aiifc-data}:/data"
     ports:
