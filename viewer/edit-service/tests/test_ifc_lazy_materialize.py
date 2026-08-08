@@ -266,6 +266,58 @@ class TestDiffRebuild:
             r = client.post(f"/models/{MODEL_ID}/diff", json=body)
             assert r.status_code == 404, body
 
+    def test_diff_rebuild_failure_returns_422(
+        self, client: TestClient, data_dir: Path
+    ):
+        """版本存在（脚本在）但沙箱重建跑挂 → 422（非 404/500），不产出缓存。"""
+        _put_and_save(client, REAL_IFC_SCRIPT)
+        _put_and_save(client, REAL_IFC_SCRIPT)
+        scripts, versions_dir, cache = _dirs(data_dir)
+        assert not (versions_dir / "v1.ifc").exists()
+        # 篡改 v1 脚本：契约形态合法（过静态门）但运行时必炸
+        (scripts / "v1.py").write_text(
+            'PARAMS = {"a": 1}\n'
+            "\n"
+            "def build(params, out_path):\n"
+            "    raise RuntimeError('rebuild-broken-marker')\n"
+            "\n"
+            'if __name__ == "__main__":\n'
+            "    import sys\n"
+            "    build(PARAMS, sys.argv[1])\n",
+            encoding="utf-8",
+        )
+        r = client.post(
+            f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"}
+        )
+        assert r.status_code == 422, r.text
+        assert "rebuild-broken-marker" in r.json()["detail"]
+        assert not (cache / "v1.ifc").exists()  # 失败不留半截缓存
+
+    def test_concurrent_diffs_across_lru_eviction_no_500(
+        self, client: TestClient, data_dir: Path
+    ):
+        """并发 diff 跨 ≥5 个版本触发 LRU 淘汰：物化+读取在模型锁内，无 500。
+
+        锁本身是修复（淘汰 os.remove 与 compute_diff 打开之间的窗口被关闭）；
+        本测试为并发烟雾验证，不断言特定时序。
+        """
+        from concurrent.futures import ThreadPoolExecutor
+
+        for i in range(1, 7):
+            _put_and_save(client, REAL_IFC_SCRIPT.replace("lazy-v1", f"lazy-v{i}"))
+        _, versions_dir, _ = _dirs(data_dir)
+        assert [p.name for p in versions_dir.glob("v*.ifc")] == ["v6.ifc"]
+
+        def diff_one(base: int) -> int:
+            return client.post(
+                f"/models/{MODEL_ID}/diff",
+                json={"base": f"v{base}", "target": "v6"},
+            ).status_code
+
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            codes = list(pool.map(diff_one, [1, 2, 3, 4, 5] * 2))
+        assert codes == [200] * 10
+
     def test_rebuilt_ifc_semantically_empty_diff(
         self, client: TestClient, data_dir: Path, tmp_path: Path
     ):
