@@ -145,7 +145,8 @@ func (h *handler) editDeleteEntity(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, json.RawMessage(data))
 }
 
-func (h *handler) editGetPending(w http.ResponseWriter, r *http.Request) {	m := h.modelOrErr(w, r.PathValue("id"))
+func (h *handler) editGetPending(w http.ResponseWriter, r *http.Request) {
+	m := h.modelOrErr(w, r.PathValue("id"))
 	if m == nil {
 		return
 	}
