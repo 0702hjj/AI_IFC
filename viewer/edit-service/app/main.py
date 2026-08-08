@@ -5,6 +5,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 
 from .config import load_settings
@@ -25,6 +27,15 @@ def create_app() -> FastAPI:
     app.state.registry = ModelRegistry(max_models=settings.max_models)
     app.state.pending = PendingStore(settings.data_dir)
     app.state.script_staging = StagingRegistry(settings.data_dir)
+
+    def _on_model_evicted(path: str) -> None:
+        # uploads/{model_id}.ifc -> model_id; eviction drops the in-memory
+        # edits its pending entries describe, so they must be replayed.
+        model_id = os.path.splitext(os.path.basename(path))[0]
+        app.state.pending.mark_needs_replay(model_id)
+
+    app.state.registry.on_evict(_on_model_evicted)
+
     app.include_router(edits_router)
     app.include_router(diff_router)
     app.include_router(scripts_router)
