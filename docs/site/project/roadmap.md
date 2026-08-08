@@ -28,6 +28,7 @@
 
 ## 后续
 
+- **Script-as-source 统一编辑（已立项，spec: 2026-08-08）**：web 修改 = 改构建脚本——选中构件定位脚本调用点（ScriptMap）、PARAMS 表单/libcst 内联改写 + 沙箱验证、上传 IFC 经 AI 复现为脚本（bootstrap 对齐报告）；L1 直改链路扬弃，IFC 历史版本只物化最新、按需重建。
 - **双语扩展（后续）**：其余页面（Viewer 使用、开发指南细节、项目组）的英文版本。
 - **API 自动生成（后续）**：edit-service 的"代码 vs schema"漂移检测；Go server 请求/响应 schema 的完整自动生成。
 - 几何 diff；增量重转；diff 超时控制。
