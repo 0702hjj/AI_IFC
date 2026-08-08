@@ -3,9 +3,17 @@
 
 import { create } from "zustand";
 import { fetchOverrides } from "@/api/client";
-import type { EntityFields, Issue, OverridesMap } from "@/api/types";
+import type { EntityFields, Issue, OverridesMap, ScriptLocateOrigin } from "@/api/types";
 
 export type ViewerTool = "select" | "measure";
+
+// 定位脚本：PropertyPanel 请求 locate 后置入，DesignPanel 消费（跳行）并清零。
+// nonce 保证同一行重复跳转也会触发消费方 effect。
+export interface ScriptJump {
+  line: number;
+  origin?: ScriptLocateOrigin;
+  nonce: number;
+}
 
 interface ViewerState {
   selectedId: string | null;
@@ -20,6 +28,7 @@ interface ViewerState {
   diffOpen: boolean;
   chatOpen: boolean;
   pendingModelReload: boolean; // AI commit 后（viewer.committed）置 true；前端轮询到 ready 即 reload 并清零
+  scriptJump: ScriptJump | null;
   setSelected: (id: string | null) => void;
   setTool: (tool: ViewerTool) => void;
   toggleHidden: (id: string) => void;
@@ -37,6 +46,8 @@ interface ViewerState {
   setChatOpen: (open: boolean) => void;
   flagPendingModelReload: () => void;
   clearPendingModelReload: () => void;
+  requestScriptJump: (jump: { line: number; origin?: ScriptLocateOrigin }) => void;
+  clearScriptJump: () => void;
 }
 
 export const useViewerStore = create<ViewerState>((set) => ({
@@ -52,6 +63,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
   diffOpen: false,
   chatOpen: false,
   pendingModelReload: false,
+  scriptJump: null,
   setSelected: (id) => set({ selectedId: id }),
   setTool: (tool) => set({ tool }),
   toggleHidden: (id) =>
@@ -92,4 +104,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setChatOpen: (open) => set({ chatOpen: open }),
   flagPendingModelReload: () => set({ pendingModelReload: true }),
   clearPendingModelReload: () => set({ pendingModelReload: false }),
+  requestScriptJump: (jump) =>
+    set((s) => ({ scriptJump: { ...jump, nonce: (s.scriptJump?.nonce ?? 0) + 1 } })),
+  clearScriptJump: () => set({ scriptJump: null }),
 }));

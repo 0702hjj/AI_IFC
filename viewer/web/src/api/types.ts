@@ -44,58 +44,6 @@ export interface NewIssue {
 export type EntityFields = Record<string, string>;
 export type OverridesMap = Record<string, EntityFields>;
 
-// --- 真改直通：类型化编辑 schema + pending/commit（W-0019） ---
-
-export type EditableKind = "string" | "int" | "float" | "bool" | "enum";
-
-export interface EditableProp {
-  name: string;
-  kind: EditableKind;
-  value: unknown;
-}
-
-export interface EditableFieldSpec extends EditableProp {
-  enumValues?: string[];
-}
-
-export interface EditablePset {
-  name: string;
-  properties: EditableProp[];
-}
-
-export interface EditableSchema {
-  guid: string;
-  ifcType: string;
-  fields: EditableFieldSpec[];
-  psets: EditablePset[];
-}
-
-export interface PendingEntry {
-  id: string;
-  guid: string;
-  action?: string;
-  changes: { field: string; oldValue: unknown; newValue: unknown }[];
-  author: string;
-  provenance: { source: string; origin?: string };
-  timestamp: string;
-}
-
-export interface EditCommitResult {
-  committed: number;
-  entries: PendingEntry[];
-  reconverting?: boolean;
-  warning?: string;
-}
-
-export type EditScalar = string | number | boolean | null;
-
-export interface EntityEditPayload {
-  fields?: Record<string, EditScalar>;
-  psets?: Record<string, Record<string, EditScalar>>;
-  author?: string;
-  provenance?: { source: "UI" | "AI" | "USER"; origin?: string };
-}
-
 export interface ChangeEntry {
   id: string;
   entityId: string;
@@ -201,4 +149,16 @@ export interface ScriptDiffResponse {
 export interface ScriptRunResult {
   modelId: string;
   ok: boolean;
+}
+
+// guid → 脚本调用点（script-as-source 统一编辑：改模型 = 改脚本，L1 直改已 410 退役）
+export type ScriptLocateOrigin = "literal" | "params" | "traced";
+
+export interface ScriptLocateResult {
+  found: boolean;
+  designKey?: string;
+  line?: number;
+  col?: number;
+  snippet?: string;
+  origin?: ScriptLocateOrigin;
 }

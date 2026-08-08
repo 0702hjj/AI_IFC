@@ -32,6 +32,32 @@ describe("viewer store", () => {
   });
 });
 
+describe("script jump", () => {
+  beforeEach(() => {
+    useViewerStore.getState().clearScriptJump();
+  });
+
+  it("defaults to no pending jump", () => {
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+  });
+
+  it("requestScriptJump stores line/origin and bumps nonce for repeat jumps", () => {
+    useViewerStore.getState().requestScriptJump({ line: 12, origin: "params" });
+    const first = useViewerStore.getState().scriptJump;
+    expect(first).toMatchObject({ line: 12, origin: "params" });
+    useViewerStore.getState().requestScriptJump({ line: 12, origin: "params" });
+    const second = useViewerStore.getState().scriptJump;
+    expect(second).toMatchObject({ line: 12, origin: "params" });
+    expect(second!.nonce).not.toBe(first!.nonce);
+  });
+
+  it("clearScriptJump resets to null", () => {
+    useViewerStore.getState().requestScriptJump({ line: 3 });
+    useViewerStore.getState().clearScriptJump();
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+  });
+});
+
 describe("visibility", () => {
   beforeEach(() => {
     useViewerStore.getState().resetVisibility();
