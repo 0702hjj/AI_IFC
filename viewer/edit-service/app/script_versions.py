@@ -83,11 +83,14 @@ def save(
     script_text: str,
     ifc_src_path: str,
     note: str = "",
+    map_text: Optional[str] = None,
 ) -> str:
     """Save a big version: script snapshot + IFC snapshot; return version name.
 
     Both snapshots use the same ``n`` (max of either side's next number), so
-    ``scripts/v{n}.py`` and ``versions/v{n}.ifc`` always pair up.
+    ``scripts/v{n}.py`` and ``versions/v{n}.ifc`` always pair up. ``map_text``
+    (the run's ScriptMap JSON) is snapshotted as ``scripts/v{n}.map.json`` in
+    the same lockstep; scripts that produced no map get no map sidecar.
     """
     directory = scripts_dir(data_dir, model_id)
     os.makedirs(directory, exist_ok=True)
@@ -108,5 +111,7 @@ def save(
         os.path.join(directory, f"{version}.meta.json"),
         json.dumps(meta, ensure_ascii=False, indent=2),
     )
+    if map_text is not None:
+        _write_atomic(os.path.join(directory, f"{version}.map.json"), map_text)
     versions.snapshot_as(data_dir, model_id, ifc_src_path, version)
     return version

@@ -240,15 +240,25 @@ def discard_script(
         return {"modelId": id, "discarded": dropped, "script": staging.current()}
 
 
+def _current_map_path(request: Request, model_id: str) -> str:
+    return os.path.join(
+        request.app.state.settings.data_dir, "models", model_id, "current.map.json"
+    )
+
+
 def _run_into_uploads(request: Request, id: str, script: str) -> str:
     """Sandbox-run script into uploads/{id}.ifc and drop the registry cache.
 
     The run replaces the IFC the pending entries were applied to, so any
     pending entries are flagged ``needs_replay`` before the unload (the LRU
-    ``on_evict`` hook only fires on capacity eviction, not here).
+    ``on_evict`` hook only fires on capacity eviction, not here). The run's
+    ScriptMap is published to ``models/{id}/current.map.json``.
     """
     ifc_path = _upload_path(request, id)
-    script_runner.run_script(request.app.state.settings, script, ifc_path)
+    script_runner.run_script(
+        request.app.state.settings, script, ifc_path,
+        map_out=_current_map_path(request, id),
+    )
     store = request.app.state.pending
     store._ensure(id)
     store.mark_needs_replay(id)
@@ -285,8 +295,14 @@ def save_script(
         current = _current_or_409(staging)
         ifc_path = _run_into_uploads(request, id, current)
         note = body.note if body is not None else ""
+        map_path = _current_map_path(request, id)
+        map_text: Optional[str] = None
+        if os.path.isfile(map_path):
+            with open(map_path, "r", encoding="utf-8") as fh:
+                map_text = fh.read()
         version = script_versions.save(
-            request.app.state.settings.data_dir, id, current, ifc_path, note=note
+            request.app.state.settings.data_dir, id, current, ifc_path,
+            note=note, map_text=map_text,
         )
         staging.save()
         return {"modelId": id, "version": version, "staged": 0}

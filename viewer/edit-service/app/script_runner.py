@@ -170,9 +170,13 @@ def run_script(
     script_text: str,
     out_path: str,
     *,
+    map_out: Optional[str] = None,
     timeout: int = RUN_TIMEOUT_S,
 ) -> None:
     """Validate + execute script_text, publishing the IFC to out_path.
+
+    The ScriptMap sidecar (``out.ifc.map.json`` from the sandbox) is published
+    atomically alongside: to ``map_out`` when given, else next to out_path.
 
     Raises HTTPException(422) on contract violations, timeouts, non-zero
     exits, or a missing/empty product; nothing is written to out_path then.
@@ -234,8 +238,11 @@ def run_script(
         # ScriptMap sidecar 随产物一并原子发布；本次无 sidecar 时清掉旧文件，
         # 防止上一轮留下的 map 与新产物错位。
         tmp_map = tmp_out + ".map.json"
-        map_dest = out_path + ".map.json"
+        map_dest = map_out if map_out is not None else out_path + ".map.json"
         if os.path.isfile(tmp_map):
+            dest_dir = os.path.dirname(map_dest)
+            if dest_dir:
+                os.makedirs(dest_dir, exist_ok=True)
             map_tmp = map_dest + ".tmp"
             shutil.copyfile(tmp_map, map_tmp)
             os.replace(map_tmp, map_dest)
