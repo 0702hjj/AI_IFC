@@ -100,6 +100,8 @@ type editEnv struct {
 	st      *store.Store
 	chg     change.Store
 	ovr     *override.FileStore
+	ed      *editsvc.Client
+	q       *convert.Queue
 	runs    chan string
 }
 
@@ -139,7 +141,7 @@ func newEditEnvWithClient(t *testing.T, ed *editsvc.Client, chg change.Store) *e
 	if err := st.SetStatus(m.ID, "ready", ""); err != nil {
 		t.Fatal(err)
 	}
-	return &editEnv{mux: mux, modelID: m.ID, st: st, chg: chg, ovr: ovr, runs: runs}
+	return &editEnv{mux: mux, modelID: m.ID, st: st, chg: chg, ovr: ovr, ed: ed, q: q, runs: runs}
 }
 
 // failAppendChangeStore 仅 Append 失败，模拟 change log 磁盘写失败。
@@ -228,34 +230,19 @@ func scriptCommit(py *fakePy, modelID string) {
 	py.set("POST", "/models/"+modelID+"/diff", 200, fakeDiffBody)
 }
 
-func TestEditPutEntityPassthrough(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	entry := `{"id":"e_aaa111","guid":"g1","changes":[{"field":"Name","oldValue":"A","newValue":"B"}],"author":"local-user","provenance":{"source":"UI"},"timestamp":"t"}`
-	py.set("PUT", "/models/"+env.modelID+"/entities/g1", 200, entry)
-
-	body := `{"fields":{"Name":"B"},"author":"local-user","provenance":{"source":"UI"}}`
-	rec := doEditReq(t, env.mux, "PUT", "/api/v1/models/"+env.modelID+"/edit/entities/g1", body)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	e := decodeEnv(t, rec)
-	if e.Code != 0 {
-		t.Fatalf("envelope code = %d msg = %s", e.Code, e.Message)
-	}
-	var got map[string]interface{}
-	if err := json.Unmarshal(e.Data, &got); err != nil {
-		t.Fatal(err)
-	}
-	if got["id"] != "e_aaa111" || got["guid"] != "g1" {
-		t.Fatalf("data = %s", e.Data)
-	}
-	call := py.lastCall()
-	if call.Method != "PUT" || call.Path != "/models/"+env.modelID+"/entities/g1" {
-		t.Fatalf("call = %+v", call)
-	}
-	if call.Body != body {
-		t.Fatalf("forwarded body = %q, want %q", call.Body, body)
+// TestEditDirectEditRoutesGone 直改代理路由随 script-as-source 退役：不再注册 → 404。
+func TestEditDirectEditRoutesGone(t *testing.T) {
+	env := newEditEnv(t, "")
+	for _, tc := range []struct{ method, path string }{
+		{"PUT", "/edit/entities/g1"},
+		{"DELETE", "/edit/entities/g1"},
+		{"GET", "/edit/entities/g1/editable-schema"},
+		{"POST", "/edit/commit"},
+	} {
+		rec := doEditReq(t, env.mux, tc.method, "/api/v1/models/"+env.modelID+tc.path, "")
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s %s: status = %d, want 404 (body %s)", tc.method, tc.path, rec.Code, rec.Body)
+		}
 	}
 }
 
@@ -337,43 +324,23 @@ func TestEditDiffPassthrough(t *testing.T) {
 	}
 }
 
-func TestEditPutEntityBadProvenance(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	rec := doEditReq(t, env.mux, "PUT", "/api/v1/models/"+env.modelID+"/edit/entities/g1",
-		`{"fields":{"Name":"B"},"provenance":{"source":"robot"}}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	if e := decodeEnv(t, rec); e.Code != codeInvalidType {
-		t.Fatalf("code = %d, want %d", e.Code, codeInvalidType)
-	}
-	if py.callCount() != 0 {
-		t.Fatalf("python received %d calls, want 0", py.callCount())
-	}
-}
+// commitOrchestrate 的 HTTP 入口（POST /edit/commit）已退役，以下为直接函数级测试
+//（chat 模块 AI 三连仍使用该编排）。
 
-func TestEditCommitOrchestration(t *testing.T) {
+func TestCommitOrchestrate(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
 	scriptCommit(py, env.modelID)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit",
-		`{"author":"ai-bot","provenance":{"source":"AI"}}`)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	resp, err := commitOrchestrate(context.Background(), env.ed, env.st, env.chg, env.q, env.modelID)
+	if err != nil {
+		t.Fatalf("commitOrchestrate: %v", err)
 	}
-	e := decodeEnv(t, rec)
-	var data struct {
-		Committed    int             `json:"committed"`
-		Entries      []editsvc.Entry `json:"entries"`
-		Reconverting bool            `json:"reconverting"`
+	if resp["committed"] != 2 || resp["reconverting"] != true {
+		t.Fatalf("resp = %v", resp)
 	}
-	if err := json.Unmarshal(e.Data, &data); err != nil {
-		t.Fatal(err)
-	}
-	if data.Committed != 2 || len(data.Entries) != 2 || !data.Reconverting {
-		t.Fatalf("data = %s", e.Data)
+	if entries, ok := resp["entries"].([]editsvc.Entry); !ok || len(entries) != 2 {
+		t.Fatalf("entries = %v", resp["entries"])
 	}
 
 	// change log 展开：3 条 field change，Operation=update
@@ -425,15 +392,14 @@ func TestEditCommitOrchestration(t *testing.T) {
 	waitReady(t, env.st, env.modelID)
 }
 
-func TestEditCommitDiffFailureNonBlocking(t *testing.T) {
+func TestCommitOrchestrateDiffFailureNonBlocking(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
 	scriptCommit(py, env.modelID)
 	py.set("POST", "/models/"+env.modelID+"/diff", 500, `{"detail":"diff exploded"}`)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	if _, err := commitOrchestrate(context.Background(), env.ed, env.st, env.chg, env.q, env.modelID); err != nil {
+		t.Fatalf("commitOrchestrate: %v", err)
 	}
 	entries, err := env.chg.List(env.modelID)
 	if err != nil {
@@ -451,47 +417,36 @@ func TestEditCommitDiffFailureNonBlocking(t *testing.T) {
 	waitReady(t, env.st, env.modelID)
 }
 
-func TestEditCommitChangeLogFailureWarns(t *testing.T) {
+func TestCommitOrchestrateChangeLogFailureWarns(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnvChg(t, pyURL, failAppendChangeStore{err: errors.New("change log disk full")})
 	scriptCommit(py, env.modelID)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit",
-		`{"author":"ai-bot","provenance":{"source":"AI"}}`)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	resp, err := commitOrchestrate(context.Background(), env.ed, env.st, env.chg, env.q, env.modelID)
+	if err != nil {
+		t.Fatalf("commitOrchestrate: %v", err)
 	}
-	e := decodeEnv(t, rec)
-	var data struct {
-		Committed    int    `json:"committed"`
-		Reconverting bool   `json:"reconverting"`
-		Warning      string `json:"warning"`
+	if resp["committed"] != 2 || resp["reconverting"] != true {
+		t.Fatalf("resp = %v", resp)
 	}
-	if err := json.Unmarshal(e.Data, &data); err != nil {
-		t.Fatal(err)
-	}
-	if data.Committed != 2 || !data.Reconverting {
-		t.Fatalf("data = %s", e.Data)
-	}
-	if !strings.Contains(data.Warning, "change log") {
-		t.Fatalf("warning = %q, want change log failure surfaced", data.Warning)
+	warning, _ := resp["warning"].(string)
+	if !strings.Contains(warning, "change log") {
+		t.Fatalf("warning = %q, want change log failure surfaced", warning)
 	}
 	// change log 写失败仍排重转
 	waitRun(t, env.runs)
 	waitReady(t, env.st, env.modelID)
 }
 
-func TestEditCommitNoPendingConflict(t *testing.T) {
+func TestCommitOrchestrateNoPendingConflict(t *testing.T) {
 	py, pyURL := newFakePy(t)
 	env := newEditEnv(t, pyURL)
 	py.set("POST", "/models/"+env.modelID+"/commit", 409, `{"detail":"no pending changes"}`)
 
-	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit", "")
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	if e := decodeEnv(t, rec); e.Code != codeConflict {
-		t.Fatalf("code = %d, want %d", e.Code, codeConflict)
+	_, err := commitOrchestrate(context.Background(), env.ed, env.st, env.chg, env.q, env.modelID)
+	var ee *editsvc.Error
+	if !errors.As(err, &ee) || ee.Status != http.StatusConflict {
+		t.Fatalf("err = %v, want 409 editsvc.Error", err)
 	}
 	entries, _ := env.chg.List(env.modelID)
 	if len(entries) != 0 {
@@ -500,27 +455,11 @@ func TestEditCommitNoPendingConflict(t *testing.T) {
 	assertNoRun(t, env.runs)
 }
 
-func TestEditCommitBadProvenance(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/edit/commit",
-		`{"provenance":{"source":"robot"}}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	if py.callCount() != 0 {
-		t.Fatalf("python received %d calls, want 0", py.callCount())
-	}
-}
-
 func TestEditServiceUnreachable(t *testing.T) {
 	env := newEditEnv(t, "http://127.0.0.1:1") // 连接拒绝
 	for _, tc := range []struct{ method, path, body string }{
 		{"GET", "/edit/pending", ""},
-		{"PUT", "/edit/entities/g1", `{"fields":{"Name":"x"}}`},
-		{"GET", "/edit/entities/g1/editable-schema", ""},
-		{"DELETE", "/edit/entities/g1", ""},
-		{"POST", "/edit/commit", ""},
+		{"POST", "/edit/diff", `{"base":"v1","target":"current"}`},
 	} {
 		rec := doEditReq(t, env.mux, tc.method, "/api/v1/models/"+env.modelID+tc.path, tc.body)
 		if rec.Code != http.StatusBadGateway {
@@ -803,127 +742,6 @@ func TestMigrateEmptyOverrides(t *testing.T) {
 		t.Fatalf("python received %d calls, want 0", py.callCount())
 	}
 	assertNoRun(t, env.runs)
-}
-
-func TestEditEditableSchemaPassthrough(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	schema := `{"guid":"g1","ifcType":"IfcWall","fields":[{"name":"Name","kind":"string","value":"Wall A"},
-	  {"name":"PredefinedType","kind":"enum","value":null,"enumValues":["STANDARD","NOTDEFINED"]}],
-	  "psets":[{"name":"Pset_WallCommon","properties":[{"name":"FireRating","kind":"string","value":""}]}]}`
-	py.set("GET", "/models/"+env.modelID+"/entities/g1/editable-schema", 200, schema)
-
-	rec := doEditReq(t, env.mux, "GET", "/api/v1/models/"+env.modelID+"/edit/entities/g1/editable-schema", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	e := decodeEnv(t, rec)
-	if e.Code != 0 {
-		t.Fatalf("envelope code = %d msg = %s", e.Code, e.Message)
-	}
-	if !strings.Contains(string(e.Data), `"enumValues"`) || !strings.Contains(string(e.Data), `"Pset_WallCommon"`) {
-		t.Fatalf("data = %s", e.Data)
-	}
-	call := py.lastCall()
-	if call.Method != "GET" || call.Path != "/models/"+env.modelID+"/entities/g1/editable-schema" {
-		t.Fatalf("call = %+v", call)
-	}
-}
-
-func TestEditEditableSchemaStatusMapping(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	py.set("GET", "/models/"+env.modelID+"/entities/g9/editable-schema", 404, `{"detail":"entity not found"}`)
-	rec := doEditReq(t, env.mux, "GET", "/api/v1/models/"+env.modelID+"/edit/entities/g9/editable-schema", "")
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	if e := decodeEnv(t, rec); e.Code != codeNotFound {
-		t.Fatalf("code = %d, want %d", e.Code, codeNotFound)
-	}
-}
-
-func TestEditDeleteEntityPassthrough(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	entry := `{"id":"e_del001","guid":"g1","action":"delete","changes":[
-	  {"field":"__deleted__","oldValue":"Wall A","newValue":null}],
-	  "author":"local-user","provenance":{"source":"UI"},"timestamp":"t"}`
-	py.set("DELETE", "/models/"+env.modelID+"/entities/g1", 200, entry)
-
-	body := `{"author":"local-user","provenance":{"source":"UI"}}`
-	rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1", body)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	e := decodeEnv(t, rec)
-	if e.Code != 0 {
-		t.Fatalf("envelope code = %d msg = %s", e.Code, e.Message)
-	}
-	var got map[string]interface{}
-	if err := json.Unmarshal(e.Data, &got); err != nil {
-		t.Fatal(err)
-	}
-	if got["action"] != "delete" || got["guid"] != "g1" {
-		t.Fatalf("data = %s", e.Data)
-	}
-	call := py.lastCall()
-	if call.Method != "DELETE" || call.Path != "/models/"+env.modelID+"/entities/g1" {
-		t.Fatalf("call = %+v", call)
-	}
-	if call.Body != body {
-		t.Fatalf("forwarded body = %q, want %q", call.Body, body)
-	}
-}
-
-func TestEditDeleteEntityEmptyBodyAllowed(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	py.set("DELETE", "/models/"+env.modelID+"/entities/g1", 200, `{"id":"e_1","guid":"g1","action":"delete"}`)
-	rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-}
-
-func TestEditDeleteEntityBadProvenance(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1",
-		`{"provenance":{"source":"robot"}}`)
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	if e := decodeEnv(t, rec); e.Code != codeInvalidType {
-		t.Fatalf("code = %d, want %d", e.Code, codeInvalidType)
-	}
-	if py.callCount() != 0 {
-		t.Fatalf("python received %d calls, want 0", py.callCount())
-	}
-}
-
-func TestEditDeleteEntityStatusMapping(t *testing.T) {
-	py, pyURL := newFakePy(t)
-	env := newEditEnv(t, pyURL)
-	cases := []struct {
-		pyStatus   int
-		wantStatus int
-		wantCode   int
-	}{
-		{404, http.StatusNotFound, codeNotFound},
-		{422, http.StatusBadRequest, codeInvalidType},
-		{500, http.StatusBadGateway, codeBadGateway},
-	}
-	for _, c := range cases {
-		py.set("DELETE", "/models/"+env.modelID+"/entities/g1", c.pyStatus, `{"detail":"boom"}`)
-		rec := doEditReq(t, env.mux, "DELETE", "/api/v1/models/"+env.modelID+"/edit/entities/g1", "")
-		if rec.Code != c.wantStatus {
-			t.Fatalf("py %d: go status = %d, want %d (body %s)", c.pyStatus, rec.Code, c.wantStatus, rec.Body)
-		}
-		if e := decodeEnv(t, rec); e.Code != c.wantCode {
-			t.Fatalf("py %d: envelope code = %d, want %d", c.pyStatus, e.Code, c.wantCode)
-		}
-	}
 }
 
 func TestMigrateBadProvenance(t *testing.T) {
