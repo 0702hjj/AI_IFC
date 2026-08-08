@@ -1,6 +1,6 @@
 # W-0008: 英文 nav 补 Viewer Usage 入口
 
-- **状态：** in-progress
+- **状态：** done（2026-08-08，随 W-0020 批次关闭，feat/v0.2-batch）
 - **优先级：** P2
 - **Milestone：** 待排（随下次 site 变更顺带）
 - **来源：** P2-7 审查发现（2026-08-06）

@@ -1,5 +1,7 @@
 # AI BIM 总体架构（当前版，2026-07-30）
 
+> **Superseded（2026-08-08，W-0020）**：本文已被 08-03 的 `docs/internal/architecture/ai-bim-agent-page.md` 与 08-06 的 script-as-source 设计（`docs/superpowers/specs/2026-08-06-script-as-source-design.md`）取代——当前架构以这两份为准。本文不删，保留为决策史（v1 取舍、四条工作线的原始划分）。
+
 > 本文是 deep-research-report（`~/Documents/md/dxf_agent/deep-research-report.md`，下称「报告」）愿景的**当前落地形态**。
 > 报告是愿景层，本文是实现层；逐条目标↔实现映射见 `research/overview.md`，迭代计划见 `docs/work/PLAN-v0.1.0.md`。
 

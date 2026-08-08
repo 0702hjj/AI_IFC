@@ -16,6 +16,9 @@
 - Script-as-source（M5）：Python 构建脚本成为 IFC 唯一事实源——脚本契约（PARAMS + 确定性 GlobalId + build 入口）、脚本沙箱执行、WPS 式脚本暂存 + 大版本成对快照（scripts/v{n}.py + versions/v{n}.ifc）、脚本 diff（text + PARAMS 键级，大/小版本两级）、Design 面板 PARAMS 表单 + 脚本编辑器；design JSON 编辑管线直接下线（降级为 AI 起草辅助草稿，不进版本不参与 diff）。
 - 文档站：本 VitePress 站点、PR 构建校验与 GitHub Pages 自动部署。
 - 文档增强：英文 locale（首页、快速开始、总体架构、贡献、API 入口）、edit-service API 参考页与 Go 端点清单的机器生成 + CI 漂移检测。
+- MCP server：编辑 API 的 MCP 薄封装（stdio，解析用户改后 IFC/DXF 并标 USER 来源）。
+- 属性真改直通：属性编辑不再有 override 中间层，直接走 pending → commit 真改闭环。
+- ChatSidebar 修复：AI 对话侧栏问题修复。
 
 ## 近期
 
@@ -27,7 +30,7 @@
 
 - **双语扩展（后续）**：其余页面（Viewer 使用、开发指南细节、项目组）的英文版本。
 - **API 自动生成（后续）**：edit-service 的"代码 vs schema"漂移检测；Go server 请求/响应 schema 的完整自动生成。
-- 编辑 API 的 MCP 封装；几何 diff；增量重转；diff 超时控制。
+- 几何 diff；增量重转；diff 超时控制。
 - 前端参数化编辑增强（脚本 PARAMS 表单与脚本编辑器体验）；计划 → 2D DXF → IFC 完整工作流。
 
 ## v1 范围外

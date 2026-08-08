@@ -128,6 +128,7 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Quick Start', link: '/en/guide/project-intro' },
+          { text: 'Viewer Usage', link: '/en/viewer/library' },
           { text: 'Architecture', link: '/en/development/architecture' },
           { text: 'API Reference', link: '/en/reference/rest-api' },
           { text: 'Contributing', link: '/en/project/contributing' },

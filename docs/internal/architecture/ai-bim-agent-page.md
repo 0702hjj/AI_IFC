@@ -130,7 +130,7 @@ graph LR
 
 - **人**：浏览器 → Go 代理 → edit-service；编排附带 change log + 自动重转
 - **AI**：REST 直连 edit-service 或经 Go 代理，**同一套端点**；`provenance.source="AI"` 标记来源
-- **工具目录**：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，脚本再生成，保证文档与实现不漂移）+ `docs/internal/ai-integration.md`（端点目录、curl 全流程）
+- **工具目录**：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，脚本再生成，保证文档与实现不漂移）+ `docs/site/reference/ai.md`（公开站 AI 接入页：<https://0702hjj.github.io/AI_IFC/reference/ai>，端点目录、curl 全流程）
 - **MCP**：v1 REST 先行，MCP 薄包装列 v1.1
 - **认证**：v1 单机自托管不做；provenance 为声明字段
 

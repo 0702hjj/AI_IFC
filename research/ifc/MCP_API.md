@@ -3,14 +3,14 @@
 日期:2026-07-22
 研究问题:是否存在封装 ifcopenshell、供大模型(LLM Agent)操作 IFC 模型的 MCP 接口?
 结论速览:**有,且官方自带** —— IfcOpenShell 源码内置 `ifcmcp`(PyPI 包 `ifcopenshell-mcp`),
-30+ 个工具覆盖加载/查询/校验/出图/渲染/几何构建/API 编辑全流程;社区另有若干基于
+25 个工具覆盖加载/查询/校验/出图/渲染/几何构建/API 编辑全流程;社区另有若干基于
 Bonsai/IfcTester 的专项 MCP 项目。
 
 ---
 
 ## 1. 官方方案:ifcmcp(源码内置,重点)
 
-**位置**:已下载源码 `/CADapi/IfcOpenShell/IfcOpenShell-0.8.0/src/ifcmcp/`
+**位置**:已下载源码 `~/projects/work/IfcOpenShell/src/ifcmcp/`(2026-08-08 复核,原记 `/CADapi/...` 旧路径)
 **安装**:`pip install ifcopenshell-mcp`(运行服务需 `pip install ifcopenshell-mcp[mcp]`)
 **许可证**:LGPLv3+
 **架构**:包装 `ifcquery`(查询)+ `ifcedit`(编辑),IFC 模型常驻内存,多步编辑会话间无文件 I/O。
@@ -29,7 +29,7 @@ claude mcp add --transport stdio ifc -- ifcmcp   # Claude Code 注册
 { "mcpServers": { "ifc": { "type": "stdio", "command": "ifcmcp" } } }
 ```
 
-### 1.2 工具清单(31 个,分 7 类)
+### 1.2 工具清单(25 个,分 6 类)
 
 **会话管理(4)**
 | 工具 | 作用 |
@@ -135,6 +135,6 @@ DXF → cad-to-shapely → ifcopenshell 建模 → model.ifc
 
 ## 5. 参考
 
-- ifcmcp 源码与 README:`/CADapi/IfcOpenShell/IfcOpenShell-0.8.0/src/ifcmcp/`
+- ifcmcp 源码与 README:`~/projects/work/IfcOpenShell/src/ifcmcp/`
 - PyPI:`ifcopenshell-mcp`
 - 测试用例(工具行为参考):`src/ifcmcp/tests/`(test_query/test_edit/test_shape/test_server/test_session)
