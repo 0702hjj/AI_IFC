@@ -230,3 +230,14 @@ def run_script(
         dest_tmp = out_path + ".tmp"
         shutil.copyfile(tmp_out, dest_tmp)
         os.replace(dest_tmp, out_path)
+
+        # ScriptMap sidecar 随产物一并原子发布；本次无 sidecar 时清掉旧文件，
+        # 防止上一轮留下的 map 与新产物错位。
+        tmp_map = tmp_out + ".map.json"
+        map_dest = out_path + ".map.json"
+        if os.path.isfile(tmp_map):
+            map_tmp = map_dest + ".tmp"
+            shutil.copyfile(tmp_map, map_tmp)
+            os.replace(map_tmp, map_dest)
+        elif os.path.exists(map_dest):
+            os.remove(map_dest)
