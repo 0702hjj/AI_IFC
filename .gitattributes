@@ -1,0 +1,5 @@
+# GitHub 语言统计修正：文档镜像/调研 HTML 不算代码
+research/** linguist-documentation
+AI_CAD/research/** linguist-documentation
+docs/** linguist-documentation
+examples/models/** linguist-vendored

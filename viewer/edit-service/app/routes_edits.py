@@ -20,10 +20,12 @@ from __future__ import annotations
 import os
 import secrets
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 import ifcopenshell.api.pset
+import ifcopenshell.api.root
 import ifcopenshell.util.element
+import ifcopenshell.util.schema
 from fastapi import APIRouter, HTTPException, Path, Request
 from pydantic import BaseModel, Field
 
@@ -36,9 +38,14 @@ MODEL_ID_PATTERN = r"^m_[0-9a-f]{16}$"
 
 
 class Provenance(BaseModel):
-    """Who performed an edit: the web UI or an AI agent."""
+    """Who performed an edit: the web UI, an AI agent, or an external user edit.
 
-    source: Literal["UI", "AI"] = "UI"
+    ``origin`` further qualifies USER edits (e.g. ``upload`` for a modified
+    IFC/DXF file parsed by the MCP server).
+    """
+
+    source: Literal["UI", "AI", "USER"] = "UI"
+    origin: Optional[str] = None
 
 
 class EditBody(BaseModel):
@@ -54,6 +61,13 @@ class CommitBody(BaseModel):
     """Optional body of POST /models/{id}/commit."""
 
     operation: Literal["update", "migrate"] = "update"
+
+
+class DeleteBody(BaseModel):
+    """Optional body of DELETE /models/{id}/entities/{guid}."""
+
+    author: str = "local-user"
+    provenance: Provenance = Field(default_factory=Provenance)
 
 
 def _model_path(request: Request, model_id: str) -> str:
@@ -79,14 +93,88 @@ def _attribute_names(entity: ifcopenshell.entity_instance) -> set:
     return {entity.attribute_name(i) for i in range(len(entity))}
 
 
+_SIMPLE_KIND = {
+    "<string>": "string",
+    "<integer>": "int",
+    "<real>": "float",
+    "<number>": "float",
+    "<boolean>": "bool",
+    "<logical>": "bool",
+}
+
+
+def _enum_items(
+    attribute: "ifcopenshell.ifcopenshell_wrapper.attribute",
+) -> Optional[tuple]:
+    """Return enumeration items if the attribute is an enum, else None."""
+    attr_type = attribute.type_of_attribute()
+    if attr_type.as_named_type() is None:
+        return None
+    declared = attr_type.declared_type()
+    if type(declared).__name__ != "enumeration_type":
+        return None
+    return tuple(declared.enumeration_items())
+
+
+def _attribute_kind(attribute: "ifcopenshell.ifcopenshell_wrapper.attribute") -> Optional[Dict[str, Any]]:
+    """Map a schema attribute to an editable kind, or None when not editable.
+
+    Editable kinds: string/int/float/bool (from simple types, unwrapping
+    nested type declarations) and enum (with legal values). Entity,
+    aggregate, select and binary attributes are not editable.
+    """
+    attr_type = attribute.type_of_attribute()
+    if attr_type.as_named_type() is None:
+        return None
+    declared = attr_type.declared_type()
+    if type(declared).__name__ == "enumeration_type":
+        return {"kind": "enum", "enumValues": list(declared.enumeration_items())}
+    if type(declared).__name__ != "type_declaration":
+        return None
+    inner = declared
+    for _ in range(16):
+        nxt = inner.declared_type()
+        if type(nxt).__name__ != "type_declaration":
+            inner = nxt
+            break
+        inner = nxt
+    kind = _SIMPLE_KIND.get(str(inner))
+    if kind is None:
+        return None
+    return {"kind": kind}
+
+
+def _scalar_kind(value: Any) -> Optional[str]:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, int):
+        return "int"
+    if isinstance(value, float):
+        return "float"
+    if isinstance(value, str):
+        return "string"
+    return None
+
+
 def _validate(body: EditBody, entity: ifcopenshell.entity_instance) -> None:
     """Validate the whole request before anything is applied (atomicity)."""
     attr_names = _attribute_names(entity)
-    for field_name in body.fields:
+    enum_attrs: Dict[str, set] = {}
+    for attribute in ifcopenshell.util.schema.get_declaration(entity).all_attributes():
+        items = _enum_items(attribute)
+        if items is not None:
+            enum_attrs[attribute.name()] = set(items)
+    for field_name, value in body.fields.items():
         if field_name not in attr_names:
             raise HTTPException(
                 status_code=422, detail=f"unknown attribute: {field_name}"
             )
+        if field_name in enum_attrs and value is not None:
+            if not isinstance(value, str) or value not in enum_attrs[field_name]:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"invalid enum value for {field_name}: {value}",
+                )
     for pset_name, props in body.psets.items():
         for key, value in props.items():
             if value is not None and not isinstance(value, (str, int, float, bool)):
@@ -158,7 +246,7 @@ def put_entity(
                         "newValue": new_value,
                     }
                 )
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError, RuntimeError) as exc:
             for field_name, old_value in old_fields.items():
                 setattr(entity, field_name, old_value)
             raise HTTPException(status_code=422, detail=f"invalid field value: {exc}")
@@ -189,7 +277,110 @@ def put_entity(
             "guid": guid,
             "changes": changes,
             "author": body.author,
-            "provenance": body.provenance.model_dump(),
+            "provenance": body.provenance.model_dump(exclude_none=True),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _pending(request).append(id, entry)
+        return entry
+
+
+@router.get("/models/{id}/entities/{guid}/editable-schema")
+def get_editable_schema(
+    request: Request,
+    id: str = Path(pattern=MODEL_ID_PATTERN),
+    guid: str = Path(),
+) -> Dict[str, Any]:
+    """Typed edit form schema for an entity.
+
+    ``fields`` lists editable direct attributes (name/kind/current value,
+    ``enumValues`` for enum kinds like PredefinedType); ``psets`` lists
+    editable scalar properties (str/int/float/bool). Non-scalar attributes
+    (entities, aggregates, selects) and GlobalId are excluded.
+    """
+    path = _model_path(request, id)
+    registry = request.app.state.registry
+    with registry.lock(path):
+        model = registry.load(path)
+        try:
+            entity = model.by_guid(guid)
+        except RuntimeError:
+            raise HTTPException(status_code=404, detail="entity not found")
+        fields: List[Dict[str, Any]] = []
+        for attribute in ifcopenshell.util.schema.get_declaration(entity).all_attributes():
+            name = attribute.name()
+            if name == "GlobalId":
+                continue
+            info = _attribute_kind(attribute)
+            if info is None:
+                continue
+            item: Dict[str, Any] = {
+                "name": name,
+                "kind": info["kind"],
+                "value": _jsonable(getattr(entity, name)),
+            }
+            if info["kind"] == "enum":
+                item["enumValues"] = info["enumValues"]
+            fields.append(item)
+        psets: List[Dict[str, Any]] = []
+        for pset_name, props in ifcopenshell.util.element.get_psets(entity).items():
+            properties: List[Dict[str, Any]] = []
+            for prop_name, value in props.items():
+                if prop_name == "id":
+                    continue
+                kind = _scalar_kind(value)
+                if kind is None:
+                    continue
+                properties.append({"name": prop_name, "kind": kind, "value": value})
+            psets.append({"name": pset_name, "properties": properties})
+    return {"guid": guid, "ifcType": entity.is_a(), "fields": fields, "psets": psets}
+
+
+@router.delete("/models/{id}/entities/{guid}")
+def delete_entity(
+    request: Request,
+    body: Optional[DeleteBody] = None,
+    id: str = Path(pattern=MODEL_ID_PATTERN),
+    guid: str = Path(),
+) -> Dict[str, Any]:
+    """Delete an entity into the pending flow (effective on commit).
+
+    ``remove_product`` cascades: psets, placement/representation, material,
+    type, containment, aggregation, nesting and void/fill relationships are
+    cleaned up. IfcProject and spatial structure elements are refused (422).
+    On an unexpected delete failure the in-memory model is reloaded from disk
+    and pending is dropped, keeping the two consistent.
+    """
+    path = _model_path(request, id)
+    registry = request.app.state.registry
+    with registry.lock(path):
+        model = registry.load(path)
+        try:
+            entity = model.by_guid(guid)
+        except RuntimeError:
+            raise HTTPException(status_code=404, detail="entity not found")
+        if entity.is_a("IfcProject") or entity.is_a("IfcSpatialStructureElement"):
+            raise HTTPException(
+                status_code=422,
+                detail="cannot delete project or spatial structure elements",
+            )
+        old_name = getattr(entity, "Name", None)
+        try:
+            ifcopenshell.api.root.remove_product(model, product=entity)
+        except Exception as exc:
+            registry.unload(path)
+            registry.load(path)
+            _pending(request).set(id, [])
+            raise HTTPException(status_code=500, detail=f"entity delete failed: {exc}")
+        body = body or DeleteBody()
+        entry = {
+            "id": "e_" + secrets.token_hex(6),
+            "guid": guid,
+            "action": "delete",
+            "changes": [
+                {"field": "__deleted__", "oldValue": _jsonable(old_name), "newValue": None}
+            ],
+            "author": body.author,
+            "provenance": body.provenance.model_dump(exclude_none=True),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
         _pending(request).append(id, entry)

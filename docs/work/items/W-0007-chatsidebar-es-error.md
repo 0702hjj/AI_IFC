@@ -1,10 +1,10 @@
 # W-0007: ChatSidebar 未处理 EventSource 原生 error 与非法帧
 
-- **状态：** open
+- **状态：** done（关闭 commit：feat/v0.2-batch `fix(web): ChatSidebar 历史/SSE 合并 + EventSource 容错与重连`）
 - **优先级：** P2
 - **Milestone：** 待排（建议随 W-0006 一并处理）
 - **来源：** W-0002 测试发现（2026-08-06）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/v0.2-batch
 
 ## 背景
 

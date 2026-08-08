@@ -9,6 +9,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "ifcopenshell>=0.8",
     "ifcdiff>=0.8",
+    "python-multipart>=0.0.9",
 ]
 
 [dependency-groups]

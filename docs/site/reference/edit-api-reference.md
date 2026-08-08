@@ -85,6 +85,67 @@ Diff two model versions (or base version vs the current upload state).
 | 200 | Successful Response |
 | 422 | Validation Error |
 
+### POST /models/{id}/diff/upload
+
+Post Diff Upload
+
+Diff an uploaded (user-modified) IFC against the current model state.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### DELETE /models/{id}/entities/{guid}
+
+Delete Entity
+
+Delete an entity into the pending flow (effective on commit).
+
+``remove_product`` cascades: psets, placement/representation, material,
+type, containment, aggregation, nesting and void/fill relationships are
+cleaned up. IfcProject and spatial structure elements are refused (422).
+On an unexpected delete failure the in-memory model is reloaded from disk
+and pending is dropped, keeping the two consistent.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+| `guid` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "anyOf": [
+    {
+      "$ref": "#/components/schemas/DeleteBody"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "title": "Body"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
 ### PUT /models/{id}/entities/{guid}
 
 Put Entity
@@ -105,6 +166,31 @@ Apply edits to the in-memory model and record a pending change.
   "$ref": "#/components/schemas/EditBody"
 }
 ```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### GET /models/{id}/entities/{guid}/editable-schema
+
+Get Editable Schema
+
+Typed edit form schema for an entity.
+
+``fields`` lists editable direct attributes (name/kind/current value,
+``enumValues`` for enum kinds like PredefinedType); ``psets`` lists
+editable scalar properties (str/int/float/bool). Non-scalar attributes
+(entities, aggregates, selects) and GlobalId are excluded.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+| `guid` | path | 是 | string |  |
 
 响应：
 
@@ -445,6 +531,33 @@ List script big versions (empty for legacy IFC-only models).
 | 200 | Successful Response |
 | 422 | Validation Error |
 
+### POST /models/{id}/user-edits
+
+Post User Edits
+
+Append USER-annotated modification events to the model's edit history.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "$ref": "#/components/schemas/UserEditsBody"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
 ### GET /models/{id}/versions
 
 Get Versions
@@ -466,6 +579,25 @@ List version snapshots for a model (empty + current=null before any commit).
 
 ## 组件 Schema
 
+### Body_post_diff_upload_models__id__diff_upload_post
+
+```json
+{
+  "properties": {
+    "file": {
+      "type": "string",
+      "contentMediaType": "application/octet-stream",
+      "title": "File"
+    }
+  },
+  "type": "object",
+  "required": [
+    "file"
+  ],
+  "title": "Body_post_diff_upload_models__id__diff_upload_post"
+}
+```
+
 ### CommitBody
 
 ```json
@@ -484,6 +616,26 @@ List version snapshots for a model (empty + current=null before any commit).
   "type": "object",
   "title": "CommitBody",
   "description": "Optional body of POST /models/{id}/commit."
+}
+```
+
+### DeleteBody
+
+```json
+{
+  "properties": {
+    "author": {
+      "type": "string",
+      "title": "Author",
+      "default": "local-user"
+    },
+    "provenance": {
+      "$ref": "#/components/schemas/Provenance"
+    }
+  },
+  "type": "object",
+  "title": "DeleteBody",
+  "description": "Optional body of DELETE /models/{id}/entities/{guid}."
 }
 ```
 
@@ -571,15 +723,27 @@ List version snapshots for a model (empty + current=null before any commit).
       "type": "string",
       "enum": [
         "UI",
-        "AI"
+        "AI",
+        "USER"
       ],
       "title": "Source",
       "default": "UI"
+    },
+    "origin": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Origin"
     }
   },
   "type": "object",
   "title": "Provenance",
-  "description": "Who performed an edit: the web UI or an AI agent."
+  "description": "Who performed an edit: the web UI, an AI agent, or an external user edit.\n\n``origin`` further qualifies USER edits (e.g. ``upload`` for a modified\nIFC/DXF file parsed by the MCP server)."
 }
 ```
 
@@ -683,6 +847,108 @@ List version snapshots for a model (empty + current=null before any commit).
   ],
   "title": "ScriptDiffBody",
   "description": "Body of POST /models/{id}/script/diff: two big versions."
+}
+```
+
+### UserEditEvent
+
+```json
+{
+  "properties": {
+    "guid": {
+      "type": "string",
+      "title": "Guid"
+    },
+    "name": {
+      "type": "string",
+      "title": "Name",
+      "default": ""
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "added",
+        "removed",
+        "modified"
+      ],
+      "title": "Kind"
+    },
+    "changes": {
+      "items": {
+        "$ref": "#/components/schemas/UserFieldChange"
+      },
+      "type": "array",
+      "title": "Changes"
+    }
+  },
+  "type": "object",
+  "required": [
+    "guid",
+    "kind"
+  ],
+  "title": "UserEditEvent",
+  "description": "One located user modification (IFC element or DXF entity/layer)."
+}
+```
+
+### UserEditsBody
+
+```json
+{
+  "properties": {
+    "origin": {
+      "type": "string",
+      "enum": [
+        "ifc-upload",
+        "dxf-upload"
+      ],
+      "title": "Origin"
+    },
+    "author": {
+      "type": "string",
+      "title": "Author",
+      "default": "user-upload"
+    },
+    "events": {
+      "items": {
+        "$ref": "#/components/schemas/UserEditEvent"
+      },
+      "type": "array",
+      "title": "Events"
+    }
+  },
+  "type": "object",
+  "required": [
+    "origin",
+    "events"
+  ],
+  "title": "UserEditsBody",
+  "description": "Body of POST /models/{id}/user-edits."
+}
+```
+
+### UserFieldChange
+
+```json
+{
+  "properties": {
+    "field": {
+      "type": "string",
+      "title": "Field"
+    },
+    "oldValue": {
+      "title": "Oldvalue"
+    },
+    "newValue": {
+      "title": "Newvalue"
+    }
+  },
+  "type": "object",
+  "required": [
+    "field"
+  ],
+  "title": "UserFieldChange",
+  "description": "One field-level change inside a user modification event."
 }
 ```
 

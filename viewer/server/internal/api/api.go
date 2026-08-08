@@ -420,7 +420,7 @@ func (h *handler) putEntityProperties(w http.ResponseWriter, r *http.Request) {
 		source = in.Provenance.Source
 	}
 	if !change.ValidSource(source) {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI or AI")
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
 		return
 	}
 	old, err := h.ovr.Set(m.ID, entityID, in.Fields)

@@ -17,11 +17,12 @@ import (
 
 type Provenance struct {
 	Source string `json:"source"`
+	Origin string `json:"origin,omitempty"`
 }
 
-// ValidSource 仅允许 UI / AI 两种 provenance 来源。
+// ValidSource 仅允许 UI / AI / USER 三种 provenance 来源。
 func ValidSource(s string) bool {
-	return s == "UI" || s == "AI"
+	return s == "UI" || s == "AI" || s == "USER"
 }
 
 type Entry struct {

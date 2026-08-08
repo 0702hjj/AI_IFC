@@ -1,10 +1,10 @@
 # W-0006: ChatSidebar 历史 fetch 覆盖 SSE 追加消息的竞态
 
-- **状态：** open
+- **状态：** done（关闭 commit：feat/v0.2-batch `fix(web): ChatSidebar 历史/SSE 合并 + EventSource 容错与重连`）
 - **优先级：** P1
 - **Milestone：** 待排（建议 M4 结构加固随 chat 模块一并处理）
 - **来源：** W-0002 测试发现（2026-08-06）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/v0.2-batch
 
 ## 背景
 

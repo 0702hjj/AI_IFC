@@ -1,0 +1,22 @@
+[project]
+name = "aiifc-mcp-server"
+version = "0.1.0"
+description = "Platform MCP server: parse user-modified IFC/DXF files and annotate them (provenance=USER)"
+license = { text = "AGPL-3.0-only" }
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=2,<3",
+    "httpx>=0.27",
+    "ezdxf>=1.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

@@ -18,9 +18,13 @@
 
 ## 方案（待细化，先在实施前补 spec）
 
+**叙事已定（2026-08-07 用户裁决）**：平台自持 orchestrator 为**内向**用户对话面；A2A 协议仅作为子 agent 的**对外暴露形态**（与同事的外部主 agent 对接，见 docs/internal/architecture/ai-bim-agent-page.md §4.5）。两者不冲突：orchestrator 是内部枢纽，A2A 是出口。
+
+**框架候选（2026-08-07 用户建议）**：Go **Eino**（CloudWeGo LLM 应用框架，Chain/Graph 编排 + Tool 抽象）——与 Go server 同语言，评估其对 opencode serve 的替代/包裹关系。spec 阶段必须对比：Eino 编排 vs 现状裸 opencode-serve 编排（会话管理/成本/失败语义/与 SSE 地基的衔接）。
+
 1. 整体 Agent 职责：用户对话、意图路由（IFC 生成/CAD 几何/设计决策）、子 Agent 提示词封装、结果汇总呈现
-2. 子 Agent：IFCagent（ifcopenshell 建模，aiifc skill）、CADAgent（几何/DXF）、designerAgent（设计规范/审查）
-3. 用户输入归一：上传 DXF/IFC、改 IFC、改 DXF → 统一「用户修改」事件（与 W-0018 的 MCP 解析衔接）
+2. 子 Agent：IFCagent（ifcopenshell 建模，aiifc skill）、CADAgent（几何/DXF，对接同事 aidxf）、designerAgent（设计规范/审查）
+3. 用户输入归一：上传 DXF/IFC、改 IFC、改 DXF → 统一「用户修改」事件（W-0018 已交付 MCP 侧）
 4. diff 上下文：大版本 + 小版本 diff 注入（W-0016 的机制扩展到编排层）
 
 ## 验收标准

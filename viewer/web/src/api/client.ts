@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 0702hjj
 
-import type { ModelInfo, Issue, NewIssue, OverridesMap, EntityFields, ChangeEntry, EditVersionsResponse, DiffResponse, ScriptState, ScriptStageResult, ScriptSaveResult, ScriptParamsResponse, ScriptVersionsResponse, ScriptDiffResponse, ScriptRunResult } from "./types";
+import type { ModelInfo, Issue, NewIssue, OverridesMap, ChangeEntry, EditVersionsResponse, DiffResponse, ScriptState, ScriptStageResult, ScriptSaveResult, ScriptParamsResponse, ScriptVersionsResponse, ScriptDiffResponse, ScriptRunResult, EditableSchema, PendingEntry, EditCommitResult, EntityEditPayload } from "./types";
 
 interface Envelope<T> { code: number; message: string; data: T }
 
@@ -101,20 +101,42 @@ export const issueAssetUrl = (modelId: string, issue: Issue) => `/v1/models/${mo
 export function fetchOverrides(modelId: string) {
   return request<OverridesMap>(`/api/v1/models/${modelId}/overrides`);
 }
-export function saveEntityProperties(
-  modelId: string,
-  entityId: string,
-  fields: EntityFields,
-  entityName: string
-) {
-  return request<EntityFields>(`/api/v1/models/${modelId}/entities/${entityId}/properties`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fields, entityName }),
-  });
-}
 export function fetchChanges(modelId: string) {
   return request<ChangeEntry[]>(`/api/v1/models/${modelId}/changes`);
+}
+
+// --- 真改直通（W-0019）：schema 驱动编辑 → pending → commit ---
+
+export function fetchEditableSchema(modelId: string, guid: string) {
+  return request<EditableSchema>(`/api/v1/models/${modelId}/edit/entities/${guid}/editable-schema`);
+}
+export function putEntityEdit(modelId: string, guid: string, payload: EntityEditPayload) {
+  return request<PendingEntry>(`/api/v1/models/${modelId}/edit/entities/${guid}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+export function deleteEntity(
+  modelId: string,
+  guid: string,
+  meta: { author: string; provenance: { source: "UI" | "AI" | "USER" } }
+) {
+  return request<PendingEntry>(`/api/v1/models/${modelId}/edit/entities/${guid}`, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(meta),
+  });
+}
+export function fetchEditPending(modelId: string) {
+  return request<PendingEntry[]>(`/api/v1/models/${modelId}/edit/pending`);
+}
+export function commitEdits(modelId: string) {
+  return request<EditCommitResult>(`/api/v1/models/${modelId}/edit/commit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ author: "local-user", provenance: { source: "UI" } }),
+  });
 }
 
 export function fetchEditVersions(modelId: string) {

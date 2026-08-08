@@ -73,7 +73,6 @@
 |---|---|---|
 | 脚本 unified text diff | scripts/v{n-1}.py ↔ v{n}.py | AI（下次输出的上下文） |
 | IFC 语义 diff（ifcdiff，属性级 GlobalId 对齐） | versions/v{n-1}.ifc ↔ v{n}.ifc | 用户（Diff Viewer） |
-| IFC 指纹 diff | 外部上传模型兜底 | 不变 |
 
 - IFC 语义 diff 的跨版本对齐依赖 ② 写入的确定性 GlobalId 与 `Pset_AIIFC.designKey`。
 

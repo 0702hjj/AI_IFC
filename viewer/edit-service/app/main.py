@@ -13,6 +13,7 @@ from .registry import ModelRegistry
 from .routes_diff import router as diff_router
 from .routes_edits import router as edits_router
 from .routes_scripts import router as scripts_router
+from .routes_user_edits import router as user_edits_router
 from .script_staging import StagingRegistry
 
 
@@ -27,6 +28,7 @@ def create_app() -> FastAPI:
     app.include_router(edits_router)
     app.include_router(diff_router)
     app.include_router(scripts_router)
+    app.include_router(user_edits_router)
 
     @app.get("/health")
     def health() -> dict:

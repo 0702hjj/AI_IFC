@@ -13,7 +13,7 @@ import (
 )
 
 func TestValidSource(t *testing.T) {
-	for _, s := range []string{"UI", "AI"} {
+	for _, s := range []string{"UI", "AI", "USER"} {
 		if !ValidSource(s) {
 			t.Fatalf("ValidSource(%q) = false, want true", s)
 		}
@@ -31,7 +31,7 @@ func TestAppendListOperationDiffRoundtrip(t *testing.T) {
 	e := &Entry{
 		EntityID: "e1", EntityName: "Wall", Field: "width",
 		OldValue: "100", NewValue: "200",
-		Author: "ai-bot", Provenance: Provenance{Source: "AI"},
+		Author: "ai-bot", Provenance: Provenance{Source: "USER", Origin: "upload"},
 		Operation: "migrate", Diff: diff,
 	}
 	if err := fs.Append(modelID, e); err != nil {
@@ -55,6 +55,9 @@ func TestAppendListOperationDiffRoundtrip(t *testing.T) {
 	gotMigrate := byOp[e.ID]
 	if gotMigrate == nil || gotMigrate.Operation != "migrate" {
 		t.Fatalf("entry = %+v, want operation migrate", gotMigrate)
+	}
+	if gotMigrate.Provenance.Source != "USER" || gotMigrate.Provenance.Origin != "upload" {
+		t.Fatalf("provenance = %+v, want USER/upload", gotMigrate.Provenance)
 	}
 	var gotDiff, wantDiff interface{}
 	if err := json.Unmarshal(gotMigrate.Diff, &gotDiff); err != nil {

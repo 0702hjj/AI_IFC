@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, createChatProject } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, createChatProject, fetchEditableSchema, putEntityEdit, deleteEntity, fetchEditPending, commitEdits } from "./client";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
 
@@ -84,6 +84,59 @@ const sampleIssue = {
   camera: { eye: [1, 2, 3], look: [0, 0, 0], up: [0, 0, 1] },
   screenshot: "", createdAt: "2026-07-28T00:00:00Z", updatedAt: "2026-07-28T00:00:00Z",
 };
+
+describe("true-edit api (W-0019)", () => {
+  it("fetchEditableSchema unwraps envelope", async () => {
+    const schema = { guid: "g1", ifcType: "IfcWall", fields: [], psets: [] };
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(schema)), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const res = await fetchEditableSchema("m_1", "g1");
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe("/api/v1/models/m_1/edit/entities/g1/editable-schema");
+    expect(res).toEqual(schema);
+  });
+
+  it("putEntityEdit PUTs fields/psets payload", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ id: "e_1" })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await putEntityEdit("m_1", "g1", {
+      fields: { Name: "B" },
+      psets: { Pset_WallCommon: { FireRating: "90" } },
+      author: "local-user",
+      provenance: { source: "UI" },
+    });
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/models/m_1/edit/entities/g1");
+    expect(init.method).toBe("PUT");
+    expect(JSON.parse(init.body as string)).toEqual({
+      fields: { Name: "B" },
+      psets: { Pset_WallCommon: { FireRating: "90" } },
+      author: "local-user",
+      provenance: { source: "UI" },
+    });
+  });
+
+  it("deleteEntity sends DELETE with author/provenance body", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ id: "e_2", action: "delete" })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const res = await deleteEntity("m_1", "g1", { author: "local-user", provenance: { source: "UI" } });
+    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("/api/v1/models/m_1/edit/entities/g1");
+    expect(init.method).toBe("DELETE");
+    expect(JSON.parse(init.body as string)).toEqual({ author: "local-user", provenance: { source: "UI" } });
+    expect(res.action).toBe("delete");
+  });
+
+  it("fetchEditPending and commitEdits hit pending/commit endpoints", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope([])), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await fetchEditPending("m_1");
+    await commitEdits("m_1");
+    const calls = spy.mock.calls as unknown as [string, RequestInit | undefined][];
+    expect(calls[0][0]).toBe("/api/v1/models/m_1/edit/pending");
+    expect(calls[1][0]).toBe("/api/v1/models/m_1/edit/commit");
+    expect(calls[1][1]?.method).toBe("POST");
+  });
+});
 
 describe("issue api", () => {
   it("listIssues unwraps envelope", async () => {

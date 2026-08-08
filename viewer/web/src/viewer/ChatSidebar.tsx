@@ -61,6 +61,15 @@ function extractErrText(d: any): string {
   return JSON.stringify(d).slice(0, 300);
 }
 
+// 安全解析 SSE 帧：非法 JSON 跳过（返回 undefined），不中断事件流。
+function parseEventData(e: Event): any | undefined {
+  try {
+    return JSON.parse((e as MessageEvent).data);
+  } catch {
+    return undefined;
+  }
+}
+
 export function ChatSidebar({ session }: { session: ChatSession }) {
   const chatOpen = useViewerStore((s) => s.chatOpen);
   const setChatOpen = useViewerStore((s) => s.setChatOpen);
@@ -68,6 +77,7 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [connLost, setConnLost] = useState(false);
   const rolesRef = useRef<Map<string, string>>(new Map());
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
@@ -114,14 +124,30 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
             }
           }
         }
-        setMessages(history.length > 0 ? history : [{ id: "welcome", role: "system", kind: "system", text: WELCOME }]);
+        setMessages((prev) => {
+          // 与 SSE 增量合并而非覆盖（W-0006）：SSE 先到、历史后到时按 id 去重，历史在前、增量在后
+          const live = prev.filter((m) => m.id !== "welcome");
+          if (history.length === 0 && live.length === 0)
+            return [{ id: "welcome", role: "system", kind: "system", text: WELCOME }];
+          const liveIds = new Set(live.map((m) => m.id));
+          return [...history.filter((h) => !liveIds.has(h.id)), ...live];
+        });
       })
-      .catch(() => setMessages([{ id: "welcome", role: "system", kind: "system", text: WELCOME }]));
+      .catch(() =>
+        setMessages((prev) =>
+          prev.length > 0 ? prev : [{ id: "welcome", role: "system", kind: "system", text: WELCOME }],
+        ),
+      );
 
     const es = new EventSource(chatEventsUrl(session.chatSessionId));
 
+    // 断连提示；EventSource 原生自动重连（带 Last-Event-ID，服务端补发 missed 事件），open 后恢复
+    es.addEventListener("error", () => setConnLost(true));
+    es.addEventListener("open", () => setConnLost(false));
+
     es.addEventListener("message.updated", (e) => {
-      const d = JSON.parse((e as MessageEvent).data);
+      const d = parseEventData(e);
+      if (!d) return;
       const info = d.info ?? d;
       if (info?.id && info?.role) rolesRef.current.set(info.id, info.role);
     });
@@ -130,7 +156,8 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
     // 真实结构：d.part = {type, text, messageID, id, ...tool 有 state}（无 delta 字段）。
     // 文本增量在独立的 message.part.delta 事件，故此处 text/reasoning 只"建行不覆盖"。
     es.addEventListener("message.part.updated", (e) => {
-      const d = JSON.parse((e as MessageEvent).data);
+      const d = parseEventData(e);
+      if (!d) return;
       const part = d.part;
       if (!part) return;
       if (part.type === "text") {
@@ -167,8 +194,8 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
     // message.part.delta：真正的流式文本增量（text/reasoning 都累加到 m.text）。
     // 结构：d = {sessionID, messageID, partID, field:"text", delta:"xxx"}。
     es.addEventListener("message.part.delta", (e) => {
-      const d = JSON.parse((e as MessageEvent).data);
-      if (d.field !== "text" || !d.delta) return;
+      const d = parseEventData(e);
+      if (!d || d.field !== "text" || !d.delta) return;
       setMessages((prev) => {
         const idx = prev.findIndex((m) => m.id === d.partID);
         if (idx < 0) return prev; // part 行还没建，等 part.updated
@@ -180,21 +207,23 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
 
     // part 被移除（消息重写 / abort 中止进行中的 part）→ 同步删行，避免残留
     es.addEventListener("message.part.removed", (e) => {
-      const d = JSON.parse((e as MessageEvent).data);
-      const id = d.part?.id;
+      const d = parseEventData(e);
+      const id = d?.part?.id;
       if (!id) return;
       setMessages((prev) => prev.filter((m) => m.id !== id));
     });
 
     es.addEventListener("session.status", (e) => {
-      const d = JSON.parse((e as MessageEvent).data);
+      const d = parseEventData(e);
+      if (!d) return;
       setBusy(d.status?.type === "busy" || d.status?.type === "retry");
     });
     es.addEventListener("session.idle", () => setBusy(false));
 
     // 会话级错误（如模型调用失败）→ 红色系统消息。error 字段可能是对象，需安全提取避免 [object Object]。
     es.addEventListener("session.error", (e) => {
-      const d = JSON.parse((e as MessageEvent).data);
+      const d = parseEventData(e);
+      if (!d) return;
       setMessages((prev) => [
         ...prev,
         { id: `err-${Date.now()}`, role: "system", kind: "system", text: `❌ ${extractErrText(d)}` },
@@ -202,7 +231,8 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
     });
 
     const sys = (type: string) => (e: Event) => {
-      const data = JSON.parse((e as MessageEvent).data);
+      const data = parseEventData(e);
+      if (!data) return;
       const text =
         type === "viewer.committed"
           ? `✅ 修改已落盘（版本 ${data.version || "?"}），模型转换中…`
@@ -256,6 +286,7 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
         </button>
       </header>
       <div className="chat-resizer" onMouseDown={startResize} title="拖拽调整宽度" />
+      {connLost && <div className="chat-conn-lost">⚠ 连接中断，正在重连…</div>}
       <div className="chat-messages">
         {messages.map((m) => {
           if (m.kind === "tool" && m.tool) return <ToolCard key={m.id} tool={m.tool} />;

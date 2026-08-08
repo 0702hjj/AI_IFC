@@ -88,6 +88,20 @@ jobs:
       - run: uv sync --group dev
       - run: uv run pytest -q
 
+  mcp-server:
+    name: mcp-server (Python, MCP stdio)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: viewer/mcp-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+      - run: uv sync --group dev
+      - run: uv run --group dev pytest
+
   skill-pack:
     name: skill (aiifc pack + flows smoke)
     runs-on: ubuntu-latest
