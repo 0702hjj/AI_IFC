@@ -7,6 +7,10 @@ Deliberately layout-agnostic: no attempt to reverse-engineer rooms/walls from
 geometry (that reconstruction belongs to the cad pipeline). Entities are
 matched by handle across the two files; per layer we report added/removed/
 modified counts, and TEXT/MTEXT content changes are surfaced separately.
+
+Handle alignment assumes the user edited a copy of the original file: a DXF
+re-saved by a CAD application gets all-new handles, and every entity will be
+reported as added/removed instead of modified.
 """
 
 from __future__ import annotations

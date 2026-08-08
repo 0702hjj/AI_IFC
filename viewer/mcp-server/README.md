@@ -14,6 +14,8 @@
 | `model_diff(model_id, base, target)` | 大版本 diff：IFC 语义 diff + 脚本 diff 透传（无脚本模型 script=null） |
 | `model_current_context(model_id)` | Agent 快速上下文：当前版本、staging 状态、最近 20 条修改事件 |
 
+> 注意：DXF 对比以 handle 对齐两个文件的实体，前提是用户在原文件副本上修改；经 CAD 软件重存的文件句柄全变，会全部判为增删（无 modified）。
+
 ## 运行
 
 ```bash

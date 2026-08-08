@@ -5,7 +5,7 @@ description = "Platform MCP server: parse user-modified IFC/DXF files and annota
 license = { text = "AGPL-3.0-only" }
 requires-python = ">=3.10"
 dependencies = [
-    "mcp>=1.9",
+    "mcp>=2,<3",
     "httpx>=0.27",
     "ezdxf>=1.3",
 ]
