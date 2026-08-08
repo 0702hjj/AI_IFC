@@ -34,7 +34,9 @@ lose versions under concurrent saves.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import shutil
 from typing import Any, Dict, Optional
 
 import ifcopenshell.util.element
@@ -42,6 +44,7 @@ from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from . import (
+    diffing,
     script_diff,
     script_edit,
     script_params,
@@ -50,6 +53,8 @@ from . import (
     script_versions,
     versions,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -111,6 +116,33 @@ def _lock(request: Request, model_id: str):
 
 def _staging(request: Request, model_id: str) -> script_staging.ScriptStaging:
     return request.app.state.script_staging.get(model_id)
+
+
+def _bootstrap_path(request: Request, model_id: str) -> str:
+    return os.path.join(
+        request.app.state.settings.data_dir, "models", model_id, "bootstrap.ifc"
+    )
+
+
+def _preserve_bootstrap(
+    request: Request, model_id: str, staging: script_staging.ScriptStaging
+) -> None:
+    """plain 态模型首次暂存脚本时，把上传原件原子复制为 bootstrap.ifc（§5.4）。
+
+    必须发生在任何 run 覆盖 uploads 之前；已有大版本或 bootstrap 已存在则跳过
+    （存量 script-backed 模型不补建）。调用方须持有模型锁。
+    """
+    bootstrap = _bootstrap_path(request, model_id)
+    if os.path.exists(bootstrap) or staging.current() is not None:
+        return
+    data_dir = request.app.state.settings.data_dir
+    if script_versions.list_scripts(data_dir, model_id):
+        return
+    uploads = os.path.join(data_dir, "uploads", f"{model_id}.ifc")
+    os.makedirs(os.path.dirname(bootstrap), exist_ok=True)
+    tmp = bootstrap + ".tmp"
+    shutil.copyfile(uploads, tmp)
+    os.replace(tmp, bootstrap)
 
 
 def _staging_or_seed(request: Request, model_id: str) -> script_staging.ScriptStaging:
@@ -196,6 +228,7 @@ def stage_script(
             raise HTTPException(
                 status_code=422, detail="脚本契约校验失败: " + "; ".join(errors)
             )
+        _preserve_bootstrap(request, id, staging)
         staging.push(text)
         return {
             "modelId": id,
@@ -320,7 +353,34 @@ def save_script(
             note=note, map_text=map_text,
         )
         staging.save()
-        return {"modelId": id, "version": version, "staged": 0}
+        return {
+            "modelId": id,
+            "version": version,
+            "staged": 0,
+            "alignment": _bootstrap_alignment(request, id, ifc_path),
+        }
+
+
+def _bootstrap_alignment(
+    request: Request, model_id: str, ifc_path: str
+) -> Optional[Dict[str, int]]:
+    """bootstrap.ifc（上传原件）vs 本次生成 IFC 的语义 diff 计数（§5.4）。
+
+    版本已落盘，对齐计算失败绝不让 save 失败——记日志返回 None。
+    """
+    bootstrap = _bootstrap_path(request, model_id)
+    if not os.path.isfile(bootstrap):
+        return None
+    try:
+        diff = diffing.compute_diff(bootstrap, ifc_path)
+    except Exception:
+        logger.exception("bootstrap alignment diff failed for model %s", model_id)
+        return None
+    return {
+        "added": len(diff["added"]),
+        "removed": len(diff["removed"]),
+        "changed": len(diff["changed"]),
+    }
 
 
 @router.get("/models/{id}/scripts")
