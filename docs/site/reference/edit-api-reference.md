@@ -104,6 +104,48 @@ Diff an uploaded (user-modified) IFC against the current model state.
 | 200 | Successful Response |
 | 422 | Validation Error |
 
+### DELETE /models/{id}/entities/{guid}
+
+Delete Entity
+
+Delete an entity into the pending flow (effective on commit).
+
+``remove_product`` cascades: psets, placement/representation, material,
+type, containment, aggregation, nesting and void/fill relationships are
+cleaned up. IfcProject and spatial structure elements are refused (422).
+On an unexpected delete failure the in-memory model is reloaded from disk
+and pending is dropped, keeping the two consistent.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+| `guid` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "anyOf": [
+    {
+      "$ref": "#/components/schemas/DeleteBody"
+    },
+    {
+      "type": "null"
+    }
+  ],
+  "title": "Body"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
 ### PUT /models/{id}/entities/{guid}
 
 Put Entity
@@ -124,6 +166,31 @@ Apply edits to the in-memory model and record a pending change.
   "$ref": "#/components/schemas/EditBody"
 }
 ```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### GET /models/{id}/entities/{guid}/editable-schema
+
+Get Editable Schema
+
+Typed edit form schema for an entity.
+
+``fields`` lists editable direct attributes (name/kind/current value,
+``enumValues`` for enum kinds like PredefinedType); ``psets`` lists
+editable scalar properties (str/int/float/bool). Non-scalar attributes
+(entities, aggregates, selects) and GlobalId are excluded.
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+| `guid` | path | 是 | string |  |
 
 响应：
 
@@ -549,6 +616,26 @@ List version snapshots for a model (empty + current=null before any commit).
   "type": "object",
   "title": "CommitBody",
   "description": "Optional body of POST /models/{id}/commit."
+}
+```
+
+### DeleteBody
+
+```json
+{
+  "properties": {
+    "author": {
+      "type": "string",
+      "title": "Author",
+      "default": "local-user"
+    },
+    "provenance": {
+      "$ref": "#/components/schemas/Provenance"
+    }
+  },
+  "type": "object",
+  "title": "DeleteBody",
+  "description": "Optional body of DELETE /models/{id}/entities/{guid}."
 }
 ```
 
