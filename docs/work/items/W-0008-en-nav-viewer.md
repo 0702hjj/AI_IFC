@@ -1,10 +1,10 @@
 # W-0008: 英文 nav 补 Viewer Usage 入口
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P2
 - **Milestone：** 待排（随下次 site 变更顺带）
 - **来源：** P2-7 审查发现（2026-08-06）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/v0.2-batch
 
 ## 背景
 
