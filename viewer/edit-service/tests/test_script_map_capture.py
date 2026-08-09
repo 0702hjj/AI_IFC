@@ -101,9 +101,11 @@ def settings():
 
 
 def _read_map(out: Path) -> dict:
+    """读取发布的 sidecar 信封（{"scriptHash", "map"}），返回调用点条目。"""
     map_path = Path(str(out) + ".map.json")
     assert map_path.is_file()
-    return json.loads(map_path.read_text(encoding="utf-8"))
+    envelope = json.loads(map_path.read_text(encoding="utf-8"))
+    return envelope["map"]
 
 
 class TestMapSidecar:

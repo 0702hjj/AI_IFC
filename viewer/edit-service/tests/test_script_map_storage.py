@@ -81,13 +81,15 @@ class TestRunScriptMapOut:
     ):
         out = tmp_path / "out.ifc"
         map_out = tmp_path / "sub" / "current.map.json"
-        script_runner.run_script(
-            settings, _map_script(), str(out), map_out=str(map_out)
-        )
+        script = _map_script()
+        script_runner.run_script(settings, script, str(out), map_out=str(map_out))
         assert map_out.is_file()
         m = json.loads(map_out.read_text(encoding="utf-8"))
-        assert "s1:wall:1" in m
-        entry = m["s1:wall:1"]
+        # 发布信封：scriptHash 绑定所跑脚本，map 为调用点条目
+        assert m["scriptHash"] == script_runner.script_hash(script)
+        entries = m["map"]
+        assert "s1:wall:1" in entries
+        entry = entries["s1:wall:1"]
         assert entry["origin"] == "params"
         assert entry["line"] > 0
         assert "create_entity" in entry["snippet"]
@@ -155,12 +157,13 @@ class TestSaveMapText:
 
 class TestRunEndpointPublishesCurrentMap:
     def test_run_writes_current_map(self, client: TestClient, data_dir: Path):
-        client.put(f"/models/{MODEL_ID}/script", json={"script": _map_script()})
+        script = _map_script()
+        client.put(f"/models/{MODEL_ID}/script", json={"script": script})
         r = client.post(f"/models/{MODEL_ID}/script/run")
         assert r.status_code == 200, r.text
         m = _read_current_map(data_dir)
-        assert "s1:wall:1" in m
-        entry = m["s1:wall:1"]
+        assert m["scriptHash"] == script_runner.script_hash(script)
+        entry = m["map"]["s1:wall:1"]
         assert entry["line"] > 0
         assert "create_entity" in entry["snippet"]
 
@@ -192,8 +195,8 @@ class TestSaveEndpointMapLockstep:
         map_file = data_dir / "models" / MODEL_ID / "scripts" / f"{version}.map.json"
         assert map_file.is_file()
         m = json.loads(map_file.read_text(encoding="utf-8"))
-        assert m  # 至少一个 designKey
-        assert "s1:wall:1" in m
+        assert m["map"]  # 至少一个 designKey
+        assert "s1:wall:1" in m["map"]
         # current.map.json 同步存在且与版本 map 内容一致
         current = _read_current_map(data_dir)
         assert current == m
@@ -214,10 +217,10 @@ class TestSaveEndpointMapLockstep:
         scripts_dir = data_dir / "models" / MODEL_ID / "scripts"
         m1 = json.loads((scripts_dir / f"{v1}.map.json").read_text(encoding="utf-8"))
         m2 = json.loads((scripts_dir / f"{v2}.map.json").read_text(encoding="utf-8"))
-        assert list(m1) == ["s1:wall:1"]
-        assert list(m2) == ["s1:wall:2"]
+        assert list(m1["map"]) == ["s1:wall:1"]
+        assert list(m2["map"]) == ["s1:wall:2"]
         # current.map.json 跟随最新一次 run（save 内部重跑）
-        assert list(_read_current_map(data_dir)) == ["s1:wall:2"]
+        assert list(_read_current_map(data_dir)["map"]) == ["s1:wall:2"]
 
     def test_save_without_map_writes_no_version_map(
         self, client: TestClient, data_dir: Path

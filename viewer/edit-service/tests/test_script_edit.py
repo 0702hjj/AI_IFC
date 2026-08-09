@@ -8,6 +8,8 @@
 - ``POST /models/{id}/script/edit-call``：designKey → current.map.json 定位
   → 重写 → 沙箱 run → staging.push。任何失败 422 且零副作用；
   origin=traced → 422（不可自动改写）；designKey 未定位 → 404。
+- ScriptMap 信封绑定脚本哈希：staging 与 map 分叉（未 run 的暂存/undo/
+  旧版裸 map）→ 409 拒绝改写，零副作用（防 stale 行号改写错误调用）。
 """
 
 from __future__ import annotations
@@ -219,7 +221,7 @@ class TestEditCallSuccess:
         """origin=params 的调用点可改写：key 走 params 引用，但 name 仍是字面量。"""
         _save_script(client, PARAMS_KEY_SCRIPT.format(key="s1:wall:2"))
         map_path = data_dir / "models" / MODEL_ID / "current.map.json"
-        entry = json.loads(map_path.read_text(encoding="utf-8"))["s1:wall:2"]
+        entry = json.loads(map_path.read_text(encoding="utf-8"))["map"]["s1:wall:2"]
         assert entry["origin"] == "params"
 
         r = _edit_call(
@@ -267,7 +269,7 @@ class TestEditCallFailures:
         """key 来自表达式（origin=traced）→ 422，提示直接改脚本。"""
         _save_script(client, TRACED_KEY_SCRIPT.format(key="s1:wall:1"))
         map_path = data_dir / "models" / MODEL_ID / "current.map.json"
-        entry = json.loads(map_path.read_text(encoding="utf-8"))["s1:wall:1"]
+        entry = json.loads(map_path.read_text(encoding="utf-8"))["map"]["s1:wall:1"]
         assert entry["origin"] == "traced"
 
         r = _edit_call(
@@ -334,3 +336,87 @@ class TestEditCallFailures:
         assert r.json()["staged"] == 0
         assert _uploads_ifc(data_dir).read_bytes() == before_ifc
         assert map_path.read_bytes() == before_map
+
+
+class TestEditCallStaleMap:
+    """staging 与 current.map.json 分叉（map 描述的是另一份脚本）→ 409 拒绝。
+
+    map 只在 run/save/rollback/edit-call 时重建；未 run 的暂存、undo/redo
+    都会让 map 的行号失效——此时 edit-call 若放行会按旧行号改写错误的调用。
+    """
+
+    def test_edit_call_unrun_staged_edit_409_zero_side_effects(
+        self, client: TestClient, data_dir: Path
+    ):
+        """PUT 一个移位编辑但不 run → edit-call 409；uploads/staging/map 均不变。"""
+        _save_script(client, WALL_SCRIPT.format(key="s1:wall:1"))
+        before_ifc = _uploads_ifc(data_dir).read_bytes()
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        before_map = map_path.read_bytes()
+        shifted = "# line-shifting edit\n" + WALL_SCRIPT.format(key="s1:wall:1")
+        r = client.put(f"/models/{MODEL_ID}/script", json={"script": shifted})
+        assert r.status_code == 200, r.text
+
+        r = _edit_call(
+            client,
+            {"designKey": "s1:wall:1", "argument": "name", "value": "W9"},
+        )
+        assert r.status_code == 409, r.text
+
+        assert _uploads_ifc(data_dir).read_bytes() == before_ifc
+        assert map_path.read_bytes() == before_map
+        r = client.get(f"/models/{MODEL_ID}/script")
+        assert r.status_code == 200
+        staged = r.json()
+        assert staged["script"] == shifted  # staging 未被 edit-call 触碰
+        assert staged["staged"] == 1
+
+    def test_edit_call_undo_after_run_409(
+        self, client: TestClient, data_dir: Path
+    ):
+        """run 之后 undo：map 描述的是 undo 前的脚本 → 409。"""
+        _save_script(client, WALL_SCRIPT.format(key="s1:wall:1"))
+        renamed = WALL_SCRIPT.format(key="s1:wall:1").replace(
+            'name="W1"', 'name="W2"'
+        )
+        r = client.put(f"/models/{MODEL_ID}/script", json={"script": renamed})
+        assert r.status_code == 200, r.text
+        r = client.post(f"/models/{MODEL_ID}/script/run")
+        assert r.status_code == 200, r.text
+        r = client.post(f"/models/{MODEL_ID}/script/undo")
+        assert r.status_code == 200, r.text
+
+        r = _edit_call(
+            client,
+            {"designKey": "s1:wall:1", "argument": "name", "value": "W9"},
+        )
+        assert r.status_code == 409, r.text
+        assert _wall_name(data_dir) == "W2"  # uploads 保持 run 后的状态
+
+    def test_edit_call_legacy_bare_map_409(
+        self, client: TestClient, data_dir: Path
+    ):
+        """旧版裸 map（无 scriptHash 信封）→ 视为过期，409 而非 500/放行。"""
+        _save_script(client, WALL_SCRIPT.format(key="s1:wall:1"))
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        envelope = json.loads(map_path.read_text(encoding="utf-8"))
+        map_path.write_text(json.dumps(envelope["map"]), encoding="utf-8")
+
+        r = _edit_call(
+            client,
+            {"designKey": "s1:wall:1", "argument": "name", "value": "W9"},
+        )
+        assert r.status_code == 409, r.text
+        assert _wall_name(data_dir) == "W1"
+
+    def test_edit_call_happy_path_hash_matches(
+        self, client: TestClient, data_dir: Path
+    ):
+        """回归：save 后 map 与 staging 同源，edit-call 照常 200。"""
+        _save_script(client, WALL_SCRIPT.format(key="s1:wall:1"))
+        r = _edit_call(
+            client,
+            {"designKey": "s1:wall:1", "argument": "name", "value": "W2"},
+        )
+        assert r.status_code == 200, r.text
+        assert _wall_name(data_dir) == "W2"

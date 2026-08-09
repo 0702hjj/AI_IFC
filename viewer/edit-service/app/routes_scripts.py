@@ -22,9 +22,13 @@ The build script is the single source of truth for generated models:
 - ``POST /models/{id}/script/rollback`` — restore a big version's script
   into staging, re-run it into uploads.
 - ``GET  /models/{id}/script/locate?guid=...`` — guid → designKey →
-  CallSite (from ``models/{id}/current.map.json``).
+  CallSite (from ``models/{id}/current.map.json``). The map is a
+  ``{"scriptHash", "map"}`` envelope bound to the script that produced it;
+  when staging diverges (un-run edits, undo/redo) locate degrades to
+  ``{"found": false, "stale": true}`` instead of jumping to a stale line.
 - ``POST /models/{id}/script/edit-call`` — libcst scalar-argument rewrite at
-  a located callsite; sandbox-validated, staged on success (Task 4).
+  a located callsite; sandbox-validated, staged on success (Task 4). Fails
+  closed with 409 when the map is stale relative to staging.
 
 All mutating endpoints hold the per-model lock (keyed by the uploads path,
 shared with entity edits) — the retired design routes lacked this and could
@@ -293,6 +297,36 @@ def _current_map_path(request: Request, model_id: str) -> str:
     )
 
 
+def _read_current_map(map_path: str) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """读取 current.map.json 发布信封：返回 (script_hash, entries)。
+
+    信封为 ``{"scriptHash": sha256(script), "map": {...}}``（run_script 发布）。
+    文件缺失/损坏/非对象 → (None, None)；旧版裸 map（无信封）→ (None, {})，
+    调用侧按过期处理（edit-call 409 / locate stale），绝不对形状变化 500。
+    """
+    if not os.path.isfile(map_path):
+        return None, None
+    try:
+        with open(map_path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        return None, None
+    if not isinstance(raw, dict):
+        return None, None
+    script_hash = raw.get("scriptHash")
+    entries = raw.get("map")
+    if not isinstance(script_hash, str) or not isinstance(entries, dict):
+        return None, {}
+    return script_hash, entries
+
+
+def _map_is_stale(script_hash: Optional[str], current: Optional[str]) -> bool:
+    """map 与 staging 当前脚本不同源（含无脚本可比对的旧版裸 map）→ 过期。"""
+    if script_hash is None or current is None:
+        return True
+    return script_hash != script_runner.script_hash(current)
+
+
 def _run_into_uploads(request: Request, id: str, script: str) -> str:
     """Sandbox-run script into uploads/{id}.ifc and drop the registry cache.
 
@@ -493,10 +527,15 @@ def locate_callsite(
     if not key:
         return {"found": False}
     map_path = _current_map_path(request, id)
-    entry = None
-    if os.path.isfile(map_path):
-        with open(map_path, encoding="utf-8") as fh:
-            entry = json.load(fh).get(key)
+    map_hash, entries = _read_current_map(map_path)
+    if entries is None:
+        return {"found": False, "designKey": key}
+    staging = _staging_or_seed(request, id)
+    if _map_is_stale(map_hash, staging.current()):
+        # staging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）：行号不可信，
+        # 降级 stale 提示，绝不让前端跳到错误行（spec §11.3）。
+        return {"found": False, "designKey": key, "stale": True}
+    entry = entries.get(key)
     if entry is None:
         return {"found": False, "designKey": key}
     return {"found": True, "designKey": key, **entry}
@@ -510,16 +549,25 @@ def edit_call(
 
     顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。
     origin=traced 的调用点不可自动改写 → 422。
+    staging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）→ 409 fail-closed：
+    map 行号只对生成它的那份脚本有效，放行会把改写落到错误的调用上。
     """
     model_upload_path(request, id)
     with model_lock(request, id):
         staging = _staging(request, id)
         current = _current_or_409(staging)
         map_path = _current_map_path(request, id)
-        entry = None
-        if os.path.isfile(map_path):
-            with open(map_path, encoding="utf-8") as fh:
-                entry = json.load(fh).get(body.designKey)
+        map_hash, entries = _read_current_map(map_path)
+        if entries is None:
+            raise HTTPException(
+                status_code=404, detail=f"callsite not found: {body.designKey}"
+            )
+        if _map_is_stale(map_hash, current):
+            raise HTTPException(
+                status_code=409,
+                detail="staging has un-run edits; run the script before edit-call",
+            )
+        entry = entries.get(body.designKey)
         if entry is None:
             raise HTTPException(
                 status_code=404, detail=f"callsite not found: {body.designKey}"
