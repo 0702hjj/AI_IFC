@@ -82,7 +82,7 @@ All proxied through the Go server (`/api/v1`):
 | `POST /api/v1/models/{id}/script/rollback` | restore a script version and re-run it |
 | `POST /api/v1/models/{id}/script/diff` | script diff between two big versions (text + PARAMS changes) |
 | `GET /api/v1/models/{id}/script/staging/diff` | small-version diff between staging steps |
-| `GET /api/v1/models/{id}/script/locate?guid=` | guid → designKey → callsite (line/col/snippet/origin); miss → 200 `{"found": false}` |
+| `GET /api/v1/models/{id}/script/locate?guid=` | guid → designKey → callsite (line/col/snippet/origin); miss → 200 `{"found": false}`; staging/map divergence → 200 `{"found": false, "stale": true}` |
 
 Edit-service direct only (`:8100`, not proxied by the Go server):
 
@@ -92,14 +92,16 @@ Edit-service direct only (`:8100`, not proxied by the Go server):
 
 ## The locate chain (ScriptMap)
 
-On every sandboxed `build()` run, the contract factory records each element's callsite and `write_and_validate` writes the map sidecar; save snapshots it in lockstep with the script as `scripts/v{n}.map.json`:
+On every sandboxed `build()` run, the contract factory records each element's callsite and `write_and_validate` writes the map sidecar; publication wraps it in an envelope bound to the script hash, and save snapshots it in lockstep with the script as `scripts/v{n}.map.json`:
 
 ```python
 ScriptMap = dict[designKey, {"line": int, "col": int, "snippet": str,
                              "origin": "literal" | "params" | "traced"}]
+# published envelope (current.map.json / v{n}.map.json):
+# {"scriptHash": sha256(full script text), "map": ScriptMap}
 ```
 
-The map is strictly same-version with the script (regenerated whenever the script changes) — a "stale map" state does not exist. Locate queries the current map (staging first, then the latest big version); `origin` decides the web rewrite strategy (see [IFC script editing](/en/viewer/editing)).
+Map line numbers are only valid for the exact script that produced them: `PUT /script` (without run) and `undo/redo` diverge staging from the map. Consumers compare `scriptHash` against the current staged script: edit-call fails closed on divergence (409, zero side effects); locate degrades to `{"found": false, "stale": true}` (the web hints to run the script first instead of jumping to a wrong line); legacy bare maps (no envelope) are always treated as stale. `origin` decides the web rewrite strategy (see [IFC script editing](/en/viewer/editing)).
 
 ## Bootstrap: uploaded IFC → script
 

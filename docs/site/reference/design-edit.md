@@ -87,7 +87,7 @@ edit-service 以 subprocess + 进程组杀死（timeout 60s，`start_new_session
 | `POST /api/v1/models/{id}/script/rollback` | 恢复某版脚本并重跑 |
 | `POST /api/v1/models/{id}/script/diff` | 两个大版本的脚本 diff（text + PARAMS 变更） |
 | `GET /api/v1/models/{id}/script/staging/diff` | 暂存链步间小版本 diff |
-| `GET /api/v1/models/{id}/script/locate?guid=` | guid → designKey → 脚本调用点（line/col/snippet/origin）；miss → 200 `{"found": false}` |
+| `GET /api/v1/models/{id}/script/locate?guid=` | guid → designKey → 脚本调用点（line/col/snippet/origin）；miss → 200 `{"found": false}`；暂存与 map 分叉 → 200 `{"found": false, "stale": true}` |
 
 edit-service 直连（`:8100`，不经 Go 代理）另有：
 
@@ -97,14 +97,16 @@ edit-service 直连（`:8100`，不经 Go 代理）另有：
 
 ## 定位链路（ScriptMap）
 
-每次沙箱执行 `build()` 时，契约工厂记录每个构件的调用点，`write_and_validate` 落 map sidecar；save 时与脚本 lockstep 快照为 `scripts/v{n}.map.json`：
+每次沙箱执行 `build()` 时，契约工厂记录每个构件的调用点，`write_and_validate` 落 map sidecar；发布时包为绑定脚本哈希的信封，save 时与脚本 lockstep 快照为 `scripts/v{n}.map.json`：
 
 ```python
 ScriptMap = dict[designKey, {"line": int, "col": int, "snippet": str,
                              "origin": "literal" | "params" | "traced"}]
+# 发布信封（current.map.json / v{n}.map.json）：
+# {"scriptHash": sha256(脚本全文), "map": ScriptMap}
 ```
 
-map 与脚本严格同版本（脚本一变 map 即重生成），不存在「stale map」。locate 查当前（暂存优先，否则最新大版本）map；`origin` 决定 web 端改写策略（见 [IFC 脚本编辑](/viewer/editing)）。
+map 行号只对生成它的那份脚本有效：`PUT /script`（未 run）与 `undo/redo` 会让 staging 与 map 分叉。消费侧按 `scriptHash` 比对 staging 当前脚本：edit-call 对分叉 fail-closed（409，零副作用）；locate 降级为 `{"found": false, "stale": true}`（web 提示先运行脚本，不跳错误行）；旧版裸 map（无信封）一律视为过期。`origin` 决定 web 端改写策略（见 [IFC 脚本编辑](/viewer/editing)）。
 
 ## bootstrap：上传 IFC → 脚本
 
