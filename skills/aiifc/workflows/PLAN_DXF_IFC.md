@@ -1,7 +1,7 @@
 # Plan → Script → IFC 工作流（辅助设计师，script-as-source）
 
 > 本文是 aiifc skill 的**可选工作流编排层**：规定「可选 plan 草稿 → 构建脚本（事实源）→ IFC」的阶段顺序。
-> 与 `SKILL.md` 的关系：`SKILL.md` 讲「怎么建 IFC」（建模纪律 + 脚本契约 MUST #25-29），本文讲「一次任务走哪几步、每步产什么」。
+> 与 `SKILL.md` 的关系：`SKILL.md` 讲「怎么建 IFC」（建模纪律 + 脚本契约 MUST #25-31），本文讲「一次任务走哪几步、每步产什么」。
 > **选择性地使用**：适用于「从想法到 IFC」的辅助设计师场景；简单的直接建模（单墙/板）或用户已明确指向某阶段的输入，**不必走完整流程**。
 
 ## 定位
@@ -17,7 +17,7 @@
    │                                      标注：辅助信息，非完整表示，非事实源
    ▼
 ② script            scripts/v{n}.py        唯一事实源：完整构建脚本
-   │                                      符合脚本契约（SKILL.md MUST #25-29）：
+   │                                      符合脚本契约（SKILL.md MUST #25-31）：
    │                                      PARAMS 块 + 确定性 GlobalId + build() 入口 + validate 出口
    ▼
 ③ ifc               versions/v{n}.ifc      派生物：脚本运行的产物
@@ -37,7 +37,7 @@
 
 ### ② script（事实源）
 
-- 产出**完整构建脚本** `scripts/v{n}.py`（无系统编排时写当前目录 `model.py`），必须符合脚本契约（`SKILL.md` MUST #25-29）：
+- 产出**完整构建脚本** `scripts/v{n}.py`（无系统编排时写当前目录 `model.py`），必须符合脚本契约（`SKILL.md` MUST #25-31）：
   - 顶层 `PARAMS = {...}` 字面量 dict（JSON-compatible），所有可调参数集中于此；
   - 构件 GlobalId 用 `script_lib.deterministic_guid(key)`，key 稳定唯一 `{storey}:{kind}:{n}`，写 `Pset_AIIFC.designKey`；
   - 入口 `build(params, out_path)`，`__main__` 用 PARAMS 调 build；
@@ -78,7 +78,7 @@
 
 ## 相关
 
-- `SKILL.md` MUST #25-29 — 脚本契约（PARAMS / 确定性身份 / build 入口 / 增量纪律 / validate 出口）
+- `SKILL.md` MUST #25-31 — 脚本契约（PARAMS / 确定性身份 / build 入口 / 增量纪律 / validate 出口）
 - `references/docs/flows/script_lib.py` — 契约实现层（deterministic_guid / attach_design_key / create_skeleton / write_and_validate / validate_script_contract）
 - `references/DESIGN_JSON_SCHEMA.md` — design JSON 草稿格式（可选，辅助信息）
 - `references/docs/flows/dxf_from_design.py` — plan 草稿 → DXF

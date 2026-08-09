@@ -50,7 +50,7 @@ Each step is pure-incremental. See `docs/flows/README.md` for runnable code per 
 
 ## Design JSON Framing (frame + parameterize, optional draft)
 
-> For **complex floor plans** (multi-room partition runs), **irregular buildings** (sloped/curved walls), or **multi-storey**: the LLM MAY emit a **design JSON draft** (geometric intent, no coordinate math) instead of improvising coordinates in code — eliminating drift/misalignment/gaps. The draft is **auxiliary planning info**: not a complete representation, not versioned, not diffed. The deliverable and single source of truth is always the **build script** (script contract: SKILL.md MUST #25-29).
+> For **complex floor plans** (multi-room partition runs), **irregular buildings** (sloped/curved walls), or **multi-storey**: the LLM MAY emit a **design JSON draft** (geometric intent, no coordinate math) instead of improvising coordinates in code — eliminating drift/misalignment/gaps. The draft is **auxiliary planning info**: not a complete representation, not versioned, not diffed. The deliverable and single source of truth is always the **build script** (script contract: SKILL.md MUST #25-31).
 
 ### When to use
 

@@ -8,7 +8,7 @@ Runnable modeling operations + pitfalls & fixes. Component-building recipes in `
 
 ## 1. End-to-End Flows(整体流程)
 
-- [script_lib.py](script_lib.py) — **脚本契约实现层**: deterministic_guid / attach_design_key / create_skeleton / write_and_validate / validate_script_contract(SKILL.md MUST #25-29)
+- [script_lib.py](script_lib.py) — **脚本契约实现层**: deterministic_guid / attach_design_key / create_skeleton / write_and_validate / validate_script_contract(SKILL.md MUST #25-31)
 - [design_builder.py](design_builder.py) — **框定器**: design JSON 草稿 → features.json(规范化 + 展开)
 - [build_script_template.py](build_script_template.py) — **下游构建脚本模板**: features.json → IFC(script_lib 薄封装, 每建筑复制此模板走 Pipeline)
 

@@ -22,6 +22,8 @@
 
 **框架候选（2026-08-07 用户建议）**：Go **Eino**（CloudWeGo LLM 应用框架，Chain/Graph 编排 + Tool 抽象）——与 Go server 同语言，评估其对 opencode serve 的替代/包裹关系。spec 阶段必须对比：Eino 编排 vs 现状裸 opencode-serve 编排（会话管理/成本/失败语义/与 SSE 地基的衔接）。
 
+**架构基调（2026-08-08，help.md 架构精要入约）**：Pure Core + Imperative Shell——Core 是纯函数（Event+State→Action 列表，零 IO，可单测），Shell 执行全部副作用（LLM 调用、edit-service REST、converter 子进程）并把结果转为新 Event 回填闭环；不在 LLM 调用上同步等待；in-flight 任务必须可取消（子进程用进程组物理 kill，沙箱已有此先例）；事件 URI 化（如 `aiifc://model/{id}/script/saved`）为多 agent 协同打底。
+
 1. 整体 Agent 职责：用户对话、意图路由（IFC 生成/CAD 几何/设计决策）、子 Agent 提示词封装、结果汇总呈现
 2. 子 Agent：IFCagent（ifcopenshell 建模，aiifc skill）、CADAgent（几何/DXF，对接同事 aidxf）、designerAgent（设计规范/审查）
 3. 用户输入归一：上传 DXF/IFC、改 IFC、改 DXF → 统一「用户修改」事件（W-0018 已交付 MCP 侧）
