@@ -36,6 +36,14 @@ AI agent ──► REST 编辑 API ────┘
 4. 测试与源码同目录（`*_test.go` / `*.test.ts(x)` / `test_*.py`）。
 5. **异步写盘必须等落地**：涉及 `convert.Queue`、SSE、后台 goroutine 等异步写盘的测试，结束（尤其 `t.TempDir()` 清理）前必须用**条件等待**（轮询状态 + 超时）确认异步完成——禁止固定 sleep。教训：2026-08-06 main CI flake（TestCreateProjectViaChatPath，PR #12）。
 
+## 校验与业务隔离（硬规则）
+
+1. 业务规则校验必须住在 `verify*`/`validate*` 函数里；handler 内禁止内联 `if + raise HTTPException`（Python）/ `if + writeErr`（Go）的业务规则检查——请求形状校验归声明式层（pydantic `Field(pattern=...)`、解码），不在此列。handler 只做：decode → verify → 调领域 → 翻译错误。
+   - Python 范例：`viewer/edit-service/app/routes_scripts.py` 的 `verify_script_body` / `verify_params_target` / `verify_script_contract`；纯函数校验器范例 `skills/aiifc/references/docs/flows/script_lib.py` 的 `validate_script_contract()`（返回错误列表，与执行分离）。
+   - Go：校验归 domain 包的 `validate()`/`Valid*()` + 哨兵错误，handler 只做 解码 → 调用 → `errors.Is` 翻译。
+2. 看到 `verify*`/`validate*` 函数名，新增检查只允许加在该函数内部，不得在调用点另写。
+3. 跨文件的请求解析/校验 helper 只允许单点定义（edit-service 统一在 `app/route_common.py`），禁止复制第二份。
+
 ## API 契约
 
 - Go server 是唯一对外入口，对外路径统一 `/api/v1/{resource}/{id}`。

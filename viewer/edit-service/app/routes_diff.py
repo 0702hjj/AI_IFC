@@ -31,7 +31,7 @@ from pydantic import BaseModel
 
 from . import diffing, ifc_materialize, versions
 from .config import Settings
-from .routes_edits import MODEL_ID_PATTERN, _model_path
+from .route_common import MODEL_ID_PATTERN, model_lock, model_upload_path
 
 router = APIRouter()
 
@@ -58,7 +58,7 @@ def get_versions(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """List version snapshots for a model (empty + current=null before any commit)."""
-    _model_path(request, id)
+    model_upload_path(request, id)
     data_dir = request.app.state.settings.data_dir
     listed = versions.list_versions(data_dir, id)
     return {
@@ -67,20 +67,12 @@ def get_versions(
     }
 
 
-def _lock(request: Request, model_id: str):
-    """Per-model lock keyed by the uploads path (shared with entity/script edits)."""
-    path = os.path.join(
-        request.app.state.settings.data_dir, "uploads", f"{model_id}.ifc"
-    )
-    return request.app.state.registry.lock(path)
-
-
 @router.post("/models/{id}/diff")
 def post_diff(
     request: Request, body: DiffBody, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """Diff two model versions (or base version vs the current upload state)."""
-    current_path = _model_path(request, id)
+    current_path = model_upload_path(request, id)
     settings = request.app.state.settings
     data_dir = settings.data_dir
 
@@ -95,7 +87,7 @@ def post_diff(
 
     # 锁覆盖物化+读取全程：LRU 淘汰 remove / 缓存命中 utime 均不得与
     # compute_diff 的打开窗口交错（并发下曾可 500）。
-    with _lock(request, id):
+    with model_lock(request, id):
         base_path = _version_or_404(settings, data_dir, id, body.base)
         if body.target == "current":
             target_path = current_path

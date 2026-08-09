@@ -32,7 +32,7 @@ from fastapi import APIRouter, HTTPException, Path, Request, UploadFile
 from pydantic import BaseModel, Field
 
 from . import diffing, history
-from .routes_edits import MODEL_ID_PATTERN, _model_path
+from .route_common import MODEL_ID_PATTERN, model_upload_path
 
 router = APIRouter()
 
@@ -67,7 +67,7 @@ def post_diff_upload(
     request: Request, file: UploadFile, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """Diff an uploaded (user-modified) IFC against the current model state."""
-    current_path = _model_path(request, id)
+    current_path = model_upload_path(request, id)
     fd, tmp_path = tempfile.mkstemp(suffix=".ifc")
     try:
         with os.fdopen(fd, "wb") as fh:
@@ -90,7 +90,7 @@ def post_user_edits(
     request: Request, body: UserEditsBody, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """Append USER-annotated modification events to the model's edit history."""
-    _model_path(request, id)
+    model_upload_path(request, id)
     if not body.events:
         raise HTTPException(status_code=422, detail="events required")
     timestamp = datetime.now(timezone.utc).isoformat()

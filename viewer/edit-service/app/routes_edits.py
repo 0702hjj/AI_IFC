@@ -20,28 +20,17 @@ anchor fb55a8a).
 
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException, Path, Request
 
 from . import history
 from .pending import PendingStore
+from .route_common import MODEL_ID_PATTERN, model_upload_path
 
 router = APIRouter()
 
-MODEL_ID_PATTERN = r"^m_[0-9a-f]{16}$"
-
 RETIRED_DETAIL = "direct IFC editing retired: edit the build script (script-as-source)"
-
-
-def _model_path(request: Request, model_id: str) -> str:
-    path = os.path.join(
-        request.app.state.settings.data_dir, "uploads", f"{model_id}.ifc"
-    )
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=404, detail="model not found")
-    return path
 
 
 def _pending(request: Request) -> PendingStore:
@@ -87,7 +76,7 @@ def get_pending(
 @router.delete("/models/{id}/pending")
 def discard_pending(request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)) -> Dict[str, Any]:
     """Discard pending changes: reload the in-memory model from disk."""
-    path = _model_path(request, id)
+    path = model_upload_path(request, id)
     registry = request.app.state.registry
     with registry.lock(path):
         registry.unload(path)
