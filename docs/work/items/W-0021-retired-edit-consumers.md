@@ -19,6 +19,8 @@ L1 直改端点已在 edit-service 退役为 410、Go 代理路由已删（feat/
 - migrate 端点：随直改语义一并退役（410/移除 + 前端入口检查），或按 script-as-source 重设计为「override → 脚本修改」——需裁决；无论哪条，fakePy 假阳性测试必须同步修正。
 - chat notify 编排：改为 script 管线语义（暂存 → run → save → 重转），移除对已退役端点的调用。
 - 顺手：edit.go:433 注释、DELETE /pending docstring、skills 文档残留 `#25-29` 指针（flows/README.md:11、PLAN_DXF_IFC.md、MODELING_WORKFLOWS.md:53）。
+- `viewer/scripts/smoke.sh:65-68` 仍打已删的 `PUT /edit/entities/{guid}` + `POST /edit/commit`（edit-service 可达时必挂），需改走 script 管线冒烟；docs/site/development/testing.md:24 的旧链路描述同步。
+- Go 死路由清理：`api.go:76`（PUT entities/{entityId}/properties）、`edit.go:40`（overrides/migrate）在册但下游 410——与 migrate 裁决一并处理。
 
 ## 验收标准
 
