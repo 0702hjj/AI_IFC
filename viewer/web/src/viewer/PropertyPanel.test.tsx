@@ -140,6 +140,15 @@ describe("PropertyPanel 定位脚本", () => {
     expect(screen.getByText("FireRating")).toBeTruthy();
   });
 
+  it("locate stale shows a run-first hint and does not jump", async () => {
+    api.locateScript.mockResolvedValue({ found: false, designKey: "wall-1", stale: true });
+    await selectAndRender();
+    fireEvent.click(screen.getByRole("button", { name: "定位脚本" }));
+    expect(await screen.findByText(/未运行的修改/)).toBeTruthy();
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+    expect(screen.getByText("FireRating")).toBeTruthy();
+  });
+
   it("origin=traced jumps but guides to manual script editing (no auto-edit affordance)", async () => {
     api.locateScript.mockResolvedValue({
       found: true, designKey: "wall-1", line: 7, col: 0,

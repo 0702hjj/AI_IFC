@@ -73,6 +73,8 @@ export function PropertyPanel({ modelId }: { modelId: string }) {
               ? `已定位到脚本第 ${res.line} 行；该构件由运行期逻辑生成，请在脚本编辑器中手动修改`
               : `已定位到脚本第 ${res.line} 行`
           );
+        } else if (res.stale) {
+          setNotice("脚本有未运行的修改，调用点定位已过期；请先运行脚本，属性只读");
         } else {
           setNotice("该构件没有脚本调用点（非脚本生成），属性只读；可在脚本编辑器中手动修改");
         }
