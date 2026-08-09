@@ -46,10 +46,10 @@ uv pip install -r skills/aiifc/requirements.txt
 
 | 方式 | 场景 | 入口 |
 |---|---|---|
-| **REST 编辑 API** | 改现有模型的属性 / 属性集，pending → commit，有版本快照与 diff | `:8100/models/{id}/...`（见 [AI 接入](/reference/ai)） |
-| **aiifc skill** | 从零建模型、大改几何，产出完整 IFC 文件 | agent 直接写 Python（`ifcopenshell.api`） |
+| **REST 编辑 API** | 在既有脚本上定向修改（PARAMS 暂存 / edit-call 标量改写）、版本与 diff | `:8100/models/{id}/...`（见 [AI 接入](/reference/ai)） |
+| **aiifc skill** | 从零建模型、大改几何、复现上传 IFC（bootstrap），产出契约化构建脚本 | agent 直接写 Python（`ifcopenshell.api`） |
 
-两者互补：skill 负责「生成 / 大改」，平台的 commit / 版本 / XKT 重转链路负责「落盘与追踪」。
+两者互补：skill 负责「生成 / 大改」，平台的沙箱执行 / 版本 / XKT 重转链路负责「落盘与追踪」。
 
 ## 分发与打包
 

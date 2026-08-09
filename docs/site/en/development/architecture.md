@@ -21,11 +21,11 @@ graph LR
   UI -->|REST envelope| GO
   AI -->|same editing API| PY
   AI -->|or via Go proxy| GO
-  GO -->|/api/v1/models/{id}/edit/* proxy + orchestration| PY
+  GO -->|/api/v1/models/{id}/script/* proxy + orchestration| PY
   GO -->|subprocess node convert.js| CV
   GO -->|pgx/v5, optional| PG
   GO --> FS
-  PY -->|real IFC edits / version snapshots / history| FS
+  PY -->|script sandbox runs / version snapshots / history| FS
   CV -->|model.xkt + metadata.json| FS
 ```
 
@@ -36,7 +36,7 @@ graph LR
 | web | React 19 + TS + Vite + zustand + xeokit-sdk | all review/edit/diff interaction | xeokit's XKT binary loading and BIM toolchain |
 | server | Go 1.26 (stdlib net/http + pgx/v5) | upload/conversion queue, REST, edit orchestration, storage abstraction | static binary, concurrency model |
 | converter | Node CLI (web-ifc + xeokit-convert) | IFC → XKT geometry + semantic extraction | xeokit-convert only ships as npm |
-| edit-service | Python 3.10 + FastAPI + ifcopenshell + ifcdiff | real IFC edits, pending/commit, version snapshots, semantic diff | IfcOpenShell is the de-facto standard for IFC editing |
+| edit-service | Python 3.10 + FastAPI + ifcopenshell + ifcdiff | script sandbox execution, version snapshots (script-as-source), ScriptMap locate, semantic diff | IfcOpenShell is the de-facto standard for IFC editing |
 | PostgreSQL | optional | issues / changes / overrides tables | without `pgDSN` everything is file-based and dependency-free |
 
 ## Core data flows
@@ -52,36 +52,42 @@ Browser upload .ifc → Go validates and stores uploads/{id}.ifc (status=convert
 
 Key invariant: **XKT element id = metadata metaObject id = IFC GlobalId** — selection, highlighting and diff results all rely on this chain.
 
-### Edit flow
+### Edit flow (script-as-source)
+
+Every web/AI edit is an edit to the build script; the IFC is a derived artifact of sandboxed script execution. The former L1 direct-edit chain (`PUT /entities/{guid}` → pending → `POST /commit` mutating the IFC) is retired (410, recovery anchor `fb55a8a`).
 
 ```
-PUT /models/{id}/entities/{guid}  {fields, psets, author, provenance}
-  → full validation (any failure → 422, zero side effects) → apply to the in-memory model → record pending (with the real IFC oldValue)
-POST /models/{id}/commit
-  → atomic write (tmp+rename, per-model lock) → version snapshot versions/v{n+1}.ifc → append edit-history.json → clear pending
-(via the Go proxy, orchestration continues:)
-  → change log expanded per field (operation=update, diff filled by IfcDiff, non-fatal)
+PUT /models/{id}/script  {script | params}
+  → static contract validation (422, zero side effects) → one staged step (10-step ring, persisted, undo/redo)
+  (the first staging on a plain model preserves the original upload as bootstrap.ifc)
+POST /models/{id}/script/run      sandboxed preview (no version)
+POST /models/{id}/script/save
+  → sandbox-run the script to produce the IFC (failure → 422, staging preserved)
+  → big version v{n}: scripts/v{n}.py + v{n}.map.json paired snapshot (lockstep)
+  → versions/v{n}.ifc materializes only the latest; older scripted snapshots are pruned (rebuildable on demand)
+  → when bootstrap.ifc exists the response carries an alignment count
+(via the Go proxy, after run/save/rollback:)
   → conversion queue reconverts XKT → frontend polls until ready and auto-reloads
+```
+
+Locate and targeted rewrite:
+
+```
+GET /models/{id}/script/locate?guid=
+  → read Pset_AIIFC.designKey from the IFC → query the current ScriptMap (staging first)
+  → hit: {line, col, snippet, origin}; miss: 200 {"found": false}
+POST /models/{id}/script/edit-call  {designKey, argument, value}  (edit-service direct only)
+  → libcst scalar rewrite → contract validation + sandbox re-run → staged on success; any failure 422, zero side effects
 ```
 
 ### Versions and diff
 
-- Before the first commit the original upload is copied to `versions/v1.ifc`; every commit snapshots `v{n+1}.ifc` (append-only).
+- Big versions are a lockstep trio: `scripts/v{n}.py` (source of truth) + `v{n}.map.json` (locate) kept in full; `versions/v{n}.ifc` materializes only the latest — historical IFCs are rebuilt from their scripts on demand (`ifc_cache/` LRU 4). Deterministic GlobalIds keep rebuilds semantically aligned; bytes are never asserted.
 - `POST /models/{id}/diff {base, target}`: IfcDiff (`relationships=["attributes","property"]`, geometry excluded by construction) yields added/removed sets; the adapter computes field-level old/new for changed entities; the result reduces to `{added, removed, changed:[{guid, changes:[{field,old,new}]}]}`.
-- Snapshot-to-snapshot diff results are cached (versions are immutable, so the cache is naturally valid).
+- Snapshot-to-snapshot diff results are cached (versions are immutable, so the cache is naturally valid); `POST /diff/upload` compares an externally edited IFC (nothing persisted or cached).
 
-### Override → real-edit migration
+## Version model
 
-```
-Read all overrides → map per entity (Name/Description/Comments → fields;
-  FireRating → look up the pset in metadata.json; Classification → try fields, 422 goes to failed)
-→ one PUT (pending) per entity → one commit (operation=migrate)
-→ successful fields clear their override; change log carries real old values; failed fields keep overrides with reasons
-→ any success triggers reconversion
-```
+Change log entries carry: `author` (default `local-user`, no auth in v1), `createdAt` (UTC), `operation`, `provenance` (`{source: UI|AI|USER}`, validated at the API layer). Versions form a linear snapshot sequence (branching/merging is out of scope, belongs to multi-user); rollback = restore a historical script and re-run it (append-only, history is never rewritten).
 
-## Commit / version model
-
-Change log entries carry: `author` (default `local-user`, no auth in v1), `createdAt` (UTC), `operation` (`update | migrate`), `diff` (filled by IfcDiff at commit), `provenance` (`{source: UI|AI}`, validated at the API layer). Versions form a linear snapshot sequence (branching/merging is out of scope, belongs to multi-user).
-
-Known technical debt (details in [Known limitations](/project/known-limits), Chinese): three history records coexist (Go change log / edit-service edit-history / pending) with different granularity and purposes; diff has no timeout; the Python side is file-storage only.
+Known technical debt (details in [Known limitations](/project/known-limits), Chinese): multiple history records coexist (Go change log / edit-service edit-history) with different granularity and purposes; diff has no timeout; the Python side is file-storage only.

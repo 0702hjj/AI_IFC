@@ -22,6 +22,8 @@ plan / design 草稿（可选，AI 构思辅助，不落版本）
 
 - 头部 `PARAMS = {...}` 顶层字面量 dict（JSON-compatible）：所有可调参数集中于此。
 - 确定性身份：构件 GlobalId 由 `uuid5(NAMESPACE_AI_IFC, key)` 派生，并写入 `Pset_AIIFC.designKey`——同一脚本同一 PARAMS 多次运行 GlobalId 不变，跨版本 diff 可对齐。
+- **C-locate（契约 #30）**：审查可见构件必须经契约工厂 `script_lib.create_entity(...)` 创建——工厂自动写确定性 GlobalId + `Pset_AIIFC.designKey`，并在运行时记录调用点（行/列/调用行文本/origin）；禁止绕过工厂直接 `root.create_entity`。
+- **C-scalar（契约 #31）**：需要 web 端可编辑的参数必须是标量字面量或 PARAMS 引用，不得是任意表达式（否则 edit-call 拒绝，降级为脚本编辑器手改）。
 - 入口 `build(params: dict, out_path: str)`；产物必须过 `ifcopenshell.validate`。
 
 ### 2. 暂存区（WPS 式，最多 10 步）
@@ -30,18 +32,19 @@ plan / design 草稿（可选，AI 构思辅助，不落版本）
 
 - **放弃** → 丢弃暂存链，**零 diff、零版本**。
 - **试运行** → 沙箱执行暂存脚本预览产物，不产生版本。
-- **保存** → 跑脚本生成 IFC，脚本 + IFC 成对快照为**大版本**。
+- **保存** → 跑脚本生成 IFC，脚本 + ScriptMap 成对快照为**大版本**（IFC 只物化最新）。
 
 ```
 脚本暂存（10 步，落盘恢复，可 undo/redo）
    ├─ 放弃 → 丢弃（无痕）
    ├─ 试运行 → 沙箱跑脚本 → uploads 预览（无版本）
-   └─ 保存 → 大版本 v{n}（scripts/v{n}.py + versions/v{n}.ifc）
+   └─ 保存 → 大版本 v{n}（scripts/v{n}.py + v{n}.map.json；versions/v{n}.ifc 仅最新物化）
 ```
 
 ### 3. 大版本与回退
 
-- **大版本** = 用户/AI 主动保存的点，成对快照 `models/{id}/scripts/v{n}.py` + `models/{id}/versions/v{n}.ifc`。
+- **大版本** = 用户/AI 主动保存的点：`models/{id}/scripts/v{n}.py`（+ `v{n}.map.json` 定位 sidecar + `v{n}.meta.json` 备注）全量保留，编号 lockstep。
+- **IFC 只物化最新**：`versions/v{n}.ifc` 仅保留最新大版本；历史版本 IFC 在 diff/下载时从对应脚本**按需重建**（沙箱重跑，结果进 `ifc_cache/`，LRU 容量 4）。重建产物与原快照仅语义相等（确定性 GlobalId），字节因 IFC 头时间戳不同——比较一律走语义 diff。
 - **回退** = 恢复某版脚本 → 重跑 → IFC（脚本与 IFC 永远一致，不存在「改了 IFC 没改脚本」的分叉）。
 - AI 下次介入时的输入：当前脚本 + 脚本 diff + IFC 语义 diff 摘要 → 增量修改而非重写。
 
@@ -75,17 +78,40 @@ edit-service 以 subprocess + 进程组杀死（timeout 60s，`start_new_session
 | 端点 | 语义 |
 |---|---|
 | `GET /api/v1/models/{id}/script` | 当前脚本（暂存态或最近保存） |
-| `PUT /api/v1/models/{id}/script` | 暂存一次脚本编辑（整体替换或仅改 PARAMS） |
+| `PUT /api/v1/models/{id}/script` | 暂存一次脚本编辑（整体替换或仅改 PARAMS）；plain 模型首次暂存时自动保留上传原件为 `bootstrap.ifc` |
 | `GET /api/v1/models/{id}/script/params` | 当前脚本的 PARAMS dict（ast 提取，不执行） |
 | `POST /api/v1/models/{id}/script/undo\|redo\|discard` | 暂存导航 / 放弃 |
 | `POST /api/v1/models/{id}/script/run` | 沙箱试运行暂存脚本（预览，无版本） |
-| `POST /api/v1/models/{id}/script/save` | 暂存晋升为大版本（跑脚本 + 成对快照） |
+| `POST /api/v1/models/{id}/script/save` | 暂存晋升为大版本（跑脚本 + 脚本/map 成对快照）；存在 `bootstrap.ifc` 时响应带 `alignment` 计数（added/removed/changed） |
 | `GET /api/v1/models/{id}/scripts` | 大版本列表 |
 | `POST /api/v1/models/{id}/script/rollback` | 恢复某版脚本并重跑 |
 | `POST /api/v1/models/{id}/script/diff` | 两个大版本的脚本 diff（text + PARAMS 变更） |
 | `GET /api/v1/models/{id}/script/staging/diff` | 暂存链步间小版本 diff |
+| `GET /api/v1/models/{id}/script/locate?guid=` | guid → designKey → 脚本调用点（line/col/snippet/origin）；miss → 200 `{"found": false}` |
 
-## 与 IFC 属性编辑的关系
+edit-service 直连（`:8100`，不经 Go 代理）另有：
 
-- 脚本生成的模型：编辑/版本/差异走本页模型；细粒度属性修改仍可用 [IFC 属性编辑](/viewer/editing)（pending → commit）。
-- 外部上传的 IFC（无脚本）：无脚本 diff，版本对比走属性级语义 diff（by GlobalId）。
+| 端点 | 语义 |
+|---|---|
+| `POST /models/{id}/script/edit-call` | libcst 标量参数重写（body：`{designKey, argument, value}`）→ 沙箱验证 → 成功等同一次暂存；`origin=traced` / 非标量 / 非法参数名 / 非有限浮点 → 422 零副作用 |
+
+## 定位链路（ScriptMap）
+
+每次沙箱执行 `build()` 时，契约工厂记录每个构件的调用点，`write_and_validate` 落 map sidecar；save 时与脚本 lockstep 快照为 `scripts/v{n}.map.json`：
+
+```python
+ScriptMap = dict[designKey, {"line": int, "col": int, "snippet": str,
+                             "origin": "literal" | "params" | "traced"}]
+```
+
+map 与脚本严格同版本（脚本一变 map 即重生成），不存在「stale map」。locate 查当前（暂存优先，否则最新大版本）map；`origin` 决定 web 端改写策略（见 [IFC 脚本编辑](/viewer/editing)）。
+
+## bootstrap：上传 IFC → 脚本
+
+plain 态模型经 AI 复现转为 script-backed：AI 经 MCP 读取上传 IFC → 用 aiifc skill 写复现脚本 → `PUT /script`（平台自动保留上传原件为 `bootstrap.ifc`）→ 沙箱验证 → `script/save` 存 v1。save 响应的 `alignment` 计数（bootstrap 原件 vs 生成 IFC 的属性级语义 diff 摘要）是复现质量的验收信号；对齐计算失败不影响 save 本身（记日志返回 null）。
+
+## 与直改链路（已退役）的关系
+
+- 脚本生成的模型：编辑/版本/差异全部走本页模型（选中 → 定位 → 改写 → 沙箱 → 暂存 → 大版本）。
+- 外部上传的 IFC（plain 态）：无编辑入口，仅查看/审查；版本对比走属性级语义 diff（by GlobalId）。
+- 原 L1 直改链路（`PUT/DELETE /models/{id}/entities/...`、`POST .../commit` 真改 IFC）**已退役**，端点返回 410 Gone；`POST /models/{id}/diff`（IFC 语义 diff）与 `POST /models/{id}/diff/upload` 保留。

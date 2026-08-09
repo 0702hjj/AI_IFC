@@ -15,7 +15,7 @@ The right property panel shows the selected element's property sets (psets):
 
 - Pset groups are collapsible; the first one is expanded by default.
 - Property search and copy (written to the clipboard).
-- Whitelisted fields (Name / Description / Classification / FireRating / Comments) can be edited inline and are saved as overrides with a modification marker; see [IFC Property Editing](/en/viewer/editing).
+- Properties are read-only; historical overrides are shown with read-only markers. On script-backed models, "Locate script" jumps to the script call line — see [IFC Script Editing](/en/viewer/editing).
 
 ## Technical notes
 

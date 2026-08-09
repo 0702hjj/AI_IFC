@@ -18,6 +18,7 @@
 
 ## 功能边界
 
+- **plain 上传模型无编辑入口**：直改链路（pending → commit）已退役（410）；外部上传 IFC 仅查看/审查，编辑需先经 AI 复现为构建脚本（bootstrap，见 [IFC 脚本编辑](/viewer/editing)）。
 - **diff 仅属性级**：不提供几何 diff；entity 引用属性不参与比较。
 - **AI 生成 IFC 本体为 skill 形态**：aiifc skill 让 AI 直接写 `ifcopenshell.api` 代码生成模型（见 [AI Skill](/reference/ai-skill)）；平台的编辑 API 用于改已有模型。
 - **OpenAPI 为仓库内生成文件**：edit-service API 参考与 Go 端点清单由机器生成并有 CI 漂移检测；请求/响应 schema 的完整自动生成属后续迭代。

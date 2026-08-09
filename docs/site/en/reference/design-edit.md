@@ -22,6 +22,8 @@ Every AI-generated model corresponds to a complete Python build script following
 
 - A top-level literal `PARAMS = {...}` dict (JSON-compatible) holding every tunable parameter.
 - Deterministic identity: each element's GlobalId derives from `uuid5(NAMESPACE_AI_IFC, key)` and is written to `Pset_AIIFC.designKey` — same script + same PARAMS → identical GlobalIds across runs, so cross-version diffs stay aligned.
+- **C-locate (contract #30)**: review-visible elements MUST be created via the contract factory `script_lib.create_entity(...)` — the factory derives the deterministic GlobalId, writes `Pset_AIIFC.designKey` and records the callsite (line/col/snippet/origin) at run time; bypassing it with raw `root.create_entity` is forbidden.
+- **C-scalar (contract #31)**: parameters meant to be web-editable MUST be scalar literals or PARAMS references, never arbitrary expressions (edit-call refuses them; fall back to editing the script).
 - Entry point `build(params: dict, out_path: str)`; the output must pass `ifcopenshell.validate`.
 
 ### 2. Staging (WPS-style, up to 10 steps)
@@ -30,18 +32,19 @@ Script edits (full replace or PARAMS-only rewrite) go into a staging buffer (up 
 
 - **Discard** → the staging chain is dropped: **zero diff, zero version**.
 - **Run** → the staged script executes in the sandbox for a preview, without creating a version.
-- **Save** → the script runs, and script + IFC are snapshotted together as a **big version**.
+- **Save** → the script runs, and script + ScriptMap are snapshotted together as a **big version** (only the latest IFC stays materialized).
 
 ```
 script staging (10 steps, persisted, undo/redo)
    ├─ discard → dropped (no trace)
    ├─ run → sandboxed preview into uploads (no version)
-   └─ save → big version v{n} (scripts/v{n}.py + versions/v{n}.ifc)
+   └─ save → big version v{n} (scripts/v{n}.py + v{n}.map.json; versions/v{n}.ifc only for the latest)
 ```
 
 ### 3. Big versions & rollback
 
-- **Big version** = an explicit save point, snapshotted as a pair: `models/{id}/scripts/v{n}.py` + `models/{id}/versions/v{n}.ifc`.
+- **Big version** = an explicit save point: `models/{id}/scripts/v{n}.py` + `v{n}.map.json` (+ `v{n}.meta.json`) are kept in full, numbered in lockstep.
+- **Only the latest IFC is materialized**: `versions/v{n}.ifc` keeps the newest big version; historical IFCs are rebuilt on demand from their scripts (sandbox re-run, cached in `ifc_cache/` with LRU capacity 4). Rebuilds are only semantically equal to the original snapshots (deterministic GlobalIds; header timestamps differ) — always compare via semantic diff.
 - **Rollback** = restore a script version, then re-run it to rebuild the IFC (script and IFC can never diverge).
 - The next AI iteration receives: current script + script diff + IFC semantic diff summary → incremental edits instead of rewrites.
 
@@ -70,17 +73,40 @@ All proxied through the Go server (`/api/v1`):
 | Endpoint | Meaning |
 |---|---|
 | `GET /api/v1/models/{id}/script` | current script (staged state or last saved) |
-| `PUT /api/v1/models/{id}/script` | stage a script edit (full replace or PARAMS-only) |
+| `PUT /api/v1/models/{id}/script` | stage a script edit (full replace or PARAMS-only); the first staging on a plain model preserves the original upload as `bootstrap.ifc` |
 | `GET /api/v1/models/{id}/script/params` | the current script's PARAMS dict (AST extraction, no execution) |
 | `POST /api/v1/models/{id}/script/undo\|redo\|discard` | staging navigation / discard |
 | `POST /api/v1/models/{id}/script/run` | sandbox-run the staged script (preview, no version) |
-| `POST /api/v1/models/{id}/script/save` | promote the staged script to a big version (run + paired snapshot) |
+| `POST /api/v1/models/{id}/script/save` | promote the staged script to a big version (run + script/map paired snapshot); when `bootstrap.ifc` exists the response carries an `alignment` count (added/removed/changed) |
 | `GET /api/v1/models/{id}/scripts` | list big versions |
 | `POST /api/v1/models/{id}/script/rollback` | restore a script version and re-run it |
 | `POST /api/v1/models/{id}/script/diff` | script diff between two big versions (text + PARAMS changes) |
 | `GET /api/v1/models/{id}/script/staging/diff` | small-version diff between staging steps |
+| `GET /api/v1/models/{id}/script/locate?guid=` | guid → designKey → callsite (line/col/snippet/origin); miss → 200 `{"found": false}` |
 
-## Relationship to IFC attribute editing
+Edit-service direct only (`:8100`, not proxied by the Go server):
 
-- Script-generated models: edit / version / diff go through this model; fine-grained attribute edits remain available via [IFC attribute editing](/en/viewer/editing) (pending → commit).
-- Externally uploaded IFC (no script): no script diff; version compare uses attribute-level semantic diff (by GlobalId).
+| Endpoint | Meaning |
+|---|---|
+| `POST /models/{id}/script/edit-call` | libcst scalar-argument rewrite (body: `{designKey, argument, value}`) → sandbox validation → staged on success; `origin=traced` / non-scalar / illegal argument name / non-finite float → 422 with zero side effects |
+
+## The locate chain (ScriptMap)
+
+On every sandboxed `build()` run, the contract factory records each element's callsite and `write_and_validate` writes the map sidecar; save snapshots it in lockstep with the script as `scripts/v{n}.map.json`:
+
+```python
+ScriptMap = dict[designKey, {"line": int, "col": int, "snippet": str,
+                             "origin": "literal" | "params" | "traced"}]
+```
+
+The map is strictly same-version with the script (regenerated whenever the script changes) — a "stale map" state does not exist. Locate queries the current map (staging first, then the latest big version); `origin` decides the web rewrite strategy (see [IFC script editing](/en/viewer/editing)).
+
+## Bootstrap: uploaded IFC → script
+
+A plain model becomes script-backed through AI reproduction: the AI reads the uploaded IFC via MCP → writes a reproduction script with the aiifc skill → `PUT /script` (the platform preserves the original upload as `bootstrap.ifc`) → sandbox validation → `script/save` stores v1. The save response's `alignment` count (attribute-level semantic diff summary of the bootstrap original vs the generated IFC) is the acceptance signal for reproduction fidelity; a failed alignment computation never fails the save itself (logged, returned as null).
+
+## Relationship to the (retired) direct-edit chain
+
+- Script-generated models: editing / versioning / diffing all go through this page's model (select → locate → rewrite → sandbox → staging → big version).
+- Externally uploaded IFC (plain state): no editing entry — view/review only; version compare uses attribute-level semantic diff (by GlobalId).
+- The former L1 direct-edit chain (`PUT/DELETE /models/{id}/entities/...`, `POST .../commit`) is **retired** and returns 410 Gone; `POST /models/{id}/diff` (IFC semantic diff) and `POST /models/{id}/diff/upload` are kept.

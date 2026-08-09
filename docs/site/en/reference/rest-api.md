@@ -102,7 +102,7 @@ Returns `data: ChangeEntry[]` ordered by createdAt descending (`[]` when empty):
 
 ## Edit proxy endpoints
 
-The Go server exposes the edit-service endpoints under the `/api/v1/models/{id}/edit/...` prefix (orchestration: after commit it writes the change log, fills diffs via IfcDiff and queues XKT reconversion). Full contract: [IFC Editing API](/en/reference/edit-api).
+The Go server proxies the edit-service script-editing endpoints under `/api/v1/models/{id}/script/...` (orchestration: after run/save/rollback it queues XKT reconversion); read-only/compare endpoints stay under `/api/v1/models/{id}/edit/...` (`edit/diff`, `edit/pending`, `edit/history`, `edit/versions`). The direct-edit proxy routes (`edit/entities/{guid}`, `edit/commit`) were removed with the L1 direct-edit retirement. Full contract: [IFC Editing API](/en/reference/edit-api).
 
 ## Static resources (no envelope)
 

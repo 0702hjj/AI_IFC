@@ -1,38 +1,43 @@
-# IFC 属性编辑
+# IFC 脚本编辑
 
-属性面板即改即存**真改 IFC**（pending → commit 两阶段）。属性 override 旁路已退出编辑路径，仅保留历史数据只读展示。
+web 端的「修改」统一为「修改构建脚本」（script-as-source）：IFC 永远是脚本的派生产物，任何持久化的修改必然伴随一次脚本变更。原 L1 直改链路（pending → commit 真改 IFC）已整体退役（端点返回 410 Gone，可从 git 历史回捞，锚点 `fb55a8a`）。
 
-## 属性面板真改直通
+## 模型两种形态
 
-选中构件后，属性面板按 `GET /api/v1/models/{id}/edit/entities/{guid}/editable-schema` 返回的类型化 schema 渲染表单：
+- **script-backed**（有构建脚本）：完整编辑能力——选中定位、PARAMS 表单、脚本编辑器、暂存与大版本。
+- **plain**（外部上传、无脚本）：仅查看与审查（Issue/Diff）。前端不提供编辑入口；无 AI 时的小改发生在自己的 BIM/CAD 软件里，重新上传即新的参考输入。经 AI 复现为脚本后转为 script-backed（见下文 bootstrap）。
 
-- **直接属性**：字符串字段文本输入、int/float 数字输入、bool 复选框、枚举字段（如 `PredefinedType`）下拉合法值——枚举清单取自 ifcopenshell schema 声明；非法枚举值服务端 422 且不破坏模型。
-- **pset 属性**：str/int/float/bool 标量属性同类型可编辑；非标量属性不进入表单。
-- 保存即 `PUT /api/v1/models/{id}/edit/entities/{guid}`（pending，不落盘），面板出现「有未提交修改」提示；点**提交**走 commit 编排（版本快照 + change log + diff + XKT 重转），完成后前端自动重载。
-- **删除构件**：按钮 + 确认 → `DELETE /api/v1/models/{id}/edit/entities/{guid}` 进 pending（开洞/填充、空间包含、类型关联、pset 级联清理），commit 后生效并体现在版本快照中。IfcProject 与空间结构元素（场地/建筑/楼层/空间）拒绝删除（422）。
-- 编辑服务不可用时面板降级为只读模式；历史 override 仍以只读标记展示，新编辑不再产生 override。
+## 选中构件 → 定位脚本
 
-## override 迁移为真改
+属性面板已只读化，不再直接改值。选中构件后点**「定位脚本」**：
 
-历史遗留的 override 可经 `POST /api/v1/models/{id}/overrides/migrate` 回放为真实 IFC 修改：
+1. 前端调 `GET /api/v1/models/{id}/script/locate?guid=`：guid → 读 IFC 的 `Pset_AIIFC.designKey` → 查当前（暂存优先，否则最新大版本）ScriptMap（`v{n}.map.json`）。
+2. 命中：自动切到 Design 面板脚本编辑器，光标落到调用行并高亮该行。
+3. 未命中：locate 返回 200 `{"found": false}`，面板提示只读（构件无 designKey 属契约违规，请上报 bug）。
 
-- 每个实体先 PUT pending，再一次性 commit（`operation=migrate`），生成新的版本快照。
-- 成功字段清除 override；失败字段保留 override，并在响应 `failed` 中带原因。
-- 有任何成功即触发 XKT 重转。
+## 改写（两条子路径）
 
-## 真改编辑流（pending → commit）
+定位结果带 `origin` 标签，决定改写策略：
 
-真改编辑是两阶段事务：
+- **`origin=params`**：构件参数来自脚本头部 `PARAMS`——在 Design 面板 PARAMS 表单中改对应键的值，提交即暂存一步（`PUT /script`）。
+- **`origin=literal`**：参数是内联标量字面量——在脚本编辑器中直接改该行的参数值。API 侧另有 `POST /models/{id}/script/edit-call`（edit-service 直连）：libcst 无损重写单个标量参数（str/int/float/bool，保留格式与注释）→ 沙箱重跑验证 → 成功等同一次 `PUT /script` 暂存；`origin=traced`、非标量、非法参数名或非有限浮点一律 422 零副作用。
+- **`origin=traced`**（designKey 运行期算出）：可定位到工厂调用行，但不可自动改写——请在脚本编辑器中手改。
 
-1. **PUT pending**：把 `fields`（直接属性）与 `psets`（属性集，不存在则创建）应用到内存模型并记为 pending；**不落盘**。先全量校验（含枚举合法值）再应用——任一校验失败则零副作用。
-2. **POST commit**：全部 pending 原子落盘（tmp + rename，持每模型锁）→ 生成版本快照 → 追加编辑历史 → 清空 pending。
+## 沙箱验证与暂存
 
-经浏览器（Go 代理）commit 时，Go server 还会：把 entries 展开写入 change log、用 IfcDiff 补充 diff 字段、把模型置为 `converting` 并排队重转 XKT——完成后前端自动重载。
+表单提交 / 编辑器保存先过脚本契约静态校验（失败 422 零副作用）后进入暂存区；edit-call 则在暂存前先沙箱重跑验证（**build 失败 = 422 零副作用**）。暂存区最多 10 步环窗，原子落盘、重启恢复，可 undo/redo：
 
-要点：
+- **放弃** → 丢弃暂存链，零 diff、零版本。
+- **试运行** → 沙箱执行暂存脚本预览产物，不产生版本。
+- **保存版本** → 跑脚本生成 IFC，晋升为大版本 v{n+1}（脚本 + map 成对快照，IFC 只物化最新，见 [版本与 Diff Viewer](/viewer/versions-diff)）。
 
-- pending 每次变更原子落盘（`models/{id}/pending.json`），edit-service 重启后自动恢复；history 与版本快照不受影响。
-- 重复 commit（无 pending）返回 409。
-- 多请求并发由每模型一把锁串行化。
+## bootstrap：上传 IFC → 脚本（AI 路线）
 
-接口契约见 [IFC 编辑 API](/reference/edit-api)。
+有 AI 参与时，上传 IFC 的意图是**参考生成**：
+
+1. 用户上传 IFC（plain 态，仅可查看）。
+2. AI 经 MCP server 读取模型，用 aiifc skill 编写复现脚本。
+3. 首次 `PUT /script` 时平台自动把上传原件保留为 `bootstrap.ifc`；脚本经沙箱验证后 `script/save` 存大版本 v1，模型转为 script-backed。
+4. 首次 save 的响应带 `alignment` 计数（`added/removed/changed`，bootstrap.ifc vs 生成 IFC 的语义 diff 摘要）——作为「复现走样」的验收信号。
+
+接口契约见 [Script 编辑与版本对比](/reference/design-edit) 与 [IFC 编辑 API](/reference/edit-api)。

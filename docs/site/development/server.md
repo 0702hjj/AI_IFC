@@ -20,7 +20,7 @@ internal/
 ├── store/                模型元数据/文件存储：Create/Get/List/SetStatus/Delete/Recover
 ├── convert/              转换队列：Runner 接口、Queue（2 worker、dedup、dirty 重跑、重启 Recover）
 ├── issue/ change/ override/   各 Store 接口 + FileStore + PgStore（构造时自动建表）
-└── editsvc/              edit-service HTTP 客户端（简单调用 10s / commit·diff 120s）
+└── editsvc/              edit-service HTTP 客户端（简单调用 10s / 沙箱执行·diff 走 slow client）
 ```
 
 ## 端点全表
@@ -36,12 +36,11 @@ internal/
 | `GET/POST /api/v1/models/{id}/issues` · `PATCH/DELETE .../issues/{issueId}` | Issue CRUD（截图 ≤5MB） |
 | `GET /models/{id}/issues/{file}` | Issue 截图（文件名白名单正则） |
 | `GET /api/v1/models/{id}/changes` | 修改记录（change log） |
-| `GET /api/v1/models/{id}/overrides` | `map[entityId]map[field]value` |
-| `PUT /api/v1/models/{id}/entities/{entityId}/properties` | override 写入（白名单五字段；每字段一条 change） |
-| `POST /api/v1/models/{id}/overrides/migrate` | override → 真改迁移 |
-| `PUT /api/v1/models/{id}/edit/entities/{guid}` | 代理至 edit-service（provenance 先校验） |
-| `GET/DELETE /api/v1/models/{id}/edit/pending` · `GET .../edit/history` · `GET .../edit/versions` · `POST .../edit/diff` | 代理透传 |
-| `POST /api/v1/models/{id}/edit/commit` | 编排：Python commit → change log 展开 → 重转；change log 失败降级 `warning` |
+| `GET /api/v1/models/{id}/overrides` | `map[entityId]map[field]value`（历史 override 只读展示） |
+| `GET/PUT /api/v1/models/{id}/script` · `GET .../script/params` · `POST .../script/undo\|redo\|discard\|run\|save\|rollback\|diff` · `GET .../script/staging/diff` · `GET .../script/locate` · `GET .../scripts` | 脚本编辑代理（locate query 透传；run/save/rollback 成功后编排 XKT 重转） |
+| `GET/DELETE /api/v1/models/{id}/edit/pending` · `GET .../edit/history` · `GET .../edit/versions` · `POST .../edit/diff` | 只读/对比端点代理透传 |
+
+> 直改代理路由（`PUT/DELETE .../edit/entities/{guid}`、`POST .../edit/commit`、`editable-schema`）已随 L1 直改退役删除；edit-service 侧对应端点返回 410。`POST /overrides/migrate` 与 `PUT /entities/{entityId}/properties`（override 白名单写入）路由仍在册，但其下游真改端点已退役。
 
 错误映射（代理）：Python 404 → 404 / 409 → 409 / 422 → 400 / 其他 → 502。模型 id 校验 `^m_[0-9a-f]{16}$`（路径穿越防护，与 Python 侧同规则）。
 

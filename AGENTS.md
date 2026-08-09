@@ -5,11 +5,11 @@
 
 ## 项目是什么
 
-自托管、开源（AGPL-3.0）的 IFC 审查与编辑平台：真改 IFC（pending→commit）、版本快照 + 语义 diff、人/AI 双角色同一套 REST 编辑 API、aiifc 建模 skill。
+自托管、开源（AGPL-3.0）的 IFC 审查与编辑平台：script-as-source 编辑（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）、版本快照 + 语义 diff、人/AI 双角色同一套 REST 编辑 API、aiifc 建模 skill。
 
 ```
 浏览器 (React+xeokit) ──► Go server :8090 ──► edit-service :8100 (FastAPI+IfcOpenShell)
-                               │                  └─ 真改 IFC + 版本 + diff
+                               │                  └─ 脚本沙箱执行 + 版本 + diff
                                ├─► converter (Node, IFC→XKT)
 AI agent ──► REST 编辑 API ────┘
            └─► skills/aiifc/（agent 直接写 ifcopenshell.api 代码）
@@ -22,7 +22,7 @@ AI agent ──► REST 编辑 API ────┘
 | web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，181 用例 / 18 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
 | server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（141 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `viewer/converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（171 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（216 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
 | mcp-server (Python + mcp 2.x MCPServer，stdio) | `viewer/mcp-server` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
 | skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（60 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
 | 端到端 | `viewer/scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
@@ -48,7 +48,8 @@ AI agent ──► REST 编辑 API ────┘
 
 - Go server 是唯一对外入口，对外路径统一 `/api/v1/{resource}/{id}`。
 - 响应统一 envelope `{code, message, data}`，`code=0` 成功；**新增/修改端点必须包 envelope 并配契约测试**。
-- 改 API 后必须：`cd docs && npm run gen:api && npm run check:api`（漂移检测会拦 PR）。
+- 编辑统一走 script-as-source：`PUT /script`（暂存）→ `script/run`（沙箱）→ `script/save`（大版本，`scripts/v{n}.py` + `v{n}.map.json` 全留、`versions/v{n}.ifc` 只留最新）；定位 `GET /script/locate?guid=`；`POST /script/edit-call`（libcst 标量改写）仅在 edit-service 直连暴露。L1 直改端点（`/entities/...`、`/commit`）已退役返回 410，回捞锚点 `fb55a8a`。
+- 改 API 后必须：`cd docs && npm run gen:api && npm run check:api`（漂移检测会拦 PR）。openapi 源 schema 变更时先跑 `viewer/edit-service/scripts/export_openapi.py`。
 - modelId 格式 `^m_[0-9a-f]{16}$`；issue 截图、上传大小等限制见 `viewer/server/internal/api/api.go`。
 
 ## Git 工作流（硬规则）

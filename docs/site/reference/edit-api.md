@@ -2,64 +2,36 @@
 
 edit-service（Python FastAPI，默认 `:8100`）是 IFC 编辑端点**唯一参考**。路径参数：`id` 匹配 `^m_[0-9a-f]{16}$`；`guid` 为 IFC GlobalId。除标注外，错误响应为 FastAPI 形态 `{"detail": ...}`。
 
+> **直改链路已退役（2026-08-08）**：script-as-source 统一编辑后，一切修改落在构建脚本上。原 L1 直改端点（`PUT/DELETE /models/{id}/entities/...`、`GET .../editable-schema`、`POST /models/{id}/commit`）**返回 410 Gone**（永久退役，非 404），历史实现可从 git 历史回捞（锚点 `fb55a8a`）。现役编辑面见 [Script 编辑与版本对比](/reference/design-edit)。
+
 ## 端点目录
 
 ### GET /health
 
 健康检查，响应 `{"status": "ok"}`。
 
-### PUT /models/{id}/entities/{guid}
+### 直改端点（410 Gone）
 
-把编辑应用到内存模型并记为一条 pending change（**不落盘**）。先全量校验再应用（单请求原子）：任一校验失败则不产生任何修改。
+| 端点 | 退役说明 |
+| --- | --- |
+| `PUT /models/{id}/entities/{guid}` | 改构建脚本（`PUT /script` 或 `POST /script/edit-call`），不再直接改 IFC |
+| `GET /models/{id}/entities/{guid}/editable-schema` | 无直改即无类型化编辑表单 |
+| `DELETE /models/{id}/entities/{guid}` | 删除构件走脚本改写 |
+| `POST /models/{id}/commit` | `script/save` 是唯一版本检查点 |
 
-body（`EditBody`）：
-
-```json
-{
-  "type": "object",
-  "properties": {
-    "fields": {"type": "object", "additionalProperties": true, "description": "实体直接属性（Name/Description 等）"},
-    "psets": {"type": "object", "additionalProperties": {"type": "object", "additionalProperties": true}, "description": "pset 名 → {属性名: 新值}；pset 不存在则创建"},
-    "author": {"type": "string", "default": "local-user"},
-    "provenance": {"type": "object", "properties": {"source": {"type": "string", "enum": ["UI", "AI"], "default": "UI"}}}
-  }
-}
-```
-
-响应 200（pending entry，同时出现在 pending 与 commit 后 history 中）：
-
-```json
-{
-  "id": "e_<12位hex>",
-  "guid": "...",
-  "changes": [{"field": "Name", "oldValue": "...", "newValue": "..."}],
-  "author": "ai-agent",
-  "provenance": {"source": "AI"},
-  "timestamp": "<ISO8601 UTC>"
-}
-```
-
-`changes[].field`：直接属性用属性名，pset 属性用 `Pset名.属性名`；`oldValue` 取自 IFC 真实值（pset 属性原本不存在时为 `null`）。
-
-错误码：404 模型或 guid 不存在；422 `fields`/`psets` 均为空、未知属性名、值类型不受支持或与 IFC 属性类型不符。
+均返回 `410 {"detail": "direct IFC editing retired: edit the build script (script-as-source)"}`。
 
 ### GET /models/{id}/pending
 
-列出当前 pending（无 pending 返回 `[]`）。注意：pending 与 history 的 GET **不校验模型是否存在**；写路径与 versions/diff 才校验。
+列出当前 pending（无 pending 返回 `[]`）。直改退役后 pending 仅作 script-run 回放簿记（内部用），不再承载用户编辑。注意：pending 与 history 的 GET **不校验模型是否存在**；写路径与 versions/diff 才校验。
 
 ### DELETE /models/{id}/pending
 
 丢弃全部 pending：卸载并从磁盘重载内存模型。响应 `{"discarded": <条数>}`；模型不存在 → 404。
 
-### POST /models/{id}/commit
-
-全部 pending 原子落盘（持文件锁）→ 版本快照 → 追加 history（每条补 `operation`）→ 清空 pending。
-
-可选 body：`{"operation": "update" | "migrate"}`，缺省 `"update"`；`migrate` 由 Go 侧 override 迁移传入。响应 200 `{"committed": <条数>, "entries": [...]}`；无 pending → 409；模型不存在 → 404。
-
 ### GET /models/{id}/history
 
-持久化编辑历史（含 `operation` 字段），存储于 `{VIEWER_DATA_DIR}/models/{id}/edit-history.json`；无历史返回 `[]`。
+持久化编辑历史（含 `operation` 字段），存储于 `{VIEWER_DATA_DIR}/models/{id}/edit-history.json`；无历史返回 `[]`。直改退役后 history 只读保留历史数据，新增记录来自 `POST /models/{id}/user-edits`（外部改后 IFC/DXF 解析登记）。
 
 ### GET /models/{id}/versions
 
@@ -67,7 +39,7 @@ body（`EditBody`）：
 {"versions": [{"version": "v1", "createdAt": "<ISO8601 UTC>"}, ...], "current": "v2"}
 ```
 
-从未 commit 过时 `versions` 为 `[]`、`current` 为 `null`。
+script-backed 模型只有最新大版本的 IFC 物化在盘上；历史版本在 diff/下载时按需从脚本重建（见 [版本与 Diff Viewer](/viewer/versions-diff)）。
 
 ### POST /models/{id}/diff
 
@@ -85,23 +57,20 @@ body：`{"base": "v1", "target": "v2"}`（target 可为 `"current"` 表示 uploa
 
 版本不存在 → 404；缺 `base`/`target` → 422。diff 为属性级（无几何 diff），详见 [版本与 Diff Viewer](/viewer/versions-diff)。
 
+### POST /models/{id}/diff/upload
+
+上传对比：`multipart/form-data` 字段 `file`（待对比 IFC），与当前模型现态做属性级语义 diff（by GlobalId）。响应在 `POST /diff` 形态上多一个 `labels`（guid → 可读 name/type）；`base` 固定 `"current"`、`target` 固定 `"upload"`。不落盘、不缓存。非法 IFC → 422。
+
+### 脚本编辑端点
+
+`GET/PUT /models/{id}/script`、`script/params`、`script/undo|redo|discard`、`script/run`、`script/save`、`script/rollback`、`script/diff`、`script/staging/diff`、`script/locate`、`script/edit-call`、`GET /models/{id}/scripts`——语义与契约见 [Script 编辑与版本对比](/reference/design-edit)，机器可读 schema 见 [编辑 API 参考（自动生成）](/reference/edit-api-reference)。
+
 ## 经 Go 代理
 
-Go server（默认 `:8090`）把同一套端点暴露在 `/api/v1/models/{id}/edit/...` 前缀下，端点一一对应：
+Go server（默认 `:8090`）把端点暴露在 `/api/v1` 前缀下：
 
-| Go 代理端点 | Python 端点 |
-| --- | --- |
-| `PUT /api/v1/models/{id}/edit/entities/{guid}` | `PUT /models/{id}/entities/{guid}` |
-| `GET /api/v1/models/{id}/edit/pending` | `GET /models/{id}/pending` |
-| `DELETE /api/v1/models/{id}/edit/pending` | `DELETE /models/{id}/pending` |
-| `GET /api/v1/models/{id}/edit/history` | `GET /models/{id}/history` |
-| `GET /api/v1/models/{id}/edit/versions` | `GET /models/{id}/versions` |
-| `POST /api/v1/models/{id}/edit/diff` | `POST /models/{id}/diff` |
-| `POST /api/v1/models/{id}/edit/commit` | `POST /models/{id}/commit` |
+- 脚本编辑端点一一对应代理：`/api/v1/models/{id}/script[/...]`（含 `script/locate`，query 透传）；run/save/rollback 成功后 Go 侧排队重转 XKT。`script/edit-call` 不经 Go 代理，仅 edit-service 直连。
+- 只读/对比端点保留在 `/api/v1/models/{id}/edit/...` 前缀下：`POST .../edit/diff`（对应 `POST /models/{id}/diff`）、`GET .../edit/pending|history|versions`、`DELETE .../edit/pending`。
+- 直改代理路由（`PUT/DELETE .../edit/entities/{guid}`、`POST .../edit/commit`、`GET .../editable-schema`）已随退役删除。
 
-与直连的差异：
-
-- 响应统一包 `{code, message, data}`；错误码映射：404 → 40400、409 → 40900、422 → 40001、其余（含不可达）→ 50200。
-- PUT/commit body 若含 `provenance.source`，Go 先校验枚举（UI|AI），非法 → 40001。
-- Go 代理 commit 成功后：entries 展开写入 change log、IfcDiff 补充 diff 字段、模型置 `converting` 并排队重转；响应 data 额外含 `"reconverting": true`。
-- change log 写失败不返回 500：记日志，响应仍 200，data 含 `"warning"` 字符串（IFC 已落盘、重转已排队，仅 change log 可能缺条）。
+与直连的差异：响应统一包 `{code, message, data}`；错误码映射：404 → 40400、409 → 40900、422 → 40001、其余（含不可达）→ 50200。

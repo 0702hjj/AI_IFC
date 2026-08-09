@@ -17,7 +17,7 @@
 
 ## Change history
 
-The bottom panel has two tabs: "Issues / Change history". Change history shows the change log (time, entity, field, old → new, author) in reverse chronological order and refreshes automatically after properties are saved.
+The bottom panel has two tabs: "Issues / Change history". Change history shows the change log (time, entity, field, old → new, author) in reverse chronological order; with the direct-edit chain retired and the property panel read-only, this tab mainly serves historical review.
 
 ## API contract
 

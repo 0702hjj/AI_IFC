@@ -4,7 +4,7 @@ layout: home
 hero:
   name: AI_IFC
   text: IFC review and editing platform
-  tagline: Self-hosted, open-source IFC review and editing platform — really edit IFC, semantic diffs, one API for humans and AI.
+  tagline: Self-hosted, open-source IFC review and editing platform — script-as-source editing, semantic diffs, one API for humans and AI.
   actions:
     - theme: brand
       text: Get Started
@@ -15,8 +15,8 @@ hero:
 
 features:
   - icon: ✏️
-    title: Really Edit IFC
-    details: Property edits go through a two-phase pending → commit flow that really modifies IFC files; every commit creates an immutable version snapshot.
+    title: Script Editing
+    details: Every web edit rewrites the build script — locate an element's callsite, change it via the PARAMS form or script editor, sandbox-validated and staged; each save is an immutable big version.
   - icon: 🔍
     title: Semantic Version Diff
     details: Attribute-level diffs keyed by GlobalId with added/removed/modified highlighting and old → new details, without geometric noise.
@@ -36,9 +36,9 @@ features:
 
 ## What is AI_IFC
 
-AI_IFC is an IFC (Industry Foundation Classes) review and editing platform: review models in 3D in the browser, file issues on elements, really edit IFC attributes with version snapshots, and compare versions with semantic diffs. Humans and AI agents edit through the same API, and AI can also generate models by writing IfcOpenShell code via the aiifc skill.
+AI_IFC is an IFC (Industry Foundation Classes) review and editing platform: review models in 3D in the browser, file issues on elements, edit with the build script as the single source of truth (with version snapshots), and compare versions with semantic diffs. Humans and AI agents edit through the same API, and AI can also generate models by writing IfcOpenShell code via the aiifc skill.
 
-Typical workflow: upload an IFC → review in 3D once conversion finishes → file issues on elements → edit attributes → commit to create a version → use Diff to compare versions. See the [project introduction](/en/guide/project-intro) for positioning and the four-component architecture.
+Typical workflow: upload an IFC → review in 3D once conversion finishes → file issues on elements → select an element to locate its script callsite, edit PARAMS/script → sandbox-validated save as a big version → use Diff to compare versions. See the [project introduction](/en/guide/project-intro) for positioning and the four-component architecture.
 
 ## Screenshots
 

@@ -1,19 +1,21 @@
 # AI Integration
 
-An integration guide for AI agents: use REST to drive the IFC editing service through the full "edit attribute → pending → commit → diff" flow. The machine-consumable schema: [OpenAPI Files](/en/reference/openapi).
+An integration guide for AI agents: with script-as-source, AI edits land on the build script — stage (`PUT /script`) → sandbox run (`script/run`) → save a big version (`script/save`). The machine-consumable schema: [OpenAPI Files](/en/reference/openapi).
+
+> **Direct editing retired**: the former "edit attribute → pending → commit" endpoints (`PUT /entities/{guid}`, `POST /commit`, …) return 410 Gone. Fine-grained parameter changes now use `POST /script/edit-call` (libcst scalar rewrite) or PARAMS staging.
 
 ## One API, two roles
 
-Humans (browser) and AI agents use the **same editing endpoints**; only the entry point and `provenance.source` differ:
+Humans (browser) and AI agents use the **same script-editing endpoints**; only the entry point differs:
 
 ```
 Browser (human) ──► Go server :8090 ──proxy──► Python edit-service :8100
-                  /api/v1/models/{id}/edit/...        │  /models/{id}/...
-AI agent ────────► REST direct ────────────────────┘  (or via the Go proxy, one-to-one)
+                  /api/v1/models/{id}/script/...  │  /models/{id}/script/...
+AI agent ────────► REST direct ──────────────────┘  (or via the Go proxy, one-to-one)
 ```
 
-- Human: browser → Go proxy; after commit Go writes the change log and triggers XKT reconversion.
-- AI: REST directly to edit-service (default `http://127.0.0.1:8100`) with `provenance.source="AI"`; the Go proxy works too.
+- Human: browser → Go proxy; after a successful run/save/rollback the Go side queues XKT reconversion.
+- AI: REST directly to edit-service (default `http://127.0.0.1:8100`); the Go proxy works too. `script/edit-call` is **not** proxied — direct only.
 - The Python service ships Swagger UI (`/docs`) and the raw schema (`/openapi.json`).
 
 ## Quick start
@@ -35,57 +37,68 @@ go run ./cmd/server
 
 Prerequisite: a model exists (id like `m_` + 16 lowercase hex) with its file at `{VIEWER_DATA_DIR}/uploads/{id}.ifc`.
 
+### A. Bootstrap: reproduce an uploaded IFC as a script
+
 ```bash
 BASE=http://127.0.0.1:8100
 MID=m_0123456789abcdef
-GUID='2O2Fr$t4X7ZfFPoeewFlqU'   # IFC GlobalId
 
-# 1. Edit attribute → pending (in-memory only, no disk write)
-curl -X PUT "$BASE/models/$MID/entities/$GUID" \
+# 1. Write a reproduction script with the aiifc skill (the MCP server can read
+#    the model) and stage it. The first staging preserves the original upload
+#    as bootstrap.ifc.
+curl -X PUT "$BASE/models/$MID/script" \
   -H 'Content-Type: application/json' \
-  -d '{
-        "fields": {"Name": "Basic Wall:AI"},
-        "psets":  {"Pset_WallCommon": {"FireRating": "2h"}},
-        "author": "ai-agent",
-        "provenance": {"source": "AI"}
-      }'
+  -d '{"script": "PARAMS = {...}\n\ndef build(params, out_path):\n    ...\n"}'
 
-# 2. Inspect pending
-curl "$BASE/models/$MID/pending"
+# 2. Sandbox trial run (preview, no version)
+curl -X POST "$BASE/models/$MID/script/run"
 
-# 3. Commit: atomic write + version snapshot + history
-curl -X POST "$BASE/models/$MID/commit"
-
-# 4. Versions and diff
-curl "$BASE/models/$MID/versions"
-curl -X POST "$BASE/models/$MID/diff" \
-  -H 'Content-Type: application/json' \
-  -d '{"base": "v1", "target": "current"}'
+# 3. Save big version v1 (script + map paired snapshot)
+#    The response carries an alignment count: semantic-diff summary of the
+#    bootstrap original vs the generated IFC.
+curl -X POST "$BASE/models/$MID/script/save" \
+  -H 'Content-Type: application/json' -d '{"note": "bootstrap v1"}'
 ```
 
-> A direct commit does **not** trigger the Go change log or XKT reconversion. For the full pipeline (visible to the frontend) use the Go proxy: `http://127.0.0.1:8090/api/v1/models/$MID/edit/...`.
+### B. Targeted edits on an existing script
 
-## Provenance and the commit model
+```bash
+# 1. Locate the callsite by guid (line/col/snippet/origin)
+curl "$BASE/models/$MID/script/locate?guid=2O2Fr\$t4X7ZfFPoeewFlqU"
 
-- `provenance.source`: enum `UI | AI`, default `UI`. **AI calls must pass `"AI"`**. It is a declared field without anti-forgery semantics (no auth in v1).
-- `author`: free text, default `local-user`.
-- Two-phase semantics: PUT only changes the in-memory model and records pending; commit persists to disk, creates a version snapshot and writes history.
-- Commit model (Go change log): each entry has `author` / `createdAt` / `operation` (`update | migrate`) / `diff` / `provenance`.
-- Python history and the Go change log are two records: history = one entry per PUT (with a changes array); change log = one entry per field change.
+# 2a. origin=params: change PARAMS keys only, one staged step
+curl -X PUT "$BASE/models/$MID/script" \
+  -H 'Content-Type: application/json' \
+  -d '{"params": {"wall_height": 3.2}}'
 
-## Versions and diff semantics
+# 2b. origin=literal: libcst scalar rewrite + sandbox validation + staging
+curl -X POST "$BASE/models/$MID/script/edit-call" \
+  -H 'Content-Type: application/json' \
+  -d '{"designKey": "L1:wall:1", "argument": "height", "value": 3.2}'
 
-- Snapshots live at `{VIEWER_DATA_DIR}/models/{id}/versions/v{n}.ifc` (n from 1, append-only, atomic writes).
-- First commit: the original upload is snapshotted as v1, then the new file as v2; every later commit produces v{n+1}.
-- Diff is keyed by GlobalId; changed entities reduce to field-level old→new for direct and pset attributes; entity reference attributes (geometry representation) are excluded.
-- Snapshot-to-snapshot diff results are cached in `versions/diff-{base}-{target}.json`; `target="current"` is not cached.
+# 3. Save a big version
+curl -X POST "$BASE/models/$MID/script/save"
+
+# 4. Compare versions: script diff + IFC semantic diff
+curl -X POST "$BASE/models/$MID/script/diff" \
+  -H 'Content-Type: application/json' -d '{"base": "v1", "target": "v2"}'
+curl -X POST "$BASE/models/$MID/diff" \
+  -H 'Content-Type: application/json' -d '{"base": "v1", "target": "current"}'
+```
+
+> Direct run/save calls do **not** trigger Go-side XKT reconversion. For frontend-visible refreshes use the Go proxy: `http://127.0.0.1:8090/api/v1/models/$MID/script/...`.
+
+## Contract highlights
+
+- **Script contract** (aiifc skill MUST #25-31): top-level literal `PARAMS` dict; elements created via the `script_lib.create_entity` factory (deterministic GlobalId + `Pset_AIIFC.designKey` + callsite recording, C-locate #30); web-editable parameters are scalar literals or PARAMS references (C-scalar #31); `build(params, out_path)` entry; output passes `ifcopenshell.validate`.
+- **Failure semantics**: contract-validation or sandbox build failure → 422 with zero side effects; edit-call refuses `origin=traced` / non-scalars / illegal argument names / non-finite floats with 422; locate miss → 200 `{"found": false}` (never 5xx).
+- **Version semantics**: `scripts/v{n}.py` + `v{n}.map.json` kept in full, numbered in lockstep; `versions/v{n}.ifc` materializes only the latest — history is rebuilt on demand (aligned via semantic diff, never byte equality).
+- **Provenance**: register external user modifications via `POST /models/{id}/user-edits` (`source="USER"`); issue creation still accepts `provenance.source`.
 
 ## Limits and roadmap
 
 v1 limits (details in [Known limitations](/project/known-limits), Chinese): single-machine single-user, no auth (do not expose publicly); `VIEWER_DATA_DIR` must equal the Go `dataDir`; diff is attribute-level only.
 
-Roadmap (not delivered yet): an MCP wrapper (REST+MCP dual exposure, modeled on ifcmcp's tool patterns) and a sandbox/execution endpoint — see [Roadmap](/project/roadmap) (Chinese).
-
 ## Division of labor with the aiifc skill
 
-The REST editing API fits fine-grained edits (attributes / psets of an existing model). For **building models from scratch or large geometry changes**, use the [AI Skill (aiifc)](/en/reference/ai-skill) — the agent writes `ifcopenshell.api` code directly to produce a complete IFC file, then hands it to the platform for commit / version / reconversion.
+The REST editing API fits targeted edits on an existing script (staging / versioning / diffs). For **building models from scratch or large geometry changes**, use the [AI Skill (aiifc)](/en/reference/ai-skill) — the agent writes a contract-conforming `ifcopenshell.api` build script, then hands it to the platform for sandboxed execution, versioning and diffs. Reproducing an uploaded IFC (bootstrap) likewise goes through a skill-authored script.

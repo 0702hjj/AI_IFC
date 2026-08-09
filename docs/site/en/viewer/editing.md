@@ -1,38 +1,43 @@
-# IFC Property Editing
+# IFC Script Editing
 
-The property panel edits **the real IFC** on save (pending → commit, two phases). The property-override bypass has left the editing path and only remains as read-only display of historical data.
+All web edits are unified as **edits to the build script** (script-as-source): the IFC is always a derived artifact of the script, and every persisted change is accompanied by a script change. The former L1 direct-edit chain (pending → commit, mutating the IFC) is retired — its endpoints return 410 Gone (recoverable from git history, anchor `fb55a8a`).
 
-## True-edit property panel
+## Two model shapes
 
-Selecting an element renders a typed form driven by `GET /api/v1/models/{id}/edit/entities/{guid}/editable-schema`:
+- **script-backed** (has a build script): full editing — select-and-locate, PARAMS form, script editor, staging and big versions.
+- **plain** (external upload, no script): view and review only (Issues/Diff); no editing entry in the UI. With AI involved, the uploaded IFC can be reproduced as a script (bootstrap, below), turning the model script-backed.
 
-- **Direct attributes**: text inputs for strings, number inputs for int/float, checkboxes for bool, dropdowns of legal values for enums (e.g. `PredefinedType`) — enum lists come from the ifcopenshell schema declarations; illegal enum values are rejected server-side with 422 without damaging the model.
-- **Pset properties**: scalar str/int/float/bool properties are editable with matching types; non-scalar properties stay out of the form.
-- Saving issues `PUT /api/v1/models/{id}/edit/entities/{guid}` (pending; nothing on disk) and the panel shows an "uncommitted changes" hint; clicking **Commit** runs the commit orchestration (version snapshot + change log + diff + XKT reconversion), after which the frontend reloads automatically.
-- **Delete element**: button + confirmation → `DELETE /api/v1/models/{id}/edit/entities/{guid}` enters pending (openings/fills, spatial containment, type associations and psets cascade-cleaned), takes effect on commit and is reflected in the version snapshot. IfcProject and spatial structure elements (site/building/storey/space) are refused (422).
-- When the edit service is unavailable the panel degrades to read-only mode; historical overrides remain visible as read-only markers, and new edits no longer produce overrides.
+## Select an element → locate the script
 
-## Migrating overrides to real edits
+The property panel is read-only. Select an element and click **"Locate script"**:
 
-Legacy overrides can be replayed as real IFC modifications via `POST /api/v1/models/{id}/overrides/migrate`:
+1. The frontend calls `GET /api/v1/models/{id}/script/locate?guid=`: guid → `Pset_AIIFC.designKey` → current ScriptMap (`v{n}.map.json`, staging first).
+2. Hit: the Design panel switches to the script editor with the cursor on the call line, highlighted.
+3. Miss: locate returns 200 `{"found": false}` and the panel stays read-only (a missing designKey is a contract violation — please report it as a bug).
 
-- Each entity is first PUT as pending, then committed in one go (`operation=migrate`), producing a new version snapshot.
-- Successful fields have their overrides cleared; failed fields keep the override, with the reason returned in the response `failed`.
-- Any success triggers XKT reconversion.
+## Rewriting (two sub-paths)
 
-## Real-edit flow (pending → commit)
+The locate result carries an `origin` tag that decides the rewrite strategy:
 
-A real edit is a two-phase transaction:
+- **`origin=params`**: the value comes from the top-level `PARAMS` block — edit the key in the Design panel's PARAMS form; submitting stages one step (`PUT /script`).
+- **`origin=literal`**: an inline scalar literal — edit the argument in the script editor. The API also offers `POST /models/{id}/script/edit-call` (edit-service direct only): a lossless libcst rewrite of one scalar argument (str/int/float/bool, formatting and comments preserved) → sandbox re-run → on success equivalent to a staged `PUT /script`; `origin=traced`, non-scalars, illegal argument names and non-finite floats all get 422 with zero side effects.
+- **`origin=traced`** (key computed at runtime): the factory call line is still located, but automatic rewriting is refused — edit the script manually.
 
-1. **PUT pending**: applies `fields` (direct attributes) and `psets` (property sets, created when missing) to the in-memory model and records them as pending; **nothing is written to disk**. Full validation (including enum legality) runs before application — any validation failure means zero side effects.
-2. **POST commit**: atomically persists all pending changes (tmp + rename, holding a per-model lock) → generates a version snapshot → appends the edit history → clears pending.
+## Sandbox validation and staging
 
-On a commit via the browser (Go proxy), the Go server additionally: expands the entries into the change log, fills diff fields with IfcDiff, marks the model `converting` and queues XKT reconversion — the frontend reloads automatically when it finishes.
+Form submits and editor saves pass static contract validation first (422 with zero side effects on failure) and enter the staging buffer; edit-call additionally sandbox-runs before staging (**build failure = 422, zero side effects**). The staging buffer is a 10-step ring, persisted atomically and restored after a restart, with undo/redo:
 
-Key points:
+- **Discard** → drop the staging chain: zero diff, zero version.
+- **Run** → sandbox-execute the staged script for a preview, without creating a version.
+- **Save version** → run the script to produce the IFC and promote to big version v{n+1} (script + map snapshotted as a pair; only the latest IFC is materialized — see [Versions & Diff Viewer](/en/viewer/versions-diff)).
 
-- Pending is persisted atomically on every change (`models/{id}/pending.json`) and restored automatically when the edit-service restarts; history and version snapshots are unaffected.
-- A repeated commit (no pending) returns 409.
-- Concurrent requests are serialized by one lock per model.
+## Bootstrap: uploaded IFC → script (AI route)
 
-For the endpoint contract see [IFC Editing API](/en/reference/edit-api).
+With AI involved, an uploaded IFC is meant as a **reference for reproduction**:
+
+1. The user uploads an IFC (plain state, view-only).
+2. The AI reads the model via the MCP server and writes a reproduction script with the aiifc skill.
+3. On the first `PUT /script` the platform preserves the original upload as `bootstrap.ifc`; after sandbox validation, `script/save` stores big version v1 and the model becomes script-backed.
+4. The first save response carries an `alignment` count (`added/removed/changed` — a semantic-diff summary of bootstrap.ifc vs the generated IFC), serving as the acceptance signal for reproduction fidelity.
+
+For the endpoint contract see [Script editing & version diff](/en/reference/design-edit) and the [IFC Editing API](/en/reference/edit-api).

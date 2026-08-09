@@ -6,7 +6,7 @@
 | --- | --- | --- | --- |
 | converter | node:test | 真实 IFC 转换集成（快照、引用完整性、id 一致性） | `cd viewer/converter && npm test` |
 | server | go test | 单元 + httptest API + 并发（`-race`） | `cd viewer/server && go test ./... && go vet ./...` |
-| edit-service | pytest | 编辑 / 版本 / diff 路由 | `cd viewer/edit-service && uv run --group dev pytest` |
+| edit-service | pytest | 脚本编辑（staging/run/save/locate/edit-call）/ 版本 / diff 路由 | `cd viewer/edit-service && uv run --group dev pytest` |
 | web | vitest + jsdom | api client / 组件 / store / hook / 纯函数 | `cd viewer/web && npm test` |
 | 端到端 | bash smoke | 上传→转换→下载→Issue→override/changes 全链路 | `cd viewer && ./scripts/smoke.sh`（需 server 运行） |
 
@@ -29,7 +29,7 @@ cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
 2. 列表状态 `converting → ready`（2s 轮询）；failed 显示错误并可重试。
 3. 进入查看器：模型渲染、轨道旋转/缩放、NavCube 可用。
 4. 模型树：默认展开 1 层；搜索/类型过滤；节点显隐；点击节点相机飞行 + 高亮。
-5. 属性面板：pset 折叠/搜索/复制；白名单字段行内编辑，override 生效并带标记。
+5. 属性面板：pset 折叠/搜索/复制（只读；历史 override 带标记）；script-backed 模型「定位脚本」跳 Design 面板脚本编辑器对应行。
 6. 可见性工具栏：隐藏选中、隔离、X-Ray、重置。
 7. 剖切（X/Y/Z 滑杆）与距离测量。
 8. Issue：选中构件新建（自动截图与相机）→ 3D 钉显示并可点击定位 → 状态流转 → 删除。
@@ -42,7 +42,6 @@ cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
 | 上传后一直 converting | 看 server 日志 converter stderr；手动跑 convert.js 复现；确认 nodeBin/converterScript |
 | 转换 failed | `POST /api/v1/models/{id}/retry` 重试 |
 | 编辑 404 model not found | VIEWER_DATA_DIR 与 dataDir 不同目录 |
-| 编辑 422 | 属性名/类型不符，请求零副作用，修正重发 |
-| commit 409 | 无 pending（pending 已落盘，重启后自动恢复） |
-| 改了属性前端没刷新 | 直连 edit-service 的 commit 不触发重转；走 Go 代理 |
+| 脚本编辑 422 | 契约校验失败或沙箱 build 失败，请求零副作用，按 detail 修正重发 |
+| 改了脚本前端没刷新 | 直连 edit-service 的 run/save 不触发重转；走 Go 代理 |
 | PG 连不上 | 清空 pgDSN 回退文件存储 |
