@@ -58,7 +58,7 @@ AI agent ──► REST 编辑 API ────┘
 
 ## Git 工作流（硬规则）
 
-- 远程 `main` **受保护，禁止直推**。一切改动开分支：`feat/...`、`fix/...`、`docs/...`。
+- 远程 `main` **受保护**：GitHub ruleset 按用户 bypass（owner 已自加）。docs-only 小修（`*.md`、计数/指针/措辞级）允许直推 main；**任何代码变更与大改一律开分支走 PR**（`feat/...`、`fix/...`、`docs/...`）。判断不了大小就走 PR。
 - 用 gh-cli 提 PR：`gh pr create`；CI（ci.yml 8 job + docs.yml 3 job）绿后合并；合并后删本地/远程分支。
 - **PR 节奏（2026-08-07 用户裁决）：一天最多 1 个 PR**——工作项在同一迭代分支上累积，当天收工时一次性提 PR（分支随取随用 `feat/|fix/|docs/<主题>`）；只有 main 红了的 hotfix 才单独提。
 - commit 信息中文、前缀式（`feat(server): ...` / `fix(web): ...` / `docs: ...` / `chore: ...`）。
