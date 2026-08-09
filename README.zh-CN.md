@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-自托管、开源的 **IFC 模型审查与编辑平台**——真改 IFC、语义化版本对比，以及人/AI 双角色共用的编辑 API。
+自托管、开源的 **IFC 模型审查与编辑平台**——script-as-source 编辑（一切修改落在 Python 构建脚本上）、语义化版本对比，以及人/AI 双角色共用的编辑 API。
 
 > **文档站：<https://0702hjj.github.io/AI_IFC/>** ——快速开始、Viewer 使用、开发指南、REST/编辑 API 与 AI 接入。
 
@@ -10,7 +10,7 @@
 
 | | |
 |---|---|
-| **真实编辑 IFC** | override → pending → commit 两阶段真改 IFC，每次 commit 生成不可变版本快照。 |
+| **脚本即事实源编辑** | Python 构建脚本是 IFC 唯一事实源；web 端修改统一为改脚本（定位调用点 → PARAMS/libcst 改写 → 沙箱验证 → 暂存），每次保存生成不可变大版本（脚本 + ScriptMap 成对快照）。 |
 | **语义版本对比** | 按 GlobalId 的属性级 diff（新增/删除/修改），Diff Viewer 展示 old → new 明细，无几何噪声。 |
 | **一套 API，双角色** | 人与 AI 共用同一套 REST 编辑 API（人走 Go 代理，AI 直连并标记 `provenance.source="AI"`）。 |
 | **AI 建模 skill** | agent 无关的 `aiifc` skill，让 AI 用自然语言驱动 `ifcopenshell.api` 代码生成或修改模型。 |
@@ -19,7 +19,7 @@
 ## 功能
 
 - 浏览器上传 IFC，三维审查属性、空间结构、Issue 与 3D 钉。
-- 真实修改 IFC 属性（override → pending → commit），每次 commit 生成不可变版本快照。
+- 修改 = 改构建脚本：查看器中选中构件定位脚本调用点，经 PARAMS 表单或脚本编辑器改写，沙箱验证后暂存；每次保存生成不可变大版本。
 - 按 GlobalId 的属性级语义 diff，在 Diff Viewer 中着色对比。
 - 同一套 REST 编辑 API 开放给人与 AI（AI 直连时 `provenance.source="AI"`）。
 - 附带 AI 建模 skill（`skills/aiifc/`），让 agent 生成或大改 IFC 模型，与 REST 编辑 API 互补。
@@ -28,7 +28,7 @@
 
 ```
 浏览器 (React + xeokit) ──► Go server ──► edit-service (FastAPI + IfcOpenShell)
-                                   │                └─ 真改 IFC + 版本 + diff
+                                   │                └─ 脚本沙箱 + 版本 + diff
                                    ├─► converter (Node, IFC → XKT)
 AI agent ──► REST 编辑 API ────────┘
           └─► aiifc skill（直接写 ifcopenshell.api 代码）
@@ -66,7 +66,7 @@ cd ../web && npm install && npm run dev
 
 | 路径 | 适用 | 入口 |
 |---|---|---|
-| [REST 编辑 API](https://0702hjj.github.io/AI_IFC/reference/ai) | 细粒度属性/属性集编辑，pending → commit，带版本与 diff | `:8100/models/{id}/...` |
+| [REST 编辑 API](https://0702hjj.github.io/AI_IFC/reference/ai) | script-as-source 编辑：暂存/试运行/保存构建脚本，按 guid 定位调用点，libcst 标量改写（edit-call），带版本与 diff | `:8100/models/{id}/...` |
 | [AI Skill (aiifc)](https://0702hjj.github.io/AI_IFC/reference/ai-skill) | 从零建模型 / 大改几何 | `skills/aiifc/`——agent 产出完整 Python **构建脚本**（顶层 `PARAMS` + `build()`），脚本与 IFC 一一对应、进版本、可 diff（script-as-source） |
 
 skill 与 agent 无关（opencode、Claude Code、Cursor 等皆可）。打包分发包：

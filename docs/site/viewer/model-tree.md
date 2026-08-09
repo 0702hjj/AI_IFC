@@ -15,7 +15,7 @@
 
 - pset 分组折叠，默认展开第一个。
 - 属性搜索与复制（写入剪贴板）。
-- 白名单字段（Name / Description / Classification / FireRating / Comments）可行内编辑，保存为 override 并带修改标记，见 [IFC 属性编辑](/viewer/editing)。
+- 属性只读展示；历史 override 以只读标记显示。script-backed 模型可点「定位脚本」跳到脚本调用行，见 [IFC 脚本编辑](/viewer/editing)。
 
 ## 技术说明
 

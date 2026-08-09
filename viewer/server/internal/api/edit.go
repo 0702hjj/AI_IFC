@@ -29,15 +29,14 @@ const (
 )
 
 func (h *handler) registerEditRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("PUT /api/v1/models/{id}/edit/entities/{guid}", h.editPutEntity)
-	mux.HandleFunc("GET /api/v1/models/{id}/edit/entities/{guid}/editable-schema", h.editGetEditableSchema)
-	mux.HandleFunc("DELETE /api/v1/models/{id}/edit/entities/{guid}", h.editDeleteEntity)
+	// L1 直改代理（PUT/DELETE entities、editable-schema、commit）已随
+	// script-as-source 退役：edit-service 侧 410，Go 侧路由不再注册（404）。
+	// 保留只读/pending 存量/diff 代理；overrides/migrate 依赖已退役端点，待后续清理。
 	mux.HandleFunc("GET /api/v1/models/{id}/edit/pending", h.editGetPending)
 	mux.HandleFunc("DELETE /api/v1/models/{id}/edit/pending", h.editDeletePending)
 	mux.HandleFunc("GET /api/v1/models/{id}/edit/history", h.editHistory)
 	mux.HandleFunc("GET /api/v1/models/{id}/edit/versions", h.editVersions)
 	mux.HandleFunc("POST /api/v1/models/{id}/edit/diff", h.editDiff)
-	mux.HandleFunc("POST /api/v1/models/{id}/edit/commit", h.editCommit)
 	mux.HandleFunc("POST /api/v1/models/{id}/overrides/migrate", h.migrateOverrides)
 }
 
@@ -68,81 +67,6 @@ func readBody(w http.ResponseWriter, r *http.Request) []byte {
 		return nil
 	}
 	return data
-}
-
-// provenanceSource 从请求体取 provenance.source（缺省 UI）并过 ValidSource。
-func provenanceSource(body []byte) (string, error) {
-	var in struct {
-		Provenance *change.Provenance `json:"provenance"`
-	}
-	if len(body) > 0 {
-		if err := json.Unmarshal(body, &in); err != nil {
-			return "", err
-		}
-	}
-	source := "UI"
-	if in.Provenance != nil && in.Provenance.Source != "" {
-		source = in.Provenance.Source
-	}
-	if !change.ValidSource(source) {
-		return "", fmt.Errorf("provenance.source must be UI, AI or USER")
-	}
-	return source, nil
-}
-
-func (h *handler) editPutEntity(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	body := readBody(w, r)
-	if body == nil {
-		return
-	}
-	if _, err := provenanceSource(body); err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
-		return
-	}
-	data, err := h.ed.PutEntity(r.Context(), m.ID, r.PathValue("guid"), body)
-	if err != nil {
-		writeEditErr(w, err)
-		return
-	}
-	writeJSON(w, json.RawMessage(data))
-}
-
-func (h *handler) editGetEditableSchema(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	data, err := h.ed.GetEditableSchema(r.Context(), m.ID, r.PathValue("guid"))
-	if err != nil {
-		writeEditErr(w, err)
-		return
-	}
-	writeJSON(w, json.RawMessage(data))
-}
-
-func (h *handler) editDeleteEntity(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	body := readBody(w, r)
-	if body == nil {
-		return
-	}
-	if _, err := provenanceSource(body); err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
-		return
-	}
-	data, err := h.ed.DeleteEntity(r.Context(), m.ID, r.PathValue("guid"), body)
-	if err != nil {
-		writeEditErr(w, err)
-		return
-	}
-	writeJSON(w, json.RawMessage(data))
 }
 
 func (h *handler) editGetPending(w http.ResponseWriter, r *http.Request) {
@@ -267,29 +191,8 @@ func versionNum(v string) int {
 	return n
 }
 
-func (h *handler) editCommit(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	body := readBody(w, r)
-	if body == nil {
-		return
-	}
-	if _, err := provenanceSource(body); err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "provenance.source must be UI, AI or USER")
-		return
-	}
-	resp, err := commitOrchestrate(r.Context(), h.ed, h.st, h.chg, h.q, m.ID)
-	if err != nil {
-		writeEditErr(w, err)
-		return
-	}
-	writeJSON(w, resp)
-}
-
 // commitOrchestrate 执行 Python commit 及 Go 侧编排：commit → change log（含 diff 补充）
-// → 置 converting → 入队重转。editCommit handler 与 chat 模块（AI 三连）共用。
+// → 置 converting → 入队重转。现仅 chat 模块（AI 三连）使用（直改代理已退役）。
 // 策略：Python commit 成功后一律排重转；change log 写失败仅降级为响应 warning。
 // Python commit 不带 body（operation 默认 update；author/provenance 随 PUT 流入 pending）。
 func commitOrchestrate(ctx context.Context, ed *editsvc.Client, st *store.Store, chg change.Store, q *convert.Queue, modelID string) (map[string]any, error) {

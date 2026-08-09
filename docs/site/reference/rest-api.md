@@ -102,7 +102,7 @@ JSON body：`{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"备�
 
 ## 编辑代理端点
 
-Go server 把 edit-service 的端点暴露在 `/api/v1/models/{id}/edit/...` 前缀下（编排：commit 后写 change log、用 IfcDiff 补充 diff、排队重转 XKT）。完整契约见 [IFC 编辑 API](/reference/edit-api)。
+Go server 把 edit-service 的脚本编辑端点暴露在 `/api/v1/models/{id}/script/...` 前缀下（编排：run/save/rollback 成功后排队重转 XKT）；只读/对比端点保留在 `/api/v1/models/{id}/edit/...` 前缀下（`edit/diff`、`edit/pending`、`edit/history`、`edit/versions`）。直改代理路由（`edit/entities/{guid}`、`edit/commit`）已随 L1 直改退役删除。完整契约见 [IFC 编辑 API](/reference/edit-api)。
 
 ## 静态资源（直挂，不走 JSON 信封）
 

@@ -13,7 +13,7 @@ import ifcopenshell
 import ifcopenshell.api.root
 from fastapi.testclient import TestClient
 
-from conftest import FIXTURE_IFC, MODEL_ID
+from conftest import MODEL_ID
 
 WALL_GUID = "3ZYW59sxj8lei475l7EhLU"
 WALL_NAME = "Wall for Test Example"
@@ -23,36 +23,29 @@ def _versions_dir(data_dir: Path) -> Path:
     return data_dir / "models" / MODEL_ID / "versions"
 
 
-def _rename_wall_and_commit(client: TestClient, name: str) -> None:
-    client.put(
-        f"/models/{MODEL_ID}/entities/{WALL_GUID}",
-        json={"fields": {"Name": name}},
-    )
-    resp = client.post(f"/models/{MODEL_ID}/commit")
-    assert resp.status_code == 200
+def _write_rename_versions(data_dir: Path, name: str, *, update_current: bool = False) -> None:
+    """Write v1 = original upload, v2 = wall renamed (snapshots written directly).
+
+    The commit endpoint is retired (410); version fixtures are written to
+    ``versions/`` by hand instead.
+    """
+    versions = _versions_dir(data_dir)
+    versions.mkdir(parents=True, exist_ok=True)
+    uploads = data_dir / "uploads" / f"{MODEL_ID}.ifc"
+    shutil.copy(uploads, versions / "v1.ifc")
+    model = ifcopenshell.open(str(uploads))
+    model.by_guid(WALL_GUID).Name = name
+    model.write(str(versions / "v2.ifc"))
+    if update_current:
+        model.write(str(uploads))
 
 
-def test_commit_creates_version_snapshots(client: TestClient, data_dir: Path) -> None:
-    _rename_wall_and_commit(client, "新名字")
-    v1 = _versions_dir(data_dir) / "v1.ifc"
-    v2 = _versions_dir(data_dir) / "v2.ifc"
-    assert v1.is_file() and v2.is_file()
-    assert v1.read_bytes() == FIXTURE_IFC.read_bytes()
-    assert ifcopenshell.open(str(v2)).by_guid(WALL_GUID).Name == "新名字"
-
-    _rename_wall_and_commit(client, "又一次")
-    v3 = _versions_dir(data_dir) / "v3.ifc"
-    assert v3.is_file()
-    assert ifcopenshell.open(str(v3)).by_guid(WALL_GUID).Name == "又一次"
-    assert v1.read_bytes() == FIXTURE_IFC.read_bytes()
-
-
-def test_get_versions_lists_snapshots_and_current(client: TestClient) -> None:
+def test_get_versions_lists_snapshots_and_current(client: TestClient, data_dir: Path) -> None:
     resp = client.get(f"/models/{MODEL_ID}/versions")
     assert resp.status_code == 200
     assert resp.json() == {"versions": [], "current": None}
 
-    _rename_wall_and_commit(client, "新名字")
+    _write_rename_versions(data_dir, "新名字")
     payload = client.get(f"/models/{MODEL_ID}/versions").json()
     assert [v["version"] for v in payload["versions"]] == ["v1", "v2"]
     assert payload["current"] == "v2"
@@ -63,8 +56,8 @@ def test_get_versions_missing_model_returns_404(client: TestClient) -> None:
     assert client.get("/models/m_ffffffffffffffff/versions").status_code == 404
 
 
-def test_diff_attribute_change(client: TestClient) -> None:
-    _rename_wall_and_commit(client, "新名字")
+def test_diff_attribute_change(client: TestClient, data_dir: Path) -> None:
+    _write_rename_versions(data_dir, "新名字")
     resp = client.post(
         f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"}
     )
@@ -113,8 +106,8 @@ def test_diff_added_and_removed_by_guid(client: TestClient, data_dir: Path) -> N
     assert payload["removed"] == [removed_guid]
 
 
-def test_diff_excludes_geometry_noise(client: TestClient) -> None:
-    _rename_wall_and_commit(client, "新名字")
+def test_diff_excludes_geometry_noise(client: TestClient, data_dir: Path) -> None:
+    _write_rename_versions(data_dir, "新名字")
     payload = client.post(
         f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"}
     ).json()
@@ -126,7 +119,7 @@ def test_diff_excludes_geometry_noise(client: TestClient) -> None:
 
 
 def test_diff_target_current_and_no_cache(client: TestClient, data_dir: Path) -> None:
-    _rename_wall_and_commit(client, "新名字")
+    _write_rename_versions(data_dir, "新名字", update_current=True)
     resp = client.post(
         f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "current"}
     )
@@ -138,7 +131,7 @@ def test_diff_target_current_and_no_cache(client: TestClient, data_dir: Path) ->
 
 
 def test_diff_result_cached(client: TestClient, data_dir: Path) -> None:
-    _rename_wall_and_commit(client, "新名字")
+    _write_rename_versions(data_dir, "新名字")
     first = client.post(
         f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"}
     ).json()
@@ -156,8 +149,8 @@ def test_diff_result_cached(client: TestClient, data_dir: Path) -> None:
     assert second["changed"] == first["changed"]
 
 
-def test_diff_unknown_version_returns_404(client: TestClient) -> None:
-    _rename_wall_and_commit(client, "新名字")
+def test_diff_unknown_version_returns_404(client: TestClient, data_dir: Path) -> None:
+    _write_rename_versions(data_dir, "新名字")
     for body in ({"base": "v9", "target": "v2"}, {"base": "v1", "target": "v9"}):
         resp = client.post(f"/models/{MODEL_ID}/diff", json=body)
         assert resp.status_code == 404, body

@@ -19,6 +19,7 @@
 - MCP server：编辑 API 的 MCP 薄封装（stdio，解析用户改后 IFC/DXF 并标 USER 来源）。
 - 属性真改直通：属性编辑不再有 override 中间层，直接走 pending → commit 真改闭环。
 - ChatSidebar 修复：AI 对话侧栏问题修复。
+- Script-as-source 统一编辑（2026-08-08 迭代）：web 修改 = 改构建脚本——选中构件定位脚本调用点（ScriptMap，guid→designKey→行/列/origin）、PARAMS 表单 / libcst 标量改写（edit-call）+ 沙箱验证、上传 IFC 经 AI 复现为脚本（bootstrap.ifc 保留 + save 响应对齐计数）；L1 直改链路退役（410，回捞锚点 fb55a8a）；IFC 只物化最新大版本、历史按需重建（ifc_cache LRU 4）。
 
 ## 近期
 
@@ -30,8 +31,9 @@
 
 - **双语扩展（后续）**：其余页面（Viewer 使用、开发指南细节、项目组）的英文版本。
 - **API 自动生成（后续）**：edit-service 的"代码 vs schema"漂移检测；Go server 请求/响应 schema 的完整自动生成。
-- 几何 diff；增量重转；diff 超时控制。
-- 前端参数化编辑增强（脚本 PARAMS 表单与脚本编辑器体验）；计划 → 2D DXF → IFC 完整工作流。
+- **几何 diff**；增量重转；diff 超时控制。
+- **前端参数化编辑增强**：edit-call 的 UI 化（属性面板内直接改标量参数，无需进脚本编辑器）；bootstrap 对齐报告的可视化。
+- 计划 → 2D DXF → IFC 完整工作流。
 
 ## v1 范围外
 

@@ -28,6 +28,8 @@ afterwards. A successful run publishes ``out.ifc`` atomically (tmp +
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import os
 import shutil
@@ -49,6 +51,15 @@ MAX_PROCS = 256  # RLIMIT_NPROC：防 fork 炸弹
 STDERR_TAIL_BYTES = 2048
 
 _BACKEND: Optional[str] = None
+
+
+def script_hash(script_text: str) -> str:
+    """sha256 hex of the exact script text — ScriptMap 信封的绑定键。
+
+    发布侧（run_script）把它写进 map 信封；消费侧（locate/edit-call）用它
+    比对 staging 当前脚本，不一致即视为 map 过期（行号不可信）。
+    """
+    return hashlib.sha256(script_text.encode("utf-8")).hexdigest()
 
 
 def _limits(nproc: int) -> None:
@@ -170,9 +181,15 @@ def run_script(
     script_text: str,
     out_path: str,
     *,
+    map_out: Optional[str] = None,
     timeout: int = RUN_TIMEOUT_S,
 ) -> None:
     """Validate + execute script_text, publishing the IFC to out_path.
+
+    The ScriptMap sidecar (``out.ifc.map.json`` from the sandbox) is published
+    atomically alongside — wrapped in a ``{"scriptHash", "map"}`` envelope that
+    binds the map to the exact script text — to ``map_out`` when given, else
+    next to out_path.
 
     Raises HTTPException(422) on contract violations, timeouts, non-zero
     exits, or a missing/empty product; nothing is written to out_path then.
@@ -230,3 +247,37 @@ def run_script(
         dest_tmp = out_path + ".tmp"
         shutil.copyfile(tmp_out, dest_tmp)
         os.replace(dest_tmp, out_path)
+
+        # ScriptMap sidecar 随产物一并原子发布；本次无 sidecar 时清掉旧文件，
+        # 防止上一轮留下的 map 与新产物错位。发布为信封
+        # {"scriptHash": sha256(script_text), "map": {...}}——map 行号只对生成
+        # 它的那份脚本有效，消费侧按哈希比对 staging 以拒绝过期定位。
+        tmp_map = tmp_out + ".map.json"
+        map_dest = map_out if map_out is not None else out_path + ".map.json"
+        if os.path.isfile(tmp_map):
+            try:
+                with open(tmp_map, encoding="utf-8") as fh:
+                    entries = json.load(fh)
+            except (OSError, ValueError):
+                raise HTTPException(
+                    status_code=422,
+                    detail="脚本产出的 map sidecar 不是合法 JSON",
+                )
+            if not isinstance(entries, dict):
+                raise HTTPException(
+                    status_code=422,
+                    detail="脚本产出的 map sidecar 不是合法 JSON",
+                )
+            envelope = json.dumps(
+                {"scriptHash": script_hash(script_text), "map": entries},
+                ensure_ascii=False,
+            )
+            dest_dir = os.path.dirname(map_dest)
+            if dest_dir:
+                os.makedirs(dest_dir, exist_ok=True)
+            map_tmp = map_dest + ".tmp"
+            with open(map_tmp, "w", encoding="utf-8") as fh:
+                fh.write(envelope)
+            os.replace(map_tmp, map_dest)
+        elif os.path.exists(map_dest):
+            os.remove(map_dest)

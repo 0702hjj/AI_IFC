@@ -11,8 +11,10 @@ so a service restart no longer loses uncommitted edits.
 
 Entries restored from disk (or whose in-memory model was LRU-evicted) are
 flagged via ``needs_replay``: their IFC modifications only ever existed in
-memory, so a model re-opened from disk must replay them before commit (see
-``routes_edits._ensure_replayed``).
+memory, so a model re-opened from disk no longer reflects them. The replay
+consumer (pending→commit true edit) is retired (410, script-as-source);
+the flagging itself stays as script-run/LRU bookkeeping (W-0009, see
+``routes_scripts._run_into_uploads``).
 """
 
 from __future__ import annotations

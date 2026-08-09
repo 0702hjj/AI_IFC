@@ -19,7 +19,7 @@ node convert.js <input.ifc> <outDir>
 
 - `lib/metadata.js` 用 web-ifc 遍历空间结构；`metaObject id = IFC GlobalId`（fallback `e<expressID>`）；pset 合成 id `pset_<expressID>_<n>`。
 - convert.js 内置校验：XKT 实体 id 与 metaModel id 必须一致，不一致直接报错退出。
-- 重转触发：上传、retry、commit 编排、override 迁移（经 Go 队列；对运行中的同 id 任务做 dirty 重跑，保证最新内容最终被转换）。
+- 重转触发：上传、retry、script run/save/rollback 编排（经 Go 队列；对运行中的同 id 任务做 dirty 重跑，保证最新内容最终被转换）。
 
 ## 测试
 

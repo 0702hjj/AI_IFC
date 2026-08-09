@@ -4,6 +4,14 @@
 
 ## 未发布（v0.2 进行中）
 
+**Script-as-source 统一编辑（web 修改 = 改脚本）**
+
+- 选中构件定位脚本调用点：`GET /script/locate?guid=`（guid→designKey→行/列/snippet/origin），PropertyPanel 只读化 + 「定位脚本」跳 Design 面板脚本编辑器。
+- 新增 `POST /script/edit-call`（edit-service 直连）：libcst 标量参数无损重写 + 沙箱验证 + 暂存；契约新增 C-locate（#30，构件必经 `create_entity` 工厂）与 C-scalar（#31，web 可编辑参数为标量/PARAMS 引用）。
+- 大版本三件成对：`scripts/v{n}.py` + `v{n}.map.json` 全量保留、lockstep 编号；`versions/v{n}.ifc` 只物化最新，历史版本按需从脚本重建（`ifc_cache/` LRU 4）。
+- bootstrap：plain 模型首次暂存脚本自动保留上传原件为 `bootstrap.ifc`；首次 save 响应带 `alignment` 对齐计数。
+- **L1 直改链路退役（410 Gone）**：`PUT/DELETE /entities/{guid}`、`editable-schema`、`POST /commit` 及 Go 侧直改代理路由下线（回捞锚点 `fb55a8a`）；`POST /diff`（IFC 语义 diff）与 `POST /diff/upload` 保留。
+
 **Script-as-source（M5）**
 
 - Python 构建脚本成为 IFC 唯一事实源：脚本契约（PARAMS + 确定性 GlobalId + build 入口）、脚本沙箱执行、WPS 式脚本暂存 + 大版本成对快照（`scripts/v{n}.py` + `versions/v{n}.ifc`）。

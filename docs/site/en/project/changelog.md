@@ -4,6 +4,14 @@ Major changes per release. Full history in the [GitHub commit log](https://githu
 
 ## Unreleased (v0.2 in progress)
 
+**Script-as-source unified editing (web edit = edit the script)**
+
+- Locate an element's script callsite: `GET /script/locate?guid=` (guid→designKey→line/col/snippet/origin); PropertyPanel is read-only with a "Locate script" jump into the Design panel's script editor.
+- New `POST /script/edit-call` (edit-service direct): lossless libcst scalar-argument rewrite + sandbox validation + staging; new contract clauses C-locate (#30, elements via the `create_entity` factory) and C-scalar (#31, web-editable parameters are scalars/PARAMS references).
+- Big versions as a lockstep trio: `scripts/v{n}.py` + `v{n}.map.json` kept in full; `versions/v{n}.ifc` materializes only the latest, history rebuilt on demand (`ifc_cache/` LRU 4).
+- Bootstrap: the first script staging on a plain model preserves the original upload as `bootstrap.ifc`; the first save response carries an `alignment` count.
+- **L1 direct-edit chain retired (410 Gone)**: `PUT/DELETE /entities/{guid}`, `editable-schema`, `POST /commit` and the Go-side direct-edit proxy routes are gone (recovery anchor `fb55a8a`); `POST /diff` (IFC semantic diff) and `POST /diff/upload` are kept.
+
 **Script-as-source (M5)**
 
 - Python build scripts became the single source of truth for IFC: script contract (PARAMS + deterministic GlobalIds + build entry), sandboxed script execution, WPS-style script staging + paired major-version snapshots (`scripts/v{n}.py` + `versions/v{n}.ifc`).

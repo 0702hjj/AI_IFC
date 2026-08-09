@@ -9,6 +9,7 @@ dependencies = [
     "uvicorn[standard]>=0.30",
     "ifcopenshell>=0.8",
     "ifcdiff>=0.8",
+    "libcst>=1.5",
     "python-multipart>=0.0.9",
 ]
 

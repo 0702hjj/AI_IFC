@@ -63,7 +63,12 @@ export function DesignPanel({ modelId }: { modelId: string }) {
   const [editorText, setEditorText] = useState("");
   const [stagingDiff, setStagingDiff] = useState<ScriptDiffResponse | null>(null);
   const [bigDiff, setBigDiff] = useState<ScriptDiffResponse | null>(null);
+  const [pendingJump, setPendingJump] = useState<number | null>(null);
   const gutterRef = useRef<HTMLPreElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const scriptJump = useViewerStore((s) => s.scriptJump);
+  const clearScriptJump = useViewerStore((s) => s.clearScriptJump);
 
   const fields = useMemo<ParamField[]>(() => (params ? flattenParams(params) : []), [params]);
 
@@ -96,6 +101,31 @@ export function DesignPanel({ modelId }: { modelId: string }) {
   useEffect(() => {
     if (mode === "editor" && state) setEditorText(state.script);
   }, [mode, state]);
+
+  // 定位脚本：store.scriptJump → 切编辑器态，pendingJump 在 textarea 挂载后落光标
+  useEffect(() => {
+    if (!scriptJump || !state) return;
+    setPendingJump(scriptJump.line);
+    setMode("editor");
+    setEditorText(state.script);
+    clearScriptJump();
+  }, [scriptJump, state, clearScriptJump]);
+
+  useEffect(() => {
+    if (pendingJump == null || mode !== "editor") return;
+    const el = textareaRef.current;
+    if (!el) return;
+    const lines = editorText.split("\n");
+    const line = Math.min(Math.max(pendingJump, 1), lines.length);
+    let start = 0;
+    for (let i = 0; i < line - 1; i++) start += lines[i].length + 1;
+    el.focus();
+    el.setSelectionRange(start, start + lines[line - 1].length);
+    const lh = parseFloat(getComputedStyle(el).lineHeight) || 18;
+    el.scrollTop = Math.max(0, (line - 1) * lh - el.clientHeight / 2);
+    if (gutterRef.current) gutterRef.current.scrollTop = el.scrollTop;
+    setPendingJump(null);
+  }, [pendingJump, mode, editorText]);
 
   const run = async (fn: () => Promise<unknown>, reloadModel = false) => {
     setBusy(true);
@@ -192,6 +222,7 @@ export function DesignPanel({ modelId }: { modelId: string }) {
               aria-label="脚本编辑器文本"
               className="script-textarea"
               spellCheck={false}
+              ref={textareaRef}
               value={editorText}
               onChange={(e) => setEditorText(e.target.value)}
               onScroll={(e) => {

@@ -15,8 +15,8 @@ hero:
 
 features:
   - icon: ✏️
-    title: 真改 IFC
-    details: 属性编辑直接走 pending → commit 两阶段真改 IFC 文件，每次 commit 生成不可变版本快照。
+    title: 脚本编辑
+    details: web 修改统一为改构建脚本：选中构件定位脚本调用点，PARAMS 表单或脚本编辑器改写，沙箱验证后暂存，保存即不可变大版本。
   - icon: 🔍
     title: 语义版本 diff
     details: 按 GlobalId 的属性级 diff：新增/删除/修改着色与 old → new 明细，不带几何噪声。
@@ -36,9 +36,9 @@ features:
 
 ## 什么是 AI_IFC
 
-AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平台：在浏览器里三维审查模型、对构件提 Issue、真实修改 IFC 属性并生成版本快照，再用语义 diff 对比版本变化。人与 AI agent 通过同一套 API 完成编辑，AI 还可以借助 aiifc skill 直接写 IfcOpenShell 代码生成模型。
+AI_IFC 是一个 IFC（Industry Foundation Classes）模型的审查与编辑平台：在浏览器里三维审查模型、对构件提 Issue、以构建脚本为事实源做编辑并生成版本快照，再用语义 diff 对比版本变化。人与 AI agent 通过同一套 API 完成编辑，AI 还可以借助 aiifc skill 直接写 IfcOpenShell 代码生成模型。
 
-典型工作流：上传 IFC → 转换完成后三维审查 → 对构件提 Issue → 编辑属性 → commit 生成版本 → 用 Diff 对比版本变化。定位与四组件架构详见 [项目介绍](/guide/project-intro)。
+典型工作流：上传 IFC → 转换完成后三维审查 → 对构件提 Issue → 选中构件定位脚本、改 PARAMS/脚本 → 沙箱验证后保存大版本 → 用 Diff 对比版本变化。定位与四组件架构详见 [项目介绍](/guide/project-intro)。
 
 ## 界面截图
 

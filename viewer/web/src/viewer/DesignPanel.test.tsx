@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 import { useViewerStore } from "./store";
 
 const api = vi.hoisted(() => ({
@@ -71,7 +71,7 @@ function setup(opts?: {
   paramsError?: Error;
 }) {
   vi.clearAllMocks();
-  useViewerStore.setState({ pendingModelReload: false });
+  useViewerStore.setState({ pendingModelReload: false, scriptJump: null });
   if (opts?.scriptError) api.fetchScript.mockRejectedValue(opts.scriptError);
   else api.fetchScript.mockResolvedValue(opts?.state ?? scriptState);
   if (opts?.paramsError) api.fetchScriptParams.mockRejectedValue(opts.paramsError);
@@ -243,6 +243,29 @@ describe("DesignPanel diff 视图", () => {
     await waitFor(() => expect(api.postScriptDiff).toHaveBeenCalledWith("m_1", "v1", "v2"));
     expect((await screen.findByTestId("big-diff-text")).textContent).toContain("@@ v1 -> v2 @@");
     expect(screen.getByText(/name: "a" → "b"/)).toBeTruthy();
+  });
+});
+
+describe("DesignPanel script jump（定位脚本）", () => {
+  it("store scriptJump switches to the editor and selects the located line", async () => {
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("暂存 2/10");
+    act(() => useViewerStore.getState().requestScriptJump({ line: 2, origin: "params" }));
+    const ta = (await screen.findByLabelText("脚本编辑器文本")) as HTMLTextAreaElement;
+    // scriptText 第 2 行 '    "wall_t": 0.2,' 起始于偏移 11（'PARAMS = {\n' 长度）
+    await waitFor(() => expect(ta.selectionStart).toBe(11));
+    expect(ta.selectionEnd).toBe(11 + '    "wall_t": 0.2,'.length);
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+  });
+
+  it("clamps an out-of-range line to the script end", async () => {
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("暂存 2/10");
+    act(() => useViewerStore.getState().requestScriptJump({ line: 999 }));
+    const ta = (await screen.findByLabelText("脚本编辑器文本")) as HTMLTextAreaElement;
+    await waitFor(() => expect(ta.selectionStart).toBeGreaterThan(0));
+    // 超界收敛到末行（trailing \n 产生的空行）：偏移 = 11 + 18 + 1 + 1 + 1 = 32
+    expect(ta.selectionStart).toBe(32);
   });
 });
 

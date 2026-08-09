@@ -2,7 +2,7 @@
 
 [中文说明](README.zh-CN.md)
 
-A self-hosted, open-source **BIM review and editing platform** for IFC models — real IFC modification, semantic version diffing, and an AI-ready editing API shared by humans and agents.
+A self-hosted, open-source **BIM review and editing platform** for IFC models — script-as-source editing (every edit rewrites the Python build script), semantic version diffing, and an AI-ready editing API shared by humans and agents.
 
 > **Documentation: [https://0702hjj.github.io/AI_IFC/](https://0702hjj.github.io/AI_IFC/)** — quick start, viewer usage, development guide, REST/editing API and AI integration.
 
@@ -10,7 +10,7 @@ A self-hosted, open-source **BIM review and editing platform** for IFC models �
 
 | | |
 |---|---|
-| **Real IFC editing** | Override → pending → commit two-stage editing that genuinely rewrites the IFC file; an immutable version snapshot per commit. |
+| **Script-as-source editing** | The Python build script is the single source of truth; every web edit rewrites the script (locate callsite → PARAMS/libcst rewrite → sandbox-validated → staged), and each save snapshots script + ScriptMap as an immutable big version. |
 | **Semantic version diff** | Attribute-level diff keyed by GlobalId (added / removed / changed), rendered in the Diff Viewer with old → new detail — no geometry noise. |
 | **One API, two roles** | The same REST editing API for humans (via the Go server) and AI agents (direct, with `provenance.source="AI"`). |
 | **AI authoring skill** | An agent-agnostic `aiifc` skill lets AI write `ifcopenshell.api` code to build or modify models from natural language. |
@@ -19,7 +19,7 @@ A self-hosted, open-source **BIM review and editing platform** for IFC models �
 ## What it does
 
 - Upload IFC in the browser; review properties, spatial structure, issues and 3D pins.
-- Really edit IFC attributes (override → pending → commit), with immutable version snapshots per commit.
+- Edit by editing the build script: locate an element's callsite from the viewer, change it via the PARAMS form or script editor, sandbox-validated and staged; each save produces an immutable big version.
 - Compare versions with attribute-level semantic diffs (by GlobalId), rendered in the Diff Viewer.
 - Expose the same REST editing API to humans (via the Go server) and AI agents (direct, with `provenance.source="AI"`).
 - Ship an AI authoring skill (`skills/aiifc/`) so agents can generate or heavily modify IFC models, complementing the REST editing API.
@@ -28,7 +28,7 @@ A self-hosted, open-source **BIM review and editing platform** for IFC models �
 
 ```
 Browser (React + xeokit) ──► Go server ──► edit-service (FastAPI + IfcOpenShell)
-                                  │                └─ IFC true-edit + version + diff
+                                  │                └─ script sandbox + versions + diff
                                   ├─► converter (Node, IFC → XKT)
 AI agent ──► REST editing API ────┘
           └─► aiifc skill (write ifcopenshell.api code directly)
@@ -66,7 +66,7 @@ Open http://localhost:5173 and upload `viewer/converter/test/fixtures/wall-with-
 
 | Route | For | Entry |
 |---|---|---|
-| [REST editing API](https://0702hjj.github.io/AI_IFC/reference/ai) | Fine-grained attribute / pset edits with pending → commit, version and diff | `:8100/models/{id}/...` |
+| [REST editing API](https://0702hjj.github.io/AI_IFC/reference/ai) | Script-as-source edits: stage/run/save build scripts, locate callsites by guid, libcst scalar rewrite (edit-call), version and diff | `:8100/models/{id}/...` |
 | [AI Skill (aiifc)](https://0702hjj.github.io/AI_IFC/reference/ai-skill) | Building models from scratch / large geometry changes | `skills/aiifc/` — the agent writes a complete Python **build script** (top-level `PARAMS` + `build()`); the script is the single source of truth that maps one-to-one to the IFC, and is versioned and diffed (script-as-source) |
 
 The skill is agent-agnostic (opencode, Claude Code, Cursor, …). Bundle it with:

@@ -46,10 +46,10 @@ uv pip install -r skills/aiifc/requirements.txt
 
 | Route | Use case | Entry |
 |---|---|---|
-| **REST editing API** | Edit attributes / psets of an existing model; pending → commit; version snapshots & diff | `:8100/models/{id}/...` (see [AI Integration](/en/reference/ai)) |
-| **aiifc skill** | Build from scratch / large geometry changes; produce a complete IFC file | agent writes Python directly (`ifcopenshell.api`) |
+| **REST editing API** | Targeted edits on an existing script (PARAMS staging / edit-call scalar rewrite); versions & diffs | `:8100/models/{id}/...` (see [AI Integration](/en/reference/ai)) |
+| **aiifc skill** | Build from scratch / large geometry changes / reproduce an uploaded IFC (bootstrap); produce a contract-conforming build script | agent writes Python directly (`ifcopenshell.api`) |
 
-They complement each other: the skill handles "generate / big-edit", the platform's commit / version / XKT-reconversion chain handles "persist & track".
+They complement each other: the skill handles "generate / big-edit", the platform's sandbox / version / XKT-reconversion chain handles "persist & track".
 
 ## Packaging & distribution
 

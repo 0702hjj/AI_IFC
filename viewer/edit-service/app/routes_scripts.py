@@ -21,6 +21,14 @@ The build script is the single source of truth for generated models:
 - ``GET  /models/{id}/scripts`` — list big versions.
 - ``POST /models/{id}/script/rollback`` — restore a big version's script
   into staging, re-run it into uploads.
+- ``GET  /models/{id}/script/locate?guid=...`` — guid → designKey →
+  CallSite (from ``models/{id}/current.map.json``). The map is a
+  ``{"scriptHash", "map"}`` envelope bound to the script that produced it;
+  when staging diverges (un-run edits, undo/redo) locate degrades to
+  ``{"found": false, "stale": true}`` instead of jumping to a stale line.
+- ``POST /models/{id}/script/edit-call`` — libcst scalar-argument rewrite at
+  a located callsite; sandbox-validated, staged on success (Task 4). Fails
+  closed with 409 when the map is stale relative to staging.
 
 All mutating endpoints hold the per-model lock (keyed by the uploads path,
 shared with entity edits) — the retired design routes lacked this and could
@@ -29,14 +37,20 @@ lose versions under concurrent saves.
 
 from __future__ import annotations
 
+import json
+import logging
 import os
+import shutil
 from typing import Any, Dict, Optional
 
+import ifcopenshell.util.element
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from . import (
+    diffing,
     script_diff,
+    script_edit,
     script_params,
     script_runner,
     script_staging,
@@ -44,9 +58,12 @@ from . import (
     versions,
 )
 
+from .route_common import MODEL_ID_PATTERN, model_lock, model_upload_path
+
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
 
-MODEL_ID_PATTERN = r"^m_[0-9a-f]{16}$"
 VERSION_NAME_PATTERN = r"^v\d+$"
 
 
@@ -77,25 +94,68 @@ class ScriptDiffBody(BaseModel):
     target: str = Field(..., pattern=VERSION_NAME_PATTERN)
 
 
-def _upload_path(request: Request, model_id: str) -> str:
-    path = os.path.join(
-        request.app.state.settings.data_dir, "uploads", f"{model_id}.ifc"
-    )
-    if not os.path.isfile(path):
-        raise HTTPException(status_code=404, detail="model not found")
-    return path
+class EditCallBody(BaseModel):
+    """Body of POST /models/{id}/script/edit-call: scalar argument rewrite."""
+
+    designKey: str
+    argument: str
+    value: Any  # 服务端强校验为标量（str/int/float/bool）
 
 
-def _lock(request: Request, model_id: str):
-    """Per-model lock keyed by the uploads path (shared with entity edits)."""
-    path = os.path.join(
-        request.app.state.settings.data_dir, "uploads", f"{model_id}.ifc"
-    )
-    return request.app.state.registry.lock(path)
+def verify_script_body(body: ScriptBody) -> None:
+    """stage_script 请求规则：script / params 恰好二选一。"""
+    if (body.script is None) == (body.params is None):
+        raise HTTPException(
+            status_code=422, detail="exactly one of script / params required"
+        )
+
+
+def verify_params_target(staging: script_staging.ScriptStaging) -> str:
+    """params 改写前置条件：必须存在当前脚本（满足则返回它）。"""
+    current = staging.current()
+    if current is None:
+        raise HTTPException(status_code=409, detail="no script to update params on")
+    return current
+
+
+def verify_script_contract(request: Request, text: str) -> None:
+    """脚本契约校验：validate_script_text 错误的唯一 HTTP 翻译点。"""
+    errors = script_runner.validate_script_text(request.app.state.settings, text)
+    if errors:
+        raise HTTPException(
+            status_code=422, detail="脚本契约校验失败: " + "; ".join(errors)
+        )
 
 
 def _staging(request: Request, model_id: str) -> script_staging.ScriptStaging:
     return request.app.state.script_staging.get(model_id)
+
+
+def _bootstrap_path(request: Request, model_id: str) -> str:
+    return os.path.join(
+        request.app.state.settings.data_dir, "models", model_id, "bootstrap.ifc"
+    )
+
+
+def _preserve_bootstrap(
+    request: Request, model_id: str, staging: script_staging.ScriptStaging
+) -> None:
+    """plain 态模型首次暂存脚本时，把上传原件原子复制为 bootstrap.ifc（§5.4）。
+
+    必须发生在任何 run 覆盖 uploads 之前；已有大版本或 bootstrap 已存在则跳过
+    （存量 script-backed 模型不补建）。调用方须持有模型锁。
+    """
+    bootstrap = _bootstrap_path(request, model_id)
+    if os.path.exists(bootstrap) or staging.current() is not None:
+        return
+    data_dir = request.app.state.settings.data_dir
+    if script_versions.list_scripts(data_dir, model_id):
+        return
+    uploads = os.path.join(data_dir, "uploads", f"{model_id}.ifc")
+    os.makedirs(os.path.dirname(bootstrap), exist_ok=True)
+    tmp = bootstrap + ".tmp"
+    shutil.copyfile(uploads, tmp)
+    os.replace(tmp, bootstrap)
 
 
 def _staging_or_seed(request: Request, model_id: str) -> script_staging.ScriptStaging:
@@ -113,7 +173,7 @@ def _staging_or_seed(request: Request, model_id: str) -> script_staging.ScriptSt
     scripts = script_versions.list_scripts(data_dir, model_id)
     if not scripts:
         return staging
-    with _lock(request, model_id):
+    with model_lock(request, model_id):
         staging = _staging(request, model_id)
         if staging.current() is None:
             latest = script_versions.load_script(
@@ -135,7 +195,7 @@ def get_script(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """Return the current script (staged state, or last saved base)."""
-    _upload_path(request, id)
+    model_upload_path(request, id)
     staging = _staging_or_seed(request, id)
     current = staging.current()
     if current is None:
@@ -157,30 +217,21 @@ def stage_script(
     id: str = Path(pattern=MODEL_ID_PATTERN),
 ) -> Dict[str, Any]:
     """Stage a script edit: full replace, or params-only PARAMS-block rewrite."""
-    _upload_path(request, id)
-    if (body.script is None) == (body.params is None):
-        raise HTTPException(
-            status_code=422, detail="exactly one of script / params required"
-        )
-    with _lock(request, id):
+    model_upload_path(request, id)
+    verify_script_body(body)
+    with model_lock(request, id):
         staging = _staging(request, id)
         if body.script is not None:
             text = body.script
         else:
-            current = staging.current()
-            if current is None:
-                raise HTTPException(
-                    status_code=409, detail="no script to update params on"
-                )
             try:
-                text = script_params.replace_params(current, body.params or {})
+                text = script_params.replace_params(
+                    verify_params_target(staging), body.params or {}
+                )
             except ValueError as exc:
                 raise HTTPException(status_code=422, detail=str(exc))
-        errors = script_runner.validate_script_text(request.app.state.settings, text)
-        if errors:
-            raise HTTPException(
-                status_code=422, detail="脚本契约校验失败: " + "; ".join(errors)
-            )
+        verify_script_contract(request, text)
+        _preserve_bootstrap(request, id, staging)
         staging.push(text)
         return {
             "modelId": id,
@@ -195,7 +246,7 @@ def get_script_params(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """Return the current script's PARAMS dict (ast extraction, no execution)."""
-    _upload_path(request, id)
+    model_upload_path(request, id)
     staging = _staging_or_seed(request, id)
     current = staging.current()
     if current is None:
@@ -211,7 +262,7 @@ def get_script_params(
 def undo_script(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
-    with _lock(request, id):
+    with model_lock(request, id):
         staging = _staging(request, id)
         if not staging.undo():
             raise HTTPException(status_code=409, detail="nothing to undo")
@@ -222,7 +273,7 @@ def undo_script(
 def redo_script(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
-    with _lock(request, id):
+    with model_lock(request, id):
         staging = _staging(request, id)
         if not staging.redo():
             raise HTTPException(status_code=409, detail="nothing to redo")
@@ -234,10 +285,46 @@ def discard_script(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """Throw staged edits away; back to the last saved big version. No version."""
-    with _lock(request, id):
+    with model_lock(request, id):
         staging = _staging(request, id)
         dropped = staging.discard()
         return {"modelId": id, "discarded": dropped, "script": staging.current()}
+
+
+def _current_map_path(request: Request, model_id: str) -> str:
+    return os.path.join(
+        request.app.state.settings.data_dir, "models", model_id, "current.map.json"
+    )
+
+
+def _read_current_map(map_path: str) -> tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """读取 current.map.json 发布信封：返回 (script_hash, entries)。
+
+    信封为 ``{"scriptHash": sha256(script), "map": {...}}``（run_script 发布）。
+    文件缺失/损坏/非对象 → (None, None)；旧版裸 map（无信封）→ (None, {})，
+    调用侧按过期处理（edit-call 409 / locate stale），绝不对形状变化 500。
+    """
+    if not os.path.isfile(map_path):
+        return None, None
+    try:
+        with open(map_path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        return None, None
+    if not isinstance(raw, dict):
+        return None, None
+    script_hash = raw.get("scriptHash")
+    entries = raw.get("map")
+    if not isinstance(script_hash, str) or not isinstance(entries, dict):
+        return None, {}
+    return script_hash, entries
+
+
+def _map_is_stale(script_hash: Optional[str], current: Optional[str]) -> bool:
+    """map 与 staging 当前脚本不同源（含无脚本可比对的旧版裸 map）→ 过期。"""
+    if script_hash is None or current is None:
+        return True
+    return script_hash != script_runner.script_hash(current)
 
 
 def _run_into_uploads(request: Request, id: str, script: str) -> str:
@@ -245,10 +332,14 @@ def _run_into_uploads(request: Request, id: str, script: str) -> str:
 
     The run replaces the IFC the pending entries were applied to, so any
     pending entries are flagged ``needs_replay`` before the unload (the LRU
-    ``on_evict`` hook only fires on capacity eviction, not here).
+    ``on_evict`` hook only fires on capacity eviction, not here). The run's
+    ScriptMap is published to ``models/{id}/current.map.json``.
     """
-    ifc_path = _upload_path(request, id)
-    script_runner.run_script(request.app.state.settings, script, ifc_path)
+    ifc_path = model_upload_path(request, id)
+    script_runner.run_script(
+        request.app.state.settings, script, ifc_path,
+        map_out=_current_map_path(request, id),
+    )
     store = request.app.state.pending
     store._ensure(id)
     store.mark_needs_replay(id)
@@ -261,8 +352,8 @@ def run_script_endpoint(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """Sandbox-run the current staged script into uploads (preview; no version)."""
-    _upload_path(request, id)
-    with _lock(request, id):
+    model_upload_path(request, id)
+    with model_lock(request, id):
         current = _current_or_409(_staging(request, id))
         _run_into_uploads(request, id, current)
         return {"modelId": id, "ok": True}
@@ -279,17 +370,50 @@ def save_script(
     A failed sandbox run → 422 and no version; staging is preserved so the
     script can be fixed and saved again.
     """
-    _upload_path(request, id)
-    with _lock(request, id):
+    model_upload_path(request, id)
+    with model_lock(request, id):
         staging = _staging(request, id)
         current = _current_or_409(staging)
         ifc_path = _run_into_uploads(request, id, current)
         note = body.note if body is not None else ""
+        map_path = _current_map_path(request, id)
+        map_text: Optional[str] = None
+        if os.path.isfile(map_path):
+            with open(map_path, "r", encoding="utf-8") as fh:
+                map_text = fh.read()
         version = script_versions.save(
-            request.app.state.settings.data_dir, id, current, ifc_path, note=note
+            request.app.state.settings.data_dir, id, current, ifc_path,
+            note=note, map_text=map_text,
         )
         staging.save()
-        return {"modelId": id, "version": version, "staged": 0}
+        return {
+            "modelId": id,
+            "version": version,
+            "staged": 0,
+            "alignment": _bootstrap_alignment(request, id, ifc_path),
+        }
+
+
+def _bootstrap_alignment(
+    request: Request, model_id: str, ifc_path: str
+) -> Optional[Dict[str, int]]:
+    """bootstrap.ifc（上传原件）vs 本次生成 IFC 的语义 diff 计数（§5.4）。
+
+    版本已落盘，对齐计算失败绝不让 save 失败——记日志返回 None。
+    """
+    bootstrap = _bootstrap_path(request, model_id)
+    if not os.path.isfile(bootstrap):
+        return None
+    try:
+        diff = diffing.compute_diff(bootstrap, ifc_path)
+    except Exception:
+        logger.exception("bootstrap alignment diff failed for model %s", model_id)
+        return None
+    return {
+        "added": len(diff["added"]),
+        "removed": len(diff["removed"]),
+        "changed": len(diff["changed"]),
+    }
 
 
 @router.get("/models/{id}/scripts")
@@ -297,7 +421,7 @@ def list_scripts(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
     """List script big versions (empty for legacy IFC-only models)."""
-    _upload_path(request, id)
+    model_upload_path(request, id)
     data_dir = request.app.state.settings.data_dir
     return {
         "modelId": id,
@@ -313,8 +437,8 @@ def rollback_script(
     id: str = Path(pattern=MODEL_ID_PATTERN),
 ) -> Dict[str, Any]:
     """Restore a big version's script into staging and re-run it into uploads."""
-    _upload_path(request, id)
-    with _lock(request, id):
+    model_upload_path(request, id)
+    with model_lock(request, id):
         data_dir = request.app.state.settings.data_dir
         try:
             script = script_versions.load_script(data_dir, id, body.version)
@@ -343,7 +467,7 @@ def diff_script_versions(
     This is the primary AI-facing diff (the retired design-JSON diff's
     replacement); the IFC semantic diff stays at POST /models/{id}/diff.
     """
-    _upload_path(request, id)
+    model_upload_path(request, id)
     data_dir = request.app.state.settings.data_dir
     base = _load_script_or_404(data_dir, id, body.base)
     target = _load_script_or_404(data_dir, id, body.target)
@@ -367,7 +491,7 @@ def diff_staging_steps(
     Step indices address the staged states ``history[0..cursor]`` (0-based).
     Lightweight inline text diff + PARAMS changes; visible to both AI and user.
     """
-    _upload_path(request, id)
+    model_upload_path(request, id)
     staging = _staging(request, id)
     newest = staging.cursor
     if newest < 1:
@@ -385,3 +509,80 @@ def diff_staging_steps(
         "to": j,
         **script_diff.diff_scripts(base, target, f"step{i}", f"step{j}"),
     }
+
+
+@router.get("/models/{id}/script/locate")
+def locate_callsite(
+    request: Request, guid: str = Query(...), id: str = Path(pattern=MODEL_ID_PATTERN)
+) -> Dict[str, Any]:
+    """Locate the script callsite for an IFC element (guid → designKey → CallSite)."""
+    ifc_path = model_upload_path(request, id)
+    model = request.app.state.registry.load(ifc_path)
+    try:
+        element = model.by_guid(guid)
+    except RuntimeError:
+        raise HTTPException(status_code=404, detail=f"element not found: {guid}")
+    psets = ifcopenshell.util.element.get_psets(element)
+    key = (psets.get("Pset_AIIFC") or {}).get("designKey")
+    if not key:
+        return {"found": False}
+    map_path = _current_map_path(request, id)
+    map_hash, entries = _read_current_map(map_path)
+    if entries is None:
+        return {"found": False, "designKey": key}
+    staging = _staging_or_seed(request, id)
+    if _map_is_stale(map_hash, staging.current()):
+        # staging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）：行号不可信，
+        # 降级 stale 提示，绝不让前端跳到错误行（spec §11.3）。
+        return {"found": False, "designKey": key, "stale": True}
+    entry = entries.get(key)
+    if entry is None:
+        return {"found": False, "designKey": key}
+    return {"found": True, "designKey": key, **entry}
+
+
+@router.post("/models/{id}/script/edit-call")
+def edit_call(
+    request: Request, body: EditCallBody, id: str = Path(pattern=MODEL_ID_PATTERN)
+) -> Dict[str, Any]:
+    """Rewrite one scalar argument at a located callsite, then sandbox-run.
+
+    顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。
+    origin=traced 的调用点不可自动改写 → 422。
+    staging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）→ 409 fail-closed：
+    map 行号只对生成它的那份脚本有效，放行会把改写落到错误的调用上。
+    """
+    model_upload_path(request, id)
+    with model_lock(request, id):
+        staging = _staging(request, id)
+        current = _current_or_409(staging)
+        map_path = _current_map_path(request, id)
+        map_hash, entries = _read_current_map(map_path)
+        if entries is None:
+            raise HTTPException(
+                status_code=404, detail=f"callsite not found: {body.designKey}"
+            )
+        if _map_is_stale(map_hash, current):
+            raise HTTPException(
+                status_code=409,
+                detail="staging has un-run edits; run the script before edit-call",
+            )
+        entry = entries.get(body.designKey)
+        if entry is None:
+            raise HTTPException(
+                status_code=404, detail=f"callsite not found: {body.designKey}"
+            )
+        if entry.get("origin") == "traced":
+            raise HTTPException(
+                status_code=422,
+                detail="callsite not auto-editable (traced); edit the script directly",
+            )
+        try:
+            text = script_edit.rewrite_call_argument(
+                current, entry["line"], body.argument, body.value
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        _run_into_uploads(request, id, text)
+        staging.push(text)
+        return {"modelId": id, "staged": staging.staged_count(), "script": text}
