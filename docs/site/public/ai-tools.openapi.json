@@ -8,7 +8,7 @@
     "/models/{id}/entities/{guid}": {
       "put": {
         "summary": "Put Entity",
-        "description": "Apply edits to the in-memory model and record a pending change.",
+        "description": "Retired: edit the build script instead of mutating the IFC directly.",
         "operationId": "put_entity_models__id__entities__guid__put",
         "parameters": [
           {
@@ -31,26 +31,12 @@
             }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EditBody"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Put Entity Models  Id  Entities  Guid  Put"
-                }
+                "schema": {}
               }
             }
           },
@@ -68,7 +54,7 @@
       },
       "delete": {
         "summary": "Delete Entity",
-        "description": "Delete an entity into the pending flow (effective on commit).\n\n``remove_product`` cascades: psets, placement/representation, material,\ntype, containment, aggregation, nesting and void/fill relationships are\ncleaned up. IfcProject and spatial structure elements are refused (422).\nOn an unexpected delete failure the in-memory model is reloaded from disk\nand pending is dropped, keeping the two consistent.",
+        "description": "Retired: edit the build script instead of deleting entities directly.",
         "operationId": "delete_entity_models__id__entities__guid__delete",
         "parameters": [
           {
@@ -91,33 +77,12 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/DeleteBody"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Body"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Delete Entity Models  Id  Entities  Guid  Delete"
-                }
+                "schema": {}
               }
             }
           },
@@ -137,7 +102,7 @@
     "/models/{id}/entities/{guid}/editable-schema": {
       "get": {
         "summary": "Get Editable Schema",
-        "description": "Typed edit form schema for an entity.\n\n``fields`` lists editable direct attributes (name/kind/current value,\n``enumValues`` for enum kinds like PredefinedType); ``psets`` lists\neditable scalar properties (str/int/float/bool). Non-scalar attributes\n(entities, aggregates, selects) and GlobalId are excluded.",
+        "description": "Retired: no typed edit form without direct editing.",
         "operationId": "get_editable_schema_models__id__entities__guid__editable_schema_get",
         "parameters": [
           {
@@ -165,11 +130,46 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Get Editable Schema Models  Id  Entities  Guid  Editable Schema Get"
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/models/{id}/commit": {
+      "post": {
+        "summary": "Commit Pending",
+        "description": "Retired: script save (script/save) is the only version checkpoint.",
+        "operationId": "commit_pending_models__id__commit_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^m_[0-9a-f]{16}$",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
               }
             }
           },
@@ -189,7 +189,7 @@
     "/models/{id}/pending": {
       "get": {
         "summary": "Get Pending",
-        "description": "List the current pending changes for a model.",
+        "description": "List the current pending changes for a model (read-only).",
         "operationId": "get_pending_models__id__pending_get",
         "parameters": [
           {
@@ -273,70 +273,10 @@
         }
       }
     },
-    "/models/{id}/commit": {
-      "post": {
-        "summary": "Commit Pending",
-        "description": "Atomically save all pending changes to disk and append them to history.\n\nThe first commit snapshots the original upload as ``v1`` before saving;\nevery commit snapshots the newly saved file as the next version. The\noptional body stamps ``operation`` onto the committed entries (default\n``update``; Go's override migration passes ``migrate``).",
-        "operationId": "commit_pending_models__id__commit_post",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^m_[0-9a-f]{16}$",
-              "title": "Id"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "$ref": "#/components/schemas/CommitBody"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Body"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Commit Pending Models  Id  Commit Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/models/{id}/history": {
       "get": {
         "summary": "Get History",
-        "description": "List the persisted edit history for a model.",
+        "description": "List the persisted edit history for a model (read-only).",
         "operationId": "get_history_models__id__history_get",
         "parameters": [
           {
@@ -1068,6 +1008,111 @@
         }
       }
     },
+    "/models/{id}/script/locate": {
+      "get": {
+        "summary": "Locate Callsite",
+        "description": "Locate the script callsite for an IFC element (guid → designKey → CallSite).",
+        "operationId": "locate_callsite_models__id__script_locate_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^m_[0-9a-f]{16}$",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "guid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Guid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Locate Callsite Models  Id  Script Locate Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/models/{id}/script/edit-call": {
+      "post": {
+        "summary": "Edit Call",
+        "description": "Rewrite one scalar argument at a located callsite, then sandbox-run.\n\n顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。\norigin=traced 的调用点不可自动改写 → 422。",
+        "operationId": "edit_call_models__id__script_edit_call_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^m_[0-9a-f]{16}$",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EditCallBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Edit Call Models  Id  Script Edit Call Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/models/{id}/diff/upload": {
       "post": {
         "summary": "Post Diff Upload",
@@ -1211,37 +1256,6 @@
         ],
         "title": "Body_post_diff_upload_models__id__diff_upload_post"
       },
-      "CommitBody": {
-        "properties": {
-          "operation": {
-            "type": "string",
-            "enum": [
-              "update",
-              "migrate"
-            ],
-            "title": "Operation",
-            "default": "update"
-          }
-        },
-        "type": "object",
-        "title": "CommitBody",
-        "description": "Optional body of POST /models/{id}/commit."
-      },
-      "DeleteBody": {
-        "properties": {
-          "author": {
-            "type": "string",
-            "title": "Author",
-            "default": "local-user"
-          },
-          "provenance": {
-            "$ref": "#/components/schemas/Provenance"
-          }
-        },
-        "type": "object",
-        "title": "DeleteBody",
-        "description": "Optional body of DELETE /models/{id}/entities/{guid}."
-      },
       "DiffBody": {
         "properties": {
           "base": {
@@ -1261,33 +1275,28 @@
         "title": "DiffBody",
         "description": "Body of POST /models/{id}/diff. target also accepts \"current\"."
       },
-      "EditBody": {
+      "EditCallBody": {
         "properties": {
-          "fields": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Fields"
-          },
-          "psets": {
-            "additionalProperties": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "type": "object",
-            "title": "Psets"
-          },
-          "author": {
+          "designKey": {
             "type": "string",
-            "title": "Author",
-            "default": "local-user"
+            "title": "Designkey"
           },
-          "provenance": {
-            "$ref": "#/components/schemas/Provenance"
+          "argument": {
+            "type": "string",
+            "title": "Argument"
+          },
+          "value": {
+            "title": "Value"
           }
         },
         "type": "object",
-        "title": "EditBody",
-        "description": "Body of PUT /models/{id}/entities/{guid}."
+        "required": [
+          "designKey",
+          "argument",
+          "value"
+        ],
+        "title": "EditCallBody",
+        "description": "Body of POST /models/{id}/script/edit-call: scalar argument rewrite."
       },
       "HTTPValidationError": {
         "properties": {
@@ -1301,34 +1310,6 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
-      },
-      "Provenance": {
-        "properties": {
-          "source": {
-            "type": "string",
-            "enum": [
-              "UI",
-              "AI",
-              "USER"
-            ],
-            "title": "Source",
-            "default": "UI"
-          },
-          "origin": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Origin"
-          }
-        },
-        "type": "object",
-        "title": "Provenance",
-        "description": "Who performed an edit: the web UI, an AI agent, or an external user edit.\n\n``origin`` further qualifies USER edits (e.g. ``upload`` for a modified\nIFC/DXF file parsed by the MCP server)."
       },
       "RollbackBody": {
         "properties": {

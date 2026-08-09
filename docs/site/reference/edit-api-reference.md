@@ -22,34 +22,13 @@ Health
 
 Commit Pending
 
-Atomically save all pending changes to disk and append them to history.
-
-The first commit snapshots the original upload as ``v1`` before saving;
-every commit snapshots the newly saved file as the next version. The
-optional body stamps ``operation`` onto the committed entries (default
-``update``; Go's override migration passes ``migrate``).
+Retired: script save (script/save) is the only version checkpoint.
 
 参数：
 
 | 名称 | 位置 | 必填 | 类型 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | path | 是 | string |  |
-
-请求体（application/json）：
-
-```json
-{
-  "anyOf": [
-    {
-      "$ref": "#/components/schemas/CommitBody"
-    },
-    {
-      "type": "null"
-    }
-  ],
-  "title": "Body"
-}
-```
 
 响应：
 
@@ -108,13 +87,7 @@ Diff an uploaded (user-modified) IFC against the current model state.
 
 Delete Entity
 
-Delete an entity into the pending flow (effective on commit).
-
-``remove_product`` cascades: psets, placement/representation, material,
-type, containment, aggregation, nesting and void/fill relationships are
-cleaned up. IfcProject and spatial structure elements are refused (422).
-On an unexpected delete failure the in-memory model is reloaded from disk
-and pending is dropped, keeping the two consistent.
+Retired: edit the build script instead of deleting entities directly.
 
 参数：
 
@@ -122,22 +95,6 @@ and pending is dropped, keeping the two consistent.
 | --- | --- | --- | --- | --- |
 | `id` | path | 是 | string |  |
 | `guid` | path | 是 | string |  |
-
-请求体（application/json）：
-
-```json
-{
-  "anyOf": [
-    {
-      "$ref": "#/components/schemas/DeleteBody"
-    },
-    {
-      "type": "null"
-    }
-  ],
-  "title": "Body"
-}
-```
 
 响应：
 
@@ -150,7 +107,7 @@ and pending is dropped, keeping the two consistent.
 
 Put Entity
 
-Apply edits to the in-memory model and record a pending change.
+Retired: edit the build script instead of mutating the IFC directly.
 
 参数：
 
@@ -158,14 +115,6 @@ Apply edits to the in-memory model and record a pending change.
 | --- | --- | --- | --- | --- |
 | `id` | path | 是 | string |  |
 | `guid` | path | 是 | string |  |
-
-请求体（application/json）：
-
-```json
-{
-  "$ref": "#/components/schemas/EditBody"
-}
-```
 
 响应：
 
@@ -178,12 +127,7 @@ Apply edits to the in-memory model and record a pending change.
 
 Get Editable Schema
 
-Typed edit form schema for an entity.
-
-``fields`` lists editable direct attributes (name/kind/current value,
-``enumValues`` for enum kinds like PredefinedType); ``psets`` lists
-editable scalar properties (str/int/float/bool). Non-scalar attributes
-(entities, aggregates, selects) and GlobalId are excluded.
+Retired: no typed edit form without direct editing.
 
 参数：
 
@@ -203,7 +147,7 @@ editable scalar properties (str/int/float/bool). Non-scalar attributes
 
 Get History
 
-List the persisted edit history for a model.
+List the persisted edit history for a model (read-only).
 
 参数：
 
@@ -241,7 +185,7 @@ Discard pending changes: reload the in-memory model from disk.
 
 Get Pending
 
-List the current pending changes for a model.
+List the current pending changes for a model (read-only).
 
 参数：
 
@@ -343,6 +287,56 @@ Throw staged edits away; back to the last saved big version. No version.
 | 名称 | 位置 | 必填 | 类型 | 说明 |
 | --- | --- | --- | --- | --- |
 | `id` | path | 是 | string |  |
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### POST /models/{id}/script/edit-call
+
+Edit Call
+
+Rewrite one scalar argument at a located callsite, then sandbox-run.
+
+顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。
+origin=traced 的调用点不可自动改写 → 422。
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+
+请求体（application/json）：
+
+```json
+{
+  "$ref": "#/components/schemas/EditCallBody"
+}
+```
+
+响应：
+
+| 状态码 | 说明 |
+| --- | --- |
+| 200 | Successful Response |
+| 422 | Validation Error |
+
+### GET /models/{id}/script/locate
+
+Locate Callsite
+
+Locate the script callsite for an IFC element (guid → designKey → CallSite).
+
+参数：
+
+| 名称 | 位置 | 必填 | 类型 | 说明 |
+| --- | --- | --- | --- | --- |
+| `id` | path | 是 | string |  |
+| `guid` | query | 是 | string |  |
 
 响应：
 
@@ -598,47 +592,6 @@ List version snapshots for a model (empty + current=null before any commit).
 }
 ```
 
-### CommitBody
-
-```json
-{
-  "properties": {
-    "operation": {
-      "type": "string",
-      "enum": [
-        "update",
-        "migrate"
-      ],
-      "title": "Operation",
-      "default": "update"
-    }
-  },
-  "type": "object",
-  "title": "CommitBody",
-  "description": "Optional body of POST /models/{id}/commit."
-}
-```
-
-### DeleteBody
-
-```json
-{
-  "properties": {
-    "author": {
-      "type": "string",
-      "title": "Author",
-      "default": "local-user"
-    },
-    "provenance": {
-      "$ref": "#/components/schemas/Provenance"
-    }
-  },
-  "type": "object",
-  "title": "DeleteBody",
-  "description": "Optional body of DELETE /models/{id}/entities/{guid}."
-}
-```
-
 ### DiffBody
 
 ```json
@@ -663,36 +616,31 @@ List version snapshots for a model (empty + current=null before any commit).
 }
 ```
 
-### EditBody
+### EditCallBody
 
 ```json
 {
   "properties": {
-    "fields": {
-      "additionalProperties": true,
-      "type": "object",
-      "title": "Fields"
-    },
-    "psets": {
-      "additionalProperties": {
-        "additionalProperties": true,
-        "type": "object"
-      },
-      "type": "object",
-      "title": "Psets"
-    },
-    "author": {
+    "designKey": {
       "type": "string",
-      "title": "Author",
-      "default": "local-user"
+      "title": "Designkey"
     },
-    "provenance": {
-      "$ref": "#/components/schemas/Provenance"
+    "argument": {
+      "type": "string",
+      "title": "Argument"
+    },
+    "value": {
+      "title": "Value"
     }
   },
   "type": "object",
-  "title": "EditBody",
-  "description": "Body of PUT /models/{id}/entities/{guid}."
+  "required": [
+    "designKey",
+    "argument",
+    "value"
+  ],
+  "title": "EditCallBody",
+  "description": "Body of POST /models/{id}/script/edit-call: scalar argument rewrite."
 }
 ```
 
@@ -711,39 +659,6 @@ List version snapshots for a model (empty + current=null before any commit).
   },
   "type": "object",
   "title": "HTTPValidationError"
-}
-```
-
-### Provenance
-
-```json
-{
-  "properties": {
-    "source": {
-      "type": "string",
-      "enum": [
-        "UI",
-        "AI",
-        "USER"
-      ],
-      "title": "Source",
-      "default": "UI"
-    },
-    "origin": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "title": "Origin"
-    }
-  },
-  "type": "object",
-  "title": "Provenance",
-  "description": "Who performed an edit: the web UI, an AI agent, or an external user edit.\n\n``origin`` further qualifies USER edits (e.g. ``upload`` for a modified\nIFC/DXF file parsed by the MCP server)."
 }
 ```
 
