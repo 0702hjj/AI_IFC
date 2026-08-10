@@ -97,6 +97,102 @@ class TestHooksBundleLayout:
             assert uri in text, f"hooks README 必须定义事件 URI: {uri}"
 
 
+class TestOpencodePluginProbe:
+    """opencode 插件解释器探测（AIIFC_PYTHON → 仓库 edit-service venv → python3）。
+
+    仓库根不得按固定层级数硬编码（软链安装经 import.meta.url 解析到真实 hooks 目录、
+    复制安装则在 .opencode/plugin/ 下——两者深度不同），必须用 AGENTS.md/.git 锚点
+    逐级向上定位。见 W-0025 review Finding 1。
+    """
+
+    def test_anchor_walk_from_hooks_dir_lands_on_repo_root(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert "AGENTS.md" in text and ".git" in text, \
+            "插件必须用 AGENTS.md/.git 锚点向上找仓库根"
+        root = None
+        dir_ = HOOKS_DIR
+        for _ in range(8):
+            if (dir_ / "AGENTS.md").is_file() or (dir_ / ".git").exists():
+                root = dir_
+                break
+            parent = dir_.parent
+            if parent == dir_:
+                break
+            dir_ = parent
+        assert root == REPO_ROOT, \
+            f"锚点向上找仓库根落点错误: {root} != {REPO_ROOT}（固定层级会落在仓库父目录）"
+
+    def test_repo_root_not_resolved_by_fixed_levels(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert 'path.resolve(THIS_DIR, ".."' not in text, \
+            "仓库根不得用固定层级数（软链/复制安装深度不同）——必须锚点向上找"
+
+    def test_venv_python_candidate_resolves_under_repo_root(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert '"viewer", "edit-service", ".venv", "bin", "python"' in text, \
+            "插件必须构造仓库内 edit-service venv python 候选路径"
+        candidate = REPO_ROOT / "viewer" / "edit-service" / ".venv" / "bin" / "python"
+        assert candidate.is_file(), f"仓库 edit-service venv python 不存在: {candidate}"
+
+    def test_probe_chain_order_env_then_venv_then_python3(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert "AIIFC_PYTHON" in text
+        assert text.index("AIIFC_PYTHON") < text.index('"viewer", "edit-service"') < text.index('"python3"'), \
+            "探测链顺序必须 AIIFC_PYTHON → 仓库 venv → python3"
+
+
+class TestOpencodePluginTimeouts:
+    """插件 spawn 超时必须显著大于沙箱超时（W-0025 review Finding 2）。
+
+    否则挂死脚本被插件 SIGTERM 提前掐死，validate_script.py 来不及打印 timed_out
+    事件——「失败即事件」退化为静默跳过，且孤儿沙箱子进程残留（TemporaryDirectory
+    清理不执行）。
+    """
+
+    def test_spawn_timeout_exceeds_sandbox_timeout(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        spawn_ms = re.search(r"SPAWN_TIMEOUT_MS\s*=\s*(\d[\d_]*)", text)
+        sandbox_s = re.search(r"SANDBOX_TIMEOUT_S\s*=\s*(\d+)", text)
+        assert spawn_ms and sandbox_s, "插件必须定义 SPAWN_TIMEOUT_MS 与 SANDBOX_TIMEOUT_S"
+        spawn_ms = int(spawn_ms.group(1).replace("_", ""))
+        sandbox_s = int(sandbox_s.group(1))
+        assert spawn_ms > sandbox_s * 1000, \
+            f"插件超时({spawn_ms}ms)必须大于沙箱超时({sandbox_s}s)"
+        assert spawn_ms >= 2 * sandbox_s * 1000, \
+            f"插件超时应至少为沙箱超时的 2 倍（当前 {spawn_ms}ms vs {sandbox_s}s）"
+
+    def test_sandbox_timeout_bound_to_constant(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert re.search(r'"--sandbox-timeout",\s*String\(SANDBOX_TIMEOUT_S\)', text), \
+            "--sandbox-timeout 必须绑定 SANDBOX_TIMEOUT_S 常量（防两处漂移）"
+
+    def test_timeout_kills_process_group(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert "detached" in text, "spawn 必须 detached（独立进程组）"
+        assert "process.kill(-proc.pid" in text, "超时必须杀进程组防孤儿沙箱"
+
+
+class TestOpencodePluginEditTrigger:
+    """edit 工具载荷是 {filePath, oldString, newString}（write 才是 {filePath, content}）。
+
+    按工具分支取参；edit 替换区不含契约特征时回读磁盘（替换区外仍可能保留
+    PARAMS = / def build(params）。
+    """
+
+    def test_edit_reads_newstring(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert 'tool === "edit"' in text, "必须按工具分支取参"
+        assert 'args?.newString' in text, "edit 必须从 args.newString 取内容"
+
+    def test_write_reads_content(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert 'args?.content' in text, "write 必须从 args.content 取内容"
+
+    def test_edit_falls_back_to_disk_content(self):
+        text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
+        assert "readFileSync" in text, "edit 替换区无契约特征时应回读磁盘文件"
+
+
 class TestLooksLikeBuildScript:
     def _write(self, tmp_path, name, src):
         p = tmp_path / name

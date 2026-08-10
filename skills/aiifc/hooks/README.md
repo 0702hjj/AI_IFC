@@ -69,7 +69,14 @@ ln -s $(pwd)/skills/aiifc/hooks/opencode-plugin.ts .opencode/plugin/aiifc-hooks.
 ```
 
 Python 探测链：`AIIFC_PYTHON` 环境变量 → 仓库内 `viewer/edit-service/.venv/bin/python`
-（有 ifcopenshell）→ `python3`。沙箱试跑超时 30s（opencode 侧），其余超时 60s。
+（有 ifcopenshell）→ `python3`。仓库根不按固定层级数硬编码：从 hooks 目录（软链
+安装经 `import.meta.url` 解析到真实目录；复制安装则在 `.opencode/plugin/`）逐级向上，
+按含 `AGENTS.md`/`.git` 的目录定位——两种安装形态均成立。
+
+超时预算（opencode 侧）：沙箱试跑 30s（`--sandbox-timeout 30`），插件 spawn 兜底
+90s（3×30s）。挂死脚本先被沙箱自行掐断并产 `timed_out` 事件（失败即事件）；插件
+超时只兜残余挂死进程，且按进程组 SIGKILL 清场，防孤儿沙箱残留。其余超时 60s
+（validate_script.py 沙箱默认值）。
 
 ### Claude Code
 
