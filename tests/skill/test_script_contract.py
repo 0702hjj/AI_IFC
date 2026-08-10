@@ -166,6 +166,76 @@ class TestCreateEntityAutoAttach:
         assert len(psets) == 1
 
 
+class TestParamsKeysExtraction:
+    """W-0022：origin=params 时从调用行提取 params_keys（PARAMS 表单聚焦数据源）。
+
+    只解析 params[...]/PARAMS[...] 下标引用（单键/多键/嵌套下标取首键、
+    引用嵌套于其他下标表达式也纳入），保序去重；无引用/语法错误 → []。
+    """
+
+    def _keys(self, line: str) -> list[str]:
+        return script_lib._params_ref_keys(line)
+
+    def test_single_key(self):
+        line = 'w = create_entity(model, "IfcWall", key=params["key"], name="W1")'
+        assert self._keys(line) == ["key"]
+
+    def test_single_key_single_quote(self):
+        assert self._keys("w = create_entity(model, 'IfcWall', key=params['key'])") == ["key"]
+
+    def test_multiple_keys_ordered(self):
+        line = ('w = create_entity(model, "IfcWall", key=params["key"], '
+                'name=params["wall_name"], h=params["height"])')
+        assert self._keys(line) == ["key", "wall_name", "height"]
+
+    def test_nested_subscript_takes_first_key(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key=params["a"]["b"])') == ["a"]
+
+    def test_params_ref_nested_in_other_subscript(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key=keys[params["k"]], name="W1")') == ["k"]
+
+    def test_params_ref_in_positional_argument(self):
+        assert self._keys('create_entity(model, "IfcWall", params["key"])') == ["key"]
+
+    def test_top_level_PARAMS_reference(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key=PARAMS["key"])') == ["key"]
+
+    def test_dedup_preserves_order(self):
+        line = 'w = create_entity(model, "IfcWall", key=params["key"], name=params["key"])'
+        assert self._keys(line) == ["key"]
+
+    def test_no_params_reference_returns_empty(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key="s1:wall:1", name="W1")') == []
+
+    def test_syntax_error_returns_empty(self):
+        assert self._keys("create_entity(") == []
+
+
+class TestRecordCallsiteParamsKeys:
+    """W-0022：_record_callsite 在 origin=params 时落 params_keys，既有字段不丢。"""
+
+    def test_create_entity_params_key_records_params_keys(self):
+        script_lib._CALLSITES.clear()
+        model = ifcopenshell.api.run("project.create_file")
+        ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcProject")
+        params = {"key": "pk:1"}
+        script_lib.create_entity(model, "IfcWall", key=params["key"])
+        entry = script_lib._CALLSITES["pk:1"]
+        assert entry["origin"] == "params"
+        assert entry["params_keys"] == ["key"]
+        assert entry["line"] > 0
+        assert "create_entity" in entry["snippet"]
+
+    def test_literal_key_records_empty_params_keys(self):
+        script_lib._CALLSITES.clear()
+        model = ifcopenshell.api.run("project.create_file")
+        ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcProject")
+        script_lib.create_entity(model, "IfcWall", key="s1:wall:1")
+        entry = script_lib._CALLSITES["s1:wall:1"]
+        assert entry["origin"] == "literal"
+        assert entry["params_keys"] == []
+
+
 class TestSkeletonDeterminism:
     """W-0023: create_skeleton 骨架实体确定性（GlobalId 稳定 + designKey 可定位）。
 

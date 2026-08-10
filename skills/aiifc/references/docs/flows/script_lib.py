@@ -69,20 +69,74 @@ def _classify_origin(filename: str, lineno: int) -> str:
     return "traced"
 
 
-def _record_callsite(key: str) -> None:
-    """记录 create_entity 调用点（用户脚本帧 = f_back.f_back，缺帧则放弃登记）。"""
+def _params_ref_keys(line: str) -> list[str]:
+    """从调用行源码提取 params/PARAMS 下标引用键（保序去重）。
+
+    规则（W-0022）：收集调用参数（位置参数/关键字值）里
+    ``params[...]`` / ``PARAMS[...]`` 下标引用——多级下标取首键
+    （``params["a"]["b"]`` → "a"）、引用嵌套于其他下标表达式也纳入
+    （``keys[params["k"]]`` → "k"）。语法错误/无引用 → []。
+    """
+    try:
+        tree = ast.parse(line)
+    except SyntaxError:
+        return []
+    call = next((n for n in ast.walk(tree) if isinstance(n, ast.Call)), None)
+    if call is None:
+        return []
+    keys: list[str] = []
+    seen: set[str] = set()
+    for node in ast.walk(call):
+        if not isinstance(node, ast.Subscript):
+            continue
+        base = node.value
+        if isinstance(base, ast.Subscript):
+            continue  # 外层下标（首键由直接作用于 Name 的内层下标取）
+        if not (isinstance(base, ast.Name) and base.id in ("params", "PARAMS")):
+            continue
+        if not (isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str)):
+            continue
+        key = node.slice.value
+        if key not in seen:
+            seen.add(key)
+            keys.append(key)
+    return keys
+
+
+def _extract_params_keys(filename: str, lineno: int) -> list[str]:
+    """origin=params 时读取调用行并提取 params_keys（供 PARAMS 表单聚焦）。"""
+    return _params_ref_keys(linecache.getline(filename, lineno).strip())
+
+
+def _record_callsite(key: str, caller_hop: int = 2) -> None:
+    """记录 create_entity 调用点（用户脚本帧 = 本函数调用者的调用者，hop=2）。
+
+    caller_hop 显式化帧语义：create_entity / create_skeleton 直接调本函数，
+    用户脚本帧都在 hop=2（f_back.f_back）；hop=1 保留给用户帧直接调用场景。
+    """
     frame = inspect.currentframe()
     try:
-        caller = frame.f_back.f_back if frame is not None and frame.f_back else None
+        caller = frame
+        for _ in range(caller_hop):
+            if caller is None:
+                break
+            caller = caller.f_back
         if caller is None or not key:
             return
         info = inspect.getframeinfo(caller, context=1)
         snippet = (info.code_context or [""])[0].strip()
+        origin = _classify_origin(caller.f_code.co_filename, info.lineno)
+        params_keys = (
+            _extract_params_keys(caller.f_code.co_filename, info.lineno)
+            if origin == "params"
+            else []
+        )
         _CALLSITES[key] = {
             "line": info.lineno,
             "col": info.index or 0,
             "snippet": snippet,
-            "origin": _classify_origin(caller.f_code.co_filename, info.lineno),
+            "origin": origin,
+            "params_keys": params_keys,
         }
     finally:
         del frame
