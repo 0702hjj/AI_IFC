@@ -38,6 +38,11 @@ REQUIRED_PATHS = (
     "references/docs/flows/dxf_from_design.py",
     "templates/build_skeleton.py",
     "workflows/PLAN_DXF_IFC.md",
+    "hooks/README.md",
+    "hooks/claude-settings.json",
+    "hooks/opencode-plugin.ts",
+    "hooks/validate_script.py",
+    "hooks/validate_script.sh",
 )
 
 # Anything matching these is considered build noise, not skill content.

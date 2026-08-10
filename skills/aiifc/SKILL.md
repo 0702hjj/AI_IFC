@@ -133,6 +133,41 @@ python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
 tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 ```
 
+## Hooks — 校验即事件（拉 → 推，可选增强）
+
+默认纪律是「拉」：agent 写脚本后**自己记得**调 `validate_script_contract`（MUST #27）。
+hooks 把它变成「推」：支持 hooks 的环境里，agent 用 write/edit 写入/编辑**构建脚本**
+（`*.py` 且含 `def build(params` 或 `PARAMS =` 契约特征）时，自动触发契约校验
+（+ 可选沙箱试跑），结果作为**事件**回填——失败即事件，不污染主上下文。
+
+> **hooks 是增强不是替代**：不支持 hooks 的环境（Cursor 等）维持手动校验路径——
+> agent 仍按 MUST #27 调 `script_lib.validate_script_contract(path)`，出口必经
+> `script_lib.write_and_validate`（MUST #29）。hooks 触发失败也静默跳过，绝不阻塞工具执行。
+
+### 事件 URI
+
+| 事件 URI | 含义 |
+|---|---|
+| `aiifc://script/validated` | 契约校验通过（无 modelId 上下文） |
+| `aiifc://script/validation-failed` | 契约校验失败（无 modelId 上下文） |
+| `aiifc://model/{id}/script/validated` | 契约校验通过（脚本路径含 modelId） |
+| `aiifc://model/{id}/script/validation-failed` | 契约校验失败（路径含 modelId） |
+
+`{id}` = modelId（`^m_[0-9a-f]{16}$`），从脚本路径启发式提取（文件名 stem 或祖先目录名匹配；
+demo 布局 `staging/{modelId}.py` / `models/{modelId}/scripts/v{n}.py`），提取不到则用无 modelId 的 URI。
+完整说明见 `hooks/README.md`。
+
+### 安装
+
+- **opencode**：软链/复制 `hooks/opencode-plugin.ts` 到 `.opencode/plugin/`（如
+  `.opencode/plugin/aiifc-hooks.ts`）。Python 探测：`AIIFC_PYTHON` → 仓库
+  `viewer/edit-service/.venv/bin/python`（有 ifcopenshell）→ `python3`。
+- **Claude Code**：把 `hooks/claude-settings.json` 的 `hooks` 块合并进
+  `~/.claude/settings.json`（把 `{{SKILL_DIR}}` 换成 skill 安装路径），PostToolUse
+  hook 指向 `hooks/validate_script.sh`。
+- 两种形态共享 `hooks/validate_script.py`（校验逻辑单点定义，无 ifcopenshell 时
+  自动降级为纯静态 ast 校验；静态校验只用标准库）。
+
 ## Demo integration (AI_IFC viewer — optional, not part of the distributable skill)
 
 When this skill runs **inside the AI_IFC demo** (opencode serve + viewer), the host provides a fixed contract that overrides the generic output paths (MUST #23). This section is maintained in-repo for the demo and is **not** part of the distributable skill bundle.

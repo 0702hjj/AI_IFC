@@ -48,6 +48,11 @@ def _make_skill(root: Path, name: str = "aiifc") -> Path:
         "references/docs/flows/dxf_from_design.py",
         "templates/build_skeleton.py",
         "workflows/PLAN_DXF_IFC.md",
+        "hooks/README.md",
+        "hooks/claude-settings.json",
+        "hooks/opencode-plugin.ts",
+        "hooks/validate_script.py",
+        "hooks/validate_script.sh",
     ]
     for rel in required:
         path = skill / rel
@@ -134,6 +139,30 @@ class TestAiifcSkillPackBuild(unittest.TestCase):
             self.assertIn("aiifc/SKILL.md", names)
             self.assertIn("aiifc/references/docs/flows/design_review.py", names)
             self.assertFalse(any("__pycache__" in n or n.endswith(".pyc") for n in names))
+
+    def test_build_archive_contains_hooks(self):
+        """W-0025: hooks（校验即事件）必须打进可分发归档。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = _make_skill(root, "aiifc")
+            out = root / "out"
+            result = packer.build(
+                skill_root=skill, output_root=out, skill_name="aiifc", archive=True
+            )
+            self.assertIsNotNone(result.archive_path)
+            with tarfile.open(result.archive_path, "r:gz") as tar:
+                names = tar.getnames()
+            for rel in ("README.md", "claude-settings.json", "opencode-plugin.ts",
+                        "validate_script.py", "validate_script.sh"):
+                self.assertIn(f"aiifc/hooks/{rel}", names, f"归档缺少 hooks/{rel}")
+
+    def test_build_copy_keeps_hooks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = _make_skill(root, "aiifc")
+            out = root / "out"
+            result = packer.build(skill_root=skill, output_root=out, skill_name="aiifc")
+            self.assertTrue((result.skill_root / "hooks/validate_script.py").is_file())
 
 
 class TestAiifcSkillPackRealBundle(unittest.TestCase):

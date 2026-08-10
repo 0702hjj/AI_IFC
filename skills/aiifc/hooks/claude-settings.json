@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash {{SKILL_DIR}}/hooks/validate_script.sh",
+            "timeout": 60,
+            "description": "aiifc 构建脚本契约校验（校验即事件，W-0025）"
+          }
+        ]
+      }
+    ]
+  }
+}
