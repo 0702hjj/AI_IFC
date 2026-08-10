@@ -131,8 +131,14 @@ class TestOpencodePluginProbe:
         text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
         assert '"viewer", "edit-service", ".venv", "bin", "python"' in text, \
             "插件必须构造仓库内 edit-service venv python 候选路径"
+        # 只断言候选路径是仓库根下的相对构造，不断言文件真实存在：
+        # CI 的 skill job 用独立 .ci-venv，不创建 edit-service 的 .venv——
+        # 存在性由插件运行时 existsSync 探测决定（缺失时降级 python3），
+        # 测试环境不得假设本机开发 venv（2026-08-10 CI flake）。
         candidate = REPO_ROOT / "viewer" / "edit-service" / ".venv" / "bin" / "python"
-        assert candidate.is_file(), f"仓库 edit-service venv python 不存在: {candidate}"
+        assert candidate.parents[2].name == "edit-service"
+        assert candidate.parents[3].name == "viewer"
+        assert REPO_ROOT in candidate.parents
 
     def test_probe_chain_order_env_then_venv_then_python3(self):
         text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
