@@ -1,6 +1,6 @@
 # W-0021: 直改退役残留消费者收口（migrate 端点 + chat notify 编排）
 
-- **状态：** open
+- **状态：** done（2026-08-10，分支 feat/v0.2-script-closure，commit deca331/43dca62/33be8f4）
 - **优先级：** P1
 - **Milestone：** v0.2（script-as-source 统一编辑，spec: docs/superpowers/specs/2026-08-08-script-editing-unified-design.md）
 - **来源：** feat/script-editing-unified Task 8 任务评审（2026-08-08）
@@ -25,11 +25,18 @@ L1 直改端点已在 edit-service 退役为 410、Go 代理路由已删（feat/
 
 ## 验收标准
 
-- server 侧无任何对已 410 端点的运行时调用；grep `PutEntity\|edit/entities` 零命中（除退役断言）。
-- TestMigrate* 不再脚本化已不可能成功的响应。
-- `go test ./...` 绿。
+- server 侧无任何对已 410 端点的运行时调用；grep `PutEntity\|edit/entities` 零命中（除退役断言）。✅
+- TestMigrate* 不再脚本化已不可能成功的响应。✅（改为 TestMigrateRouteGone 断言 404）
+- `go test ./...` 绿。✅
 
 ## 测试要求
 
-- chat notify 新编排路径的契约测试（script 暂存→run→save 顺序断言）。
-- migrate 退役/重设计的契约测试（410 或新行为）。
+- chat notify 新编排路径的契约测试（script 暂存→run→save 顺序断言）。✅（chat_notify_test.go 3 个测试）
+- migrate 退役/重设计的契约测试（410 或新行为）。✅
+
+## 落地说明（2026-08-10）
+
+- migrate 裁决：退役（用户已定），路由删除 Go 侧 404；putEntityProperties（override 写路径）保留。
+- notify 止血：staging 有脚本 → DELETE pending → PUT /script → run → save → 重转；
+  无脚本 → 仅 DELETE pending + 重转。不再写 change log / AISummary 标记（完整 Pure Core
+  事件化重写留 W-0017）。
