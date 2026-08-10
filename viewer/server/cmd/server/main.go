@@ -140,7 +140,7 @@ func main() {
 	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
 	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
-		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Chg: chg, Q: q, DataDir: cfg.DataDir,
+		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Q: q, DataDir: cfg.DataDir,
 	})
 	root := http.NewServeMux()
 	root.Handle("/api/v1/chat/", chatHandler)

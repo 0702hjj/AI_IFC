@@ -166,6 +166,132 @@ class TestCreateEntityAutoAttach:
         assert len(psets) == 1
 
 
+class TestParamsKeysExtraction:
+    """W-0022：origin=params 时从调用行提取 params_keys（PARAMS 表单聚焦数据源）。
+
+    只解析 params[...]/PARAMS[...] 下标引用（单键/多键/嵌套下标取首键、
+    引用嵌套于其他下标表达式也纳入），保序去重；无引用/语法错误 → []。
+    """
+
+    def _keys(self, line: str) -> list[str]:
+        return script_lib._params_ref_keys(line)
+
+    def test_single_key(self):
+        line = 'w = create_entity(model, "IfcWall", key=params["key"], name="W1")'
+        assert self._keys(line) == ["key"]
+
+    def test_single_key_single_quote(self):
+        assert self._keys("w = create_entity(model, 'IfcWall', key=params['key'])") == ["key"]
+
+    def test_multiple_keys_ordered(self):
+        line = ('w = create_entity(model, "IfcWall", key=params["key"], '
+                'name=params["wall_name"], h=params["height"])')
+        assert self._keys(line) == ["key", "wall_name", "height"]
+
+    def test_nested_subscript_takes_first_key(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key=params["a"]["b"])') == ["a"]
+
+    def test_params_ref_nested_in_other_subscript(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key=keys[params["k"]], name="W1")') == ["k"]
+
+    def test_params_ref_in_positional_argument(self):
+        assert self._keys('create_entity(model, "IfcWall", params["key"])') == ["key"]
+
+    def test_top_level_PARAMS_reference(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key=PARAMS["key"])') == ["key"]
+
+    def test_dedup_preserves_order(self):
+        line = 'w = create_entity(model, "IfcWall", key=params["key"], name=params["key"])'
+        assert self._keys(line) == ["key"]
+
+    def test_no_params_reference_returns_empty(self):
+        assert self._keys('w = create_entity(model, "IfcWall", key="s1:wall:1", name="W1")') == []
+
+    def test_syntax_error_returns_empty(self):
+        assert self._keys("create_entity(") == []
+
+
+class TestRecordCallsiteParamsKeys:
+    """W-0022：_record_callsite 在 origin=params 时落 params_keys，既有字段不丢。"""
+
+    def test_create_entity_params_key_records_params_keys(self):
+        script_lib._CALLSITES.clear()
+        model = ifcopenshell.api.run("project.create_file")
+        ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcProject")
+        params = {"key": "pk:1"}
+        script_lib.create_entity(model, "IfcWall", key=params["key"])
+        entry = script_lib._CALLSITES["pk:1"]
+        assert entry["origin"] == "params"
+        assert entry["params_keys"] == ["key"]
+        assert entry["line"] > 0
+        assert "create_entity" in entry["snippet"]
+
+    def test_literal_key_records_empty_params_keys(self):
+        script_lib._CALLSITES.clear()
+        model = ifcopenshell.api.run("project.create_file")
+        ifcopenshell.api.run("root.create_entity", model, ifc_class="IfcProject")
+        script_lib.create_entity(model, "IfcWall", key="s1:wall:1")
+        entry = script_lib._CALLSITES["s1:wall:1"]
+        assert entry["origin"] == "literal"
+        assert entry["params_keys"] == []
+
+
+class TestSkeletonDeterminism:
+    """W-0023: create_skeleton 骨架实体确定性（GlobalId 稳定 + designKey 可定位）。
+
+    骨架（Project/Site/Building/Storey）是 I5 语义 diff 与 C-locate 的地基：
+    同一脚本两次 build 骨架 GlobalId 必须一致，且每个骨架实体带 Pset_AIIFC.designKey。
+    """
+
+    def test_skeleton_globalids_stable_across_builds(self, tmp_path):
+        design = json.loads(
+            (FIXTURES / "sample_design.json").read_text(encoding="utf-8"))
+        features = design_builder.normalize(design)
+        fp = tmp_path / "features.json"
+        fp.write_text(json.dumps(features), encoding="utf-8")
+
+        out1, out2 = tmp_path / "m1.ifc", tmp_path / "m2.ifc"
+        assert build_script_template.build(str(fp), str(out1)) is True
+        assert build_script_template.build(str(fp), str(out2)) is True
+
+        m1, m2 = ifcopenshell.open(str(out1)), ifcopenshell.open(str(out2))
+        for ifc_class in ("IfcProject", "IfcSite", "IfcBuilding",
+                          "IfcBuildingStorey", "IfcWall", "IfcSlab"):
+            g1 = sorted(e.GlobalId for e in m1.by_type(ifc_class))
+            g2 = sorted(e.GlobalId for e in m2.by_type(ifc_class))
+            assert g1, ifc_class
+            assert g1 == g2, f"{ifc_class} GlobalId 两次 build 不一致"
+
+    def test_skeleton_entities_have_design_keys(self):
+        model = ifcopenshell.api.run("project.create_file")
+        _, smap = script_lib.create_skeleton(
+            model, name="b", storeys={"1F": 0.0, "2F": 3.0})
+        from ifcopenshell.util.element import get_psets
+
+        expected = {
+            "IfcProject": "skeleton:project",
+            "IfcSite": "skeleton:site",
+            "IfcBuilding": "skeleton:building",
+            "IfcBuildingStorey": {"1F": "skeleton:storey:1F",
+                                  "2F": "skeleton:storey:2F"},
+        }
+        for ifc_class, key in expected.items():
+            elements = model.by_type(ifc_class)
+            if isinstance(key, dict):
+                for el in elements:
+                    assert get_psets(el)["Pset_AIIFC"]["designKey"] == key[el.Name]
+            else:
+                assert get_psets(elements[0])["Pset_AIIFC"]["designKey"] == key
+
+    def test_skeleton_globalid_derived_from_key(self):
+        model = ifcopenshell.api.run("project.create_file")
+        _, _ = script_lib.create_skeleton(model, name="b", storeys={"1F": 0.0})
+        prj = model.by_type("IfcProject")[0]
+        assert prj.GlobalId == script_lib.deterministic_guid("skeleton:project")
+        st = model.by_type("IfcBuildingStorey")[0]
+        assert st.GlobalId == script_lib.deterministic_guid("skeleton:storey:1F")
+
+
 class TestSkillDocContractDrift:
     """SKILL.md 的脚本契约 MUST 与 script_lib 实现保持同步(漂移防护)。"""
 

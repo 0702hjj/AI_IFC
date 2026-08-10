@@ -67,7 +67,7 @@ export function PropertyPanel({ modelId }: { modelId: string }) {
     locateScript(modelId, selectedId)
       .then((res) => {
         if (res.found && res.line != null) {
-          requestScriptJump({ line: res.line, origin: res.origin });
+          requestScriptJump({ line: res.line, origin: res.origin, paramsKeys: res.paramsKeys });
           setNotice(
             res.origin === "traced"
               ? `已定位到脚本第 ${res.line} 行；该构件由运行期逻辑生成，请在脚本编辑器中手动修改`

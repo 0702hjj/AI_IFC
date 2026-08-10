@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from app import script_runner
+from app import diffing, script_runner
 from app.config import load_settings
 
 LITERAL_SCRIPT = '''\
@@ -55,6 +55,26 @@ def build(params, out_path):
     body, _ = create_skeleton(model)
     keys = {"w": params["key"]}
     w = create_entity(model, "IfcWall", key=keys["w"], name="W1")
+    write_and_validate(model, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
+DIRECT_PARAMS_SCRIPT = '''\
+import os
+import sys
+
+import ifcopenshell
+
+from script_lib import create_entity, create_skeleton, write_and_validate
+
+PARAMS = {"key": "s1:wall:1", "wall_name": "W1"}
+
+def build(params, out_path):
+    model = ifcopenshell.file(schema="IFC4")
+    body, _ = create_skeleton(model)
+    w = create_entity(model, "IfcWall", key=params["key"], name=params["wall_name"])
     write_and_validate(model, out_path)
 
 if __name__ == "__main__":
@@ -119,6 +139,8 @@ class TestMapSidecar:
         assert entry["line"] > 0
         assert entry["col"] >= 0
         assert "create_entity" in entry["snippet"]
+        # W-0022：literal 即使其他参数引用 params，params_keys 也置空（键非 params 驱动）
+        assert entry["params_keys"] == []
 
     def test_params_reference_key_origin(self, settings, tmp_path: Path):
         out = tmp_path / "out.ifc"
@@ -126,6 +148,16 @@ class TestMapSidecar:
         entry = _read_map(out)["s1:wall:1"]
         assert entry["origin"] == "params"
         assert entry["line"] > 0
+        # 间接下标（keys["w"]，params 引用在上一行）→ 调用行无可提取键
+        assert entry["params_keys"] == []
+
+    def test_direct_params_ref_records_params_keys(self, settings, tmp_path: Path):
+        """W-0022：调用行直接引用 params 键 → params_keys 落多键列表。"""
+        out = tmp_path / "out.ifc"
+        script_runner.run_script(settings, DIRECT_PARAMS_SCRIPT, str(out))
+        entry = _read_map(out)["s1:wall:1"]
+        assert entry["origin"] == "params"
+        assert entry["params_keys"] == ["key", "wall_name"]
 
     def test_multiline_call_degrades_to_traced(self, settings, tmp_path: Path):
         out = tmp_path / "out.ifc"
@@ -145,4 +177,47 @@ class TestMapSidecar:
     def test_map_entries_follow_insertion_order(self, settings, tmp_path: Path):
         out = tmp_path / "out.ifc"
         script_runner.run_script(settings, LITERAL_SCRIPT, str(out))
-        assert list(_read_map(out)) == ["s1:wall:1"]
+        assert list(_read_map(out)) == [
+            "skeleton:project", "skeleton:site", "skeleton:building",
+            "s1:wall:1",
+        ]
+
+    def test_map_contains_skeleton_entries(self, settings, tmp_path: Path):
+        """W-0023：create_skeleton 骨架实体走 create_entity → 进 map，可 locate。
+
+        骨架调用点指向用户脚本里的 create_skeleton 调用行（snippet 含
+        create_skeleton，非 script_lib 内部行）。
+        """
+        out = tmp_path / "out.ifc"
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out))
+        m = _read_map(out)
+        for key in ("skeleton:project", "skeleton:site", "skeleton:building"):
+            entry = m[key]
+            assert entry["line"] > 0
+            assert "create_skeleton" in entry["snippet"]
+            assert entry["origin"] in ("literal", "params", "traced")
+
+    def test_rerun_same_script_map_bytes_identical(
+        self, settings, tmp_path: Path
+    ):
+        """spec §8 留白：同一脚本两次 run，.map.json（含骨架条目）字节一致。"""
+        out1, out2 = tmp_path / "a.ifc", tmp_path / "b.ifc"
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out1))
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out2))
+        m1 = Path(str(out1) + ".map.json").read_bytes()
+        m2 = Path(str(out2) + ".map.json").read_bytes()
+        assert m1 and m1 == m2
+
+
+class TestSkeletonSemanticDeterminism:
+    """W-0023：骨架确定性 → 同一脚本两次 run 的 IFC 语义 diff 为空（I5）。"""
+
+    def test_two_runs_same_script_semantic_diff_empty(
+        self, settings, tmp_path: Path
+    ):
+        out1, out2 = tmp_path / "m1.ifc", tmp_path / "m2.ifc"
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out1))
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out2))
+        assert diffing.compute_diff(str(out1), str(out2)) == {
+            "added": [], "removed": [], "changed": [],
+        }

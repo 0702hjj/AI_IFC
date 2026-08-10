@@ -6,7 +6,7 @@
 
 - 审查平台：上传/转换、模型树、属性检查、可见性工具、剖切、测量、Issue + 3D Pin、属性 override 与修改历史；issues/overrides/change log 的 File / PostgreSQL 双实现。
 - 真改 IFC：edit-service（pending → commit）、版本快照、属性级语义 diff、Diff Viewer、override → 真改迁移。
-- AI 接入口：人/AI 双角色编辑 API（provenance 区分）、OpenAPI 工具目录、接入指南。
+- AI 接入口：设计师/AI 双角色编辑 API（provenance 区分）、OpenAPI 工具目录、接入指南。
 - AI Skill（aiifc）：agent 无关的 IfcOpenShell 建模 skill（发现桩 + references + templates + workflows），含打包器与 CI 校验。
 - Plan → DXF → IFC 工作流：可选的「辅助设计师」三阶段编排 skill，DXF 生成器（前端 svg 预览）。
 - 确定性构件身份：稳定 `key` → `uuid5` 确定性 GlobalId → `Pset_AIIFC.designKey` 双向映射（脚本契约 #25-29 沿用）。

@@ -150,12 +150,6 @@
     },
     {
       "method": "POST",
-      "path": "/api/v1/models/{id}/overrides/migrate",
-      "handler": "h.migrateOverrides",
-      "file": "viewer/server/internal/api/edit.go"
-    },
-    {
-      "method": "POST",
       "path": "/api/v1/models/{id}/retry",
       "handler": "h.retry",
       "file": "viewer/server/internal/api/api.go"

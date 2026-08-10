@@ -1,6 +1,6 @@
 # W-0024: verify* 校验隔离的机器强制与存量推开
 
-- **状态：** open
+- **状态：** done（2026-08-10，分支 feat/v0.2-script-closure，commit da02a4f，PR #28）
 - **优先级：** P2
 - **Milestone：** v0.2（工程契约加固）
 - **来源：** 2026-08-08 用户裁决（verify* 方向评估通过，stage_script 样板间可信）

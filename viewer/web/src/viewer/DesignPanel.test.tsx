@@ -267,6 +267,25 @@ describe("DesignPanel script jump（定位脚本）", () => {
     // 超界收敛到末行（trailing \n 产生的空行）：偏移 = 11 + 18 + 1 + 1 + 1 = 32
     expect(ta.selectionStart).toBe(32);
   });
+
+  it("origin=params + paramsKeys switches to the PARAMS form and highlights the key", async () => {
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("暂存 2/10");
+    act(() =>
+      useViewerStore.getState().requestScriptJump({
+        line: 2,
+        origin: "params",
+        paramsKeys: ["wall_t"],
+      })
+    );
+    await waitFor(() => {
+      const label = screen.getByText("wall_t").closest("label");
+      expect(label?.className).toContain("design-field-focused");
+    });
+    // 停留在 PARAMS 表单，不切编辑器
+    expect(screen.queryByLabelText("脚本编辑器文本")).toBeNull();
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+  });
 });
 
 describe("DesignPanel 降级态", () => {

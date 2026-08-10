@@ -1,6 +1,6 @@
 # W-0023: create_skeleton 确定性化（骨架实体 GlobalId 随机 → I5/C-locate 缺口）
 
-- **状态：** open
+- **状态：** done（2026-08-10，分支 feat/v0.2-script-closure，commit 9c9d893，PR #28）
 - **优先级：** P1
 - **Milestone：** v0.2（script-as-source 统一编辑，spec: docs/superpowers/specs/2026-08-08-script-editing-unified-design.md）
 - **来源：** feat/script-editing-unified 终审 Important #2（2026-08-08）

@@ -1,6 +1,6 @@
 # W-0022: ScriptMap 补 params_keys + PARAMS 表单聚焦（spec §5.3 路径 A 闭环）
 
-- **状态：** open
+- **状态：** done（2026-08-10，分支 feat/v0.2-script-closure，commit fa2df7b/68b2139/f8ea0ae，PR #28）
 - **优先级：** P2
 - **Milestone：** v0.2（script-as-source 统一编辑，spec: docs/superpowers/specs/2026-08-08-script-editing-unified-design.md）
 - **来源：** feat/script-editing-unified Task 9 任务评审（2026-08-08）

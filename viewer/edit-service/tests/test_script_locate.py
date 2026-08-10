@@ -6,7 +6,8 @@
 消费 Task 2 的 ``models/{id}/current.map.json`` 与 uploads IFC 里的
 ``Pset_AIIFC.designKey``：
 
-- 命中：200 {"found": true, "designKey", "line", "col", "snippet", "origin"}
+- 命中：200 {"found": true, "designKey", "line", "col", "snippet", "origin",
+  "params_keys"}（origin=params 时 params_keys 为该构件引用的 PARAMS 键）
 - 构件存在但无 designKey → 200 {"found": false}
 - 有 designKey 但 map 缺失/无该 key → 200 {"found": false, "designKey"}
 - staging 与 map 分叉（未 run 的暂存/旧版裸 map）→ 200 {"found": false,
@@ -65,6 +66,65 @@ if __name__ == "__main__":
     build(PARAMS, sys.argv[1])
 '''
 
+MULTI_PARAMS_KEY_SCRIPT = '''\
+import sys
+
+import ifcopenshell
+
+from script_lib import attach_design_key, create_entity, create_skeleton, write_and_validate
+
+PARAMS = {{"key": "{key}", "wall_name": "W1"}}
+
+def build(params, out_path):
+    model = ifcopenshell.file(schema="IFC4")
+    body, _ = create_skeleton(model)
+    w = create_entity(model, "IfcWall", key=params["key"], name=params["wall_name"])
+    attach_design_key(model, w, params["key"])
+    write_and_validate(model, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
+STOREY_SCRIPT = '''\
+import sys
+
+import ifcopenshell
+
+from script_lib import create_skeleton, write_and_validate
+
+PARAMS = {"name": "b", "storeys": {"1F": 0.0}}
+
+def build(params, out_path):
+    model = ifcopenshell.file(schema="IFC4")
+    _, smap = create_skeleton(model, name=params["name"], storeys=params["storeys"])
+    write_and_validate(model, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
+NO_DESIGNKEY_SCRIPT = '''\
+import sys
+
+import ifcopenshell
+import ifcopenshell.api
+
+from script_lib import create_skeleton, write_and_validate
+
+PARAMS = {"a": 1}
+
+def build(params, out_path):
+    model = ifcopenshell.file(schema="IFC4")
+    body, _ = create_skeleton(model)
+    col = ifcopenshell.api.run("root.create_entity", model,
+                               ifc_class="IfcColumn", name="C1")
+    write_and_validate(model, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
 
 def _uploads_ifc(data_dir: Path) -> Path:
     return data_dir / "uploads" / f"{MODEL_ID}.ifc"
@@ -110,6 +170,7 @@ class TestLocateHit:
         assert body["line"] > 0
         assert body["col"] >= 0
         assert "create_entity" in body["snippet"]
+        assert body["params_keys"] == []  # W-0022：literal 无 params 引用
 
     def test_locate_hit_params_origin(self, client: TestClient, data_dir: Path):
         _save_script(client, PARAMS_KEY_SCRIPT.format(key="s1:wall:2"))
@@ -119,6 +180,20 @@ class TestLocateHit:
         assert body["found"] is True
         assert body["designKey"] == "s1:wall:2"
         assert body["origin"] == "params"
+        assert body["params_keys"] == ["key"]  # W-0022：params 引用键透传
+
+    def test_locate_hit_params_origin_lists_multiple_keys(
+        self, client: TestClient, data_dir: Path
+    ):
+        """一个构件引用多个 params 键 → 全部列出（多键引用验收标准）。"""
+        _save_script(client, MULTI_PARAMS_KEY_SCRIPT.format(key="s1:wall:3"))
+        guid = _wall_guid(data_dir)
+
+        body = _locate(client, guid).json()
+        assert body["found"] is True
+        assert body["designKey"] == "s1:wall:3"
+        assert body["origin"] == "params"
+        assert body["params_keys"] == ["key", "wall_name"]
 
     def test_locate_after_run_without_save(
         self, client: TestClient, data_dir: Path
@@ -136,6 +211,37 @@ class TestLocateHit:
         assert body["designKey"] == "s1:wall:1"
 
 
+class TestLocateSkeleton:
+    """W-0023：骨架实体（无构件 key，create_skeleton 内部 key）可 locate 定位。"""
+
+    def test_locate_storey_hits_skeleton_callsite(
+        self, client: TestClient, data_dir: Path
+    ):
+        _save_script(client, STOREY_SCRIPT)
+        model = ifcopenshell.open(str(_uploads_ifc(data_dir)))
+        storey_guid = model.by_type("IfcBuildingStorey")[0].GlobalId
+
+        r = _locate(client, storey_guid)
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["found"] is True
+        assert body["designKey"] == "skeleton:storey:1F"
+        assert "create_skeleton" in body["snippet"]  # 指向用户脚本的 create_skeleton 调用行
+        assert body["line"] > 0
+
+    def test_locate_project_hits_skeleton_callsite(
+        self, client: TestClient, data_dir: Path
+    ):
+        _save_script(client, STOREY_SCRIPT)
+        model = ifcopenshell.open(str(_uploads_ifc(data_dir)))
+        project_guid = model.by_type("IfcProject")[0].GlobalId
+
+        body = _locate(client, project_guid).json()
+        assert body["found"] is True
+        assert body["designKey"] == "skeleton:project"
+        assert "create_skeleton" in body["snippet"]
+
+
 class TestLocateMiss:
     def test_locate_unknown_guid_404(self, client: TestClient, data_dir: Path):
         r = _locate(client, "0" * 22)
@@ -148,12 +254,13 @@ class TestLocateMiss:
     def test_locate_no_designkey_returns_not_found(
         self, client: TestClient, data_dir: Path
     ):
-        """模型里存在但无 Pset_AIIFC.designKey 的构件（IfcProject）→ found=false。"""
-        _save_script(client, LITERAL_KEY_SCRIPT.format(key="s1:wall:1"))
+        """模型里存在但无 Pset_AIIFC.designKey 的构件（裸 root.create_entity）
+        → found=false。骨架实体（W-0023 起带 designKey）不属于此类。"""
+        _save_script(client, NO_DESIGNKEY_SCRIPT)
         model = ifcopenshell.open(str(_uploads_ifc(data_dir)))
-        project_guid = model.by_type("IfcProject")[0].GlobalId
+        col_guid = model.by_type("IfcColumn")[0].GlobalId
 
-        r = _locate(client, project_guid)
+        r = _locate(client, col_guid)
         assert r.status_code == 200, r.text
         assert r.json() == {"found": False}
 

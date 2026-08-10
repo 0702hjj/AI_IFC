@@ -8,20 +8,20 @@
 | server | go test | 单元 + httptest API + 并发（`-race`） | `cd viewer/server && go test ./... && go vet ./...` |
 | edit-service | pytest | 脚本编辑（staging/run/save/locate/edit-call）/ 版本 / diff 路由 | `cd viewer/edit-service && uv run --group dev pytest` |
 | web | vitest + jsdom | api client / 组件 / store / hook / 纯函数 | `cd viewer/web && npm test` |
-| 端到端 | bash smoke | 上传→转换→下载→Issue→override/changes 全链路 | `cd viewer && ./scripts/smoke.sh`（需 server 运行） |
+| 端到端 | bash smoke | 上传→转换→下载→Issue→override/changes→script 管线（暂存/run/save）全链路 | `cd viewer && ./scripts/smoke.sh`（需 server 运行） |
 
 开发过程采用 TDD：每个模块先写失败测试再实现，测试文件与源码同目录。
 
 ## 端到端冒烟
 
-前提：server 已在 `:8090` 运行；edit-service 可达时追加编辑链路（不可达自动跳过）。
+前提：server 已在 `:8090` 运行；edit-service 可达时追加 script 编辑链路（不可达自动跳过）。
 
 ```bash
 cd server && go run ./cmd/server &
 cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
 ```
 
-覆盖：上传 fixture IFC → 轮询至 ready → XKT/metadata/download 200 → Issue 创建/列表/截图/状态流转/删除 → override 写入与生效值断言 → change log old→new 断言 → 清理。
+覆盖：上传 fixture IFC → 轮询至 ready → XKT/metadata/download 200 → Issue 创建/列表/截图/状态流转/删除 → override 写入与生效值断言 → change log old→new 断言 → script 管线（暂存 → 沙箱 run → save v1 → 版本记录断言）→ 清理。
 
 ## 手工验证清单（浏览器）
 

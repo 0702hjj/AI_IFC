@@ -7,11 +7,12 @@ import type { EntityFields, Issue, OverridesMap, ScriptLocateOrigin } from "@/ap
 
 export type ViewerTool = "select" | "measure";
 
-// 定位脚本：PropertyPanel 请求 locate 后置入，DesignPanel 消费（跳行）并清零。
-// nonce 保证同一行重复跳转也会触发消费方 effect。
+// 定位脚本：PropertyPanel 请求 locate 后置入，DesignPanel 消费（跳行 / PARAMS 表单聚焦）
+// 并清零。nonce 保证同一行重复跳转也会触发消费方 effect。
 export interface ScriptJump {
   line: number;
   origin?: ScriptLocateOrigin;
+  paramsKeys?: string[]; // origin=params 时的 PARAMS 表单聚焦键（W-0022）
   nonce: number;
 }
 
@@ -46,7 +47,11 @@ interface ViewerState {
   setChatOpen: (open: boolean) => void;
   flagPendingModelReload: () => void;
   clearPendingModelReload: () => void;
-  requestScriptJump: (jump: { line: number; origin?: ScriptLocateOrigin }) => void;
+  requestScriptJump: (jump: {
+    line: number;
+    origin?: ScriptLocateOrigin;
+    paramsKeys?: string[];
+  }) => void;
   clearScriptJump: () => void;
 }
 

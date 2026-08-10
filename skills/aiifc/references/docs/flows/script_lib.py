@@ -69,20 +69,74 @@ def _classify_origin(filename: str, lineno: int) -> str:
     return "traced"
 
 
-def _record_callsite(key: str) -> None:
-    """记录 create_entity 调用点（用户脚本帧 = f_back.f_back，缺帧则放弃登记）。"""
+def _params_ref_keys(line: str) -> list[str]:
+    """从调用行源码提取 params/PARAMS 下标引用键（保序去重）。
+
+    规则（W-0022）：收集调用参数（位置参数/关键字值）里
+    ``params[...]`` / ``PARAMS[...]`` 下标引用——多级下标取首键
+    （``params["a"]["b"]`` → "a"）、引用嵌套于其他下标表达式也纳入
+    （``keys[params["k"]]`` → "k"）。语法错误/无引用 → []。
+    """
+    try:
+        tree = ast.parse(line)
+    except SyntaxError:
+        return []
+    call = next((n for n in ast.walk(tree) if isinstance(n, ast.Call)), None)
+    if call is None:
+        return []
+    keys: list[str] = []
+    seen: set[str] = set()
+    for node in ast.walk(call):
+        if not isinstance(node, ast.Subscript):
+            continue
+        base = node.value
+        if isinstance(base, ast.Subscript):
+            continue  # 外层下标（首键由直接作用于 Name 的内层下标取）
+        if not (isinstance(base, ast.Name) and base.id in ("params", "PARAMS")):
+            continue
+        if not (isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str)):
+            continue
+        key = node.slice.value
+        if key not in seen:
+            seen.add(key)
+            keys.append(key)
+    return keys
+
+
+def _extract_params_keys(filename: str, lineno: int) -> list[str]:
+    """origin=params 时读取调用行并提取 params_keys（供 PARAMS 表单聚焦）。"""
+    return _params_ref_keys(linecache.getline(filename, lineno).strip())
+
+
+def _record_callsite(key: str, caller_hop: int = 2) -> None:
+    """记录 create_entity 调用点（用户脚本帧 = 本函数调用者的调用者，hop=2）。
+
+    caller_hop 显式化帧语义：create_entity / create_skeleton 直接调本函数，
+    用户脚本帧都在 hop=2（f_back.f_back）；hop=1 保留给用户帧直接调用场景。
+    """
     frame = inspect.currentframe()
     try:
-        caller = frame.f_back.f_back if frame is not None and frame.f_back else None
+        caller = frame
+        for _ in range(caller_hop):
+            if caller is None:
+                break
+            caller = caller.f_back
         if caller is None or not key:
             return
         info = inspect.getframeinfo(caller, context=1)
         snippet = (info.code_context or [""])[0].strip()
+        origin = _classify_origin(caller.f_code.co_filename, info.lineno)
+        params_keys = (
+            _extract_params_keys(caller.f_code.co_filename, info.lineno)
+            if origin == "params"
+            else []
+        )
         _CALLSITES[key] = {
             "line": info.lineno,
             "col": info.index or 0,
             "snippet": snippet,
-            "origin": _classify_origin(caller.f_code.co_filename, info.lineno),
+            "origin": origin,
+            "params_keys": params_keys,
         }
     finally:
         del frame
@@ -125,22 +179,33 @@ def create_skeleton(model, name: str = "building", storeys: dict | None = None):
     """骨架: units + Model/Body context + Project→Site→Building→Storey 聚合树。
 
     storeys: {名字: 标高(米)}; None → 无 storey。返回 (body_context, {名字: storey 实体})。
+
+    骨架实体走 create_entity 确定性路径(W-0023): key 固定层级式
+    (skeleton:project / skeleton:site / skeleton:building / skeleton:storey:{名字}),
+    GlobalId 经 deterministic_guid 派生、designKey 自动写 Pset_AIIFC, 调用点指向
+    create_skeleton 调用行——I5 语义 diff 无骨架幻影噪声、C-locate 可定位。
     """
-    prj = api("root.create_entity", model, ifc_class="IfcProject", name=name)
+    prj = create_entity(model, "IfcProject", key="skeleton:project", name=name)
     api("unit.assign_unit", model)
     m3d = api("context.add_context", model, context_type="Model")
     body = api("context.add_context", model, context_identifier="Body",
                target_view="MODEL_VIEW", parent=m3d)
-    site = api("root.create_entity", model, ifc_class="IfcSite", name="Site")
-    bldg = api("root.create_entity", model, ifc_class="IfcBuilding", name=name)
+    site = create_entity(model, "IfcSite", key="skeleton:site", name="Site")
+    bldg = create_entity(model, "IfcBuilding", key="skeleton:building", name=name)
     api("aggregate.assign_object", model, relating_object=prj, products=[site])
     api("aggregate.assign_object", model, relating_object=site, products=[bldg])
     smap = {}
     for sn, elev in (storeys or {}).items():
-        st = api("root.create_entity", model, ifc_class="IfcBuildingStorey", name=sn)
+        st = create_entity(model, "IfcBuildingStorey",
+                           key=f"skeleton:storey:{sn}", name=sn)
         st.Elevation = elev * 1000
         api("aggregate.assign_object", model, relating_object=bldg, products=[st])
         smap[sn] = st
+    # create_entity 记录的调用点落在 script_lib 内部行; 重记为 create_skeleton
+    # 调用行(map 行号只对生成它的用户脚本有效, 骨架定位应跳到用户的调用处)。
+    for key in ("skeleton:project", "skeleton:site", "skeleton:building",
+                *(f"skeleton:storey:{sn}" for sn in smap)):
+        _record_callsite(key)
     return body, smap
 
 

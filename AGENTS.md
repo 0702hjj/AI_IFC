@@ -5,7 +5,7 @@
 
 ## 项目是什么
 
-自托管、开源（AGPL-3.0）的 IFC 审查与编辑平台：script-as-source 编辑（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）、版本快照 + 语义 diff、人/AI 双角色同一套 REST 编辑 API、aiifc 建模 skill。
+自托管、开源（AGPL-3.0）的 IFC 审查与编辑平台：script-as-source 编辑（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）、版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API、aiifc 建模 skill。
 
 ```
 浏览器 (React+xeokit) ──► Go server :8090 ──► edit-service :8100 (FastAPI+IfcOpenShell)
@@ -15,16 +15,18 @@ AI agent ──► REST 编辑 API ────┘
            └─► skills/aiifc/（agent 直接写 ifcopenshell.api 代码）
 ```
 
+能力域按 plan→DXF→IFC 三步走划分：`AI_CAD/` 是 plan/DXF 段（aidxfv1 通用 DXF 生成/校验、aidxfv2 建筑平面管线、aiblueprint-mcp，含调研材料；纯 skill 域，无服务运行时）；`viewer/` + `skills/aiifc/` 是 IFC 段（本平台）。段间经契约衔接（plan.json → DXF → 构建脚本 → IFC），不经代码耦合。
+
 ## 组件与命令
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，189 用例 / 20 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
-| server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（122 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
+| web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，191 用例 / 20 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（138 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `viewer/converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（224 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（236 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
 | mcp-server (Python + mcp 2.x MCPServer，stdio) | `viewer/mcp-server` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
-| skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（63 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
+| skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（139 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
 | 端到端 | `viewer/scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
 | 文档站 | `docs/` | `npm run docs:build`；`npm run check:api`（API 文档漂移检测） | `npm run docs:dev`；内部 wiki `npm run docs:dev:internal` |
 
@@ -43,6 +45,7 @@ AI agent ──► REST 编辑 API ────┘
    - Go：校验归 domain 包的 `validate()`/`Valid*()` + 哨兵错误，handler 只做 解码 → 调用 → `errors.Is` 翻译。
 2. 看到 `verify*`/`validate*` 函数名，新增检查只允许加在该函数内部，不得在调用点另写。
 3. 跨文件的请求解析/校验 helper 只允许单点定义（edit-service 统一在 `app/route_common.py`），禁止复制第二份。
+4. `verify*`/`validate*` 只做检查（可返回派生数据），禁止副作用/写盘/IO——防止其变成第二个业务层。校验隔离机器强制（契约测试）：`tests/test_verify_isolation.py`（Python，`raise HTTPException` 只准出现在 verify*/validate* 或 `route_common.py`）+ `internal/api/api_verify_isolation_test.go`（Go，handler 不得内联非 400 的 `writeErr`），存量违规以白名单登记，新违规变红。
 
 ## 纪律事件化（硬规则）
 
@@ -58,7 +61,7 @@ AI agent ──► REST 编辑 API ────┘
 
 ## Git 工作流（硬规则）
 
-- 远程 `main` **受保护，禁止直推**。一切改动开分支：`feat/...`、`fix/...`、`docs/...`。
+- 远程 `main` **受保护**：GitHub ruleset 按用户 bypass（owner 已自加）。docs-only 小修（`*.md`、计数/指针/措辞级）允许直推 main；**任何代码变更与大改一律开分支走 PR**（`feat/...`、`fix/...`、`docs/...`）。判断不了大小就走 PR。
 - 用 gh-cli 提 PR：`gh pr create`；CI（ci.yml 8 job + docs.yml 3 job）绿后合并；合并后删本地/远程分支。
 - **PR 节奏（2026-08-07 用户裁决）：一天最多 1 个 PR**——工作项在同一迭代分支上累积，当天收工时一次性提 PR（分支随取随用 `feat/|fix/|docs/<主题>`）；只有 main 红了的 hotfix 才单独提。
 - commit 信息中文、前缀式（`feat(server): ...` / `fix(web): ...` / `docs: ...` / `chore: ...`）。
@@ -73,6 +76,7 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 边界（不要碰）
 
+- `AI_CAD/skills/aidxfv1`：fork 自 earthtojake/text-to-cad（MIT），vendored 运行时自包含——改动注意保留 MIT 归属（其 LICENSE 文件），勿与主仓 AGPL 文件混排。
 - SCAD 遗产（`src/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不含，勿引用。
 - `docs/site/public/` 下的自动生成物（`go-rest-api.routes.json` 等）：只经 `npm run gen:api` 更新。
 - `viewer/data/`：运行时数据，gitignored，不要手工改。
