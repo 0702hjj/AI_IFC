@@ -64,8 +64,10 @@ export function DesignPanel({ modelId }: { modelId: string }) {
   const [stagingDiff, setStagingDiff] = useState<ScriptDiffResponse | null>(null);
   const [bigDiff, setBigDiff] = useState<ScriptDiffResponse | null>(null);
   const [pendingJump, setPendingJump] = useState<number | null>(null);
+  const [focusKeys, setFocusKeys] = useState<string[] | null>(null); // origin=params 聚焦键（W-0022）
   const gutterRef = useRef<HTMLPreElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fieldRefs = useRef<Record<string, HTMLLabelElement | null>>({});
 
   const scriptJump = useViewerStore((s) => s.scriptJump);
   const clearScriptJump = useViewerStore((s) => s.clearScriptJump);
@@ -102,14 +104,31 @@ export function DesignPanel({ modelId }: { modelId: string }) {
     if (mode === "editor" && state) setEditorText(state.script);
   }, [mode, state]);
 
-  // 定位脚本：store.scriptJump → 切编辑器态，pendingJump 在 textarea 挂载后落光标
+  // 定位脚本：store.scriptJump → origin=params 且有 params_keys → 切 PARAMS 表单聚焦对应键；
+  // 否则（literal/traced/无 keys）→ 编辑器态，pendingJump 在 textarea 挂载后落光标
   useEffect(() => {
     if (!scriptJump || !state) return;
-    setPendingJump(scriptJump.line);
-    setMode("editor");
-    setEditorText(state.script);
+    if (scriptJump.origin === "params" && scriptJump.paramsKeys?.length) {
+      setMode("form");
+      setFocusKeys(scriptJump.paramsKeys);
+      setPendingJump(null);
+    } else {
+      setPendingJump(scriptJump.line);
+      setMode("editor");
+      setEditorText(state.script);
+      setFocusKeys(null);
+    }
     clearScriptJump();
   }, [scriptJump, state, clearScriptJump]);
+
+  // 聚焦首个命中键（ref 映射 paramsKeys → DOM，仿 pendingJump 落光标的 effect 模式）
+  useEffect(() => {
+    if (focusKeys == null || mode !== "form") return;
+    const first = focusKeys
+      .map((k) => fieldRefs.current[k])
+      .find((el): el is HTMLLabelElement => el != null);
+    first?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [focusKeys, mode]);
 
   useEffect(() => {
     if (pendingJump == null || mode !== "editor") return;
@@ -168,8 +187,8 @@ export function DesignPanel({ modelId }: { modelId: string }) {
       </div>
 
       <div className="design-actions">
-        <button onClick={() => setMode("form")} disabled={busy || mode === "form"}>参数表单</button>
-        <button onClick={() => setMode("editor")} disabled={busy || mode === "editor"}>脚本编辑器</button>
+        <button onClick={() => { setFocusKeys(null); setMode("form"); }} disabled={busy || mode === "form"}>参数表单</button>
+        <button onClick={() => { setFocusKeys(null); setMode("editor"); }} disabled={busy || mode === "editor"}>脚本编辑器</button>
       </div>
 
       {mode === "form" && paramsError && (
@@ -179,7 +198,17 @@ export function DesignPanel({ modelId }: { modelId: string }) {
       {mode === "form" && params && (
         <div className="design-form">
           {fields.map((f) => (
-            <label key={f.name} className="design-field">
+            <label
+              key={f.name}
+              ref={(el) => {
+                fieldRefs.current[f.name] = el;
+              }}
+              className={
+                focusKeys?.some((k) => f.name === k || f.name.startsWith(`${k}.`))
+                  ? "design-field design-field-focused"
+                  : "design-field"
+              }
+            >
               <span>{f.name}</span>
               {f.type === "boolean" ? (
                 <input

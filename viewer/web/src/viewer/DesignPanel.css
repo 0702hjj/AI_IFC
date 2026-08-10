@@ -45,6 +45,19 @@
   white-space: nowrap;
 }
 
+/* W-0022：origin=params 定位后 PARAMS 表单命中键高亮 */
+.design-field-focused {
+  background: rgba(255, 211, 61, 0.14);
+  border: 1px solid rgba(255, 211, 61, 0.5);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.design-field-focused span {
+  color: #ffd33d;
+  font-weight: 600;
+}
+
 .design-field input,
 .design-field select {
   width: 140px;

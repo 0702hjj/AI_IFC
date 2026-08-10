@@ -130,6 +130,21 @@ describe("PropertyPanel 定位脚本", () => {
     expect(await screen.findByText(/已定位到脚本第 12 行/)).toBeTruthy();
   });
 
+  it("locate hit passes paramsKeys through for params-origin entities", async () => {
+    api.locateScript.mockResolvedValue({
+      found: true, designKey: "wall-1", line: 12, col: 4,
+      snippet: "create_entity(..., key=params['key'])", origin: "params",
+      paramsKeys: ["key"],
+    });
+    await selectAndRender();
+    fireEvent.click(screen.getByRole("button", { name: "定位脚本" }));
+    await waitFor(() =>
+      expect(useViewerStore.getState().scriptJump).toMatchObject({
+        line: 12, origin: "params", paramsKeys: ["key"],
+      })
+    );
+  });
+
   it("locate miss shows a non-blocking read-only hint and does not jump", async () => {
     api.locateScript.mockResolvedValue({ found: false });
     await selectAndRender();

@@ -161,6 +161,8 @@ export interface ScriptLocateResult {
   col?: number;
   snippet?: string;
   origin?: ScriptLocateOrigin;
+  // origin=params 时：该构件引用的 PARAMS 键（PARAMS 表单聚焦目标；literal/traced 为空）
+  paramsKeys?: string[];
   // staging 与 ScriptMap 分叉（有未运行的脚本修改）→ true：行号不可信，不跳行
   stale?: boolean;
 }
