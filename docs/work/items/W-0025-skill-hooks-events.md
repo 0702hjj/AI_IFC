@@ -1,6 +1,6 @@
 # W-0025: skill hooks——校验即事件（拉→推）+ 事件 URI 化
 
-- **状态：** open
+- **状态：** done（2026-08-10，分支 feat/v0.2-script-closure，commit 7f4dad7/7de0221/0c8b6cf/61b349e）
 - **优先级：** P2
 - **Milestone：** v0.2（agent 工作流加固）
 - **来源：** 2026-08-08 help.md 架构精要评审（用户裁决：与 SDD 思想结合，事件驱动入约）
