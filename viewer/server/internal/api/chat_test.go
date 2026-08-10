@@ -59,38 +59,6 @@ func TestModelIDFromEditedFile(t *testing.T) {
 	}
 }
 
-func TestIfcProjectGUID(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "test.ifc")
-	content := `ISO-10303-21;
-HEADER;
-ENDSEC;
-DATA;
-#1=IFCPROJECT('2SdOxgmHH1hB$6KI7DupXo',#2,'Smoke',$,$,$,$,(#8),#9);
-#2=IFCOWNERHISTORY($,$,$,$,$,$,$,$);
-ENDSEC;
-END-ISO-10303-21;
-`
-	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	guid, err := ifcProjectGUID(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if guid != "2SdOxgmHH1hB$6KI7DupXo" {
-		t.Errorf("guid = %q", guid)
-	}
-
-	empty := filepath.Join(dir, "empty.ifc")
-	if err := os.WriteFile(empty, []byte("DATA;\nENDSEC;"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := ifcProjectGUID(empty); err == nil {
-		t.Error("expected error for file without IFCPROJECT")
-	}
-}
-
 // --- createSession 幂等与并发（会话连续性） ---
 
 // newChatTestHandler 手动构造 ChatHandler（不启动 dispatchLoop），用于隔离测试 createSession/abort。

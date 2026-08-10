@@ -16,7 +16,6 @@ import (
 	"net/http"
 	"sync"
 
-	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/editsvc"
 	"ifcviewer/server/internal/opencode"
@@ -26,12 +25,11 @@ import (
 // chatAgent 是转发给 opencode 的 agent 名（IFC_front/AI_IFC/.opencode/agent/ifc-demo.md）。
 const chatAgent = "ifc-demo"
 
-// ChatDeps 是 chat 模块的依赖包（notify 三连需要 edit 编排全套依赖）。
+// ChatDeps 是 chat 模块的依赖包（notify 落盘 + 重转 + 脚本管线）。
 type ChatDeps struct {
 	OC      *opencode.Client
 	Ed      *editsvc.Client
 	St      *store.Store
-	Chg     change.Store
 	Q       *convert.Queue
 	DataDir string
 }

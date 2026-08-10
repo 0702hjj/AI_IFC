@@ -6,7 +6,6 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -142,7 +141,7 @@ func (h *ChatHandler) onEvent(ev opencode.Event) {
 		cs.lastCheck = time.Now()
 		h.mu.Unlock()
 		log.Printf("chat: session %s idle with modified model %s → notify", ocSID, cs.ModelID)
-		go h.notify(cs, "AI modification")
+		go h.notify(cs)
 	}
 }
 
@@ -161,34 +160,14 @@ func modelIDFromEditedFile(file string) string {
 
 var modelIDRe = regexp.MustCompile(`^m_[0-9a-f]{16}$`)
 
-var ifcProjectRe = regexp.MustCompile(`IFCPROJECT\('([^']+)'`)
-
-// ifcProjectGUID 逐行扫描 IFC（STEP 文本），提取 IfcProject 的 GlobalId（恒存在，无需 ifcopenshell）。
-func ifcProjectGUID(path string) (string, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for sc.Scan() {
-		if m := ifcProjectRe.FindSubmatch(sc.Bytes()); m != nil {
-			return string(m[1]), nil
-		}
-	}
-	if err := sc.Err(); err != nil {
-		return "", err
-	}
-	return "", fmt.Errorf("IFCPROJECT not found in %s", path)
-}
-
-// notify 是 AI 大改后的固定三连（顺序不可换）：
+// notify 是 AI 大改后的固定流程（顺序不可换）：
 // ① DELETE pending（强制 edit-service 从磁盘重载 = 坏文件自检，防旧内存模型覆盖 agent 的修改）
-// ② PUT pset 审计标记（provenance=AI，commit 入场券）
-// ③ commitOrchestrate（落盘 + v{n+1} 快照 + change log + 重转）
+// ② staging 有构建脚本（{dataDir}/staging/{modelId}.py）→ script 管线：
+//   PUT /script（暂存）→ POST /script/run（沙箱试跑）→ POST /script/save（落 v{n}
+//   大版本 + IFC 快照）；无脚本（手术式编辑）→ 跳过，仅重转。
+// ③ 置 converting + 入队重转（run/save 已重写 uploads/{id}.ifc，必须重转）。
 // 完成后向该会话推送 viewer.committed；失败推 viewer.notify_failed。
-func (h *ChatHandler) notify(cs *chatSession, summary string) {
+func (h *ChatHandler) notify(cs *chatSession) {
 	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 	modelID := cs.ModelID
@@ -203,38 +182,49 @@ func (h *ChatHandler) notify(cs *chatSession, summary string) {
 		fail("discard_pending", err)
 		return
 	}
-	guid, err := ifcProjectGUID(filepath.Join(h.deps.DataDir, "uploads", modelID+".ifc"))
-	if err != nil {
-		fail("extract_guid", err)
-		return
-	}
-	putBody, _ := json.Marshal(map[string]any{
-		"psets":      map[string]any{"Pset_ViewerMeta": map[string]any{"AISummary": summary}},
-		"author":     "opencode-cli",
-		"provenance": map[string]string{"source": "AI"},
-	})
-	if _, err := h.deps.Ed.PutEntity(ctx, modelID, guid, putBody); err != nil {
-		fail("mark", err)
-		return
-	}
-	resp, err := commitOrchestrate(ctx, h.deps.Ed, h.deps.St, h.deps.Chg, h.deps.Q, modelID)
-	if err != nil {
-		fail("commit", err)
-		return
-	}
 	version := ""
-	if vers, err := h.deps.Ed.GetVersions(ctx, modelID); err == nil {
-		version = vers.Current
+	scriptPath := filepath.Join(h.deps.DataDir, "staging", modelID+".py")
+	if fileExists(scriptPath) {
+		content, err := os.ReadFile(scriptPath)
+		if err != nil {
+			fail("read_staging_script", err)
+			return
+		}
+		stageBody, _ := json.Marshal(map[string]any{"script": string(content)})
+		if _, err := h.deps.Ed.Do(ctx, http.MethodPut, "/models/"+modelID+"/script", stageBody); err != nil {
+			fail("stage_script", err)
+			return
+		}
+		if _, err := h.deps.Ed.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/run", nil); err != nil {
+			fail("run_script", err)
+			return
+		}
+		saveRaw, err := h.deps.Ed.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/save", nil)
+		if err != nil {
+			fail("save_script", err)
+			return
+		}
+		var saveResp struct {
+			Version string `json:"version"`
+		}
+		if err := json.Unmarshal(saveRaw, &saveResp); err != nil {
+			log.Printf("chat: notify %s: decode save response: %v", modelID, err)
+		} else {
+			version = saveResp.Version
+		}
 	}
-	// ⑤ 制品归档（过程与结果同存，随版本同步）：构建脚本
-	// staging 命名：{modelId}.py；归档：models/{id}/scripts/v{n}.py。
+	// 重转：script save / 手术式编辑均已重写 uploads/{id}.ifc
+	if err := h.deps.St.SetStatus(modelID, "converting", ""); err != nil {
+		log.Printf("chat: notify %s: set converting: %v", modelID, err)
+	}
+	if !h.deps.Q.Enqueue(modelID) {
+		log.Printf("chat: notify %s: conversion already pending", modelID)
+	}
+	// ⑤ 制品归档（过程与结果同存，随版本同步）：staging/{modelId}.py → scripts/v{n}.py。
 	// 无对应 staging 文件则跳过（手术式编辑无脚本）。
 	h.archiveStagingArtifact(modelID, version, modelID+".py", "scripts", "py")
 	out := map[string]any{
-		"modelId": modelID, "version": version, "committed": resp["committed"],
-	}
-	if w, ok := resp["warning"]; ok {
-		out["warning"] = w
+		"modelId": modelID, "version": version, "committed": true,
 	}
 	log.Printf("chat: notify %s committed (version %s)", modelID, version)
 	h.pushSystem(cs.ID, "viewer.committed", out)
