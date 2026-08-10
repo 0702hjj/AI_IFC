@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -212,8 +213,21 @@ func (h *ChatHandler) notify(cs *chatSession) {
 			//（save 已落盘，GetVersions 必可读到新版本）。
 			if vers, verr := h.deps.Ed.GetVersions(ctx, modelID); verr == nil && vers.Current != "" {
 				version = vers.Current
-			} else if verr != nil {
-				log.Printf("chat: notify %s: decode save response: %v, fallback versions: %v", modelID, err, verr)
+			} else {
+				// 版本不可解析 = script 管线契约破坏（save 成功必产生版本）。
+				// 显式 fail：空版本会让 archiveStagingArtifact 静默跳过 → staging 脚本
+				// 滞留 → 下次 idle 再次触发重复 save，且 committed 假报空版本。
+				var cause error
+				switch {
+				case err != nil:
+					cause = fmt.Errorf("decode save response: %w", err)
+				case verr != nil:
+					cause = fmt.Errorf("fallback GetVersions: %w", verr)
+				default:
+					cause = errors.New("save succeeded but no version (decode ok, versions current empty)")
+				}
+				fail("save_version", cause)
+				return
 			}
 		} else {
 			version = saveResp.Version

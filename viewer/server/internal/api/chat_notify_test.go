@@ -208,6 +208,56 @@ func TestNotifyNoScriptReloadOnly(t *testing.T) {
 	waitReady(t, st, mid)
 }
 
+// TestNotifySaveVersionUnresolvableFails 断言 save 成功但版本不可解析
+//（响应未带 version，且兜底 GetVersions 失败 / 读到空 current）→ 显式
+// viewer.notify_failed(save_version)、不排重转、不推 committed、staging 脚本保留
+// ——防止空版本被静默吞掉导致 archive 跳过 → 下次 idle 重复 save。
+func TestNotifySaveVersionUnresolvableFails(t *testing.T) {
+	cases := []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"versions_request_fails", 500, `{"detail":"boom"}`},
+		{"versions_current_empty", 200, `{"versions":[],"current":""}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			py, pyURL := newFakePy(t)
+			h, _, runs := newNotifyTestHandler(t, pyURL)
+			cs := newNotifySession(t, h)
+			mid := cs.ModelID
+
+			py.set("DELETE", "/models/"+mid+"/pending", 200, `{"discarded":0}`)
+			py.set("PUT", "/models/"+mid+"/script", 200, `{"modelId":"`+mid+`","staged":1}`)
+			py.set("POST", "/models/"+mid+"/script/run", 200, `{"modelId":"`+mid+`","ok":true}`)
+			py.set("POST", "/models/"+mid+"/script/save", 200, `{"modelId":"`+mid+`","staged":0}`)
+			py.set("GET", "/models/"+mid+"/versions", tc.status, tc.body)
+
+			stagingDir := filepath.Join(h.deps.DataDir, "staging")
+			if err := os.MkdirAll(stagingDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			scriptPath := filepath.Join(stagingDir, mid+".py")
+			if err := os.WriteFile(scriptPath, []byte(notifySmokeScript), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			ch := h.subscribe(cs.ID)
+			h.notify(cs)
+
+			frame := waitChatEvent(t, ch, "viewer.notify_failed")
+			if !strings.Contains(string(frame), `"step":"save_version"`) {
+				t.Fatalf("notify_failed frame = %s, want step save_version", frame)
+			}
+			assertNoRun(t, runs)
+			if !fileExists(scriptPath) {
+				t.Fatal("版本不可解析时 staging 脚本应保留（不归档、不静默吞掉）")
+			}
+		})
+	}
+}
+
 // TestNotifyScriptRunFailurePushesFailed 断言 run 沙箱失败 → viewer.notify_failed、
 // 不排重转、staging 脚本保留（可修后重试）。
 func TestNotifyScriptRunFailurePushesFailed(t *testing.T) {
