@@ -1,6 +1,6 @@
 # W-0021: 直改退役残留消费者收口（migrate 端点 + chat notify 编排）
 
-- **状态：** done（2026-08-10，分支 feat/v0.2-script-closure，commit deca331/43dca62/33be8f4）
+- **状态：** done（2026-08-10，分支 feat/v0.2-script-closure，commit deca331/43dca62/33be8f4，PR #28）
 - **优先级：** P1
 - **Milestone：** v0.2（script-as-source 统一编辑，spec: docs/superpowers/specs/2026-08-08-script-editing-unified-design.md）
 - **来源：** feat/script-editing-unified Task 8 任务评审（2026-08-08）
