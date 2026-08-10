@@ -4,6 +4,8 @@
 set -euo pipefail
 # 前提：server 已在 :8090 运行
 BASE=http://localhost:8090
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
 FIXTURE="$(dirname "$0")/../converter/test/fixtures/wall-with-opening-and-window.ifc"
 ID=$(curl -sf -F "file=@${FIXTURE}" "$BASE/api/v1/models" | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["id"])')
 echo "uploaded: $ID"
@@ -19,10 +21,10 @@ curl -sf -o /dev/null -w "xkt: %{http_code} %{size_download}B\n" "$BASE/v1/model
 curl -sf -o /dev/null -w "meta: %{http_code} %{size_download}B\n" "$BASE/v1/models/$ID/metadata.json"
 curl -sf -o /dev/null -w "download: %{http_code}\n" "$BASE/api/v1/models/$ID/download"
 # issues CRUD
-python3 -c 'import base64,sys;sys.stdout.buffer.write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))' > /tmp/smoke-shot.png
+python3 -c 'import base64,sys;sys.stdout.buffer.write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="))' > "$TMP/smoke-shot.png"
 ISSUE_ID=$(curl -sf \
   -F 'issue={"entityId":"3a82-xxxx","entityName":"Wall","entityType":"IfcWall","title":"smoke issue","comment":"c","camera":{"eye":[1,2,3],"look":[0,0,0],"up":[0,0,1]}}' \
-  -F "screenshot=@/tmp/smoke-shot.png;type=image/png" \
+  -F "screenshot=@$TMP/smoke-shot.png;type=image/png" \
   "$BASE/api/v1/models/$ID/issues" | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["id"])')
 echo "issue created: $ISSUE_ID"
 curl -sf "$BASE/api/v1/models/$ID/issues" | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert len(d)==1 and d[0]["status"]=="open" and d[0]["screenshot"].startswith("issues/"),d'
@@ -62,7 +64,7 @@ if curl -sf "$EDIT_URL/health" > /dev/null 2>&1; then
   GET_SCRIPT_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/api/v1/models/$ID/script")
   [ "$GET_SCRIPT_CODE" = "404" ] || { echo "GET /script = $GET_SCRIPT_CODE, want 404 (legacy 无脚本)"; exit 1; }
   # 暂存一个最小契约合规 build 脚本（PARAMS + build + __main__，ifcopenshell.api 生成骨架墙）
-  cat > /tmp/smoke-build.py <<'PY'
+  cat > "$TMP/smoke-build.py" <<'PY'
 PARAMS = {"name": "Smoke Wall", "fireRating": "F60"}
 
 
@@ -83,7 +85,7 @@ if __name__ == "__main__":
     import sys
     build(PARAMS, sys.argv[1])
 PY
-  SCRIPT_BODY=$(python3 -c 'import json;print(json.dumps({"script": open("/tmp/smoke-build.py").read()}))')
+  SCRIPT_BODY=$(python3 -c 'import json,sys;print(json.dumps({"script": sys.stdin.read()}))' < "$TMP/smoke-build.py")
   curl -sf -X PUT -H 'Content-Type: application/json' -d "$SCRIPT_BODY" \
     "$BASE/api/v1/models/$ID/script" | python3 -c 'import sys,json;d=json.load(sys.stdin)["data"];assert d["staged"]>=1,d'
   curl -sf -X POST "$BASE/api/v1/models/$ID/script/run" \

@@ -207,8 +207,14 @@ func (h *ChatHandler) notify(cs *chatSession) {
 		var saveResp struct {
 			Version string `json:"version"`
 		}
-		if err := json.Unmarshal(saveRaw, &saveResp); err != nil {
-			log.Printf("chat: notify %s: decode save response: %v", modelID, err)
+		if err := json.Unmarshal(saveRaw, &saveResp); err != nil || saveResp.Version == "" {
+			// 兜底：save 响应解码失败（或未带 version）时回退查 versions current
+			//（save 已落盘，GetVersions 必可读到新版本）。
+			if vers, verr := h.deps.Ed.GetVersions(ctx, modelID); verr == nil && vers.Current != "" {
+				version = vers.Current
+			} else if verr != nil {
+				log.Printf("chat: notify %s: decode save response: %v, fallback versions: %v", modelID, err, verr)
+			}
 		} else {
 			version = saveResp.Version
 		}

@@ -150,10 +150,6 @@ func (c *Client) DoSlow(ctx context.Context, method, path string, body []byte) (
 	return json.RawMessage(data), nil
 }
 
-func (c *Client) PutEntity(ctx context.Context, modelID, guid string, body []byte) (json.RawMessage, error) {
-	return c.do(ctx, c.fast, http.MethodPut, "/models/"+modelID+"/entities/"+guid, body)
-}
-
 func (c *Client) GetPending(ctx context.Context, modelID string) (json.RawMessage, error) {
 	return c.do(ctx, c.fast, http.MethodGet, "/models/"+modelID+"/pending", nil)
 }
