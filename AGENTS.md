@@ -45,6 +45,7 @@ AI agent ──► REST 编辑 API ────┘
    - Go：校验归 domain 包的 `validate()`/`Valid*()` + 哨兵错误，handler 只做 解码 → 调用 → `errors.Is` 翻译。
 2. 看到 `verify*`/`validate*` 函数名，新增检查只允许加在该函数内部，不得在调用点另写。
 3. 跨文件的请求解析/校验 helper 只允许单点定义（edit-service 统一在 `app/route_common.py`），禁止复制第二份。
+4. `verify*`/`validate*` 只做检查（可返回派生数据），禁止副作用/写盘/IO——防止其变成第二个业务层。校验隔离机器强制（契约测试）：`tests/test_verify_isolation.py`（Python，`raise HTTPException` 只准出现在 verify*/validate* 或 `route_common.py`）+ `internal/api/api_verify_isolation_test.go`（Go，handler 不得内联非 400 的 `writeErr`），存量违规以白名单登记，新违规变红。
 
 ## 纪律事件化（硬规则）
 
