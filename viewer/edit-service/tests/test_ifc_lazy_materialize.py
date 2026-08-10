@@ -42,25 +42,20 @@ def _script(marker: str) -> str:
     )
 
 
-# 全确定性契约脚本（I5）：create_skeleton 的骨架实体默认随机 GlobalId，
-# 需经 deterministic_guid 固定后重跑产物才语义稳定。
+# 全确定性契约脚本（I5）：create_skeleton 骨架实体走确定性路径（W-0023），
+# 两次 run 骨架 GlobalId 一致、语义 diff 为空，无需脚本侧手动固定。
 REAL_IFC_SCRIPT = '''\
 import sys
 
 import ifcopenshell
 
-from script_lib import create_skeleton, deterministic_guid, write_and_validate
+from script_lib import create_skeleton, write_and_validate
 
 PARAMS = {"name": "lazy-v1", "storeys": {"1F": 0.0}}
 
 def build(params, out_path):
     model = ifcopenshell.file(schema="IFC4")
-    _, smap = create_skeleton(model, name=params["name"], storeys=params["storeys"])
-    for ifc_class, key in (("IfcProject", "project"), ("IfcSite", "site"),
-                           ("IfcBuilding", "building")):
-        model.by_type(ifc_class)[0].GlobalId = deterministic_guid(key)
-    for storey_name, storey in smap.items():
-        storey.GlobalId = deterministic_guid("storey:" + storey_name)
+    create_skeleton(model, name=params["name"], storeys=params["storeys"])
     write_and_validate(model, out_path)
 
 if __name__ == "__main__":

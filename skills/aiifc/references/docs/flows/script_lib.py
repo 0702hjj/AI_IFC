@@ -125,22 +125,33 @@ def create_skeleton(model, name: str = "building", storeys: dict | None = None):
     """骨架: units + Model/Body context + Project→Site→Building→Storey 聚合树。
 
     storeys: {名字: 标高(米)}; None → 无 storey。返回 (body_context, {名字: storey 实体})。
+
+    骨架实体走 create_entity 确定性路径(W-0023): key 固定层级式
+    (skeleton:project / skeleton:site / skeleton:building / skeleton:storey:{名字}),
+    GlobalId 经 deterministic_guid 派生、designKey 自动写 Pset_AIIFC, 调用点指向
+    create_skeleton 调用行——I5 语义 diff 无骨架幻影噪声、C-locate 可定位。
     """
-    prj = api("root.create_entity", model, ifc_class="IfcProject", name=name)
+    prj = create_entity(model, "IfcProject", key="skeleton:project", name=name)
     api("unit.assign_unit", model)
     m3d = api("context.add_context", model, context_type="Model")
     body = api("context.add_context", model, context_identifier="Body",
                target_view="MODEL_VIEW", parent=m3d)
-    site = api("root.create_entity", model, ifc_class="IfcSite", name="Site")
-    bldg = api("root.create_entity", model, ifc_class="IfcBuilding", name=name)
+    site = create_entity(model, "IfcSite", key="skeleton:site", name="Site")
+    bldg = create_entity(model, "IfcBuilding", key="skeleton:building", name=name)
     api("aggregate.assign_object", model, relating_object=prj, products=[site])
     api("aggregate.assign_object", model, relating_object=site, products=[bldg])
     smap = {}
     for sn, elev in (storeys or {}).items():
-        st = api("root.create_entity", model, ifc_class="IfcBuildingStorey", name=sn)
+        st = create_entity(model, "IfcBuildingStorey",
+                           key=f"skeleton:storey:{sn}", name=sn)
         st.Elevation = elev * 1000
         api("aggregate.assign_object", model, relating_object=bldg, products=[st])
         smap[sn] = st
+    # create_entity 记录的调用点落在 script_lib 内部行; 重记为 create_skeleton
+    # 调用行(map 行号只对生成它的用户脚本有效, 骨架定位应跳到用户的调用处)。
+    for key in ("skeleton:project", "skeleton:site", "skeleton:building",
+                *(f"skeleton:storey:{sn}" for sn in smap)):
+        _record_callsite(key)
     return body, smap
 
 

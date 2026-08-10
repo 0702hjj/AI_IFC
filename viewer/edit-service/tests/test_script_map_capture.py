@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from app import script_runner
+from app import diffing, script_runner
 from app.config import load_settings
 
 LITERAL_SCRIPT = '''\
@@ -145,4 +145,47 @@ class TestMapSidecar:
     def test_map_entries_follow_insertion_order(self, settings, tmp_path: Path):
         out = tmp_path / "out.ifc"
         script_runner.run_script(settings, LITERAL_SCRIPT, str(out))
-        assert list(_read_map(out)) == ["s1:wall:1"]
+        assert list(_read_map(out)) == [
+            "skeleton:project", "skeleton:site", "skeleton:building",
+            "s1:wall:1",
+        ]
+
+    def test_map_contains_skeleton_entries(self, settings, tmp_path: Path):
+        """W-0023：create_skeleton 骨架实体走 create_entity → 进 map，可 locate。
+
+        骨架调用点指向用户脚本里的 create_skeleton 调用行（snippet 含
+        create_skeleton，非 script_lib 内部行）。
+        """
+        out = tmp_path / "out.ifc"
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out))
+        m = _read_map(out)
+        for key in ("skeleton:project", "skeleton:site", "skeleton:building"):
+            entry = m[key]
+            assert entry["line"] > 0
+            assert "create_skeleton" in entry["snippet"]
+            assert entry["origin"] in ("literal", "params", "traced")
+
+    def test_rerun_same_script_map_bytes_identical(
+        self, settings, tmp_path: Path
+    ):
+        """spec §8 留白：同一脚本两次 run，.map.json（含骨架条目）字节一致。"""
+        out1, out2 = tmp_path / "a.ifc", tmp_path / "b.ifc"
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out1))
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out2))
+        m1 = Path(str(out1) + ".map.json").read_bytes()
+        m2 = Path(str(out2) + ".map.json").read_bytes()
+        assert m1 and m1 == m2
+
+
+class TestSkeletonSemanticDeterminism:
+    """W-0023：骨架确定性 → 同一脚本两次 run 的 IFC 语义 diff 为空（I5）。"""
+
+    def test_two_runs_same_script_semantic_diff_empty(
+        self, settings, tmp_path: Path
+    ):
+        out1, out2 = tmp_path / "m1.ifc", tmp_path / "m2.ifc"
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out1))
+        script_runner.run_script(settings, LITERAL_SCRIPT, str(out2))
+        assert diffing.compute_diff(str(out1), str(out2)) == {
+            "added": [], "removed": [], "changed": [],
+        }

@@ -10,6 +10,7 @@
 - 新增 `POST /script/edit-call`（edit-service 直连）：libcst 标量参数无损重写 + 沙箱验证 + 暂存；契约新增 C-locate（#30，构件必经 `create_entity` 工厂）与 C-scalar（#31，web 可编辑参数为标量/PARAMS 引用）。
 - 大版本三件成对：`scripts/v{n}.py` + `v{n}.map.json` 全量保留、lockstep 编号；`versions/v{n}.ifc` 只物化最新，历史版本按需从脚本重建（`ifc_cache/` LRU 4）。
 - bootstrap：plain 模型首次暂存脚本自动保留上传原件为 `bootstrap.ifc`；首次 save 响应带 `alignment` 对齐计数。
+- **create_skeleton 骨架确定性化**：Project/Site/Building/Storey 骨架实体改走 `create_entity` 确定性路径——GlobalId 由稳定 key（`skeleton:project` / `skeleton:site` / `skeleton:building` / `skeleton:storey:{名字}`）经 `deterministic_guid` 派生，自动写 `Pset_AIIFC.designKey` 且可 locate 定位。**兼容性**：生成期脚本契约变更，用旧版 script_lib 生成的模型骨架 GlobalId 与新版不同（首跑对齐报告/历史重建会带一次骨架 diff 噪声，可接受）。
 - **L1 直改链路退役（410 Gone）**：`PUT/DELETE /entities/{guid}`、`editable-schema`、`POST /commit` 及 Go 侧直改代理路由下线（回捞锚点 `fb55a8a`）；`POST /diff`（IFC 语义 diff）与 `POST /diff/upload` 保留。
 
 **Script-as-source（M5）**

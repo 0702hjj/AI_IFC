@@ -166,6 +166,62 @@ class TestCreateEntityAutoAttach:
         assert len(psets) == 1
 
 
+class TestSkeletonDeterminism:
+    """W-0023: create_skeleton 骨架实体确定性（GlobalId 稳定 + designKey 可定位）。
+
+    骨架（Project/Site/Building/Storey）是 I5 语义 diff 与 C-locate 的地基：
+    同一脚本两次 build 骨架 GlobalId 必须一致，且每个骨架实体带 Pset_AIIFC.designKey。
+    """
+
+    def test_skeleton_globalids_stable_across_builds(self, tmp_path):
+        design = json.loads(
+            (FIXTURES / "sample_design.json").read_text(encoding="utf-8"))
+        features = design_builder.normalize(design)
+        fp = tmp_path / "features.json"
+        fp.write_text(json.dumps(features), encoding="utf-8")
+
+        out1, out2 = tmp_path / "m1.ifc", tmp_path / "m2.ifc"
+        assert build_script_template.build(str(fp), str(out1)) is True
+        assert build_script_template.build(str(fp), str(out2)) is True
+
+        m1, m2 = ifcopenshell.open(str(out1)), ifcopenshell.open(str(out2))
+        for ifc_class in ("IfcProject", "IfcSite", "IfcBuilding",
+                          "IfcBuildingStorey", "IfcWall", "IfcSlab"):
+            g1 = sorted(e.GlobalId for e in m1.by_type(ifc_class))
+            g2 = sorted(e.GlobalId for e in m2.by_type(ifc_class))
+            assert g1, ifc_class
+            assert g1 == g2, f"{ifc_class} GlobalId 两次 build 不一致"
+
+    def test_skeleton_entities_have_design_keys(self):
+        model = ifcopenshell.api.run("project.create_file")
+        _, smap = script_lib.create_skeleton(
+            model, name="b", storeys={"1F": 0.0, "2F": 3.0})
+        from ifcopenshell.util.element import get_psets
+
+        expected = {
+            "IfcProject": "skeleton:project",
+            "IfcSite": "skeleton:site",
+            "IfcBuilding": "skeleton:building",
+            "IfcBuildingStorey": {"1F": "skeleton:storey:1F",
+                                  "2F": "skeleton:storey:2F"},
+        }
+        for ifc_class, key in expected.items():
+            elements = model.by_type(ifc_class)
+            if isinstance(key, dict):
+                for el in elements:
+                    assert get_psets(el)["Pset_AIIFC"]["designKey"] == key[el.Name]
+            else:
+                assert get_psets(elements[0])["Pset_AIIFC"]["designKey"] == key
+
+    def test_skeleton_globalid_derived_from_key(self):
+        model = ifcopenshell.api.run("project.create_file")
+        _, _ = script_lib.create_skeleton(model, name="b", storeys={"1F": 0.0})
+        prj = model.by_type("IfcProject")[0]
+        assert prj.GlobalId == script_lib.deterministic_guid("skeleton:project")
+        st = model.by_type("IfcBuildingStorey")[0]
+        assert st.GlobalId == script_lib.deterministic_guid("skeleton:storey:1F")
+
+
 class TestSkillDocContractDrift:
     """SKILL.md 的脚本契约 MUST 与 script_lib 实现保持同步(漂移防护)。"""
 

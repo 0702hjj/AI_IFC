@@ -217,10 +217,19 @@ class TestSaveEndpointMapLockstep:
         scripts_dir = data_dir / "models" / MODEL_ID / "scripts"
         m1 = json.loads((scripts_dir / f"{v1}.map.json").read_text(encoding="utf-8"))
         m2 = json.loads((scripts_dir / f"{v2}.map.json").read_text(encoding="utf-8"))
-        assert list(m1["map"]) == ["s1:wall:1"]
-        assert list(m2["map"]) == ["s1:wall:2"]
+        assert list(m1["map"]) == [
+            "skeleton:project", "skeleton:site", "skeleton:building",
+            "s1:wall:1",
+        ]
+        assert list(m2["map"]) == [
+            "skeleton:project", "skeleton:site", "skeleton:building",
+            "s1:wall:2",
+        ]
         # current.map.json 跟随最新一次 run（save 内部重跑）
-        assert list(_read_current_map(data_dir)["map"]) == ["s1:wall:2"]
+        assert list(_read_current_map(data_dir)["map"]) == [
+            "skeleton:project", "skeleton:site", "skeleton:building",
+            "s1:wall:2",
+        ]
 
     def test_save_without_map_writes_no_version_map(
         self, client: TestClient, data_dir: Path
