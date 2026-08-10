@@ -6,7 +6,8 @@
 消费 Task 2 的 ``models/{id}/current.map.json`` 与 uploads IFC 里的
 ``Pset_AIIFC.designKey``：
 
-- 命中：200 {"found": true, "designKey", "line", "col", "snippet", "origin"}
+- 命中：200 {"found": true, "designKey", "line", "col", "snippet", "origin",
+  "params_keys"}（origin=params 时 params_keys 为该构件引用的 PARAMS 键）
 - 构件存在但无 designKey → 200 {"found": false}
 - 有 designKey 但 map 缺失/无该 key → 200 {"found": false, "designKey"}
 - staging 与 map 分叉（未 run 的暂存/旧版裸 map）→ 200 {"found": false,
@@ -58,6 +59,26 @@ def build(params, out_path):
     model = ifcopenshell.file(schema="IFC4")
     body, _ = create_skeleton(model)
     w = create_entity(model, "IfcWall", key=params["key"], name="W1")
+    attach_design_key(model, w, params["key"])
+    write_and_validate(model, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
+MULTI_PARAMS_KEY_SCRIPT = '''\
+import sys
+
+import ifcopenshell
+
+from script_lib import attach_design_key, create_entity, create_skeleton, write_and_validate
+
+PARAMS = {{"key": "{key}", "wall_name": "W1"}}
+
+def build(params, out_path):
+    model = ifcopenshell.file(schema="IFC4")
+    body, _ = create_skeleton(model)
+    w = create_entity(model, "IfcWall", key=params["key"], name=params["wall_name"])
     attach_design_key(model, w, params["key"])
     write_and_validate(model, out_path)
 
@@ -149,6 +170,7 @@ class TestLocateHit:
         assert body["line"] > 0
         assert body["col"] >= 0
         assert "create_entity" in body["snippet"]
+        assert body["params_keys"] == []  # W-0022：literal 无 params 引用
 
     def test_locate_hit_params_origin(self, client: TestClient, data_dir: Path):
         _save_script(client, PARAMS_KEY_SCRIPT.format(key="s1:wall:2"))
@@ -158,6 +180,20 @@ class TestLocateHit:
         assert body["found"] is True
         assert body["designKey"] == "s1:wall:2"
         assert body["origin"] == "params"
+        assert body["params_keys"] == ["key"]  # W-0022：params 引用键透传
+
+    def test_locate_hit_params_origin_lists_multiple_keys(
+        self, client: TestClient, data_dir: Path
+    ):
+        """一个构件引用多个 params 键 → 全部列出（多键引用验收标准）。"""
+        _save_script(client, MULTI_PARAMS_KEY_SCRIPT.format(key="s1:wall:3"))
+        guid = _wall_guid(data_dir)
+
+        body = _locate(client, guid).json()
+        assert body["found"] is True
+        assert body["designKey"] == "s1:wall:3"
+        assert body["origin"] == "params"
+        assert body["params_keys"] == ["key", "wall_name"]
 
     def test_locate_after_run_without_save(
         self, client: TestClient, data_dir: Path

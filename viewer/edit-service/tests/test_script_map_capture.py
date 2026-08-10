@@ -61,6 +61,26 @@ if __name__ == "__main__":
     build(PARAMS, sys.argv[1])
 '''
 
+DIRECT_PARAMS_SCRIPT = '''\
+import os
+import sys
+
+import ifcopenshell
+
+from script_lib import create_entity, create_skeleton, write_and_validate
+
+PARAMS = {"key": "s1:wall:1", "wall_name": "W1"}
+
+def build(params, out_path):
+    model = ifcopenshell.file(schema="IFC4")
+    body, _ = create_skeleton(model)
+    w = create_entity(model, "IfcWall", key=params["key"], name=params["wall_name"])
+    write_and_validate(model, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
 MULTILINE_SCRIPT = '''\
 import os
 import sys
@@ -119,6 +139,8 @@ class TestMapSidecar:
         assert entry["line"] > 0
         assert entry["col"] >= 0
         assert "create_entity" in entry["snippet"]
+        # W-0022：literal 即使其他参数引用 params，params_keys 也置空（键非 params 驱动）
+        assert entry["params_keys"] == []
 
     def test_params_reference_key_origin(self, settings, tmp_path: Path):
         out = tmp_path / "out.ifc"
@@ -126,6 +148,16 @@ class TestMapSidecar:
         entry = _read_map(out)["s1:wall:1"]
         assert entry["origin"] == "params"
         assert entry["line"] > 0
+        # 间接下标（keys["w"]，params 引用在上一行）→ 调用行无可提取键
+        assert entry["params_keys"] == []
+
+    def test_direct_params_ref_records_params_keys(self, settings, tmp_path: Path):
+        """W-0022：调用行直接引用 params 键 → params_keys 落多键列表。"""
+        out = tmp_path / "out.ifc"
+        script_runner.run_script(settings, DIRECT_PARAMS_SCRIPT, str(out))
+        entry = _read_map(out)["s1:wall:1"]
+        assert entry["origin"] == "params"
+        assert entry["params_keys"] == ["key", "wall_name"]
 
     def test_multiline_call_degrades_to_traced(self, settings, tmp_path: Path):
         out = tmp_path / "out.ifc"
