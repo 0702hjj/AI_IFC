@@ -97,11 +97,8 @@ var httpStatusNameCode = map[string]int{
 }
 
 // 存量违规白名单（机器强制目标：新代码不得违规；存量以显式登记收容）。
-// 归属：
-//   - migrateOverrides：W-0021 退役 migrate 端点 → handler 删除后本行随之失效
-//     （W-0021 落地时必须同步删除本行，TestVerifyIsolationAllowlistMatchesReal 会拦 stale）。
-//   - 其余：api.go / chat 模块 handler 内联的非 400 writeErr（多为 5xx 内部错误透传 /
-//     领域状态 404），无专项 deadline，随触碰 handler 收拢（W-0024 存量推开）。
+// 归属：api.go / chat 模块 handler 内联的非 400 writeErr（多为 5xx 内部错误透传 /
+// 领域状态 404），无专项 deadline，随触碰 handler 收拢（W-0024 存量推开）。
 //
 // 新增 handler 内联非 400 writeErr → 本测试变红。
 var verifyIsolationAllowlist = map[string][]int{
@@ -117,7 +114,6 @@ var verifyIsolationAllowlist = map[string][]int{
 	"listOverrides":       {http.StatusInternalServerError},
 	"putEntityProperties": {http.StatusInternalServerError},
 	"listChanges":         {http.StatusInternalServerError},
-	"migrateOverrides":    {http.StatusInternalServerError}, // W-0021 退役后删除
 	"events":              {http.StatusInternalServerError},
 	"createProject":       {http.StatusInternalServerError},
 }

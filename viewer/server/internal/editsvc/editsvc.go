@@ -25,33 +25,6 @@ func (e *Error) Error() string {
 	return fmt.Sprintf("edit service: status %d: %s", e.Status, e.Detail)
 }
 
-type Provenance struct {
-	Source string `json:"source"`
-}
-
-// Change 是 pending/history entry 里的单条字段变更（oldValue/newValue 可为任意 JSON 标量）。
-type Change struct {
-	Field    string `json:"field"`
-	OldValue any    `json:"oldValue"`
-	NewValue any    `json:"newValue"`
-}
-
-// Entry 对应 Python 的 pending/history 条目。
-type Entry struct {
-	ID         string     `json:"id"`
-	GUID       string     `json:"guid"`
-	Changes    []Change   `json:"changes"`
-	Author     string     `json:"author"`
-	Provenance Provenance `json:"provenance"`
-	Timestamp  string     `json:"timestamp"`
-	Operation  string     `json:"operation,omitempty"`
-}
-
-type CommitResult struct {
-	Committed int     `json:"committed"`
-	Entries   []Entry `json:"entries"`
-}
-
 // ScriptVersion 是脚本大版本条目（GET /models/{id}/scripts 的 scripts 元素）。
 type ScriptVersion struct {
 	Version   string `json:"version"`
@@ -95,26 +68,6 @@ type Version struct {
 type Versions struct {
 	Versions []Version `json:"versions"`
 	Current  string    `json:"current"`
-}
-
-// DiffChange 是 diff.changed 里的变更项（field/old/new 形状，与 Change 不同）。
-type DiffChange struct {
-	Field string `json:"field"`
-	Old   any    `json:"old"`
-	New   any    `json:"new"`
-}
-
-type DiffChanged struct {
-	GUID    string       `json:"guid"`
-	Changes []DiffChange `json:"changes"`
-}
-
-type DiffResult struct {
-	Base    string        `json:"base"`
-	Target  string        `json:"target"`
-	Added   []string      `json:"added"`
-	Removed []string      `json:"removed"`
-	Changed []DiffChanged `json:"changed"`
 }
 
 type Client struct {
@@ -230,20 +183,6 @@ func (c *Client) GetVersions(ctx context.Context, modelID string) (*Versions, er
 	return &v, nil
 }
 
-// Diff 以类型化方式调 diff（commit 编排用）。
-func (c *Client) Diff(ctx context.Context, modelID, base, target string) (*DiffResult, error) {
-	body, _ := json.Marshal(map[string]string{"base": base, "target": target})
-	data, err := c.do(ctx, c.slow, http.MethodPost, "/models/"+modelID+"/diff", body)
-	if err != nil {
-		return nil, err
-	}
-	var d DiffResult
-	if err := json.Unmarshal(data, &d); err != nil {
-		return nil, fmt.Errorf("edit service: decode diff: %w", err)
-	}
-	return &d, nil
-}
-
 // GetScriptVersions 列出脚本大版本（chat 注入 diff 前判断是否 ≥2 个）。
 func (c *Client) GetScriptVersions(ctx context.Context, modelID string) (*ScriptVersions, error) {
 	data, err := c.do(ctx, c.fast, http.MethodGet, "/models/"+modelID+"/scripts", nil)
@@ -269,16 +208,4 @@ func (c *Client) PostScriptDiff(ctx context.Context, modelID, base, target strin
 		return nil, fmt.Errorf("edit service: decode script diff: %w", err)
 	}
 	return &d, nil
-}
-
-func (c *Client) Commit(ctx context.Context, modelID string, body []byte) (*CommitResult, error) {
-	data, err := c.do(ctx, c.slow, http.MethodPost, "/models/"+modelID+"/commit", body)
-	if err != nil {
-		return nil, err
-	}
-	var r CommitResult
-	if err := json.Unmarshal(data, &r); err != nil {
-		return nil, fmt.Errorf("edit service: decode commit: %w", err)
-	}
-	return &r, nil
 }
