@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-自托管、开源的 **IFC 模型审查与编辑平台**——script-as-source 编辑（一切修改落在 Python 构建脚本上）、语义化版本对比，以及人/AI 双角色共用的编辑 API。
+自托管、开源的 **IFC 模型审查与编辑平台**——script-as-source 编辑（一切修改落在 Python 构建脚本上）、语义化版本对比，以及设计师/AI 双角色共用的编辑 API。
 
 > **文档站：<https://0702hjj.github.io/AI_IFC/>** ——快速开始、Viewer 使用、开发指南、REST/编辑 API 与 AI 接入。
 
@@ -79,8 +79,9 @@ python tools/skill_pack_aiifc.py --archive   # 产出 skills/dist/aiifc.tar.gz
 
 ```
 AGENTS.md          # 人机协同契约（AI agent 入口）
-viewer/            # 活跃产品：IFC 平台（web / server / converter / edit-service）
-skills/aiifc/      # AI 建模 skill（可分发包，agent 无关）
+viewer/            # 活跃产品：IFC 平台（web / server / converter / edit-service / mcp-server）
+skills/aiifc/      # AI 建模 skill（可分发包，agent 无关）——plan→DXF→IFC 管线的 IFC 段
+AI_CAD/            # plan→DXF 段：aidxfv1（通用 DXF 生成/校验）/ aidxfv2（建筑平面管线）/ aiblueprint-mcp + 调研
 tools/             # skill 打包器（skill_pack_aiifc.py）
 docs/site/         # 公开文档站（VitePress，发布到 GitHub Pages）
 docs/work/         # 工作项看板（审计/计划/可追踪工作项）

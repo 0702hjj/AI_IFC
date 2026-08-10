@@ -4,7 +4,7 @@ layout: home
 hero:
   name: AI_IFC
   text: IFC 审查与编辑平台
-  tagline: 自托管开源的 IFC 审查与编辑平台：真改 IFC、语义 diff、人/AI 同一套 API。
+  tagline: 自托管开源的 IFC 审查与编辑平台：真改 IFC、语义 diff、设计师/AI 同一套 API。
   actions:
     - theme: brand
       text: 开始使用
@@ -24,7 +24,7 @@ features:
     title: 脚本即事实源
     details: Python 构建脚本是 IFC 唯一事实源：沙箱执行、大版本成对快照、脚本 diff 两级粒度。
   - icon: 🤖
-    title: 人/AI 双角色 API
+    title: 设计师/AI 双角色 API
     details: 人与 AI 共用同一套 REST 编辑 API，provenance 区分来源；OpenAPI 工具目录可直接喂给 LLM。
   - icon: 🔌
     title: MCP 接入

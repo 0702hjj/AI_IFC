@@ -2,7 +2,7 @@
 
 [中文说明](README.zh-CN.md)
 
-A self-hosted, open-source **BIM review and editing platform** for IFC models — script-as-source editing (every edit rewrites the Python build script), semantic version diffing, and an AI-ready editing API shared by humans and agents.
+A self-hosted, open-source **BIM review and editing platform** for IFC models — script-as-source editing (every edit rewrites the Python build script), semantic version diffing, and an AI-ready editing API shared by designers and agents.
 
 > **Documentation: [https://0702hjj.github.io/AI_IFC/](https://0702hjj.github.io/AI_IFC/)** — quick start, viewer usage, development guide, REST/editing API and AI integration.
 
@@ -12,7 +12,7 @@ A self-hosted, open-source **BIM review and editing platform** for IFC models �
 |---|---|
 | **Script-as-source editing** | The Python build script is the single source of truth; every web edit rewrites the script (locate callsite → PARAMS/libcst rewrite → sandbox-validated → staged), and each save snapshots script + ScriptMap as an immutable big version. |
 | **Semantic version diff** | Attribute-level diff keyed by GlobalId (added / removed / changed), rendered in the Diff Viewer with old → new detail — no geometry noise. |
-| **One API, two roles** | The same REST editing API for humans (via the Go server) and AI agents (direct, with `provenance.source="AI"`). |
+| **One API, two roles** | The same REST editing API for designers (via the Go server) and AI agents (direct, with `provenance.source="AI"`). |
 | **AI authoring skill** | An agent-agnostic `aiifc` skill lets AI write `ifcopenshell.api` code to build or modify models from natural language. |
 | **Self-hosted & open** | AGPL-3.0, four components (web / server / converter / edit-service), file or PostgreSQL storage, single-machine friendly. |
 
@@ -21,7 +21,7 @@ A self-hosted, open-source **BIM review and editing platform** for IFC models �
 - Upload IFC in the browser; review properties, spatial structure, issues and 3D pins.
 - Edit by editing the build script: locate an element's callsite from the viewer, change it via the PARAMS form or script editor, sandbox-validated and staged; each save produces an immutable big version.
 - Compare versions with attribute-level semantic diffs (by GlobalId), rendered in the Diff Viewer.
-- Expose the same REST editing API to humans (via the Go server) and AI agents (direct, with `provenance.source="AI"`).
+- Expose the same REST editing API to designers (via the Go server) and AI agents (direct, with `provenance.source="AI"`).
 - Ship an AI authoring skill (`skills/aiifc/`) so agents can generate or heavily modify IFC models, complementing the REST editing API.
 
 ## Architecture
@@ -79,8 +79,9 @@ python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
 
 ```
 AGENTS.md          # human-AI collaboration contract (agent entry point)
-viewer/            # active product: the IFC platform (web / server / converter / edit-service)
-skills/aiifc/      # AI authoring skill (distributable, agent-agnostic)
+viewer/            # active product: the IFC platform (web / server / converter / edit-service / mcp-server)
+skills/aiifc/      # AI authoring skill (distributable, agent-agnostic) — the IFC leg of plan→DXF→IFC
+AI_CAD/            # plan→DXF leg: aidxfv1 (general DXF gen/validation) / aidxfv2 (floor-plan pipeline) / aiblueprint-mcp + research
 tools/             # skill packager (skill_pack_aiifc.py)
 docs/site/         # public docs site (VitePress, published to GitHub Pages)
 docs/work/         # work-item board (audit, plans, trackable items)
