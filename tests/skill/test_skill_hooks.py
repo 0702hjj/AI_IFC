@@ -221,6 +221,71 @@ class TestEventUris:
         assert ev["uri"] == "aiifc://script/validation-failed"
         assert ev["ok"] is False
 
+    def test_sandbox_detail_carried_in_event(self, tmp_path):
+        p = tmp_path / "script.py"
+        p.write_text(GOOD_SCRIPT, encoding="utf-8")
+        ev = validate_script.build_event(
+            p, errors=[], mode="sandbox",
+            sandbox={"ran": True, "exit_code": 0, "out_exists": False}, model_id=MODEL_ID)
+        assert ev["sandbox"]["exit_code"] == 0
+        assert ev["uri"] == f"aiifc://model/{MODEL_ID}/script/validated"
+
+
+class TestHasBuildEntry:
+    def test_present(self):
+        assert validate_script.has_build_entry(GOOD_SCRIPT) is True
+
+    def test_absent(self):
+        assert validate_script.has_build_entry("PARAMS = {'a': 1}\n") is False
+
+    def test_syntax_error(self):
+        assert validate_script.has_build_entry("def (:\n") is False
+
+    def test_async_build_counts(self):
+        assert validate_script.has_build_entry(
+            "async def build(params, out_path):\n    pass\n") is True
+
+
+class TestStaticValidateExtra:
+    def test_params_not_json_compatible(self):
+        src = GOOD_SCRIPT.replace('{"length": 5.0, "height": 3.0, "nested": {"t": 0.2}, "tags": ["a"]}',
+                                  '{("tuple",): 1}')
+        errors = validate_script.static_validate(src)
+        assert any("JSON-compatible" in e for e in errors)
+
+    def test_missing_main_guard(self):
+        src = 'PARAMS = {"a": 1}\n\ndef build(params, out_path):\n    pass\n'
+        errors = validate_script.static_validate(src)
+        assert any("__main__" in e for e in errors)
+
+    def test_params_expression_rejected(self):
+        src = GOOD_SCRIPT.replace('{"length": 5.0, "height": 3.0, "nested": {"t": 0.2}, "tags": ["a"]}',
+                                  "{'a': 1 + 2}")
+        errors = validate_script.static_validate(src)
+        assert any("字面量" in e for e in errors)
+
+
+class TestStdlibOnlyContract:
+    """validate_script.py 顶部不得 import ifcopenshell——降级路径（无该库也能跑）的机器保证。"""
+
+    def test_no_top_level_ifcopenshell_import(self):
+        src = (HOOKS_DIR / "validate_script.py").read_text(encoding="utf-8")
+        prelude = src.split("def ", 1)[0]
+        assert "import ifcopenshell" not in prelude, \
+            "validate_script.py 模块级不得 import ifcopenshell（否则无库环境 import 即崩）"
+
+    def test_importable_without_ifcopenshell(self):
+        # 用解释器 -c 在纯净进程验证：只 import 模块不触发 ifcopenshell
+        out = subprocess.run(
+            [sys.executable, "-c",
+             "import sys; sys.path.insert(0, %r); import validate_script; "
+             "print(validate_script.static_validate('PARAMS = {\"a\": 1}\\n') != [])"
+             % str(HOOKS_DIR)],
+            capture_output=True, text=True, timeout=60,
+        )
+        assert out.returncode == 0, out.stderr
+        assert out.stdout.strip() == "True"
+
 
 def _run_cli(path, *extra, tmp_path):
     out = subprocess.run(
@@ -347,6 +412,51 @@ if __name__ == "__main__":
         ev = json.loads(out.stdout)
         assert ev["mode"] == "static"
         assert "sandbox" not in ev
+
+    def test_static_failure_skips_sandbox(self, tmp_path):
+        """静态不通过就不试跑（避免在坏脚本上浪费时间）。"""
+        p = tmp_path / "script.py"
+        p.write_text(BAD_SCRIPT, encoding="utf-8")
+        out = _run_cli(p, tmp_path=tmp_path)
+        ev = json.loads(out.stdout)
+        assert ev["mode"] == "static"
+        assert "sandbox" not in ev
+
+    def test_sandbox_timeout_is_event(self, tmp_path):
+        src = '''PARAMS = {"a": 1}
+
+def build(params, out_path):
+    import time
+    time.sleep(30)
+
+if __name__ == "__main__":
+    build(PARAMS, "model.ifc")
+'''
+        p = tmp_path / "script.py"
+        p.write_text(src, encoding="utf-8")
+        out = _run_cli(p, "--sandbox-timeout", "1", tmp_path=tmp_path)
+        ev = json.loads(out.stdout)
+        assert ev["ok"] is False, ev
+        assert ev["mode"] == "sandbox"
+        assert ev["sandbox"]["timed_out"] is True
+
+    def test_claude_hook_stdin_path_wins_over_argv(self, tmp_path):
+        """stdin 载荷的 file_path 优先于 argv path（真实 Claude Code 调用形态）。"""
+        good = tmp_path / "good.py"
+        good.write_text(GOOD_SCRIPT, encoding="utf-8")
+        bad = tmp_path / "bad.py"
+        bad.write_text(BAD_SCRIPT, encoding="utf-8")
+        payload = json.dumps(
+            {"tool_name": "Write", "tool_input": {"file_path": str(bad)}})
+        out = subprocess.run(
+            [sys.executable, str(HOOKS_DIR / "validate_script.py"), str(good),
+             "--static-only", "--claude-hook"],
+            input=payload, capture_output=True, text=True, timeout=120,
+            cwd=str(tmp_path),
+        )
+        hook = json.loads(out.stdout)
+        assert "validation-failed" in hook["additionalContext"]
+        assert "good.py" not in hook["additionalContext"]
 
 
 class TestSkillMdDocumentsHooks:
