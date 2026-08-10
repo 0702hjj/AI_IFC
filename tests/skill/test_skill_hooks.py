@@ -10,6 +10,7 @@ hooks 是 aiifc skill 包的顶层目录（opencode 插件 + Claude Code 配置 
 - SKILL.md 文档 hooks 小节 + 降级路径
 """
 
+import argparse
 import importlib.util
 import json
 import re
@@ -439,6 +440,19 @@ if __name__ == "__main__":
         assert ev["ok"] is False, ev
         assert ev["mode"] == "sandbox"
         assert ev["sandbox"]["timed_out"] is True
+
+    def test_unreadable_file_is_event_not_crash(self, tmp_path):
+        """_validate 阶段文件消失/不可读也产事件，不把 traceback 漏给宿主。
+
+        直接测 _validate（looks_like_build_script 的入口门禁不读不存在文件，
+        该守卫防的是「已通过门禁、校验途中文件被移走」的竞态）。
+        """
+        missing = tmp_path / "gone.py"
+        ev = validate_script._validate(
+            missing, argparse.Namespace(model_id=None, static_only=True,
+                                        sandbox_timeout=60))
+        assert ev["uri"] == "aiifc://script/validation-failed"
+        assert any("读取脚本失败" in e for e in ev["errors"])
 
     def test_claude_hook_stdin_path_wins_over_argv(self, tmp_path):
         """stdin 载荷的 file_path 优先于 argv path（真实 Claude Code 调用形态）。"""

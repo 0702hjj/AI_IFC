@@ -237,20 +237,26 @@ def _run_claude_hook(path: Path, args: argparse.Namespace) -> dict:
 
 
 def _validate(path: Path, args: argparse.Namespace) -> dict:
-    """执行校验流水线：静态（必做）→ 沙箱试跑（可选，ifcopenshell 可用时）。"""
-    model_id = args.model_id or extract_model_id(path)
-    errors = list(static_validate_file(path))
-    mode = "static"
-    sandbox = None
-    src = path.read_text(encoding="utf-8")
-    if (not args.static_only and not errors and has_build_entry(src)
-            and _have_ifcopenshell()):
-        mode = "sandbox"
-        with tempfile.TemporaryDirectory(prefix="aiifc-sandbox-") as tmp:
-            sandbox = run_sandbox(path, Path(tmp), args.sandbox_timeout)
-        if sandbox.get("ran") and sandbox.get("exit_code") != 0:
-            errors.append("沙箱试跑失败（脚本可运行性检查未通过）")
-    return build_event(path, errors, mode, sandbox, model_id)
+    """执行校验流水线：静态（必做）→ 沙箱试跑（可选，ifcopenshell 可用时）。
+
+    读取失败（文件被移走/权限）也产事件（validation-failed），不把 traceback 漏给宿主。
+    """
+    try:
+        model_id = args.model_id or extract_model_id(path)
+        errors = list(static_validate_file(path))
+        mode = "static"
+        sandbox = None
+        src = path.read_text(encoding="utf-8")
+        if (not args.static_only and not errors and has_build_entry(src)
+                and _have_ifcopenshell()):
+            mode = "sandbox"
+            with tempfile.TemporaryDirectory(prefix="aiifc-sandbox-") as tmp:
+                sandbox = run_sandbox(path, Path(tmp), args.sandbox_timeout)
+            if sandbox.get("ran") and sandbox.get("exit_code") != 0:
+                errors.append("沙箱试跑失败（脚本可运行性检查未通过）")
+        return build_event(path, errors, mode, sandbox, model_id)
+    except OSError as exc:
+        return build_event(path, [f"读取脚本失败: {exc}"], "static")
 
 
 def main(argv: list[str] | None = None) -> int:
