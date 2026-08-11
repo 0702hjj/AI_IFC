@@ -56,7 +56,15 @@ SKILL_REGISTRY: dict[str, tuple[str, ...]] = {
         "hooks/validate_script.py",
         "hooks/validate_script.sh",
     ),
-    "aidxfv": (
+    "aidxfv1": (
+        "LICENSE",
+        "agents/",
+        "references/",
+        "scripts/",
+        "steps/",
+        "tests/",
+    ),
+    "aidxfv2": (
         "LICENSE",
         "agents/",
         "references/",

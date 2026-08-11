@@ -1,10 +1,10 @@
 ---
-name: aidxfv1
+name: aidxfv2
 description: Generate, regenerate, and validate 2D DXF drawings from Python ezdxf sources. Use for DXF files, gen_dxf() sources, 2D profiles, outlines, templates, gaskets, panels, flat patterns, laser/plasma/waterjet cut layouts, and 2D drawing exports. Also for architectural floor plans and building drawings (平面图, 建筑平面, 户型图, 商场/购物中心/mall, 住宅/residence/ADU, doors/windows 门窗, walls 墙体) with standard drafting via the vendored archdxf library, including the step-routed building pipeline (plan.json 对齐 → 草案 → 确认 → 逐层 DXF → building.json 交付, plan→cad→bim 管线的 cad 段).
 license: MIT
 compatibility: Self-contained runtime (scripts/dxf + vendored slim cadpy); only external dependency is ezdxf.
 metadata:
-  project: aidxfv1
+  project: aidxfv2
   upstream: earthtojake/text-to-cad (skills/dxf)
 ---
 

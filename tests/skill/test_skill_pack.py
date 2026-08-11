@@ -23,6 +23,7 @@ MODULE_SPEC.loader.exec_module(packer)
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REAL_SKILL = REPO_ROOT / "skills" / "aiifc"
 REAL_CAD_SKILL = REPO_ROOT / "skills" / "aidxfv" / "v1"
+REAL_CAD_SKILL_V2 = REPO_ROOT / "skills" / "aidxfv" / "v2"
 
 SKILL_MD = """---
 name: {name}
@@ -57,7 +58,10 @@ class TestSkillPackValidate(unittest.TestCase):
         packer.validate(REAL_SKILL, strict_noise=False)
 
     def test_validate_real_cad_skill_passes(self):
-        packer.validate(REAL_CAD_SKILL, strict_noise=False)
+        packer.validate(REAL_CAD_SKILL, strict_noise=False, skill_name="aidxfv1")
+
+    def test_validate_real_cad_skill_v2_passes(self):
+        packer.validate(REAL_CAD_SKILL_V2, strict_noise=False, skill_name="aidxfv2")
 
     def test_validate_missing_required_path(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -196,7 +200,7 @@ class TestSkillPackRealBundle(unittest.TestCase):
             result = packer.build(
                 skill_root=REAL_CAD_SKILL,
                 output_root=out,
-                skill_name=REAL_CAD_SKILL.name,
+                skill_name="aidxfv1",
                 archive=True,
             )
             self.assertTrue(result.skill_root.exists())
@@ -204,10 +208,55 @@ class TestSkillPackRealBundle(unittest.TestCase):
             self.assertTrue(result.archive_path.stat().st_size > 0)
             with tarfile.open(result.archive_path, "r:gz") as tar:
                 names = tar.getnames()
-            self.assertIn(f"{REAL_CAD_SKILL.name}/SKILL.md", names)
+            self.assertIn("aidxfv1/SKILL.md", names)
             self.assertTrue(
                 any(n.endswith("/LICENSE") for n in names),
                 "MIT LICENSE 必须保留在 CAD skill 打包产物中",
+            )
+
+    def test_real_cad_skill_v2_builds_and_archives(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "dist"
+            result = packer.build(
+                skill_root=REAL_CAD_SKILL_V2,
+                output_root=out,
+                skill_name="aidxfv2",
+                archive=True,
+            )
+            self.assertTrue(result.skill_root.exists())
+            self.assertIsNotNone(result.archive_path)
+            self.assertTrue(result.archive_path.stat().st_size > 0)
+            with tarfile.open(result.archive_path, "r:gz") as tar:
+                names = tar.getnames()
+            self.assertIn("aidxfv2/SKILL.md", names)
+            self.assertTrue(
+                any(n.endswith("/LICENSE") for n in names),
+                "MIT LICENSE 必须保留在 CAD v2 skill 打包产物中",
+            )
+
+    def test_real_cad_skill_cli_archive_contains_license(self):
+        """`--skill aidxfv1 --skill-dir skills/aidxfv/v1 --archive` 显式名覆盖推断名 v1。"""
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = [
+                "skill_pack.py",
+                "--skill", "aidxfv1",
+                "--skill-dir", str(REAL_CAD_SKILL),
+                "--output-root", str(Path(tmp) / "dist"),
+                "--archive",
+                "--quiet",
+            ]
+            with patch("sys.argv", argv):
+                packer.main()
+            archive = Path(tmp) / "dist" / "aidxfv1.tar.gz"
+            self.assertTrue(archive.exists())
+            with tarfile.open(archive, "r:gz") as tar:
+                names = tar.getnames()
+            self.assertIn("aidxfv1/SKILL.md", names)
+            self.assertTrue(
+                any(n.endswith("/LICENSE") for n in names),
+                "MIT LICENSE 必须保留在 CLI 打包产物中",
             )
 
 
