@@ -88,7 +88,10 @@ function setup(opts?: {
   api.fetchStagingDiff.mockResolvedValue(stagingDiff);
 }
 
-beforeEach(() => setup());
+beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+  setup();
+});
 afterEach(cleanup);
 
 describe("DesignPanel PARAMS 表单", () => {
@@ -285,6 +288,66 @@ describe("DesignPanel script jump（定位脚本）", () => {
     // 停留在 PARAMS 表单，不切编辑器
     expect(screen.queryByLabelText("脚本编辑器文本")).toBeNull();
     expect(useViewerStore.getState().scriptJump).toBeNull();
+  });
+
+  it("嵌套 paramsKeys 前缀匹配聚焦（wall.t 由 wall 命中）+ scrollIntoView", async () => {
+    const scroll = Element.prototype.scrollIntoView as unknown as ReturnType<typeof vi.fn>;
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("暂存 2/10");
+    act(() =>
+      useViewerStore.getState().requestScriptJump({
+        line: 2,
+        origin: "params",
+        paramsKeys: ["frame"],
+      })
+    );
+    // 高亮 + 滚动都落到扁平字段 frame.storeys（W-0022 逃逸补丁：直接查 fieldRefs["frame"]
+    // 落空——表单字段名是扁平 dotted path）
+    await waitFor(() => {
+      const label = screen.getByText("frame.storeys").closest("label");
+      expect(label?.className).toContain("design-field-focused");
+    });
+    await waitFor(() => expect(scroll).toHaveBeenCalled());
+  });
+
+  it("手动切模式（form→editor→form）清空 focusKeys，不再聚焦", async () => {
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("暂存 2/10");
+    act(() =>
+      useViewerStore.getState().requestScriptJump({
+        line: 2,
+        origin: "params",
+        paramsKeys: ["wall_t"],
+      })
+    );
+    await waitFor(() => {
+      expect(screen.getByText("wall_t").closest("label")?.className).toContain("design-field-focused");
+    });
+    fireEvent.click(screen.getByText("脚本编辑器"));
+    fireEvent.click(screen.getByText("参数表单"));
+    expect(screen.getByText("wall_t").closest("label")?.className).not.toContain("design-field-focused");
+  });
+
+  it("重复同键 jump（nonce 递增）仍触发聚焦", async () => {
+    const scroll = Element.prototype.scrollIntoView as unknown as ReturnType<typeof vi.fn>;
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("暂存 2/10");
+    act(() =>
+      useViewerStore.getState().requestScriptJump({
+        line: 2,
+        origin: "params",
+        paramsKeys: ["wall_t"],
+      })
+    );
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(1));
+    act(() =>
+      useViewerStore.getState().requestScriptJump({
+        line: 2,
+        origin: "params",
+        paramsKeys: ["wall_t"],
+      })
+    );
+    await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2));
   });
 });
 

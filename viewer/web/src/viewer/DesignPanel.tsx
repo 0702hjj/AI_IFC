@@ -121,14 +121,16 @@ export function DesignPanel({ modelId }: { modelId: string }) {
     clearScriptJump();
   }, [scriptJump, state, clearScriptJump]);
 
-  // 聚焦首个命中键（ref 映射 paramsKeys → DOM，仿 pendingJump 落光标的 effect 模式）
+  // 聚焦首个命中键：嵌套键（params["wall"]["t"] → 扁平字段 wall.t）做前缀匹配
+  // （W-0022 逃逸补丁：直接查 fieldRefs[k] 对嵌套键落空——表单字段名是扁平 dotted path）。
   useEffect(() => {
     if (focusKeys == null || mode !== "form") return;
-    const first = focusKeys
-      .map((k) => fieldRefs.current[k])
+    const first = fields
+      .filter((f) => focusKeys.some((k) => f.name === k || f.name.startsWith(`${k}.`)))
+      .map((f) => fieldRefs.current[f.name])
       .find((el): el is HTMLLabelElement => el != null);
     first?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
-  }, [focusKeys, mode]);
+  }, [focusKeys, mode, fields]);
 
   useEffect(() => {
     if (pendingJump == null || mode !== "editor") return;
