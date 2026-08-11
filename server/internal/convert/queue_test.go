@@ -242,6 +242,9 @@ func TestEnqueueIfStale(t *testing.T) {
 		t.Fatal("IFC mtime 新于 XKT：期望重转（true）")
 	}
 	waitRuns(t, cr, 1)
+	// worker 在 runner.Run 返回后还会 SetStatus 写盘（models/{id}/model.json）——
+	// 必须等落盘再结束测试，否则 TempDir 清理与异步写盘竞争（AGENTS 纪律 #5）。
+	waitStatus(t, st, m.ID, "ready")
 }
 
 // TestEnqueueIfStaleConservative 断言保守原则：XKT 缺失 / IFC 缺失 → 都返回 true 重转。
@@ -258,6 +261,7 @@ func TestEnqueueIfStaleConservative(t *testing.T) {
 		t.Fatal("XKT 缺失：期望保守重转（true）")
 	}
 	waitRuns(t, cr, 1)
+	waitStatus(t, st, m.ID, "ready")
 
 	st2 := store.NewStore(t.TempDir())
 	m2, _ := st2.Create("no-ifc.ifc", 1, strings.NewReader("x"))
@@ -271,6 +275,8 @@ func TestEnqueueIfStaleConservative(t *testing.T) {
 		t.Fatal("IFC 缺失：期望保守重转（true）")
 	}
 	waitRuns(t, cr2, 1)
+	// countingRunner 恒成功 → SetStatus("ready") 落盘；等它完成再结束（同上竞态纪律）。
+	waitStatus(t, st2, m2.ID, "ready")
 }
 
 // TestEnqueueIfStaleEqualMtime 断言 mtime 相等（IFC 恰好等于 XKT）也跳过——
