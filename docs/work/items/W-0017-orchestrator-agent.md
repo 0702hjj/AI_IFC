@@ -18,6 +18,8 @@
 
 ## 方案（待细化，先在实施前补 spec）
 
+**spec 已定稿（2026-08-11）：docs/superpowers/specs/2026-08-11-orchestrator-design.md**
+
 **叙事已定（2026-08-07 用户裁决）**：平台自持 orchestrator 为**内向**用户对话面；A2A 协议仅作为子 agent 的**对外暴露形态**（与同事的外部主 agent 对接，见 docs/internal/architecture/ai-bim-agent-page.md §4.5）。两者不冲突：orchestrator 是内部枢纽，A2A 是出口。
 
 **框架候选（2026-08-07 用户建议）**：Go **Eino**（CloudWeGo LLM 应用框架，Chain/Graph 编排 + Tool 抽象）——与 Go server 同语言，评估其对 opencode serve 的替代/包裹关系。spec 阶段必须对比：Eino 编排 vs 现状裸 opencode-serve 编排（会话管理/成本/失败语义/与 SSE 地基的衔接）。
