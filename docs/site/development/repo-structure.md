@@ -6,7 +6,8 @@
 AI_IFC/
 ├── skills/                   # ① AI 生成 skill 封装（agent-agnostic，可分发）
 │   ├── aiifc/                #   IFC 生成/修改（ifcopenshell）
-│   └── aidxfv/               #   CAD 生成/修改（v1 通用 DXF / v2 建筑平面管线；由 AI_CAD/skills 迁移收敛）
+│   ├── aidxfv/               #   CAD 生成/修改（v1 通用 DXF / v2 建筑平面管线）
+│   └── aiblueprint-mcp/      #   CAD 交互微调 MCP（MIT）
 ├── services/                 # ② 业务逻辑核心（diff + 面向前端修改的接口协议）
 │   ├── ifc/                  #   IFC 段（FastAPI + IfcOpenShell，:8100）
 │   └── cad/                  #   CAD 段（待建，与 ifc 同构）
@@ -16,7 +17,7 @@ AI_IFC/
 ├── mcp/                      #   · MCP 桥（可选）
 ├── scripts/smoke.sh          #   · 端到端冒烟
 ├── data/                     #   · 运行时数据（gitignored，services/ifc 与 server 共享）
-├── AI_CAD/                   # CAD skill 域 + 调研（aidxfv1/aidxfv2 已迁入 skills/aidxfv，research 保留）
+├── research/                 # 调研笔记与目标映射（内部；CAD 调研在 research/cad/）
 ├── docs/
 │   ├── site/                 # 唯一公开文档站源（VitePress）
 │   │   ├── .vitepress/config.mts
@@ -26,14 +27,12 @@ AI_IFC/
 │   ├── internal/             # 内部计划、团队同步、阶段评估（不发布）
 │   ├── work/                 # 工作项看板（审计、计划、可跟踪条目）
 │   └── superpowers/          # 设计规范与实施计划
-├── research/                 # 调研笔记与目标映射（内部）
-├── examples/                 # 归档：SCAD 示例
 ├── .github/workflows/        # CI（server/web 等）与 docs（构建 + Pages 部署）
 ├── LICENSE                   # AGPL-3.0-only
 └── NOTICE                    # 三方组件与归档代码边界
 ```
 
-原 `viewer/` 目录已物理拆分：`edit-service` → `services/ifc/`、`web|server|converter|mcp-server|scripts` → 顶层同名目录、`data` → 顶层 `data/`（gitignored）；`AI_CAD/skills/aidxfv1|aidxfv2` → `skills/aidxfv/v1|v2`。SCAD 遗产代码（`src/simplecadapi/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
+原 `viewer/` 目录已物理拆分：`edit-service` → `services/ifc/`、`web|server|converter|mcp-server|scripts` → 顶层同名目录、`data` → 顶层 `data/`（gitignored）；原 `AI_CAD/` 已收编：`aidxfv1|aidxfv2` → `skills/aidxfv/v1|v2`、`aiblueprint-mcp` → `skills/aiblueprint-mcp/`、`docs/buildingplan` → `skills/aidxfv/docs/`、调研 → `research/cad/`。SCAD 遗产代码（`src/simplecadapi/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
 
 ## 文档边界
 

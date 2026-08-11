@@ -361,7 +361,7 @@ Shell 是**唯一 IO 层**，职责：
 |---|---|---|---|
 | **orchestrator**（整体 Agent） | 用户对话面 + 意图路由 + 子 agent 提示词封装 + 结果汇总 + notify 落盘编排 | 对话 ↔ `uploads/{id}.ifc` / staging 脚本；事件 `aiifc://chat/{cid}/idle` | Go 编排层（意图路由决定把本轮 dispatch 给哪个子 agent） |
 | **IFCagent** | ifcopenshell 建模 / 构建脚本编写与增量修改 | `build(PARAMS)` 脚本契约；脚本 diff 上下文注入（W-0016 机制扩展） | aiifc skill（`.opencode/agent/ifc-agent.md`） |
-| **CADAgent** | 几何 / DXF 生成（对接同事 aidxf，AI_CAD 段） | cad 落盘（分层 DXF + 绘制参数） | `.opencode/agent/cad-agent.md`（skill 域，本仓不实现） |
+| **CADAgent** | 几何 / DXF 生成（对接同事 aidxf，CAD skill 域） | cad 落盘（分层 DXF + 绘制参数） | `.opencode/agent/cad-agent.md`（skill 域，本仓不实现） |
 | **designerAgent** | 设计规范 / 审查 / 设计意图框定 | plan 落盘（关键参数） | `.opencode/agent/designer-agent.md`（plan skill 域） |
 
 - 输入归一（W-0018 已交付 MCP 侧）：上传 DXF/IFC、改 IFC、改 DXF → 统一「用户修改」事件（`aiifc://model/{id}/edited`），orchestrator 据此路由。

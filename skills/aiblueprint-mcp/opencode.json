@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "skills": {
+    "paths": ["skills"]
+  },
+  "mcp": {
+    "aiblueprint": {
+      "type": "local",
+      "command": ["<repo>/skills/aiblueprint-mcp/.venv/bin/aiblueprint-mcp"],
+      "enabled": true,
+      "environment": {
+        "AIBLUEPRINT_WORKSPACE": "<repo>/data/mcp-aiblueprint"
+      }
+    }
+  }
+}

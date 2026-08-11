@@ -92,7 +92,7 @@ converter/         # Node 转换器（IFC → XKT）
 mcp/               # MCP 桥（可选，薄包 services/ifc）
 scripts/           # 端到端冒烟（smoke.sh）
 data/              # 运行时数据（gitignored，services/ifc 与 server 共享）
-AI_CAD/            # CAD skill 域 + 调研（aidxfv 已迁入 skills/aidxfv，调研保留）
+skills/aiblueprint-mcp/  # aiblueprint MCP 手册 + 配置（MIT，CAD 交互微调）
 tools/             # skill 打包器（skill_pack.py）
 docs/site/         # 公开文档站（VitePress，发布到 GitHub Pages）
 docs/work/         # 工作项看板（审计/计划/可追踪工作项）
@@ -101,7 +101,7 @@ docs/superpowers/  # 设计规范与实施计划（过程产物）
 examples/          # IFC 时代示例脚本
 ```
 
-`services/ifc/` 即 IFC 业务逻辑核心；`skills/aidxfv/v1|v2` 即 CAD skill 入口（由 `AI_CAD/skills/aidxfv*` 迁移）；`web|server|converter|mcp|scripts|data` 即共享可选运行时（自原 `viewer/` 拆分至顶层）。
+`services/ifc/` 即 IFC 业务逻辑核心；`skills/aidxfv/v1|v2` + `skills/aiblueprint-mcp` 即 CAD skill 域（自原 `AI_CAD/` 收编）；`web|server|converter|mcp|scripts|data` 即共享可选运行时（自原 `viewer/` 拆分至顶层）。CAD 调研材料在 `research/cad/`。
 
 SCAD 遗产代码（`src/`、`skills/simplecadapi/`、SCAD 时代打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
 
