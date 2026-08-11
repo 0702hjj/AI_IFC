@@ -29,9 +29,9 @@
 - 结论裁决点：Eino 替代/包裹 opencode-serve，或保持现状演进——spec 给出对比矩阵与建议，最终裁决留用户。
 - **不写实现**——今天只落 spec + 把 notify 事件化设计细则写进 spec（供 Task 2 实施）。
 
-- [ ] **Step 1: 调研 Eino**（webfetch 官网/文档，收集能力与限制）
-- [ ] **Step 2: 写 spec**（架构基调、事件总线、纯函数签名、notify 事件化细则、对比矩阵、建议结论）
-- [ ] **Step 3: W-0017 item 锚点 + 评审 spec 自查**（事件 URI 与 W-0025 一致、纯函数可单测、Shell 副作用清单完整）
+- [x] **Step 1: 调研 Eino**（webfetch 官网/文档，收集能力与限制）
+- [x] **Step 2: 写 spec**（架构基调、事件总线、纯函数签名、notify 事件化细则、对比矩阵、建议结论）
+- [x] **Step 3: W-0017 item 锚点 + 评审 spec 自查**（事件 URI 与 W-0025 一致、纯函数可单测、Shell 副作用清单完整）
 
 ## Task 2: chat notify 事件化重写（Pure Core + Imperative Shell）
 
@@ -46,9 +46,9 @@
 - 保持对外行为不变：`viewer.committed` / `viewer.notify_failed` 事件语义、script 管线顺序（DELETE pending → PUT /script → run → save）、无脚本路径。
 - 重构目标：决策逻辑与副作用分离，Core 单测覆盖所有分支（有/无脚本、失败 step、版本不可解析）。
 
-- [ ] **Step 1: 写失败测试**（Core 纯函数单测：各分支 Action 列表断言；当前命令式实现无此形态 → RED）
-- [ ] **Step 2: 重构 notify 为 Core + Shell**（行为保持，既有 chat_notify_test.go 契约测试转绿）
-- [ ] **Step 3: 全量 go test + go vet**（PG skip）
+- [x] **Step 1: 写失败测试**（Core 纯函数单测：各分支 Action 列表断言；当前命令式实现无此形态 → RED）
+- [x] **Step 2: 重构 notify 为 Core + Shell**（行为保持，既有 chat_notify_test.go 契约测试转绿）
+- [x] **Step 3: 全量 go test + go vet**（PG skip）
 
 ## Task 3: deferred minors 清扫（终审 triage 5 项）
 
@@ -66,9 +66,9 @@
 4. web：嵌套键 scroll 前缀匹配 + 手动切模式清 focusKeys + 重复 jump nonce 测试。
 5. win32 孤儿沙箱：注释/文档标注（平台限制）。
 
-- [ ] **Step 1: 各项先写失败测试/自证（当前红）**
-- [ ] **Step 2: 逐项修**
-- [ ] **Step 3: 对应套件全绿**（go / edit-service / skill / web lint+test）
+- [x] **Step 1: 各项先写失败测试/自证（当前红）**
+- [x] **Step 2: 逐项修**
+- [x] **Step 3: 对应套件全绿**（go / edit-service / skill / web lint+test）
 
 ---
 

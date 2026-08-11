@@ -42,7 +42,7 @@ AI_IFC 是一个自托管、开源的 **AI 生成平台**，提供两个对等�
 - **AI 生成 CAD**（skill 域已交付，diff/编辑 API 待建）：`aidxfv` skill 让 AI 用 ezdxf 生成/校验 DXF；`services/cad` 将与 `services/ifc` 同构。
 - **Agent 工作流控制**（推荐项，可选）：orchestrator + 事件总线（`aiifc://` 事件 URI），做不好可删。
 
-可复用性优先：skill 封装两个、业务逻辑两个、前端可选、PostgreSQL 可选，接口写好可直接调用或移植。框架详见 [平台框架 spec](/project/roadmap) 指向的仓库 spec。
+可复用性优先：skill 封装两个、业务逻辑两个、前端可选、PostgreSQL 可选，接口写好可直接调用或移植。框架详见 [平台框架 spec](https://github.com/0702hjj/AI_IFC/blob/main/docs/superpowers/specs/2026-08-11-platform-framework-design.md)。
 
 典型工作流（IFC）：上传 IFC → 转换完成后三维审查 → 对构件提 Issue → 选中构件定位脚本、改 PARAMS/脚本 → 沙箱验证后保存大版本 → 用 Diff 对比版本变化。定位与组件架构详见 [项目介绍](/guide/project-intro)。
 

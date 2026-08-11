@@ -15,6 +15,7 @@
 | M4 | 结构加固 + 身份收编 ✅（PR #17，2026-08-06）| P1-1, P1-2, P1-3, P1-4, P2-1, P2-8 | 全部 done，SCAD 遗产收编决策落地（移出至 SimpleCADAPI-archive） |
 | M5 | script-as-source 转向 ✅（2026-08-07，spec: 2026-08-06-script-as-source-design.md）| W-0011..W-0016 | 脚本为唯一事实源；diff 三层×两级；PARAMS 表单 + 脚本下钻；沙箱执行；design JSON 下线 |
 | v0.2 | script-closure 收口 ✅（2026-08-10，分支 feat/v0.2-script-closure）| W-0021..W-0025 | 直改退役残留消费者收口（notify 走 script 管线）；params_keys 定位聚焦；骨架确定性；校验隔离机器强制；skill hooks 校验即事件 |
+| v0.3 | orchestrator-closure ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure）| W-0017 spec + notify 事件化 + minors 清扫 + 平台框架入约 | notify 重构为 Pure Core + Imperative Shell；事件 URI 化闭环；架构方向定稿入约 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 

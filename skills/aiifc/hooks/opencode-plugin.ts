@@ -81,9 +81,9 @@ function runValidation(filePath: string, args: string[]): Promise<string | null>
     const timer = setTimeout(() => {
       console.warn("[aiifc-hooks] validate_script.py 超时，终止进程组");
       // 平台限制（W-0025 标注）：进程组 SIGKILL（负 pid）只在 POSIX（Linux/macOS）
-      // 可用——本项目主目标平台。win32 无进程组信号语义：detached 关闭、兜底只
-      // 杀父进程，validate_script.py 派生的沙箱子进程可能成为孤儿残留（挂死脚本
-      // 本身有 --sandbox-timeout 兜底掐断并产 timed_out 事件，此处仅最外层防线）。
+      // 可用——本项目主目标平台。win32 无进程组信号语义，因此超时时关闭 detached、
+      // 只能杀掉父进程本身；validate_script.py 派生的沙箱子进程可能成为孤儿残留
+      // （挂死脚本自身有 --sandbox-timeout 兜底掐断并产 timed_out 事件，此处仅最外层防线）。
       if (proc.pid && process.platform !== "win32") {
         try {
           process.kill(-proc.pid, "SIGKILL");

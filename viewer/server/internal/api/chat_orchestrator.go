@@ -172,6 +172,8 @@ func (h *ChatHandler) notify(cs *chatSession) {
 	modelID := cs.ModelID
 	st := NotifyState{Dirty: true, Bound: true}
 	scriptPath := filepath.Join(h.deps.DataDir, "staging", modelID+".py")
+	// 先读 staging 再删 pending（discard 在 runShell 首轮）：read_staging_script 失败时
+	// pending 保留，行为更保守（与旧实现相反，有意为之——读不出脚本宁可中止也不丢变更）。
 	if fileExists(scriptPath) {
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
