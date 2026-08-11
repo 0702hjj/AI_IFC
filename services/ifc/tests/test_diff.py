@@ -215,3 +215,55 @@ def test_diff_compute_timeout_returns_504(
     assert resp.json()["detail"] == "diff timed out"
     assert elapsed < 4  # 未等阻塞的 compute_diff 跑完（5s）就返回
     assert not (_versions_dir(data_dir) / "diff-v1-v2.json").exists()
+
+
+def test_timeout_abandoned_worker_serializes_next_diff(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """504 后残余 worker 仍持模型锁：同模型下一次 diff 排队而非并发计算、无 500。
+
+    回归 B4 修复（并发 500）：超时返回后锁不得随 handler 释放——下一次请求的
+    worker 必须等在残余 worker 后面，max_active 恒为 1。
+    """
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    _write_rename_versions(data_dir, "新名字")
+
+    active = 0
+    max_active = 0
+    entered = threading.Event()
+    release = threading.Event()
+    state_lock = threading.Lock()
+
+    def _blocking_diff(*args: object, **kwargs: object) -> dict:
+        nonlocal active, max_active
+        with state_lock:
+            active += 1
+            max_active = max(max_active, active)
+        entered.set()
+        release.wait(10)  # 阻塞直到测试放行，模拟超时后残余 worker 仍占锁计算
+        with state_lock:
+            active -= 1
+        return {}
+
+    monkeypatch.setattr(diffing, "compute_diff", _blocking_diff)
+    monkeypatch.setenv("VIEWER_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("EDIT_SERVICE_DIFF_TIMEOUT_S", "1")
+    client = TestClient(create_app())
+
+    first = client.post(f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"})
+    assert first.status_code == 504
+    assert entered.wait(5)  # 残余 worker 已进入 compute_diff 并持有锁
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        second = pool.submit(
+            client.post, f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"}
+        )
+        time.sleep(0.3)  # 让第二次请求进入执行器并尝试取锁
+        assert max_active == 1  # 被残余 worker 的锁挡住，未并发进入 compute_diff
+        release.set()  # 放行残余 worker → 释放锁 → 下一次请求接着跑完
+        second_resp = second.result(timeout=10)
+
+    assert second_resp.status_code == 200
+    assert (_versions_dir(data_dir) / "diff-v1-v2.json").exists()

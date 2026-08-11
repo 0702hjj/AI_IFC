@@ -15,13 +15,18 @@ key.
 Historical big versions keep no materialized IFC (spec §5.5): a missing
 snapshot with a surviving script is rebuilt on demand into the LRU cache
 (``ifc_materialize.materialize_version``); with neither it is a 404.
-Rebuild + diff read run under the per-model lock (shared with script/entity
-edits): the LRU eviction's ``os.remove`` can never race a resolved cache
-path that ``compute_diff`` has not opened yet, nor the cache-hit ``utime``.
+The per-model lock (shared with script/entity edits) is acquired by the
+executor worker itself, covering rebuild + diff read: the LRU eviction's
+``os.remove`` can never race a resolved cache path that ``compute_diff``
+has not opened yet, nor the cache-hit ``utime``. Holding it in the worker
+(not the handler) also means a 504 timeout does not release it: the
+abandoned worker finishes under the lock, so the next request serializes
+behind it instead of reopening the concurrent-write window.
 """
 
 from __future__ import annotations
 
+import atexit
 import json
 import os
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
@@ -36,10 +41,12 @@ from .route_common import MODEL_ID_PATTERN, model_lock, model_upload_path
 
 router = APIRouter()
 
-# diff 计算（ifcopenshell/ifcdiff）是 CPU 密集，阻塞在 sync handler 的线程里会
-# 占死 FastAPI threadpool。用独立线程池执行，handler 侧 future.result(timeout)
-# 超时即返回 504——worker 线程继续跑完被丢弃（compute_diff 只读文件，无副作用）。
+# diff 计算（ifcopenshell/ifcdiff + 沙箱重建）是 CPU 密集，阻塞在 sync handler 的
+# 线程里会占死 FastAPI threadpool。用独立线程池执行，handler 侧 future.result(timeout)
+# 超时即返回 504；残余 worker 继续跑完（per-model 锁由 worker 持有，见模块 docstring），
+# handler 不等待也不释放锁。
 _DIFF_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="diff")
+atexit.register(_DIFF_EXECUTOR.shutdown, wait=False)
 
 
 class DiffBody(BaseModel):
@@ -62,8 +69,13 @@ def _version_or_404(
 def _run_diff_with_timeout(settings: Settings, compute: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
     """Run diff compute in the executor; 504 when it exceeds DIFF_TIMEOUT_S.
 
-    线程继续跑完被丢弃是接受语义（B4）：compute_diff 只读快照文件、无写盘副作用，
-    丢弃的只是 CPU 时间；handler 不因它继续占用而阻塞返回。
+    残余线程继续跑完是接受语义（B4）：worker 全程持有 per-model 锁（见 post_diff），
+    超时返回 504 后残余 worker 仍在锁内安全完成物化/读取，不会重开并发写窗口；
+    handler 不因它继续占用而阻塞返回，丢弃的只是 CPU 时间。
+
+    饱和降级态（接受）：executor max_workers=2 时，两个超时 diff 各占一个 worker
+    直至跑完；排队中的后续 diff 在 future.result(timeout) 内等不到空闲 worker
+    → 必然 504，调用方应把 504 当「diff 未完成」重试。
     """
     future = _DIFF_EXECUTOR.submit(compute)
     try:
@@ -104,12 +116,13 @@ def post_diff(
             with open(cache_path, "r", encoding="utf-8") as fh:
                 return json.load(fh)
 
-    # 锁覆盖物化+读取全程：LRU 淘汰 remove / 缓存命中 utime 均不得与
-    # compute_diff 的打开窗口交错（并发下曾可 500）。
-    with model_lock(request, id):
-        # 快照重建 + compute_diff 整体包进超时：materialize_version 也可能触发
-        # 沙箱重跑脚本（CPU 密集），同样受 DIFF_TIMEOUT_S 约束。
-        def _compute_payload() -> Dict[str, Any]:
+    # 锁由 executor worker 持有（acquire/release 同在 worker 线程，RLock 语义合法）：
+    # 覆盖物化+读取全程。超时返回 504 也不释放锁——残余 worker 继续锁内跑完，下一个
+    # 请求的 worker 排队等锁 → 同模型并发物化/读写窗口关闭（曾可并发 500）。
+    def _compute_payload() -> Dict[str, Any]:
+        with model_lock(request, id):
+            # 快照重建 + compute_diff 整体包进超时：materialize_version 也可能触发
+            # 沙箱重跑脚本（CPU 密集），同样受 DIFF_TIMEOUT_S 约束。
             base_path = _version_or_404(settings, data_dir, id, body.base)
             if body.target == "current":
                 target_path = current_path
@@ -121,11 +134,11 @@ def post_diff(
                 **diffing.compute_diff(base_path, target_path),
             }
 
-        payload = _run_diff_with_timeout(settings, _compute_payload)
+    payload = _run_diff_with_timeout(settings, _compute_payload)
 
-        if cache_path is not None:
-            tmp = cache_path + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as fh:
-                json.dump(payload, fh, ensure_ascii=False, indent=2)
-            os.replace(tmp, cache_path)
-        return payload
+    if cache_path is not None:
+        tmp = cache_path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp, cache_path)
+    return payload
