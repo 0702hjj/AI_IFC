@@ -240,6 +240,7 @@ func TestEditProxyStatusMapping(t *testing.T) {
 		{409, http.StatusConflict, codeConflict},
 		{422, http.StatusBadRequest, codeInvalidType},
 		{500, http.StatusBadGateway, codeBadGateway},
+		{504, http.StatusGatewayTimeout, codeGatewayTimeout},
 	}
 	for _, c := range cases {
 		py.set("GET", path, c.pyStatus, `{"detail":"boom"}`)

@@ -13,8 +13,9 @@ import (
 )
 
 const (
-	codeConflict   = 40900
-	codeBadGateway = 50200
+	codeConflict       = 40900
+	codeBadGateway     = 50200
+	codeGatewayTimeout = 50400
 )
 
 func (h *handler) registerEditRoutes(mux *http.ServeMux) {
@@ -28,7 +29,8 @@ func (h *handler) registerEditRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/models/{id}/edit/diff", h.editDiff)
 }
 
-// writeEditErr 透传 Python 状态码语义：404→404、409→409、422→400，其余（含不可达）→502。
+// writeEditErr 透传 Python 状态码语义：404→404、409→409、422→400、504→504（diff
+// 超时，edit-service DIFF_TIMEOUT_S 默认 60s），其余（含不可达）→502。
 func writeEditErr(w http.ResponseWriter, err error) {
 	var ee *editsvc.Error
 	if errors.As(err, &ee) {
@@ -39,6 +41,8 @@ func writeEditErr(w http.ResponseWriter, err error) {
 			writeErr(w, http.StatusConflict, codeConflict, ee.Detail)
 		case http.StatusUnprocessableEntity:
 			writeErr(w, http.StatusBadRequest, codeInvalidType, ee.Detail)
+		case http.StatusGatewayTimeout:
+			writeErr(w, http.StatusGatewayTimeout, codeGatewayTimeout, ee.Detail)
 		default:
 			writeErr(w, http.StatusBadGateway, codeBadGateway, "edit service error: "+ee.Detail)
 		}

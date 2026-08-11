@@ -24,7 +24,8 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from typing import Any, Callable, Dict
 
 from fastapi import APIRouter, HTTPException, Path, Request
 from pydantic import BaseModel
@@ -34,6 +35,11 @@ from .config import Settings
 from .route_common import MODEL_ID_PATTERN, model_lock, model_upload_path
 
 router = APIRouter()
+
+# diff 计算（ifcopenshell/ifcdiff）是 CPU 密集，阻塞在 sync handler 的线程里会
+# 占死 FastAPI threadpool。用独立线程池执行，handler 侧 future.result(timeout)
+# 超时即返回 504——worker 线程继续跑完被丢弃（compute_diff 只读文件，无副作用）。
+_DIFF_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="diff")
 
 
 class DiffBody(BaseModel):
@@ -51,6 +57,19 @@ def _version_or_404(
         return ifc_materialize.materialize_version(data_dir, model_id, version, settings)
     except FileNotFoundError:
         raise HTTPException(status_code=404, detail=f"version not found: {version}")
+
+
+def _run_diff_with_timeout(settings: Settings, compute: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
+    """Run diff compute in the executor; 504 when it exceeds DIFF_TIMEOUT_S.
+
+    线程继续跑完被丢弃是接受语义（B4）：compute_diff 只读快照文件、无写盘副作用，
+    丢弃的只是 CPU 时间；handler 不因它继续占用而阻塞返回。
+    """
+    future = _DIFF_EXECUTOR.submit(compute)
+    try:
+        return future.result(timeout=settings.diff_timeout_s)
+    except FutureTimeoutError:
+        raise HTTPException(status_code=504, detail="diff timed out")
 
 
 @router.get("/models/{id}/versions")
@@ -88,13 +107,21 @@ def post_diff(
     # 锁覆盖物化+读取全程：LRU 淘汰 remove / 缓存命中 utime 均不得与
     # compute_diff 的打开窗口交错（并发下曾可 500）。
     with model_lock(request, id):
-        base_path = _version_or_404(settings, data_dir, id, body.base)
-        if body.target == "current":
-            target_path = current_path
-        else:
-            target_path = _version_or_404(settings, data_dir, id, body.target)
+        # 快照重建 + compute_diff 整体包进超时：materialize_version 也可能触发
+        # 沙箱重跑脚本（CPU 密集），同样受 DIFF_TIMEOUT_S 约束。
+        def _compute_payload() -> Dict[str, Any]:
+            base_path = _version_or_404(settings, data_dir, id, body.base)
+            if body.target == "current":
+                target_path = current_path
+            else:
+                target_path = _version_or_404(settings, data_dir, id, body.target)
+            return {
+                "base": body.base,
+                "target": body.target,
+                **diffing.compute_diff(base_path, target_path),
+            }
 
-        payload = {"base": body.base, "target": body.target, **diffing.compute_diff(base_path, target_path)}
+        payload = _run_diff_with_timeout(settings, _compute_payload)
 
         if cache_path is not None:
             tmp = cache_path + ".tmp"

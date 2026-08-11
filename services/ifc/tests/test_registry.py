@@ -152,3 +152,13 @@ class TestMaxModelsSetting:
     def test_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("EDIT_SERVICE_MAX_MODELS", "3")
         assert load_settings().max_models == 3
+
+
+class TestDiffTimeoutSetting:
+    def test_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("EDIT_SERVICE_DIFF_TIMEOUT_S", raising=False)
+        assert load_settings().diff_timeout_s == 60
+
+    def test_from_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("EDIT_SERVICE_DIFF_TIMEOUT_S", "3")
+        assert load_settings().diff_timeout_s == 3

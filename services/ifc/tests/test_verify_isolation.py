@@ -50,7 +50,7 @@ ALLOWLIST: dict[str, set[str]] = {
         "edit_call",
     },
     "routes_edits.py": {"_retired"},
-    "routes_diff.py": {"_version_or_404"},
+    "routes_diff.py": {"_version_or_404", "_run_diff_with_timeout"},
     "routes_user_edits.py": {"post_diff_upload", "post_user_edits"},
 }
 

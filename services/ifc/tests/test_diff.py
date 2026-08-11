@@ -7,12 +7,16 @@ from __future__ import annotations
 
 import json
 import shutil
+import time
 from pathlib import Path
 
 import ifcopenshell
 import ifcopenshell.api.root
+import pytest
 from fastapi.testclient import TestClient
 
+from app import diffing
+from app.main import create_app
 from conftest import MODEL_ID
 
 WALL_GUID = "3ZYW59sxj8lei475l7EhLU"
@@ -184,3 +188,30 @@ def test_diff_missing_model_returns_404(client: TestClient) -> None:
         "/models/m_ffffffffffffffff/diff", json={"base": "v1", "target": "v2"}
     )
     assert resp.status_code == 404
+
+
+def test_diff_compute_timeout_returns_504(
+    data_dir: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """compute_diff 阻塞超过 DIFF_TIMEOUT_S → 504，而不是无限挂住 handler 线程。"""
+    _write_rename_versions(data_dir, "新名字")
+
+    def _blocking_diff(*args: object, **kwargs: object) -> dict:
+        time.sleep(5)
+        return {}
+
+    monkeypatch.setattr(diffing, "compute_diff", _blocking_diff)
+    monkeypatch.setenv("VIEWER_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("EDIT_SERVICE_DIFF_TIMEOUT_S", "1")
+    client = TestClient(create_app())
+
+    start = time.monotonic()
+    resp = client.post(
+        f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"}
+    )
+    elapsed = time.monotonic() - start
+
+    assert resp.status_code == 504
+    assert resp.json()["detail"] == "diff timed out"
+    assert elapsed < 4  # 未等阻塞的 compute_diff 跑完（5s）就返回
+    assert not (_versions_dir(data_dir) / "diff-v1-v2.json").exists()

@@ -162,7 +162,9 @@ func (c *Client) GetHistory(ctx context.Context, modelID string) (json.RawMessag
 	return c.do(ctx, c.fast, http.MethodGet, "/models/"+modelID+"/history", nil)
 }
 
-// PostDiff 透传 diff 请求（body 原样转发）。
+// PostDiff 透传 diff 请求（body 原样转发）。走 slow client 120s：edit-service
+// 侧 diff 默认 60s 超时（EDIT_SERVICE_DIFF_TIMEOUT_S）先触发并回 504（diff timed
+// out），writeEditErr 透传 504→504；slow 120s 兜底 edit-service 未回应的场景。
 func (c *Client) PostDiff(ctx context.Context, modelID string, body []byte) (json.RawMessage, error) {
 	return c.do(ctx, c.slow, http.MethodPost, "/models/"+modelID+"/diff", body)
 }
