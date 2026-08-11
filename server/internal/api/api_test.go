@@ -45,6 +45,21 @@ func setup(t *testing.T) (*httptest.Server, *store.Store) {
 	return srv, st
 }
 
+// waitReadyModel 等队列 worker 完成 SetStatus 落盘，避免 TempDir 清理撞异步写盘（AGENTS 纪律 #5）。
+func waitReadyModel(t *testing.T, st *store.Store, id string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		m, err := st.Get(id)
+		if err == nil && m.Status == "ready" {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	m, _ := st.Get(id)
+	t.Fatalf("model %s never became ready (now %q)", id, m.Status)
+}
+
 func upload(t *testing.T, url, filename, content string) *httptest.ResponseRecorder {
 	t.Helper()
 	var body strings.Builder
@@ -155,6 +170,7 @@ func TestDeleteModelCascadesStores(t *testing.T) {
 	json.Unmarshal(rec.Body.Bytes(), &e)
 	var created store.Model
 	json.Unmarshal(e.Data, &created)
+	waitReadyModel(t, st, created.ID)
 
 	iss := issue.NewFileStore(st.DataDir)
 	if _, err := iss.Create(created.ID, &issue.Issue{Title: "x"}); err != nil {
@@ -191,7 +207,7 @@ func TestDeleteModelCascadesStores(t *testing.T) {
 }
 
 func TestPutEntityPropertiesBodyTooLarge(t *testing.T) {
-	srv, _ := setup(t)
+	srv, st := setup(t)
 	rec := upload(t, srv.URL, "ok.ifc", "ISO-10303-21;fake")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
@@ -200,6 +216,7 @@ func TestPutEntityPropertiesBodyTooLarge(t *testing.T) {
 	json.Unmarshal(rec.Body.Bytes(), &e)
 	var created store.Model
 	json.Unmarshal(e.Data, &created)
+	waitReadyModel(t, st, created.ID)
 
 	big := `{"entityName":"Wall","fields":{"Name":"` + strings.Repeat("x", 1<<20) + `"}}`
 	req, _ := http.NewRequest("PUT",
