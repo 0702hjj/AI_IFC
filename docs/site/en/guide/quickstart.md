@@ -37,7 +37,7 @@ Tunables (ports, `DATA_DIR`, `VIEWER_PG_DSN`, …) are listed in `.env.example`.
 # 0. One-time dependency install
 cd converter && npm install
 cd ../web && npm install
-cd ../edit-service && uv sync
+cd ../services/ifc && uv sync
 
 # 1. edit-service (:8100) — VIEWER_DATA_DIR must point to the absolute path of data
 cd services/ifc

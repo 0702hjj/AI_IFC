@@ -28,7 +28,7 @@ Reusability-first: two skills, two business-logic cores, optional frontend, opti
 
 **Not delivered (see [Known limitations](/project/known-limits) and [Roadmap](/project/roadmap), Chinese):**
 
-- Multi-user/auth; Docker Compose one-command deployment; English versions of the Viewer usage and detailed development pages. (No geometric diff — the IFC is a script artifact; changing geometry means changing the script; diffs are script diff + attribute-level semantic diff.)
+- Multi-user/auth; English versions of the detailed development pages (`development/` except `architecture`) and some project pages (`known-limits`/`license`/`roadmap`). (No geometric diff — the IFC is a script artifact; changing geometry means changing the script; diffs are script diff + attribute-level semantic diff.)
 
 ## Four-component architecture
 

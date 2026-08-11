@@ -37,7 +37,7 @@ docker compose --profile pg up -d
 # 0. 一次性：安装依赖
 cd converter && npm install
 cd ../web && npm install
-cd ../edit-service && uv sync
+cd ../services/ifc && uv sync
 
 # 1. edit-service（:8100）—— VIEWER_DATA_DIR 必须指向 data 的绝对路径
 cd services/ifc

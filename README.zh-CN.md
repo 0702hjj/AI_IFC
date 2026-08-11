@@ -54,7 +54,7 @@ AI agent ──► REST 编辑 API ────────┘
 
 ```bash
 cd converter && npm install
-cd ../edit-service && uv sync
+cd ../services/ifc && uv sync
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 &
 cd ../server && go run ./cmd/server &
 cd ../web && npm install && npm run dev

@@ -20,21 +20,21 @@
 - 属性真改直通：属性编辑不再有 override 中间层，直接走 pending → commit 真改闭环。
 - ChatSidebar 修复：AI 对话侧栏问题修复。
 - Script-as-source 统一编辑（2026-08-08 迭代）：web 修改 = 改构建脚本——选中构件定位脚本调用点（ScriptMap，guid→designKey→行/列/origin）、PARAMS 表单 / libcst 标量改写（edit-call）+ 沙箱验证、上传 IFC 经 AI 复现为脚本（bootstrap.ifc 保留 + save 响应对齐计数）；L1 直改链路退役（410，回捞锚点 fb55a8a）；IFC 只物化最新大版本、历史按需重建（ifc_cache LRU 4）。
+- 部署化：Docker Compose 一键启动（server / web / PostgreSQL / edit-service / converter），配置外置（`.env.example` 全默认值；CI compose-smoke 真冒烟）。
+- 重转去重：IFC 未变（mtime 不新于 XKT）时跳过全量重转（不发 converting、不入队）；XKT 缺失 / 判断失败保守重转（宁可多转不可漏转）。（几何 diff 已随 script-as-source 覆盖：IFC 是脚本产物，diff 为脚本 diff + 属性级语义 diff。）
 
 ## 近期
 
 - **平台框架（2026-08-11）**：两个对等逻辑（AI 生成 IFC / AI 生成 CAD）+ Agent 工作流推荐项入约；功能块横切结构（skill ×2 ↔ services ×2 ↔ 共享运行时）；物理重组一步到位（`viewer/` 拆分、`AI_CAD/skills/aidxfv*` 迁入 `skills/aidxfv/`，见 [框架 spec](https://github.com/0702hjj/AI_IFC/blob/main/docs/superpowers/specs/2026-08-11-platform-framework-design.md)）。
 - **notify 事件化（2026-08-11）**：chat notify 按 Pure Core + Imperative Shell 重构，事件 URI 化（`aiifc://`），为 Agent 工作流控制打底。
 - **services/cad（后续，可选项）**：CAD 段业务逻辑核心（diff + 面向前端修改的编辑 API，与 services/ifc 同构），配套 CAD skill 收敛入 `skills/aidxfv/`。
-- 部署化：Docker Compose 一键启动（server / web / PostgreSQL / edit-service / converter），配置外置。
 - 开源工程化：依赖许可证审计收尾、示例模型、`v0.1.0` 发布。
 - 仓库卫生：Issue/PR 模板、贡献指南完善。
 
 ## 后续
 
-- **双语扩展（后续）**：其余页面（Viewer 使用、开发指南细节、项目组）的英文版本。
+- **双语扩展（后续）**：开发指南细节页（`development/` 除 `architecture`）、项目组（`known-limits`/`license`/`roadmap`）与 `reference/edit-api-reference` 的英文版本。
 - **API 自动生成（后续）**：edit-service 的"代码 vs schema"漂移检测；Go server 请求/响应 schema 的完整自动生成。
-- **重转去重（同源跳过全量重转）**：IFC 未变（mtime 不新于 XKT）时跳过全量重转（不发 converting、不入队）；XKT 缺失 / 判断失败保守重转（宁可多转不可漏转）。web-ifc/xeokit-convert 增量极难做，实际收益改为「同源同版本跳过全量重转」。（几何 diff 已随 script-as-source 覆盖：IFC 是脚本产物，diff 为脚本 diff + 属性级语义 diff，见 2026-08-08-script-editing-unified-design.md §10。）
 - **前端参数化编辑增强**：edit-call 的 UI 化（属性面板内直接改标量参数，无需进脚本编辑器）；bootstrap 对齐报告的可视化。
 - 计划 → 2D DXF → IFC 完整工作流。
 
