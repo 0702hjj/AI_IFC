@@ -6,6 +6,7 @@ package convert
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -112,10 +113,15 @@ func (q *Queue) Enqueue(id string) bool {
 // 避免 worker 先置 ready 再被 converting 覆盖而卡死（教训：flaky TestScriptMutating…）。
 func (q *Queue) EnqueueIfStale(id string) bool {
 	if !q.needsReconvert(id) {
+		log.Printf("convert %s: reconvert skipped (IFC not newer than XKT)", id)
 		return false
 	}
 	_ = q.st.SetStatus(id, "converting", "")
-	q.Enqueue(id)
+	if q.Enqueue(id) {
+		log.Printf("convert %s: reconvert queued", id)
+	} else {
+		log.Printf("convert %s: reconvert already pending", id)
+	}
 	return true
 }
 
