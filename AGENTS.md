@@ -30,7 +30,7 @@ AI agent ──► REST 编辑 API ────┘
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
 | edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（238 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
 | mcp-server (Python + mcp 2.x MCPServer，stdio) | `mcp` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
-| skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（139 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
+| skill 打包 | `tools/skill_pack.py`（泛化打包器：`--skill <name>` 默认 aiifc，`--skill-dir <path>` 任意 skill） | `python -m pytest tests/skill/ -q`（144 测试，CI 用独立 .ci-venv） | `python tools/skill_pack.py --archive`（默认 aiifc；`--skill-dir skills/aidxfv/v1 --archive` 打 CAD） |
 | 端到端 | `scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
 | 文档站 | `docs/` | `npm run docs:build`；`npm run check:api`（API 文档漂移检测） | `npm run docs:dev`；内部 wiki `npm run docs:dev:internal` |
 

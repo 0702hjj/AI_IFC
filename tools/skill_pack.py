@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""Build a distributable Agent Skills bundle for the aiifc skill.
+"""Build a distributable Agent Skills bundle for any skill directory.
 
 Unlike simplecadapi's skill_pack (which GENERATES a skill from SDK source),
-the aiifc skill is a hand-maintained directory (SKILL.md + references/).
+skills here are hand-maintained directories (SKILL.md + references/ + ...).
 This packager VALIDATES that directory's integrity, copies it to an output
 root, and optionally produces a <name>.tar.gz archive.
 
 The bundle is agent-agnostic: any tool that reads the Anthropic Agent Skills
 layout (SKILL.md + references/) can consume it (opencode, Claude Code, etc.).
+
+Every skill must provide SKILL.md + requirements.txt (base contract). Skills
+known to the SKILL_REGISTRY additionally get a per-skill list of required
+subpaths (extended contract) plus a frontmatter name-match check. Unknown
+skill names are only held to the base contract (with a warning), so the
+packager works for any future skill without code changes.
 """
 
 from __future__ import annotations
@@ -20,30 +26,45 @@ from dataclasses import dataclass
 from pathlib import Path
 
 DEFAULT_SKILL_NAME = "aiifc"
-DEFAULT_SKILL_DIR = Path("skills") / DEFAULT_SKILL_NAME
 DEFAULT_OUTPUT_ROOT = Path("skills/dist")
 
-# Subpaths that must exist in a valid aiifc skill bundle.
-REQUIRED_PATHS = (
+# Base contract every skill bundle must satisfy, regardless of registry entry.
+BASE_REQUIRED = (
     "SKILL.md",
     "requirements.txt",
-    "references/SDK_OVERVIEW.md",
-    "references/MODELING_WORKFLOWS.md",
-    "references/docs/api/README.md",
-    "references/docs/flows/README.md",
-    "references/docs/flows/script_lib.py",
-    "references/docs/flows/skeleton.py",
-    "references/docs/flows/design_review.py",
-    "references/docs/flows/ifc_inspect.py",
-    "references/docs/flows/dxf_from_design.py",
-    "templates/build_skeleton.py",
-    "workflows/PLAN_DXF_IFC.md",
-    "hooks/README.md",
-    "hooks/claude-settings.json",
-    "hooks/opencode-plugin.ts",
-    "hooks/validate_script.py",
-    "hooks/validate_script.sh",
 )
+
+# Per-skill extended contracts: subpaths that must exist on top of the base.
+# Add a new entry here when a skill needs extra integrity guarantees (e.g.
+# its MIT LICENSE, vendored runtime, or reference docs).
+SKILL_REGISTRY: dict[str, tuple[str, ...]] = {
+    "aiifc": (
+        "references/SDK_OVERVIEW.md",
+        "references/MODELING_WORKFLOWS.md",
+        "references/docs/api/README.md",
+        "references/docs/flows/README.md",
+        "references/docs/flows/script_lib.py",
+        "references/docs/flows/skeleton.py",
+        "references/docs/flows/design_review.py",
+        "references/docs/flows/ifc_inspect.py",
+        "references/docs/flows/dxf_from_design.py",
+        "templates/build_skeleton.py",
+        "workflows/PLAN_DXF_IFC.md",
+        "hooks/README.md",
+        "hooks/claude-settings.json",
+        "hooks/opencode-plugin.ts",
+        "hooks/validate_script.py",
+        "hooks/validate_script.sh",
+    ),
+    "aidxfv": (
+        "LICENSE",
+        "agents/",
+        "references/",
+        "scripts/",
+        "steps/",
+        "tests/",
+    ),
+}
 
 # Anything matching these is considered build noise, not skill content.
 FORBIDDEN_SUFFIXES = (".pyc", ".pyo")
@@ -58,13 +79,12 @@ class BuildResult:
     archive_path: Path | None
 
 
-def _validate_frontmatter(skill_root: Path) -> None:
-    """Check SKILL.md frontmatter: name matches dir, description non-empty."""
+def _parse_frontmatter(skill_root: Path) -> dict[str, str]:
+    """Parse SKILL.md YAML frontmatter into a flat {key: value} dict."""
     skill_file = skill_root / "SKILL.md"
     lines = skill_file.read_text(encoding="utf-8").splitlines()
     if not lines or lines[0].strip() != "---":
         raise ValueError("SKILL.md must start with YAML frontmatter (---)")
-    in_frontmatter = False
     fields: dict[str, str] = {}
     for line in lines[1:]:
         if line.strip() == "---":
@@ -72,13 +92,25 @@ def _validate_frontmatter(skill_root: Path) -> None:
         if ":" in line:
             key, _, value = line.partition(":")
             fields[key.strip()] = value.strip()
+    return fields
+
+
+def _validate_frontmatter(skill_root: Path, skill_name: str | None = None) -> None:
+    """Check SKILL.md frontmatter: parses, name/description non-empty.
+
+    When skill_name is given (a registered/known skill), the frontmatter
+    name must match it — catches SKILL.md content belonging to another skill.
+    """
+    fields = _parse_frontmatter(skill_root)
     name = fields.get("name", "")
-    if name != skill_root.name:
-        raise ValueError(
-            f"SKILL.md frontmatter name {name!r} != skill directory {skill_root.name!r}"
-        )
+    if not name:
+        raise ValueError("SKILL.md frontmatter name is empty")
     if not fields.get("description", ""):
         raise ValueError("SKILL.md frontmatter description is empty")
+    if skill_name is not None and name != skill_name:
+        raise ValueError(
+            f"SKILL.md frontmatter name {name!r} != skill name {skill_name!r}"
+        )
 
 
 def _scan_for_noise(skill_root: Path) -> list[Path]:
@@ -93,22 +125,48 @@ def _scan_for_noise(skill_root: Path) -> list[Path]:
     return noise
 
 
-def validate(skill_root: Path, strict_noise: bool = True) -> None:
+def validate(
+    skill_root: Path,
+    strict_noise: bool = True,
+    skill_name: str | None = None,
+    warn_unknown: bool = True,
+) -> None:
     """Validate a skill directory before/after packaging.
 
-    - existence + required paths + frontmatter: always checked.
+    - base required paths (SKILL.md + requirements.txt) + frontmatter: always.
+    - if the skill name is registered: its extended paths + frontmatter
+      name-match are also enforced.
+    - unknown skill names: base contract only, with a warning.
     - strict_noise=True rejects __pycache__/.pyc (used on the copied bundle,
       where noise would mean the copy dropped or leaked content).
     """
     if not skill_root.is_dir():
         raise FileNotFoundError(f"Skill directory not found: {skill_root}")
 
-    for rel in REQUIRED_PATHS:
+    skill_name = skill_name or skill_root.name
+    extended = SKILL_REGISTRY.get(skill_name)
+
+    for rel in BASE_REQUIRED:
         path = skill_root / rel
         if not path.exists():
             raise FileNotFoundError(f"Missing required path: {rel}")
 
-    _validate_frontmatter(skill_root)
+    if extended is None:
+        if warn_unknown:
+            print(
+                f"Warning: skill {skill_name!r} has no extended contract in "
+                "SKILL_REGISTRY; validating base contract only.",
+                file=sys.stderr,
+            )
+    else:
+        for rel in extended:
+            path = skill_root / rel
+            if not path.exists():
+                raise FileNotFoundError(
+                    f"Missing required path for skill {skill_name!r}: {rel}"
+                )
+
+    _validate_frontmatter(skill_root, skill_name=skill_name if extended is not None else None)
 
     if strict_noise:
         noise = _scan_for_noise(skill_root)
@@ -132,7 +190,7 @@ def build(
         if not quiet:
             print(msg)
 
-    validate(skill_root, strict_noise=False)
+    validate(skill_root, strict_noise=False, skill_name=skill_name)
 
     dest = output_root / skill_name
     if dest.exists() and clean:
@@ -145,8 +203,9 @@ def build(
     log(f"Copied skill bundle to: {dest}")
 
     # Re-validate the copy with strict noise check: the copied bundle must be
-    # clean (any leak here means the ignore pattern is wrong).
-    validate(dest, strict_noise=True)
+    # clean (any leak here means the ignore pattern is wrong). The unknown-skill
+    # warning was already emitted for the source, so suppress it here.
+    validate(dest, strict_noise=True, skill_name=skill_name, warn_unknown=False)
 
     archive_path = None
     if archive:
@@ -159,24 +218,26 @@ def build(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Package the aiifc skill into a distributable Agent Skills bundle"
+        description="Package any skill directory into a distributable "
+        "Agent Skills bundle (validates frontmatter + required paths + noise)"
+    )
+    parser.add_argument(
+        "--skill",
+        default=None,
+        help=f"Skill name (default: {DEFAULT_SKILL_NAME}); source dir is skills/<name>",
     )
     parser.add_argument(
         "--skill-dir",
         type=Path,
-        default=DEFAULT_SKILL_DIR,
-        help=f"Source skill directory (default: {DEFAULT_SKILL_DIR})",
+        default=None,
+        help="Source skill directory; overrides --skill's default dir. "
+        "Skill name is inferred from the directory name",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
         default=None,
         help=f"Output directory for the bundle (default: {DEFAULT_OUTPUT_ROOT})",
-    )
-    parser.add_argument(
-        "--skill-name",
-        default=DEFAULT_SKILL_NAME,
-        help=f"Skill directory name and SKILL.md frontmatter name (default: {DEFAULT_SKILL_NAME})",
     )
     parser.add_argument(
         "--no-clean",
@@ -203,13 +264,18 @@ def main() -> None:
         if args.output_root is not None
         else DEFAULT_OUTPUT_ROOT.resolve()
     )
-    skill_root = args.skill_dir.resolve()
+    if args.skill_dir is not None:
+        skill_root = args.skill_dir.resolve()
+        skill_name = args.skill or skill_root.name
+    else:
+        skill_name = args.skill or DEFAULT_SKILL_NAME
+        skill_root = (Path("skills") / skill_name).resolve()
 
     try:
         result = build(
             skill_root=skill_root,
             output_root=output_root,
-            skill_name=args.skill_name,
+            skill_name=skill_name,
             clean=not args.no_clean,
             archive=args.archive,
             quiet=args.quiet,

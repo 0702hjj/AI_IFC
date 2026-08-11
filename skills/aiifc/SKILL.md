@@ -129,7 +129,7 @@ cp -r skills/aiifc <agent-skills-dir>/aiifc
 
 **Distributable bundle:**
 ```bash
-python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
+python tools/skill_pack.py --archive   # produces skills/dist/aiifc.tar.gz (default skill: aiifc)
 tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 ```
 

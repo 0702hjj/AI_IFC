@@ -120,7 +120,7 @@ jobs:
           python -m pytest tests/skill/ -q
       - name: Build skill bundle + archive
         run: |
-          python tools/skill_pack_aiifc.py --archive --output-root /tmp/skill-dist
+          python tools/skill_pack.py --archive --output-root /tmp/skill-dist
           test -f /tmp/skill-dist/aiifc.tar.gz
           test -d /tmp/skill-dist/aiifc/references/docs/flows
           test -d /tmp/skill-dist/aiifc/templates

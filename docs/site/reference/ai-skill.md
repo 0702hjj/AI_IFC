@@ -35,7 +35,7 @@ skill 是 agent 无关的目录包，任何支持 Agent Skills 规范的 agent�
 # 1) 从仓库复制或解压分发包
 cp -r skills/aiifc ~/.config/opencode/skills/aiifc
 # 或用打包器生成 tar.gz 分发包
-python tools/skill_pack_aiifc.py --archive   # 产出 skills/dist/aiifc.tar.gz
+python tools/skill_pack.py --archive   # 产出 skills/dist/aiifc.tar.gz（默认 skill：aiifc）
 tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 
 # 2) 安装运行依赖（flows 用）
@@ -53,7 +53,7 @@ uv pip install -r skills/aiifc/requirements.txt
 
 ## 分发与打包
 
-- 打包器：`tools/skill_pack_aiifc.py`（校验 SKILL.md frontmatter / 必需路径 / 无噪声，复制到 `skills/dist/`，可选打 tar.gz）。
+- 打包器：`tools/skill_pack.py`（泛化：校验 SKILL.md frontmatter / 必需路径 / 无噪声，复制到 `skills/dist/`，可选打 tar.gz）。`--skill <name>` 默认 `aiifc`；`--skill-dir <path>` 可打任意 skill 目录。
 - 产物 agent 无关：`SKILL.md` + `references/` 即 Anthropic Agent Skills 规范。
 - CI（`skill (aiifc pack + flows smoke)` job）会在每个 PR 校验打包产物完整性并跑 flows 冒烟。
 

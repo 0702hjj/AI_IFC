@@ -72,7 +72,8 @@ cd ../web && npm install && npm run dev
 skill 与 agent 无关（opencode、Claude Code、Cursor 等皆可）。打包分发包：
 
 ```bash
-python tools/skill_pack_aiifc.py --archive   # 产出 skills/dist/aiifc.tar.gz
+python tools/skill_pack.py --archive   # 产出 skills/dist/aiifc.tar.gz（默认 skill：aiifc）
+python tools/skill_pack.py --skill-dir skills/aidxfv/v1 --archive   # 任意 skill 目录（这里是 CAD v1）
 ```
 
 ## 仓库布局
@@ -92,7 +93,7 @@ mcp/               # MCP 桥（可选，薄包 services/ifc）
 scripts/           # 端到端冒烟（smoke.sh）
 data/              # 运行时数据（gitignored，services/ifc 与 server 共享）
 AI_CAD/            # CAD skill 域 + 调研（aidxfv 已迁入 skills/aidxfv，调研保留）
-tools/             # skill 打包器（skill_pack_aiifc.py）
+tools/             # skill 打包器（skill_pack.py）
 docs/site/         # 公开文档站（VitePress，发布到 GitHub Pages）
 docs/work/         # 工作项看板（审计/计划/可追踪工作项）
 docs/internal/     # 内部团队文档（不发布）

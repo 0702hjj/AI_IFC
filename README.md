@@ -72,7 +72,8 @@ Open http://localhost:5173 and upload `converter/test/fixtures/wall-with-opening
 The skill is agent-agnostic (opencode, Claude Code, Cursor, …). Bundle it with:
 
 ```bash
-python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
+python tools/skill_pack.py --archive   # produces skills/dist/aiifc.tar.gz (default skill: aiifc)
+python tools/skill_pack.py --skill-dir skills/aidxfv/v1 --archive   # any skill dir (here: CAD v1)
 ```
 
 ## Repository layout
@@ -92,7 +93,7 @@ mcp/               # MCP bridge (optional, thin wrapper over services/ifc)
 scripts/           # end-to-end smoke test (smoke.sh)
 data/              # runtime data (gitignored, shared by services/ifc and server)
 AI_CAD/            # CAD skill domain + research (aidxfv moved into skills/aidxfv; research stays)
-tools/             # skill packager (skill_pack_aiifc.py)
+tools/             # skill packager (skill_pack.py)
 docs/site/         # public docs site (VitePress, published to GitHub Pages)
 docs/work/         # work-item board (audit, plans, trackable items)
 docs/internal/     # internal team docs (not published)
