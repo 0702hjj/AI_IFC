@@ -55,7 +55,7 @@ body：`{"base": "v1", "target": "v2"}`（target 可为 `"current"` 表示 uploa
 }
 ```
 
-版本不存在 → 404；缺 `base`/`target` → 422。diff 为属性级（无几何 diff），详见 [版本与 Diff Viewer](/viewer/versions-diff)。
+版本不存在 → 404；缺 `base`/`target` → 422。diff 为属性级语义（不提供几何 diff——IFC 是脚本产物，改几何 = 改脚本），详见 [版本与 Diff Viewer](/viewer/versions-diff)。
 
 ### POST /models/{id}/diff/upload
 

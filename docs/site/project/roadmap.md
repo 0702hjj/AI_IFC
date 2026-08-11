@@ -34,7 +34,7 @@
 
 - **双语扩展（后续）**：其余页面（Viewer 使用、开发指南细节、项目组）的英文版本。
 - **API 自动生成（后续）**：edit-service 的"代码 vs schema"漂移检测；Go server 请求/响应 schema 的完整自动生成。
-- **几何 diff**；增量重转；diff 超时控制。
+- **增量重转**；diff 超时控制。（几何 diff 已随 script-as-source 覆盖：IFC 是脚本产物，diff 为脚本 diff + 属性级语义 diff，见 2026-08-08-script-editing-unified-design.md §10。）
 - **前端参数化编辑增强**：edit-call 的 UI 化（属性面板内直接改标量参数，无需进脚本编辑器）；bootstrap 对齐报告的可视化。
 - 计划 → 2D DXF → IFC 完整工作流。
 

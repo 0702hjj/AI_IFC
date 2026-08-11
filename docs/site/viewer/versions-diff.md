@@ -23,7 +23,7 @@ plain 模型（外部上传、无脚本）没有大版本链，仅当前态可�
 ## Diff 语义
 
 - 以 **GlobalId** 为实体标识：`added` / `removed` 为 guid 列表；`changed` 为实体直接属性与 pset 属性的字段级 old → new。
-- 基于 ifcdiff，仅以 `attributes` / `property` 两种 relationship 运行；entity 引用属性（ObjectPlacement、Representation 等几何表示层）不参与比较，**当前不提供几何 diff**。
+- 基于 ifcdiff，仅以 `attributes` / `property` 两种 relationship 运行；entity 引用属性（ObjectPlacement、Representation 等几何表示层）不参与比较。**不提供几何 diff**：IFC 是脚本产物，改几何 = 改脚本（见 [IFC 脚本编辑](/viewer/editing)），diff 为脚本 diff + 属性级语义 diff。
 - 删除构件在当前 XKT 中已无几何，只进入红色列表（设计决策）。
 - base/target 均为不可变版本时，结果缓存在 `versions/diff-{base}-{target}.json`；`target="current"` 不缓存。
 - 历史版本 IFC 不在盘上时，diff 触发按需重建（见上）；大版本间另有脚本 diff（text + PARAMS 键级），见 [Script 编辑与版本对比](/reference/design-edit)。

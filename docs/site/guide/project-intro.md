@@ -28,7 +28,7 @@ AI_IFC 是一个**自托管、开源**的 AI 生成平台，提供两个对等�
 
 **未交付（见 [已知限制](/project/known-limits) 与 [Roadmap](/project/roadmap)）：**
 
-- 多用户/鉴权；几何 diff；Docker Compose 一键部署；Viewer 使用与开发指南细节页的英文版本。
+- 多用户/鉴权；Docker Compose 一键部署；Viewer 使用与开发指南细节页的英文版本。（几何 diff 不做——IFC 是脚本产物，改几何 = 改脚本，diff 为脚本 diff + 属性级语义 diff。）
 
 ## 四组件架构
 

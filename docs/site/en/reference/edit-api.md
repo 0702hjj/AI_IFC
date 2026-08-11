@@ -55,7 +55,7 @@ Body: `{"base": "v1", "target": "v2"}` (`target` may be `"current"` for the live
 }
 ```
 
-Missing version → 404; missing `base`/`target` → 422. Diff is attribute-level (no geometric diff), see [Versions & Diff Viewer](/en/viewer/versions-diff).
+Missing version → 404; missing `base`/`target` → 422. Diff is attribute-level semantic (no geometric diff — the IFC is a script artifact, changing geometry means changing the script), see [Versions & Diff Viewer](/en/viewer/versions-diff).
 
 ### POST /models/{id}/diff/upload
 

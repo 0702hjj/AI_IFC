@@ -23,7 +23,7 @@ The "Diff" toolbar button opens the comparison panel:
 ## Diff semantics
 
 - **GlobalId** is the entity identity: `added` / `removed` are guid lists; `changed` is field-level old → new over direct attributes and pset attributes.
-- Based on ifcdiff, run with only the `attributes` / `property` relationships; entity reference attributes (ObjectPlacement, Representation and other geometry-representation layers) are not compared — **no geometric diff is currently provided**.
+- Based on ifcdiff, run with only the `attributes` / `property` relationships; entity reference attributes (ObjectPlacement, Representation and other geometry-representation layers) are not compared. **No geometric diff is provided** — the IFC is a script artifact, changing geometry means changing the script (see [IFC Script Editing](/en/viewer/editing)); diffs are script diff + attribute-level semantic diff.
 - Removed elements no longer have geometry in the current XKT, so they only appear in the red list (design decision).
 - When both base and target are immutable versions, the result is cached at `versions/diff-{base}-{target}.json`; `target="current"` is not cached.
 - When a historical version's IFC is not on disk, diffing triggers an on-demand rebuild (see above); big versions also have a script diff (text + PARAMS key-level) — see [Script editing & version diff](/en/reference/design-edit).
