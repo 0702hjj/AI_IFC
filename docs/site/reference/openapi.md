@@ -15,6 +15,20 @@ uv run python scripts/export_openapi.py
 
 ## Go server
 
-Go server 的 REST 契约当前以本文档站 [Viewer REST API](/reference/rest-api) 为人工维护的公开契约。另提供从 Go mux 注册扫描生成的**机器可读端点清单**：[go-rest-api.routes.json](/go-rest-api.routes.json)（method / path / handler / 源文件），由 `docs/scripts/gen-go-routes.mjs` 生成，`npm run check:api` 检测漂移；Go 侧请求/响应 schema 的完整自动生成仍属后续迭代。
+Go server（`:8090`）的完整请求/响应 schema 见 **[go-server.openapi.json](/go-server.openapi.json)**（OpenAPI 3.0，机器可消费，可直接喂给 LLM/工具/代码生成器）。
+
+生成与漂移检测（诚实边界）：Go 用 stdlib `net/http` mux，无 schema 反射——请求/响应 schema 无法从代码自动导出。因此采用「路由清单自动 + schema 手工维护 + 覆盖漂移检测」：
+
+- 路由清单由 `docs/scripts/gen-go-routes.mjs` 从 mux 注册自动提取（`go-rest-api.routes.json`，method/path/handler/源文件）；
+- 请求/响应 schema 由 `docs/scripts/go-openapi-schema.mjs` 手工维护（内容源是 [Viewer REST API](/reference/rest-api) 契约）；
+- 生成器 `docs/scripts/gen-go-openapi.mjs` 对两者做**双向覆盖断言**：schema 端点集 ⊆ routes 端点集 且 routes 端点集 ⊆ schema 端点集——新增路由未配 schema、或 schema 有死路由，都会令生成失败（CI 红）。这是能达到的最强自动一致性。
+
+端点或 schema 变更后重新生成并校验：
+
+```bash
+cd docs
+npm run gen:api    # 三件生成物：edit-api-reference.md + go-rest-api.routes.json + go-server.openapi.json
+npm run check:api  # 自证测试 + 生成 + git 漂移检测（无 diff 才绿）
+```
 
 > 自动生成与漂移检测已部分落地：edit-service 的字段/端点参考页由 OpenAPI schema 生成（见 [编辑 API 参考（自动生成）](/reference/edit-api-reference)）；edit-service 的"代码 vs schema"漂移检测已具备前提（依赖已 PyPI 自包含），接入见 [Roadmap](/project/roadmap)。
