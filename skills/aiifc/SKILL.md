@@ -129,7 +129,7 @@ cp -r skills/aiifc <agent-skills-dir>/aiifc
 
 **Distributable bundle:**
 ```bash
-python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
+python tools/skill_pack.py --archive   # produces skills/dist/aiifc.tar.gz (default skill: aiifc)
 tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 ```
 
@@ -161,7 +161,7 @@ demo 布局 `staging/{modelId}.py` / `models/{modelId}/scripts/v{n}.py`），提
 
 - **opencode**：软链/复制 `hooks/opencode-plugin.ts` 到 `.opencode/plugin/`（如
   `.opencode/plugin/aiifc-hooks.ts`）。Python 探测：`AIIFC_PYTHON` → 仓库
-  `viewer/edit-service/.venv/bin/python`（有 ifcopenshell）→ `python3`。
+  `services/ifc/.venv/bin/python`（有 ifcopenshell）→ `python3`。
 - **Claude Code**：把 `hooks/claude-settings.json` 的 `hooks` 块合并进
   `~/.claude/settings.json`（把 `{{SKILL_DIR}}` 换成 skill 安装路径），PostToolUse
   hook 指向 `hooks/validate_script.sh`。
@@ -172,7 +172,7 @@ demo 布局 `staging/{modelId}.py` / `models/{modelId}/scripts/v{n}.py`），提
 
 When this skill runs **inside the AI_IFC demo** (opencode serve + viewer), the host provides a fixed contract that overrides the generic output paths (MUST #23). This section is maintained in-repo for the demo and is **not** part of the distributable skill bundle.
 
-- Build scripts (`.py`) → `examples/`; generated IFC files → **`viewer/data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context). Build scripts MUST follow the script contract (#25-31): `PARAMS` block, deterministic GlobalIds, `build(params, out_path)` entry, validate exit.
+- Build scripts (`.py`) → `examples/`; generated IFC files → **`data/uploads/{modelId}.ifc`** (write via a staging copy, self-check, then atomic replace; `modelId` is injected via system context). Build scripts MUST follow the script contract (#25-31): `PARAMS` block, deterministic GlobalIds, `build(params, out_path)` entry, validate exit.
 - **design.json** (optional planning draft only, MUST #18 — auxiliary info, not versioned, not diffed): keep it in your scratch space; the demo does NOT persist or archive it. Only the build script is archived with the version.
-- Python runtime: **always `viewer/edit-service/.venv/bin/python`** (run from the repo root; the edit-service uv project env has ifcopenshell / ezdxf / ifcquery preinstalled — the root `.venv` does NOT). Equivalent: `cd viewer/edit-service && uv run python ...`.
+- Python runtime: **always `services/ifc/.venv/bin/python`** (run from the repo root; the edit-service uv project env has ifcopenshell / ezdxf / ifcquery preinstalled — the root `.venv` does NOT). Equivalent: `cd services/ifc && uv run python ...`.
 - Agent rules live in `.opencode/agent/ifc-demo.md` (write scoping, staging, atomic-replace, no viewer HTTP calls); the Go server auto-handles commit/version/XKT-reconvert on `file.edited` + `session.idle`.

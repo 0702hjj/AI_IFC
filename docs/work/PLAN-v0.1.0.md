@@ -15,6 +15,8 @@
 | M4 | 结构加固 + 身份收编 ✅（PR #17，2026-08-06）| P1-1, P1-2, P1-3, P1-4, P2-1, P2-8 | 全部 done，SCAD 遗产收编决策落地（移出至 SimpleCADAPI-archive） |
 | M5 | script-as-source 转向 ✅（2026-08-07，spec: 2026-08-06-script-as-source-design.md）| W-0011..W-0016 | 脚本为唯一事实源；diff 三层×两级；PARAMS 表单 + 脚本下钻；沙箱执行；design JSON 下线 |
 | v0.2 | script-closure 收口 ✅（2026-08-10，分支 feat/v0.2-script-closure）| W-0021..W-0025 | 直改退役残留消费者收口（notify 走 script 管线）；params_keys 定位聚焦；骨架确定性；校验隔离机器强制；skill hooks 校验即事件 |
+| v0.3 | orchestrator-closure ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure）| W-0017 spec + notify 事件化 + minors 清扫 + 平台框架入约 | notify 重构为 Pure Core + Imperative Shell；事件 URI 化闭环；架构方向定稿入约 |
+| v0.4 | 可复用性 + 上线健壮性 ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure，PR 待提）| 物理重组（viewer/ 拆分）+ Go OpenAPI + skill 打包器泛化 + services/ifc 独立调用文档 + diff 超时 + 重转去重 + stale 清扫 | 结构一步到位（services/ifc + web/server/converter/mcp 顶层化 + skills/aidxfv 收敛）；对外唯一入口机器可消费 OpenAPI；任意 skill 可打包；diff 超时 504；同源跳过重转 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 
@@ -24,8 +26,8 @@
 ## M2 测试补盲
 
 - **P1-5**：CI 加 Postgres service job，`VIEWER_TEST_PG_DSN` 指向它，跑 `go test ./...`（含 pgstore 测试）
-- **W-0001**：`viewer/server/internal/api/design.go` 全部 11 条路由的 Go 测试（mock edit-service，断言 envelope 包装）——与 P0-1 修复同 PR 或紧随其后
-- **W-0002**：ChatSidebar SSE 测试（viewer/web，MockEventSource）
+- **W-0001**：`server/internal/api/design.go` 全部 11 条路由的 Go 测试（mock edit-service，断言 envelope 包装）——与 P0-1 修复同 PR 或紧随其后
+- **W-0002**：ChatSidebar SSE 测试（web，MockEventSource）
 - **W-0003**：flows 单测——`design_builder.py` SchemaError 分支、`dxf_from_design.py`（含 shaft fixture）；converter 测试加进 CI（当前 ci.yml 有 converter job，确认其在） 
 - 目标比率（AGENTS.md 纪律）：新增实现代码的测试量 ≥ 3 倍
 

@@ -16,7 +16,7 @@
 - Issue status 枚举：`"open" | "checking" | "resolved"`
 - 前端 TS 文件 ≤500 行，import 用 `@` alias，纯 CSS（无 Tailwind），UI 文案中文
 - 不改动 converter、上传/转换队列、模型列表 API、`model.json` 结构
-- 测试命令：server `go test ./...`（工作目录 `viewer/server`）；web `npm test`（工作目录 `viewer/web`，即 `vitest run`）；e2e `bash scripts/smoke.sh`（需 server 运行于 :8090）
+- 测试命令：server `go test ./...`（工作目录 `server`）；web `npm test`（工作目录 `web`，即 `vitest run`）；e2e `bash scripts/smoke.sh`（需 server 运行于 :8090）
 - git 仓库根为 `AI_IFC/`，所有提交在此仓库内；commit message 风格参照历史（如 `feat(viewer): ...`、`fix:...`）
 
 ---
@@ -24,8 +24,8 @@
 ### Task 1: server `internal/issue` 包 —— 类型 + FileStore List/Create
 
 **Files:**
-- Create: `viewer/server/internal/issue/issue.go`
-- Test: `viewer/server/internal/issue/issue_test.go`
+- Create: `server/internal/issue/issue.go`
+- Test: `server/internal/issue/issue_test.go`
 
 **Interfaces:**
 - Produces（后续任务依赖）:
@@ -39,7 +39,7 @@
 
 - [ ] **Step 1: 写失败测试**
 
-`viewer/server/internal/issue/issue_test.go`:
+`server/internal/issue/issue_test.go`:
 
 ```go
 package issue
@@ -118,10 +118,10 @@ func TestCreateInvalidStatus(t *testing.T) {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/server && go test ./internal/issue/ -v`
+Run: `cd server && go test ./internal/issue/ -v`
 Expected: FAIL（`internal/issue` 不存在，编译错误）
 
-- [ ] **Step 3: 实现 `viewer/server/internal/issue/issue.go`**
+- [ ] **Step 3: 实现 `server/internal/issue/issue.go`**
 
 ```go
 package issue
@@ -278,13 +278,13 @@ func (s *FileStore) Create(modelID string, iss *Issue) (*Issue, error) {
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `cd viewer/server && go test ./internal/issue/ -v`
+Run: `cd server && go test ./internal/issue/ -v`
 Expected: PASS（4 个测试）
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/server/internal/issue/ && git commit -m "feat(viewer): issue 包类型与 FileStore List/Create"
+cd AI_IFC && git add server/internal/issue/ && git commit -m "feat(viewer): issue 包类型与 FileStore List/Create"
 ```
 
 ---
@@ -292,8 +292,8 @@ cd AI_IFC && git add viewer/server/internal/issue/ && git commit -m "feat(viewer
 ### Task 2: server `internal/issue` —— Update/Delete/SaveScreenshot
 
 **Files:**
-- Modify: `viewer/server/internal/issue/issue.go`
-- Test: `viewer/server/internal/issue/issue_test.go`
+- Modify: `server/internal/issue/issue.go`
+- Test: `server/internal/issue/issue_test.go`
 
 **Interfaces:**
 - Consumes: Task 1 的 `FileStore`、`Issue`、`IssuePatch`、`readAll/writeAll`
@@ -397,7 +397,7 @@ func TestSaveScreenshot(t *testing.T) {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/server && go test ./internal/issue/ -v`
+Run: `cd server && go test ./internal/issue/ -v`
 Expected: FAIL（`Update`/`Delete`/`SaveScreenshot` 未定义）
 
 - [ ] **Step 3: 实现（追加到 `issue.go`）**
@@ -515,13 +515,13 @@ func (s *FileStore) SaveScreenshot(modelID, issueID string, png []byte) (string,
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `cd viewer/server && go test ./internal/issue/ -v`
+Run: `cd server && go test ./internal/issue/ -v`
 Expected: PASS（10 个测试）
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/server/internal/issue/ && git commit -m "feat(viewer): issue FileStore Update/Delete/SaveScreenshot"
+cd AI_IFC && git add server/internal/issue/ && git commit -m "feat(viewer): issue FileStore Update/Delete/SaveScreenshot"
 ```
 
 ---
@@ -529,11 +529,11 @@ cd AI_IFC && git add viewer/server/internal/issue/ && git commit -m "feat(viewer
 ### Task 3: server API 路由 + main.go 装配
 
 **Files:**
-- Modify: `viewer/server/internal/api/api.go`
-- Modify: `viewer/server/internal/api/api_test.go`（NewHandler 调用点）
-- Modify: `viewer/server/cmd/server/main.go:66`
-- Modify: `viewer/server/cmd/server/main_test.go`（若含 NewHandler 调用，同步更新）
-- Test: `viewer/server/internal/api/issues_test.go`（新文件）
+- Modify: `server/internal/api/api.go`
+- Modify: `server/internal/api/api_test.go`（NewHandler 调用点）
+- Modify: `server/cmd/server/main.go:66`
+- Modify: `server/cmd/server/main_test.go`（若含 NewHandler 调用，同步更新）
+- Test: `server/internal/api/issues_test.go`（新文件）
 
 **Interfaces:**
 - Consumes: Task 1/2 的 `issue.Store`、`issue.Issue`、`issue.IssuePatch`、错误哨兵
@@ -544,7 +544,7 @@ cd AI_IFC && git add viewer/server/internal/issue/ && git commit -m "feat(viewer
   - `DELETE /api/models/{id}/issues/{issueId}` → `data: null`
   - `GET /models/{id}/issues/{file}`（file 必须匹配 `^i_[0-9a-f]{12}\.png$`）→ PNG 字节流
 
-- [ ] **Step 1: 写失败测试 `viewer/server/internal/api/issues_test.go`**
+- [ ] **Step 1: 写失败测试 `server/internal/api/issues_test.go`**
 
 先查看现有 `api_test.go` 的测试脚手架（如何构造 `store.Store`、`convert.Queue`、`httptest`），保持同一风格。测试文件：
 
@@ -559,7 +559,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"ifcviewer/server/internal/issue"
+	"ifcserver/internal/issue"
 )
 
 // newIssueTestServer 参照 api_test.go 现有脚手架构造 handler 与一个已存在的模型，
@@ -707,12 +707,12 @@ func TestIssueScreenshot(t *testing.T) {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/server && go test ./internal/api/ -v`
+Run: `cd server && go test ./internal/api/ -v`
 Expected: FAIL（编译错误：`NewHandler` 参数不匹配 / 路由不存在 404）
 
 - [ ] **Step 3: 实现 `api.go` 修改**
 
-顶部 import 增加 `"io"`、`"regexp"`、`"ifcviewer/server/internal/issue"`。handler 结构体与构造函数：
+顶部 import 增加 `"io"`、`"regexp"`、`"ifcserver/internal/issue"`。handler 结构体与构造函数：
 
 ```go
 type handler struct {
@@ -884,17 +884,17 @@ iss := issue.NewFileStore(cfg.DataDir)
 handler := api.NewHandler(st, q, iss, cfg.MaxUploadMB<<20)
 ```
 
-（import 增加 `"ifcviewer/server/internal/issue"`。）
+（import 增加 `"ifcserver/internal/issue"`。）
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `cd viewer/server && go test ./... && go vet ./...`
+Run: `cd server && go test ./... && go vet ./...`
 Expected: 全部 PASS，vet 无输出
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/server/ && git commit -m "feat(viewer): issues REST API（CRUD + 截图）与 main 装配"
+cd AI_IFC && git add server/ && git commit -m "feat(viewer): issues REST API（CRUD + 截图）与 main 装配"
 ```
 
 ---
@@ -902,9 +902,9 @@ cd AI_IFC && git add viewer/server/ && git commit -m "feat(viewer): issues REST 
 ### Task 4: web API 类型与 client 扩展
 
 **Files:**
-- Modify: `viewer/web/src/api/types.ts`
-- Modify: `viewer/web/src/api/client.ts`
-- Test: `viewer/web/src/api/client.test.ts`（追加）
+- Modify: `web/src/api/types.ts`
+- Modify: `web/src/api/client.ts`
+- Test: `web/src/api/client.test.ts`（追加）
 
 **Interfaces:**
 - Produces（Task 10 依赖）:
@@ -981,7 +981,7 @@ describe("issue api", () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/web && npx vitest run src/api/client.test.ts`
+Run: `cd web && npx vitest run src/api/client.test.ts`
 Expected: FAIL（`listIssues` 等未导出）
 
 - [ ] **Step 3: 实现**
@@ -1052,13 +1052,13 @@ export const issueAssetUrl = (modelId: string, issue: Issue) => `/models/${model
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `cd viewer/web && npx vitest run src/api/client.test.ts`
+Run: `cd web && npx vitest run src/api/client.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/web/src/api/ && git commit -m "feat(viewer): web issue API 类型与 client"
+cd AI_IFC && git add web/src/api/ && git commit -m "feat(viewer): web issue API 类型与 client"
 ```
 
 ---
@@ -1066,8 +1066,8 @@ cd AI_IFC && git add viewer/web/src/api/ && git commit -m "feat(viewer): web iss
 ### Task 5: web `tree-utils.ts` 纯函数
 
 **Files:**
-- Create: `viewer/web/src/viewer/tree-utils.ts`
-- Test: `viewer/web/src/viewer/tree-utils.test.ts`
+- Create: `web/src/viewer/tree-utils.ts`
+- Test: `web/src/viewer/tree-utils.test.ts`
 
 **Interfaces:**
 - Produces（Task 7 依赖）:
@@ -1144,7 +1144,7 @@ describe("filterTree", () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/web && npx vitest run src/viewer/tree-utils.test.ts`
+Run: `cd web && npx vitest run src/viewer/tree-utils.test.ts`
 Expected: FAIL（模块不存在）
 
 - [ ] **Step 3: 实现 `tree-utils.ts`**
@@ -1218,13 +1218,13 @@ export function filterTree(
 
 - [ ] **Step 4: 运行确认通过**
 
-Run: `cd viewer/web && npx vitest run src/viewer/tree-utils.test.ts`
+Run: `cd web && npx vitest run src/viewer/tree-utils.test.ts`
 Expected: PASS（7 个测试）
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/web/src/viewer/tree-utils.* && git commit -m "feat(viewer): tree 构建/过滤/统计纯函数"
+cd AI_IFC && git add web/src/viewer/tree-utils.* && git commit -m "feat(viewer): tree 构建/过滤/统计纯函数"
 ```
 
 ---
@@ -1232,8 +1232,8 @@ cd AI_IFC && git add viewer/web/src/viewer/tree-utils.* && git commit -m "feat(v
 ### Task 6: zustand store 可见性状态扩展
 
 **Files:**
-- Modify: `viewer/web/src/viewer/store.ts`
-- Test: `viewer/web/src/viewer/store.test.ts`（追加）
+- Modify: `web/src/viewer/store.ts`
+- Test: `web/src/viewer/store.test.ts`（追加）
 
 **Interfaces:**
 - Produces（Task 7/8/10 依赖）: store 新增字段与 action：
@@ -1279,7 +1279,7 @@ describe("visibility", () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/web && npx vitest run src/viewer/store.test.ts`
+Run: `cd web && npx vitest run src/viewer/store.test.ts`
 Expected: FAIL（`toggleHidden` 等不存在）
 
 - [ ] **Step 3: 实现 `store.ts`（全量替换）**
@@ -1325,13 +1325,13 @@ export const useViewerStore = create<ViewerState>((set) => ({
 
 - [ ] **Step 4: 运行确认通过（含既有测试回归）**
 
-Run: `cd viewer/web && npx vitest run src/viewer/store.test.ts`
+Run: `cd web && npx vitest run src/viewer/store.test.ts`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/web/src/viewer/store.* && git commit -m "feat(viewer): store 可见性状态（hidden/isolate/xray）"
+cd AI_IFC && git add web/src/viewer/store.* && git commit -m "feat(viewer): store 可见性状态（hidden/isolate/xray）"
 ```
 
 ---
@@ -1339,9 +1339,9 @@ cd AI_IFC && git add viewer/web/src/viewer/store.* && git commit -m "feat(viewer
 ### Task 7: ModelTreePanel 重写（自建 React 树 + 搜索 + 类型过滤 + hide）
 
 **Files:**
-- Modify: `viewer/web/src/viewer/ModelTreePanel.tsx`（全量重写）
-- Modify: `viewer/web/src/viewer/tree.css`（替换为新树的样式，删除 `.xeokit-tree-view` 相关）
-- Test: `viewer/web/src/viewer/ModelTreePanel.test.tsx`（新文件）
+- Modify: `web/src/viewer/ModelTreePanel.tsx`（全量重写）
+- Modify: `web/src/viewer/tree.css`（替换为新树的样式，删除 `.xeokit-tree-view` 相关）
+- Test: `web/src/viewer/ModelTreePanel.test.tsx`（新文件）
 
 **Interfaces:**
 - Consumes: Task 5 `buildTree/filterTree/typeCounts/MetaObjectLite`；Task 6 store `selectedId/setSelected/hiddenIds/toggleHidden`；`useViewer()` 的 `ctx.metaModel.metaObjects`、`ctx.viewer.cameraFlight.flyTo`
@@ -1421,7 +1421,7 @@ describe("ModelTreePanel", () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/web && npx vitest run src/viewer/ModelTreePanel.test.tsx`
+Run: `cd web && npx vitest run src/viewer/ModelTreePanel.test.tsx`
 Expected: FAIL（搜索框 / `tree-hide-btn` 不存在）
 
 - [ ] **Step 3: 实现 `ModelTreePanel.tsx`（全量替换，不再 import TreeViewPlugin）**
@@ -1603,13 +1603,13 @@ export function ModelTreePanel() {
 
 - [ ] **Step 4: 运行确认通过（含全量回归）**
 
-Run: `cd viewer/web && npm test`
+Run: `cd web && npm test`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/web/src/viewer/ModelTreePanel* viewer/web/src/viewer/tree.css && git commit -m "feat(viewer): 自建 ModelTree（搜索/类型过滤/hide），弃用 TreeViewPlugin"
+cd AI_IFC && git add web/src/viewer/ModelTreePanel* web/src/viewer/tree.css && git commit -m "feat(viewer): 自建 ModelTree（搜索/类型过滤/hide），弃用 TreeViewPlugin"
 ```
 
 ---
@@ -1617,12 +1617,12 @@ cd AI_IFC && git add viewer/web/src/viewer/ModelTreePanel* viewer/web/src/viewer
 ### Task 8: useVisibility hook + VisibilityToolbar
 
 **Files:**
-- Create: `viewer/web/src/viewer/useVisibility.ts`
-- Test: `viewer/web/src/viewer/useVisibility.test.ts`
-- Create: `viewer/web/src/viewer/VisibilityToolbar.tsx`
-- Test: `viewer/web/src/viewer/VisibilityToolbar.test.tsx`
-- Modify: `viewer/web/src/viewer/ViewerContext.tsx:70-71`（挂载 hook）
-- Modify: `viewer/web/src/viewer/Toolbar.tsx`（工具栏加按钮组）
+- Create: `web/src/viewer/useVisibility.ts`
+- Test: `web/src/viewer/useVisibility.test.ts`
+- Create: `web/src/viewer/VisibilityToolbar.tsx`
+- Test: `web/src/viewer/VisibilityToolbar.test.tsx`
+- Modify: `web/src/viewer/ViewerContext.tsx:70-71`（挂载 hook）
+- Modify: `web/src/viewer/Toolbar.tsx`（工具栏加按钮组）
 
 **Interfaces:**
 - Consumes: Task 6 store；`useViewer()` ctx
@@ -1739,7 +1739,7 @@ describe("VisibilityToolbar", () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/web && npx vitest run src/viewer/useVisibility.test.ts src/viewer/VisibilityToolbar.test.tsx`
+Run: `cd web && npx vitest run src/viewer/useVisibility.test.ts src/viewer/VisibilityToolbar.test.tsx`
 Expected: FAIL（模块不存在）
 
 - [ ] **Step 3: 实现**
@@ -1835,13 +1835,13 @@ export function VisibilityToolbar() {
 
 - [ ] **Step 4: 运行确认通过（全量）**
 
-Run: `cd viewer/web && npm test`
+Run: `cd web && npm test`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/web/src/viewer/useVisibility* viewer/web/src/viewer/VisibilityToolbar* viewer/web/src/viewer/ViewerContext.tsx viewer/web/src/viewer/Toolbar.tsx && git commit -m "feat(viewer): 可见性 hook 与 Hide/Isolate/X-Ray 工具栏"
+cd AI_IFC && git add web/src/viewer/useVisibility* web/src/viewer/VisibilityToolbar* web/src/viewer/ViewerContext.tsx web/src/viewer/Toolbar.tsx && git commit -m "feat(viewer): 可见性 hook 与 Hide/Isolate/X-Ray 工具栏"
 ```
 
 ---
@@ -1849,9 +1849,9 @@ cd AI_IFC && git add viewer/web/src/viewer/useVisibility* viewer/web/src/viewer/
 ### Task 9: PropertyPanel 增强（搜索 / pset 折叠 / 复制）
 
 **Files:**
-- Modify: `viewer/web/src/viewer/PropertyPanel.tsx`
-- Modify: `viewer/web/src/viewer/PropertyPanel.css`（追加样式）
-- Modify: `viewer/web/src/viewer/PropertyPanel.test.tsx`（重写，mock ViewerContext）
+- Modify: `web/src/viewer/PropertyPanel.tsx`
+- Modify: `web/src/viewer/PropertyPanel.css`（追加样式）
+- Modify: `web/src/viewer/PropertyPanel.test.tsx`（重写，mock ViewerContext）
 
 **Interfaces:**
 - Consumes: 现有 `useViewer()`、`selectedId`
@@ -1949,7 +1949,7 @@ describe("PropertyPanel", () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/web && npx vitest run src/viewer/PropertyPanel.test.tsx`
+Run: `cd web && npx vitest run src/viewer/PropertyPanel.test.tsx`
 Expected: FAIL（搜索框 / 折叠 / 复制按钮不存在）
 
 - [ ] **Step 3: 实现 `PropertyPanel.tsx`（全量替换）**
@@ -2095,13 +2095,13 @@ export function PropertyPanel() {
 
 - [ ] **Step 4: 运行确认通过（全量）**
 
-Run: `cd viewer/web && npm test`
+Run: `cd web && npm test`
 Expected: PASS
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/web/src/viewer/PropertyPanel* && git commit -m "feat(viewer): PropertyPanel 搜索/pset 折叠/属性复制"
+cd AI_IFC && git add web/src/viewer/PropertyPanel* && git commit -m "feat(viewer): PropertyPanel 搜索/pset 折叠/属性复制"
 ```
 
 ---
@@ -2109,11 +2109,11 @@ cd AI_IFC && git add viewer/web/src/viewer/PropertyPanel* && git commit -m "feat
 ### Task 10: IssuePanel（列表 / 创建 / 状态流转 / 删除 / 相机恢复）
 
 **Files:**
-- Create: `viewer/web/src/viewer/IssuePanel.tsx`
-- Create: `viewer/web/src/viewer/IssuePanel.css`
-- Test: `viewer/web/src/viewer/IssuePanel.test.tsx`
-- Modify: `viewer/web/src/pages/ViewerPage.tsx`（挂载）
-- Modify: `viewer/web/src/pages/ViewerPage.css`（抽屉定位样式）
+- Create: `web/src/viewer/IssuePanel.tsx`
+- Create: `web/src/viewer/IssuePanel.css`
+- Test: `web/src/viewer/IssuePanel.test.tsx`
+- Modify: `web/src/pages/ViewerPage.tsx`（挂载）
+- Modify: `web/src/pages/ViewerPage.css`（抽屉定位样式）
 
 **Interfaces:**
 - Consumes: Task 4 的 `listIssues/createIssue/updateIssue/deleteIssue/issueAssetUrl`、`Issue/NewIssue/IssueStatus`；store `selectedId/setSelected`；`useViewer()`
@@ -2231,7 +2231,7 @@ describe("IssuePanel", () => {
 
 - [ ] **Step 2: 运行确认失败**
 
-Run: `cd viewer/web && npx vitest run src/viewer/IssuePanel.test.tsx`
+Run: `cd web && npx vitest run src/viewer/IssuePanel.test.tsx`
 Expected: FAIL（模块不存在）
 
 - [ ] **Step 3: 实现 `IssuePanel.tsx`**
@@ -2494,13 +2494,13 @@ export function IssuePanel({ modelId }: { modelId: string }) {
 
 - [ ] **Step 4: 运行确认通过（全量 + 类型检查）**
 
-Run: `cd viewer/web && npm test && npm run build`
+Run: `cd web && npm test && npm run build`
 Expected: vitest PASS；`tsc -b && vite build` 无类型错误
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/web/src/viewer/IssuePanel* viewer/web/src/pages/ && git commit -m "feat(viewer): IssuePanel（创建/列表/状态流转/相机恢复/截图）"
+cd AI_IFC && git add web/src/viewer/IssuePanel* web/src/pages/ && git commit -m "feat(viewer): IssuePanel（创建/列表/状态流转/相机恢复/截图）"
 ```
 
 ---
@@ -2508,7 +2508,7 @@ cd AI_IFC && git add viewer/web/src/viewer/IssuePanel* viewer/web/src/pages/ && 
 ### Task 11: e2e smoke 扩展 + 文档覆写
 
 **Files:**
-- Modify: `viewer/scripts/smoke.sh`
+- Modify: `scripts/smoke.sh`
 - Modify: `viewer/docs/api.md`（追加 issues 契约）
 - Modify: `viewer/docs/design.md`（更新非目标与存储说明）
 - Modify: `docs/internal/architecture/viewerstatus.md`（缺口表勾选）
@@ -2538,7 +2538,7 @@ curl -sf "$BASE/api/models/$ID/issues" | python3 -c 'import sys,json;assert json
 
 - [ ] **Step 2: 跑通 smoke**
 
-启动 server（`cd viewer/server && go run ./cmd/server -config server_config.json`，后台），然后：
+启动 server（`cd server && go run ./cmd/server -config server_config.json`，后台），然后：
 
 Run: `cd viewer && bash scripts/smoke.sh`
 Expected: 末尾输出 `smoke OK`，中间含 `issue created:` 与 `shot: 200`
@@ -2591,15 +2591,15 @@ Issue 截图静态服务，`file` 必须匹配 `i_[0-9a-f]{12}\.png`。
 
 - [ ] **Step 4: 最终全量回归**
 
-Run: `cd viewer/server && go test ./... && go vet ./...`
-Run: `cd viewer/web && npm test && npm run build`
-Run: `cd viewer/web && npx oxlint`（若 package.json 有 lint script 则用 `npm run lint`）
+Run: `cd server && go test ./... && go vet ./...`
+Run: `cd web && npm test && npm run build`
+Run: `cd web && npx oxlint`（若 package.json 有 lint script 则用 `npm run lint`）
 Expected: 全部通过
 
 - [ ] **Step 5: Commit**
 
 ```bash
-cd AI_IFC && git add viewer/scripts/smoke.sh docs/internal/viewer/api.md docs/internal/viewer/design.md docs/internal/architecture/viewerstatus.md && git commit -m "feat(viewer): smoke 覆盖 issues CRUD；同步 design/api/viewerstatus 文档"
+cd AI_IFC && git add scripts/smoke.sh docs/internal/viewer/api.md docs/internal/viewer/design.md docs/internal/architecture/viewerstatus.md && git commit -m "feat(viewer): smoke 覆盖 issues CRUD；同步 design/api/viewerstatus 文档"
 ```
 
 ---

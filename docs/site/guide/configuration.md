@@ -1,6 +1,6 @@
 # 配置说明
 
-## Go server（`viewer/server/server_config.json`）
+## Go server（`server/server_config.json`）
 
 路径相对于进程工作目录解析（非可执行文件目录）。
 

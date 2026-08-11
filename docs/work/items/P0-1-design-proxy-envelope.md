@@ -15,9 +15,9 @@ Go 侧 designProxy 把 Python edit-service 返回的原始 JSON 直接透传写�
 
 ## 涉及位置
 
-- `viewer/server/internal/api/design.go:54-63` — designProxy 直接透传裸 JSON，不包 envelope
-- `viewer/web/src/api/client.ts:8-13` — `request()` 强制断言 `env.code === 0`
-- `viewer/web/src/components/DesignPanel.test.tsx:50-59` — 测试整体 mock client，掩盖契约断裂
+- `server/internal/api/design.go:54-63` — designProxy 直接透传裸 JSON，不包 envelope
+- `web/src/api/client.ts:8-13` — `request()` 强制断言 `env.code === 0`
+- `web/src/components/DesignPanel.test.tsx:50-59` — 测试整体 mock client，掩盖契约断裂
 - `smoke.sh` — 冒烟脚本不覆盖 design 端点
 
 ## 方案

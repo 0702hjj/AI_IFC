@@ -1,9 +1,9 @@
 # AI_IFC Examples
 
-IFC 时代的示例脚本。从仓库根运行（需 `viewer/edit-service` 的 Python 环境，含 ifcopenshell）：
+IFC 时代的示例脚本。从仓库根运行（需 `services/ifc` 的 Python 环境，含 ifcopenshell）：
 
 ```bash
-cd viewer/edit-service && uv run python ../../examples/<script>.py
+cd services/ifc && uv run python ../../examples/<script>.py
 ```
 
 - `build_two_storey.py` — 用 ifcopenshell 直写一栋两层小楼（墙/板/开洞），演示骨架优先建模流程；产物 `two_storey.ifc` 可上传到 viewer 查看。

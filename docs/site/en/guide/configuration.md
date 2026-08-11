@@ -1,6 +1,6 @@
 # Configuration
 
-## Go server (`viewer/server/server_config.json`)
+## Go server (`server/server_config.json`)
 
 Paths are resolved relative to the process working directory (not the executable).
 

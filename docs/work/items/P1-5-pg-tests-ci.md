@@ -13,7 +13,7 @@
 
 ## 涉及位置
 
-- `viewer/server/internal/store/*_pgstore_test.go` — 需 `VIEWER_TEST_PG_DSN`，未设即 skip
+- `server/internal/store/*_pgstore_test.go` — 需 `VIEWER_TEST_PG_DSN`，未设即 skip
 - `.github/workflows/ci.yml` — server job 无 Postgres service
 
 ## 方案

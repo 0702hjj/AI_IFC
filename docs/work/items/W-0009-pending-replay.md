@@ -13,8 +13,8 @@ P1-3 实现了 pending/staging 落盘恢复，但存在语义缺口：重启（�
 
 ## 涉及位置
 
-- `viewer/edit-service/app/registry.py`（LRU 淘汰）
-- `viewer/edit-service/app/routes_edits.py`（pending 恢复与 commit）
+- `services/ifc/app/registry.py`（LRU 淘汰）
+- `services/ifc/app/routes_edits.py`（pending 恢复与 commit）
 
 ## 方案（二选一或组合）
 

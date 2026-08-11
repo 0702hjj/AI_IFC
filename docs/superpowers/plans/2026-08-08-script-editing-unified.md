@@ -14,7 +14,7 @@
 - commit 信息中文、前缀式；分支 `feat/script-editing-unified`（从 main 切出，不与 docs/script-editing-unified 混用）。
 - API 变更走 envelope `{code,message,data}` + 契约测试；改端点后 `cd docs && npm run gen:api && npm run check:api`。
 - modelId 格式 `^m_[0-9a-f]{16}$`；版本名 `^v\d+$`。
-- edit-service 测试命令：`cd viewer/edit-service && uv run --group dev pytest`；web：`cd viewer/web && npm test && npm run lint`；server：`cd viewer/server && go test ./...`；skill：`python -m pytest tests/skill/ -q`（CI 用独立 .ci-venv）。
+- edit-service 测试命令：`cd services/ifc && uv run --group dev pytest`；web：`cd web && npm test && npm run lint`；server：`cd server && go test ./...`；skill：`python -m pytest tests/skill/ -q`（CI 用独立 .ci-venv）。
 - 沙箱相关测试结束必须等异步落地（条件轮询，禁止固定 sleep）。
 - edit-call 只允许标量字面量（str/int/float/bool），拒绝表达式注入（spec §5.3 / C-scalar）。
 
@@ -26,14 +26,14 @@
 
 **Files:**
 - Modify: `skills/aiifc/references/docs/flows/script_lib.py`（create_entity 记录调用点；write_and_validate 落 map sidecar）
-- Test: `viewer/edit-service/tests/test_script_map_capture.py`（经 run_script 端到端验证）
+- Test: `services/ifc/tests/test_script_map_capture.py`（经 run_script 端到端验证）
 
 **Interfaces:**
 - Produces: 模块级 `_CALLSITES: dict[str, dict]`，条目结构 `{"line": int, "col": int, "snippet": str, "origin": "literal"|"params"|"traced"}`；`write_and_validate(model, out_path)` 额外写 `str(out_path) + ".map.json"`（Task 2 消费此文件）。
 
 - [ ] **Step 1: 写失败测试**
 
-`viewer/edit-service/tests/test_script_map_capture.py`：
+`services/ifc/tests/test_script_map_capture.py`：
 
 ```python
 """ScriptMap capture: create_entity records callsites; write_and_validate dumps map."""
@@ -82,7 +82,7 @@ def test_run_script_produces_map_sidecar(settings: Settings, tmp_path):
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `cd viewer/edit-service && uv run --group dev pytest tests/test_script_map_capture.py -v`
+Run: `cd services/ifc && uv run --group dev pytest tests/test_script_map_capture.py -v`
 Expected: FAIL（out.ifc.map.json 不存在）
 
 - [ ] **Step 3: 实现**
@@ -148,13 +148,13 @@ def _record_callsite(key: str) -> None:
 
 - [ ] **Step 5: 跑测试确认通过**
 
-Run: `cd viewer/edit-service && uv run --group dev pytest tests/test_script_map_capture.py -v`
+Run: `cd services/ifc && uv run --group dev pytest tests/test_script_map_capture.py -v`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add skills/aiifc/references/docs/flows/script_lib.py viewer/edit-service/tests/test_script_map_capture.py
+git add skills/aiifc/references/docs/flows/script_lib.py services/ifc/tests/test_script_map_capture.py
 git commit -m "feat(skill): script_lib 调用点捕获——create_entity 记录 CallSite，出口落 map sidecar"
 ```
 
@@ -163,10 +163,10 @@ git commit -m "feat(skill): script_lib 调用点捕获——create_entity 记录
 ### Task 2: map 发布与 lockstep 存储
 
 **Files:**
-- Modify: `viewer/edit-service/app/script_runner.py:168-232`（run_script 增 `map_out` 参数）
-- Modify: `viewer/edit-service/app/script_versions.py:80-112`（save 增 `map_text` 参数）
-- Modify: `viewer/edit-service/app/routes_scripts.py`（_run_into_uploads 写 current.map.json；save_script 传 map）
-- Test: `viewer/edit-service/tests/test_script_map_storage.py`
+- Modify: `services/ifc/app/script_runner.py:168-232`（run_script 增 `map_out` 参数）
+- Modify: `services/ifc/app/script_versions.py:80-112`（save 增 `map_text` 参数）
+- Modify: `services/ifc/app/routes_scripts.py`（_run_into_uploads 写 current.map.json；save_script 传 map）
+- Test: `services/ifc/tests/test_script_map_storage.py`
 
 **Interfaces:**
 - Consumes: Task 1 的 `out.ifc.map.json` sidecar。
@@ -243,8 +243,8 @@ git commit -am "feat(edit-service): ScriptMap 发布——current.map.json + v{n
 ### Task 3: locate 端点
 
 **Files:**
-- Modify: `viewer/edit-service/app/routes_scripts.py`（新增 GET /models/{id}/script/locate）
-- Test: `viewer/edit-service/tests/test_script_locate.py`
+- Modify: `services/ifc/app/routes_scripts.py`（新增 GET /models/{id}/script/locate）
+- Test: `services/ifc/tests/test_script_locate.py`
 
 **Interfaces:**
 - Consumes: Task 2 的 current.map.json；`registry.load(path)`（registry.py:45）；`ifcopenshell.util.element.get_psets`。
@@ -322,10 +322,10 @@ def locate_callsite(
 ### Task 4: edit-call 端点（libcst 标量重写）
 
 **Files:**
-- Create: `viewer/edit-service/app/script_edit.py`
-- Modify: `viewer/edit-service/pyproject.toml`（dependencies 加 `"libcst>=1.5"`）
-- Modify: `viewer/edit-service/app/routes_scripts.py`（POST /models/{id}/script/edit-call）
-- Test: `viewer/edit-service/tests/test_script_edit.py`
+- Create: `services/ifc/app/script_edit.py`
+- Modify: `services/ifc/pyproject.toml`（dependencies 加 `"libcst>=1.5"`）
+- Modify: `services/ifc/app/routes_scripts.py`（POST /models/{id}/script/edit-call）
+- Test: `services/ifc/tests/test_script_edit.py`
 
 **Interfaces:**
 - Consumes: Task 3 locate 的 map 条目；staging/registry/run_script。
@@ -499,9 +499,9 @@ def test_contract_has_locatability_clauses():
 ### Task 6: IFC 只物化最新 + 历史按需重建
 
 **Files:**
-- Modify: `viewer/edit-service/app/script_versions.py`（save 后清理旧 IFC 快照）
-- Modify: `viewer/edit-service/app/routes_diff.py:38-42`（_version_or_404 → 缺失且有脚本则沙箱重建入缓存）
-- Test: `viewer/edit-service/tests/test_ifc_lazy_materialize.py`
+- Modify: `services/ifc/app/script_versions.py`（save 后清理旧 IFC 快照）
+- Modify: `services/ifc/app/routes_diff.py:38-42`（_version_or_404 → 缺失且有脚本则沙箱重建入缓存）
+- Test: `services/ifc/tests/test_ifc_lazy_materialize.py`
 
 **Interfaces:**
 - Produces: `{data_dir}/models/{id}/ifc_cache/v{n}.ifc`（LRU 上限 4）；`materialize_version(data_dir, model_id, version, settings) -> str`（routes_diff 与下载路径共用）。
@@ -537,8 +537,8 @@ def test_rebuilt_ifc_semantically_empty_diff(client, data_dir, model_id):
 ### Task 7: bootstrap 原件保留 + 对齐报告
 
 **Files:**
-- Modify: `viewer/edit-service/app/routes_scripts.py`（stage_script 首暂存时保留原件；save_script 响应带 alignment）
-- Test: `viewer/edit-service/tests/test_bootstrap_alignment.py`
+- Modify: `services/ifc/app/routes_scripts.py`（stage_script 首暂存时保留原件；save_script 响应带 alignment）
+- Test: `services/ifc/tests/test_bootstrap_alignment.py`
 
 **Interfaces:**
 - Produces: `{data_dir}/models/{id}/bootstrap.ifc`（plain 态首次 PUT /script 时从 uploads 复制）；save 响应增 `alignment: {"added": int, "removed": int, "changed": int} | None`。
@@ -560,9 +560,9 @@ def test_rebuilt_ifc_semantically_empty_diff(client, data_dir, model_id):
 ### Task 8: L1 直改链路退役（410）
 
 **Files:**
-- Modify: `viewer/edit-service/app/routes_edits.py`（PUT/DELETE entities、editable-schema、commit → 410）
-- Modify: `viewer/server/internal/api/edit.go:32-40`（对应代理路由移除）+ `edit_test.go`
-- Test: `viewer/edit-service/tests/test_edits_retired.py`（先写）
+- Modify: `services/ifc/app/routes_edits.py`（PUT/DELETE entities、editable-schema、commit → 410）
+- Modify: `server/internal/api/edit.go:32-40`（对应代理路由移除）+ `edit_test.go`
+- Test: `services/ifc/tests/test_edits_retired.py`（先写）
 
 **注意**：`POST /models/{id}/diff/upload`（routes_user_edits，MCP 用户修改解析）保留——只读解析，非直改。pending 回放内部机制（W-0009）随 script run 仍需要，pending.py 保留但对外端点退役。
 
@@ -593,7 +593,7 @@ def test_direct_edit_endpoints_gone(client, model_id, method, path):
 ### Task 9: web 前端——locate 跳转 + 直改入口隐藏
 
 **Files:**
-- Modify: `viewer/web/src/`（PropertyPanel 编辑表单移除、保留只读；选中构件加「定位脚本」按钮 → 请求 locate → DesignPanel 脚本编辑器跳行；origin=params 时聚焦 PARAMS 表单项）
+- Modify: `web/src/`（PropertyPanel 编辑表单移除、保留只读；选中构件加「定位脚本」按钮 → 请求 locate → DesignPanel 脚本编辑器跳行；origin=params 时聚焦 PARAMS 表单项）
 - Test: 对应 `*.test.tsx`（locate API store、跳转逻辑；MockEventSource 模式参考 W-0002）
 
 - [ ] **Step 1: 写失败测试**（api 层 locate 封装 + 点击跳转行号传入编辑器 store）

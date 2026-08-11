@@ -1,7 +1,7 @@
 # Demo 接入契约：聊天页 ↔ Go server（融入 chat 模块）↔ opencode / viewer
 
 > 日期：2026-08-01（重写：聊天桥接**融入 Go server**，取消独立 demo-bridge）。本文档定义「用户聊天提需求 → opencode agent 改/生成 IFC → Go 内固定代码自动报备落盘 → 前端看到新模型」demo 的接入契约。
-> 契约来源：opencode serve OpenAPI（`http://<host>:4096/doc`）与 `@opencode-ai/sdk` types.gen.ts、opencode 官网 Server/SDK/Web 文档（2026-08-01 调研）；viewer 侧以 `server/internal/`、`edit-service/app/` 实现逐一核对为准。
+> 契约来源：opencode serve OpenAPI（`http://<host>:4096/doc`）与 `@opencode-ai/sdk` types.gen.ts、opencode 官网 Server/SDK/Web 文档（2026-08-01 调研）；viewer 侧以 `server/internal/`、`services/ifc/app/` 实现逐一核对为准。
 
 ## 0. 远景边界（产品形态定位）
 
@@ -138,7 +138,7 @@ chat 模块消费的事件（types.gen.ts 已核实）：
 viewer 的设计原则是「**文件系统即真相、约定式目录布局、路径即键**」（模型无 SQL，元数据 `model.json`，版本快照即文件）——本接入严格沿用，不引入新的存储范式：
 
 ```
-① viewer 数据区（viewer 拥有，真相所在）：{dataDir} = viewer/data/
+① viewer 数据区（viewer 拥有，真相所在）：{dataDir} = data/
    ├── uploads/{modelId}.ifc              ← 模型工作区（agent 大改的唯一目标）
    ├── models/{modelId}/                  ← viewer 产物：model.xkt/metadata.json/model.json/
    │                                        edit-history.json/versions/v{n}.ifc（agent 禁入）
@@ -155,8 +155,8 @@ viewer 的设计原则是「**文件系统即真相、约定式目录布局、�
 
 **三原则（贯穿全文，任何设计决策不得违反）**：
 
-1. **数据不进项目目录**：IFC、快照、转换产物全在 `viewer/data/`；`IFC_front/AI_IFC/` 只有代码/skill/规则（可 git 管理）
-2. **写权限收窄**：agent 对 `viewer/data/` 仅可写 `uploads/{id}.ifc`（改模型目标）与 `staging/`（草稿）；`models/` 是 viewer 自留地，碰即破坏快照体系
+1. **数据不进项目目录**：IFC、快照、转换产物全在 `data/`；`IFC_front/AI_IFC/` 只有代码/skill/规则（可 git 管理）
+2. **写权限收窄**：agent 对 `data/` 仅可写 `uploads/{id}.ifc`（改模型目标）与 `staging/`（草稿）；`models/` 是 viewer 自留地，碰即破坏快照体系
 3. **归属不进文件系统**：多用户远景也**不**把目录改为 `users/{uid}/...`——`uploads/{id}.ifc` 路径约定是 Go store、edit-service、converter 三方共享协议；用户归属永远放映射层
 
 **viewer 设计原则遵循清单**：原子写（staging/副本先写临时名再替换，同 `os.replace` 模式）· 包络统一 `{code,message,data}`（§2）· id 寻址不变（`^m_[0-9a-f]{16}$`，staging 不进入 id 命名空间）· 两阶段语义（三连走 pending/commit，不直写 versions/）· 版本只增不改（回退=revert 语义产生新版本）· 降级语义（commit warning 视为降级非失败）· 分层编排（Go 编排、Python 执行，新增 chat 模块同为编排层成员）。
@@ -237,7 +237,7 @@ rollback_to(modelId, version):
 
 | # | 事项 | 对齐要求 | 不对齐的后果 |
 |---|---|---|---|
-| 1 | `dataDir` 三方一致 | Go（`server_config.json` dataDir，实际 = `viewer/data/`）= edit-service（`VIEWER_DATA_DIR`）= opencode 进程可读写同一目录 | 改的不是同一份文件 / 404 |
+| 1 | `dataDir` 三方一致 | Go（`server_config.json` dataDir，实际 = `data/`）= edit-service（`VIEWER_DATA_DIR`）= opencode 进程可读写同一目录 | 改的不是同一份文件 / 404 |
 | 2 | 会话绑定 | 永远 bound（骨架初始化后无 unbound 态）；同 modelId 幂等复用；映射持久化 chat-sessions.json | 重复会话 / 重启丢会话 |
 | 3 | model id 格式 | `^m_[0-9a-f]{16}$`（store.Create 生成）；staging 文件不进 id 命名空间 | 404 / 命名冲突 |
 | 4 | opencode 环境 | 工作目录 = `IFC_front/AI_IFC`；`opencode.json` 已适配复制（provider/skills.paths/mcp）；`model.providerID/modelID` 与其一致；`agent` 用 demo 规则 agent 名 | 加载到开发版环境 / 用错模型 / 无 IFC 技能 |

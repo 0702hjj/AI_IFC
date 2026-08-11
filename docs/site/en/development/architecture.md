@@ -3,14 +3,14 @@
 ```mermaid
 graph LR
   subgraph Clients
-    UI[Browser<br/>React 19 + xeokit<br/>viewer/web]
+    UI[Browser<br/>React 19 + xeokit<br/>web]
     AI[AI Agent]
   end
 
   subgraph Services
-    GO[Go server :8090<br/>viewer/server<br/>orchestration / REST / storage abstraction]
-    PY[Python edit-service :8100<br/>viewer/edit-service<br/>FastAPI + IfcOpenShell]
-    CV[Node converter<br/>viewer/converter<br/>IFC → XKT + metadata.json]
+    GO[Go server :8090<br/>server<br/>orchestration / REST / storage abstraction]
+    PY[Python edit-service :8100<br/>services/ifc<br/>FastAPI + IfcOpenShell]
+    CV[Node converter<br/>converter<br/>IFC → XKT + metadata.json]
   end
 
   subgraph Storage
@@ -90,4 +90,4 @@ POST /models/{id}/script/edit-call  {designKey, argument, value}  (edit-service 
 
 Change log entries carry: `author` (default `local-user`, no auth in v1), `createdAt` (UTC), `operation`, `provenance` (`{source: UI|AI|USER}`, validated at the API layer). Versions form a linear snapshot sequence (branching/merging is out of scope, belongs to multi-user); rollback = restore a historical script and re-run it (append-only, history is never rewritten).
 
-Known technical debt (details in [Known limitations](/project/known-limits), Chinese): multiple history records coexist (Go change log / edit-service edit-history) with different granularity and purposes; diff has no timeout; the Python side is file-storage only.
+Known technical debt (details in [Known limitations](/project/known-limits), Chinese): multiple history records coexist (Go change log / edit-service edit-history) with different granularity and purposes; the Python side is file-storage only.

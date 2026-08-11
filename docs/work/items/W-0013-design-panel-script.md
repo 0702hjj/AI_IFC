@@ -13,7 +13,7 @@ design JSON 表单下线。设计师编辑面 = 从脚本 PARAMS 块生成的表
 
 ## 涉及位置
 
-- `viewer/web/src/viewer/DesignPanel.tsx`（重构）、`designEdit.ts`（改脚本语义）、`client.ts`（design 方法 → script 端点）
+- `web/src/viewer/DesignPanel.tsx`（重构）、`designEdit.ts`（改脚本语义）、`client.ts`（design 方法 → script 端点）
 - `DiffPanel`：加脚本 diff tab（数据来自 W-0012）
 
 ## 方案

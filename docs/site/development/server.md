@@ -1,11 +1,11 @@
 # Go Server
 
-`viewer/server/`：Go 1.26（stdlib net/http + pgx/v5 唯一第三方依赖），默认 `:8090`。
+`server/`：Go 1.26（stdlib net/http + pgx/v5 唯一第三方依赖），默认 `:8090`。
 
 ## 命令
 
 ```bash
-cd viewer/server
+cd server
 go run ./cmd/server          # 默认读取 ./server_config.json
 go test ./...                # 单元 + httptest + 并发（-race 下通过）
 go vet ./...

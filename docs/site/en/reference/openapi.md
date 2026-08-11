@@ -7,7 +7,7 @@ The full OpenAPI schema: [ai-tools.openapi.json](/ai-tools.openapi.json), export
 Regenerate after editing the editing API:
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv run python scripts/export_openapi.py
 ```
 

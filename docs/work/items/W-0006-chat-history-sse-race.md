@@ -8,11 +8,11 @@
 
 ## 背景
 
-`viewer/web/src/viewer/ChatSidebar.tsx:117` 初始历史 fetch resolve 时 `setMessages(history)` 为非函数式整体替换：若 SSE 事件先于历史 fetch 返回到达（慢网络/服务端推送快），SSE 已追加的消息会被历史响应整体覆盖——丢消息窗口。
+`web/src/viewer/ChatSidebar.tsx:117` 初始历史 fetch resolve 时 `setMessages(history)` 为非函数式整体替换：若 SSE 事件先于历史 fetch 返回到达（慢网络/服务端推送快），SSE 已追加的消息会被历史响应整体覆盖——丢消息窗口。
 
 ## 涉及位置
 
-- `viewer/web/src/viewer/ChatSidebar.tsx:88-121`（历史加载与 SSE 订阅的交错区）
+- `web/src/viewer/ChatSidebar.tsx:88-121`（历史加载与 SSE 订阅的交错区）
 
 ## 方案
 

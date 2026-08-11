@@ -13,8 +13,8 @@
 
 ## 涉及位置
 
-- `viewer/web/src/viewer/PropertyPanel.tsx`、`overrides.ts`
-- `viewer/edit-service/app/routes_edits.py`（实体属性/pset 编辑，能力已备）
+- `web/src/viewer/PropertyPanel.tsx`、`overrides.ts`
+- `services/ifc/app/routes_edits.py`（实体属性/pset 编辑，能力已备）
 - 类型元数据：pset 值类型（str/int/float/bool）+ IFC 枚举字段（如 PredefinedType）
 
 ## 方案

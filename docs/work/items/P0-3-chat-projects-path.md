@@ -13,9 +13,9 @@
 
 ## 涉及位置
 
-- `viewer/web/src/api/client.ts:35` — 前端调 `POST /api/v1/chat/projects`
-- `viewer/server/internal/api/chat.go:96` — Go 侧 chat 路由注册
-- `viewer/server/cmd/server/main.go:129` — 只注册了 `POST /api/v1/projects`
+- `web/src/api/client.ts:35` — 前端调 `POST /api/v1/chat/projects`
+- `server/internal/api/chat.go:96` — Go 侧 chat 路由注册
+- `server/cmd/server/main.go:129` — 只注册了 `POST /api/v1/projects`
 
 ## 方案
 

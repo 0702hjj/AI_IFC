@@ -13,7 +13,7 @@ P1-1 交付了 Go server 的 token 中间件（`VIEWER_API_TOKEN`，默认关闭
 
 ## 涉及位置
 
-- `viewer/web/src/api/client.ts`（request() 统一注入点）
+- `web/src/api/client.ts`（request() 统一注入点）
 - 可能的 UI：设置页/localStorage token 输入
 
 ## 方案

@@ -35,19 +35,19 @@ Tunables (ports, `DATA_DIR`, `VIEWER_PG_DSN`, …) are listed in `.env.example`.
 
 ```bash
 # 0. One-time dependency install
-cd viewer/converter && npm install
+cd converter && npm install
 cd ../web && npm install
-cd ../edit-service && uv sync
+cd ../services/ifc && uv sync
 
-# 1. edit-service (:8100) — VIEWER_DATA_DIR must point to the absolute path of viewer/data
-cd viewer/edit-service
+# 1. edit-service (:8100) — VIEWER_DATA_DIR must point to the absolute path of data
+cd services/ifc
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
 
 # 2. Go server (:8090)
-cd viewer/server && go run ./cmd/server
+cd server && go run ./cmd/server
 
 # 3. web (:5173)
-cd viewer/web && npm run dev
+cd web && npm run dev
 ```
 
 Open `http://localhost:5173` and you are ready. Full configuration: [Configuration](/en/guide/configuration).
@@ -56,13 +56,13 @@ Open `http://localhost:5173` and you are ready. Full configuration: [Configurati
 
 ```bash
 # End-to-end smoke (server must be running; the edit-flow section skips when edit-service is unreachable)
-cd viewer && ./scripts/smoke.sh
+./scripts/smoke.sh
 
 # Per-layer tests
-cd viewer/server && go test ./...
-cd viewer/edit-service && uv run --group dev pytest
-cd viewer/web && npm test
-cd viewer/converter && npm test
+cd server && go test ./...
+cd services/ifc && uv run --group dev pytest
+cd web && npm test
+cd converter && npm test
 ```
 
 > Note: upload, conversion and review do not need edit-service or PostgreSQL; editing, versions and diff do.

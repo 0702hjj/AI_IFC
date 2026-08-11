@@ -27,7 +27,7 @@ The current examples/ directory was rewritten for the IFC era after the move
 (2026-08) and is new content of this repository; the historical SimpleCADAPI
 examples (gearbox/robot etc.) live only in the archive repo / git history.
 
-All new code under viewer/ and docs/ is Copyright (C) 2026 0702hjj,
+All new code under web/, server/, converter/, services/, mcp/, skills/ and docs/ is Copyright (C) 2026 0702hjj,
 licensed AGPL-3.0-only (SPDX-License-Identifier headers in each file).
 
 =====================================================================
@@ -56,5 +56,5 @@ Note: ifcdiff is consumed as an official PyPI release (`ifcdiff>=0.8`,
 LGPL-3.0-or-later) and is NOT distributed with this repository.
 
 Full dependency manifests:
-  viewer/server/go.mod, viewer/web/package.json,
-  viewer/converter/package.json, viewer/edit-service/pyproject.toml
+  server/go.mod, web/package.json,
+  converter/package.json, services/ifc/pyproject.toml

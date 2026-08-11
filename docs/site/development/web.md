@@ -1,11 +1,11 @@
 # Web 前端
 
-`viewer/web/`：React 19 + TypeScript + Vite + zustand + xeokit-sdk，开发端口 `:5173`。
+`web/`：React 19 + TypeScript + Vite + zustand + xeokit-sdk，开发端口 `:5173`。
 
 ## 命令
 
 ```bash
-cd viewer/web
+cd web
 npm install
 npm run dev        # 开发服务器，/api 与 /models 代理到 :8090
 npm test           # vitest 单测

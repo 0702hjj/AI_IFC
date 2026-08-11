@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: AI_IFC
-  text: IFC review and editing platform
-  tagline: Self-hosted, open-source IFC review and editing platform — script-as-source editing, semantic diffs, one API for humans and AI.
+  text: Two peer logic legs + optional Agent workflow
+  tagline: Self-hosted, open-source AI generation platform — AI-generated IFC and AI-generated CAD each form a closed loop (skill + diff + editing API); frontend and PostgreSQL optional. Reusability-first, interfaces callable or portable on their own.
   actions:
     - theme: brand
       text: Get Started
@@ -36,7 +36,13 @@ features:
 
 ## What is AI_IFC
 
-AI_IFC is an IFC (Industry Foundation Classes) review and editing platform: review models in 3D in the browser, file issues on elements, edit with the build script as the single source of truth (with version snapshots), and compare versions with semantic diffs. Humans and AI agents edit through the same API, and AI can also generate models by writing IfcOpenShell code via the aiifc skill.
+AI_IFC is a self-hosted, open-source AI generation platform with two peer logic legs:
+
+- **AI-generated IFC** (delivered): the `aiifc` skill lets AI write IfcOpenShell code to generate/modify models; `services/ifc` (edit-service) provides script sandbox execution, version snapshots, semantic diffs, and the script-as-source editing API — review models in 3D, file issues, edit the build script (PARAMS form / script editor), save big versions, and compare versions with diffs. Humans and AI agents edit through the same API.
+- **AI-generated CAD** (skill domain delivered; diff/editing API to build): the `aidxfv` skill lets AI generate/validate DXF with ezdxf; `services/cad` will be the peer of `services/ifc`.
+- **Agent workflow control** (recommended, optional): orchestrator + event bus (`aiifc://` event URIs), removable.
+
+Reusability-first: two skills, two business-logic cores, optional frontend, optional PostgreSQL, interfaces callable or portable on their own. Framework spec: `docs/superpowers/specs/2026-08-11-platform-framework-design.md`.
 
 Typical workflow: upload an IFC → review in 3D once conversion finishes → file issues on elements → select an element to locate its script callsite, edit PARAMS/script → sandbox-validated save as a big version → use Diff to compare versions. See the [project introduction](/en/guide/project-intro) for positioning and the four-component architecture.
 

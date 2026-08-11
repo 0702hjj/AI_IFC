@@ -1,11 +1,11 @@
 # Edit Service
 
-`viewer/edit-service/`：Python FastAPI + ifcopenshell + ifcdiff，默认 `:8100`，提供脚本沙箱执行、版本快照、ScriptMap 定位与语义 diff。原 L1 直改链路（pending → commit 真改 IFC）已退役（410，回捞锚点 `fb55a8a`）。
+`services/ifc/`：Python FastAPI + ifcopenshell + ifcdiff，默认 `:8100`，提供脚本沙箱执行、版本快照、ScriptMap 定位与语义 diff。原 L1 直改链路（pending → commit 真改 IFC）已退役（410，回捞锚点 `fb55a8a`）。
 
 ## 运行与配置
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv sync
 uv run uvicorn app.main:app --port 8100
 ```
@@ -50,6 +50,6 @@ uv run uvicorn app.main:app --port 8100
 ## 测试
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv run --group dev pytest
 ```

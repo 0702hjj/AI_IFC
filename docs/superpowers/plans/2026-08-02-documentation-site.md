@@ -446,19 +446,19 @@ AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它�
 
 ```bash
 # 0. 一次性：安装依赖
-cd viewer/converter && npm install
+cd converter && npm install
 cd ../web && npm install
 cd ../edit-service && uv sync
 
-# 1. edit-service（:8100）—— VIEWER_DATA_DIR 必须指向 viewer/data 的绝对路径
-cd viewer/edit-service
+# 1. edit-service（:8100）—— VIEWER_DATA_DIR 必须指向 data 的绝对路径
+cd services/ifc
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
 
 # 2. Go server（:8090）
-cd viewer/server && go run ./cmd/server
+cd server && go run ./cmd/server
 
 # 3. web（:5173）
-cd viewer/web && npm run dev
+cd web && npm run dev
 ```
 
 打开 http://localhost:5173 即可使用。完整配置项见 [配置说明](/guide/configuration)。
@@ -470,10 +470,10 @@ cd viewer/web && npm run dev
 cd viewer && ./scripts/smoke.sh
 
 # 各层测试
-cd viewer/server && go test ./...
-cd viewer/edit-service && uv run pytest
-cd viewer/web && npm test
-cd viewer/converter && npm test
+cd server && go test ./...
+cd services/ifc && uv run pytest
+cd web && npm test
+cd converter && npm test
 ```
 
 > 注意：上传、转换、审查等浏览功能不依赖 edit-service 与 PostgreSQL；编辑、版本、diff 需要 edit-service 运行。
@@ -486,7 +486,7 @@ cd viewer/converter && npm test
 
 仓库自带一个 buildingSMART 官方样例 IFC：
 
-`viewer/converter/test/fixtures/wall-with-opening-and-window.ifc`
+`converter/test/fixtures/wall-with-opening-and-window.ifc`
 
 ## 操作流程
 
@@ -500,7 +500,7 @@ cd viewer/converter && npm test
 
 | 现象 | 处理 |
 | --- | --- |
-| 上传后一直 converting | 查看 server 日志中的 converter stderr；手动运行 `node viewer/converter/convert.js <ifc> <outDir>` 复现；确认 `nodeBin` / `converterScript` 配置 |
+| 上传后一直 converting | 查看 server 日志中的 converter stderr；手动运行 `node converter/convert.js <ifc> <outDir>` 复现；确认 `nodeBin` / `converterScript` 配置 |
 | 转换 failed | `POST /api/models/{id}/retry` 重试 |
 | 编辑报 404 model not found | edit-service 的 `VIEWER_DATA_DIR` 与 Go `dataDir` 不是同一目录 |
 | 编辑报 422 | 属性名不存在或值类型不符——请求零副作用，修正后重发 |
@@ -515,7 +515,7 @@ cd viewer/converter && npm test
 ````markdown
 # 配置说明
 
-## Go server（`viewer/server/server_config.json`）
+## Go server（`server/server_config.json`）
 
 路径相对于进程工作目录解析（非可执行文件目录）。
 
@@ -797,14 +797,14 @@ git commit -m "docs: add viewer usage section (library, tree, viewing, issues, e
 ```mermaid
 graph LR
   subgraph 客户端层
-    UI[浏览器<br/>React 19 + xeokit<br/>viewer/web]
+    UI[浏览器<br/>React 19 + xeokit<br/>web]
     AI[AI Agent]
   end
 
   subgraph 服务层
-    GO[Go server :8090<br/>viewer/server<br/>编排 / REST / 存储抽象]
-    PY[Python edit-service :8100<br/>viewer/edit-service<br/>FastAPI + IfcOpenShell]
-    CV[Node converter<br/>viewer/converter<br/>IFC → XKT + metadata.json]
+    GO[Go server :8090<br/>server<br/>编排 / REST / 存储抽象]
+    PY[Python edit-service :8100<br/>services/ifc<br/>FastAPI + IfcOpenShell]
+    CV[Node converter<br/>converter<br/>IFC → XKT + metadata.json]
   end
 
   subgraph 存储层
@@ -926,12 +926,12 @@ AI_IFC/
 ````markdown
 # Web 前端
 
-`viewer/web/`：React 19 + TypeScript + Vite + zustand + xeokit-sdk，开发端口 `:5173`。
+`web/`：React 19 + TypeScript + Vite + zustand + xeokit-sdk，开发端口 `:5173`。
 
 ## 命令
 
 ```bash
-cd viewer/web
+cd web
 npm install
 npm run dev        # 开发服务器，/api 与 /models 代理到 :8090
 npm test           # vitest 单测
@@ -974,12 +974,12 @@ src/
 ````markdown
 # Go Server
 
-`viewer/server/`：Go 1.26（stdlib net/http + pgx/v5 唯一第三方依赖），默认 `:8090`。
+`server/`：Go 1.26（stdlib net/http + pgx/v5 唯一第三方依赖），默认 `:8090`。
 
 ## 命令
 
 ```bash
-cd viewer/server
+cd server
 go run ./cmd/server          # 默认读取 ./server_config.json
 go test ./...                # 单元 + httptest + 并发（-race 下通过）
 go vet ./...
@@ -1031,7 +1031,7 @@ internal/
 ````markdown
 # IFC Converter
 
-`viewer/converter/`：Node CLI，基于 web-ifc + xeokit-convert，把 IFC 转为 XKT 几何与语义元数据，由 server 以子进程方式调用，无需常驻。
+`converter/`：Node CLI，基于 web-ifc + xeokit-convert，把 IFC 转为 XKT 几何与语义元数据，由 server 以子进程方式调用，无需常驻。
 
 ## 用法
 
@@ -1055,7 +1055,7 @@ node convert.js <input.ifc> <outDir>
 ## 测试
 
 ```bash
-cd viewer/converter
+cd converter
 npm install
 npm test    # node:test 集成测试：真实 IFC 样例（buildingSMART 官方 fixture）转换快照
 ```
@@ -1066,12 +1066,12 @@ npm test    # node:test 集成测试：真实 IFC 样例（buildingSMART 官方 
 ````markdown
 # Edit Service
 
-`viewer/edit-service/`：Python FastAPI + ifcopenshell + ifcdiff，默认 `:8100`，提供真改 IFC、pending/commit、版本快照与语义 diff。
+`services/ifc/`：Python FastAPI + ifcopenshell + ifcdiff，默认 `:8100`，提供真改 IFC、pending/commit、版本快照与语义 diff。
 
 ## 运行与配置
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv sync
 uv run uvicorn app.main:app --port 8100
 ```
@@ -1109,7 +1109,7 @@ uv run uvicorn app.main:app --port 8100
 ## 测试
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv run pytest
 ```
 ````
@@ -1123,10 +1123,10 @@ uv run pytest
 
 | 模块 | 框架 | 覆盖范围 | 运行命令 |
 | --- | --- | --- | --- |
-| converter | node:test | 真实 IFC 转换集成（快照、引用完整性、id 一致性） | `cd viewer/converter && npm test` |
-| server | go test | 单元 + httptest API + 并发（`-race`） | `cd viewer/server && go test ./... && go vet ./...` |
-| edit-service | pytest | 编辑 / 版本 / diff 路由 | `cd viewer/edit-service && uv run pytest` |
-| web | vitest + jsdom | api client / 组件 / store / hook / 纯函数 | `cd viewer/web && npm test` |
+| converter | node:test | 真实 IFC 转换集成（快照、引用完整性、id 一致性） | `cd converter && npm test` |
+| server | go test | 单元 + httptest API + 并发（`-race`） | `cd server && go test ./... && go vet ./...` |
+| edit-service | pytest | 编辑 / 版本 / diff 路由 | `cd services/ifc && uv run pytest` |
+| web | vitest + jsdom | api client / 组件 / store / hook / 纯函数 | `cd web && npm test` |
 | 端到端 | bash smoke | 上传→转换→下载→Issue→override/changes 全链路 | `cd viewer && ./scripts/smoke.sh`（需 server 运行） |
 
 开发过程采用 TDD：每个模块先写失败测试再实现，测试文件与源码同目录。
@@ -1473,12 +1473,12 @@ AI agent ────────► REST 直连 ──────────�
 
 ```bash
 # 1) Python 编辑服务（默认端口 8100）
-cd viewer/edit-service
+cd services/ifc
 uv sync
 uv run uvicorn app.main:app --port 8100
 
 # 2) Go server（默认 127.0.0.1:8090）
-cd viewer/server
+cd server
 go run ./cmd/server
 ```
 
@@ -1552,7 +1552,7 @@ v1 已知限制（详见 [已知限制](/project/known-limits)）：单机单用
 编辑 API 变更后重新生成：
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv run python scripts/export_openapi.py
 ```
 
@@ -1659,13 +1659,13 @@ git commit -m "docs: add API & AI reference (REST, edit API, AI integration, Ope
 
 ```bash
 # 后端
-cd viewer/server && go test ./... && go vet ./...
+cd server && go test ./... && go vet ./...
 # 编辑服务
-cd viewer/edit-service && uv run pytest
+cd services/ifc && uv run pytest
 # 前端
-cd viewer/web && npm test && npm run build
+cd web && npm test && npm run build
 # 转换器
-cd viewer/converter && npm test
+cd converter && npm test
 # 文档
 cd docs && npm ci && npm run docs:build
 ```
@@ -1681,7 +1681,7 @@ cd docs && npm ci && npm run docs:build
 
 - Commit 消息遵循仓库惯例：`feat:` / `fix:` / `docs:` / `ci:` / `chore:` 前缀 + 中文或英文简短描述。
 - PR 到 `main`：GitHub Actions 会运行现有 viewer CI 与文档构建；两者都必须通过。
-- 不提交个人本机路径、密钥、运行时数据（`viewer/data/`）。
+- 不提交个人本机路径、密钥、运行时数据（`data/`）。
 
 ## License
 
@@ -1749,8 +1749,8 @@ git commit -m "docs: add project section (roadmap, known limits, contributing, l
 - Move: `docs/api/*`、`docs/core/*`、`docs/stdlib/*`、`docs/legacy/*` → `docs/archive/simplecadapi/`（保留各自子目录）
 - Move: `viewer/docs/{plan.md,design.md,api.md,README.md}` → `docs/internal/viewer/`
 - Move: `docs/ai-tools.openapi.json` → `docs/site/public/ai-tools.openapi.json`（覆盖 Task 1 的副本）
-- Modify: `viewer/edit-service/scripts/export_openapi.py`（输出路径）
-- Modify: `viewer/edit-service/README.md`（openapi 链接）
+- Modify: `services/ifc/scripts/export_openapi.py`（输出路径）
+- Modify: `services/ifc/README.md`（openapi 链接）
 
 - [ ] **Step 1: 创建目录并移动文件**
 
@@ -1785,7 +1785,7 @@ git mv docs/ai-tools.openapi.json docs/site/public/ai-tools.openapi.json
 - `docs/internal/architecture/` 含 ai-bim/viewer-detail/viewer/viewerstatus/roadmap/sdk-architecture-review。
 - `docs/archive/simplecadapi/` 含 api/core/stdlib/legacy。
 
-- [ ] **Step 2: 更新 `viewer/edit-service/scripts/export_openapi.py` 输出路径**
+- [ ] **Step 2: 更新 `services/ifc/scripts/export_openapi.py` 输出路径**
 
 把：
 
@@ -1801,7 +1801,7 @@ OUT = Path(__file__).resolve().parents[3] / "docs" / "site" / "public" / "ai-too
 
 同时把 docstring 中 `docs/ai-tools.openapi.json` 改为 `docs/site/public/ai-tools.openapi.json`。
 
-- [ ] **Step 3: 更新 `viewer/edit-service/README.md` 的 openapi 链接**
+- [ ] **Step 3: 更新 `services/ifc/README.md` 的 openapi 链接**
 
 把 `[docs/ai-tools.openapi.json](../../docs/ai-tools.openapi.json)` 改为 `[docs/site/public/ai-tools.openapi.json](../../docs/site/public/ai-tools.openapi.json)`（若 README 中同时引用 ai-integration.md，一并改为 `../../docs/internal/ai-integration.md`）。
 
@@ -1827,7 +1827,7 @@ Expected: 退出码 0，`build complete`。
 - [ ] **Step 7: Commit**
 
 ````bash
-git add -A docs viewer/edit-service/scripts/export_openapi.py viewer/edit-service/README.md NOTICE
+git add -A docs services/ifc/scripts/export_openapi.py services/ifc/README.md NOTICE
 git commit -m "docs: reorganize docs into site/internal/archive; move SCAD docs out of public site"
 ````
 
@@ -1860,17 +1860,17 @@ A self-hosted, open-source **BIM review and editing platform** for IFC models �
 
 ## Quick start
 
-See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `viewer/web` (React + xeokit), `viewer/server` (Go), `viewer/converter` (Node), `viewer/edit-service` (Python FastAPI + IfcOpenShell).
+See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `web` (React + xeokit), `server` (Go), `converter` (Node), `services/ifc` (Python FastAPI + IfcOpenShell).
 
 ```bash
-cd viewer/converter && npm install
+cd converter && npm install
 cd ../edit-service && uv sync
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 &
 cd ../server && go run ./cmd/server &
 cd ../web && npm install && npm run dev
 ```
 
-Open http://localhost:5173 and upload `viewer/converter/test/fixtures/wall-with-opening-and-window.ifc`.
+Open http://localhost:5173 and upload `converter/test/fixtures/wall-with-opening-and-window.ifc`.
 
 ## Repository layout
 
@@ -1907,17 +1907,17 @@ src/  skills/  examples/   # archived: SimpleCADAPI (SCAD), the repo's origin
 
 ## 快速开始
 
-见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`viewer/web`（React + xeokit）、`viewer/server`（Go）、`viewer/converter`（Node）、`viewer/edit-service`（Python FastAPI + IfcOpenShell）。
+见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`web`（React + xeokit）、`server`（Go）、`converter`（Node）、`services/ifc`（Python FastAPI + IfcOpenShell）。
 
 ```bash
-cd viewer/converter && npm install
+cd converter && npm install
 cd ../edit-service && uv sync
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 &
 cd ../server && go run ./cmd/server &
 cd ../web && npm install && npm run dev
 ```
 
-打开 http://localhost:5173 ，上传 `viewer/converter/test/fixtures/wall-with-opening-and-window.ifc` 验证。
+打开 http://localhost:5173 ，上传 `converter/test/fixtures/wall-with-opening-and-window.ifc` 验证。
 
 ## 仓库布局
 
@@ -1986,11 +1986,11 @@ Expected: `npm ci` 成功（锁文件与 package.json 一致）；`docs:build` �
 | 3 | 站点可访问、深层页面 base 正确 | 本地 `vitepress preview` 或部署后 curl（Step 4） |
 | 4 | 所有主导航页面存在且无占位 | `ls docs/site/{guide,viewer,development,reference,project}` + `rg -n "TODO|TBD|占位" docs/site` 无命中 |
 | 5 | 新开发者仅用公开文档可启动四组件并上传样例 | guide/quickstart.md、guide/first-ifc.md 内容 |
-| 6 | 编辑/pending/commit/版本/diff 说明与实现一致 | 与 `viewer/edit-service/app/` 及 ai-integration 源核对 |
+| 6 | 编辑/pending/commit/版本/diff 说明与实现一致 | 与 `services/ifc/app/` 及 ai-integration 源核对 |
 | 7 | 站点导航与搜索不暴露 SCAD API、内部计划、团队同步 | `rg -n "SimpleCAD|team-sync|N\\+" docs/site`（允许出现「归档」说明性文字，不允许 API 文档/内部叙事） |
 | 8 | README 指向正式文档站 | Step 4 of Task 9 |
 | 9 | Roadmap 与内部计划记录双语扩展与 API 自动生成 | project/roadmap.md + internal roadmap 内容 |
-| 10 | 文档构建、现有 Viewer CI、关键链接检查通过 | Step 1 + 本地跑 `viewer/web npm test` 与 `viewer/server go test ./...`（若依赖可用） |
+| 10 | 文档构建、现有 Viewer CI、关键链接检查通过 | Step 1 + 本地跑 `web npm test` 与 `server go test ./...`（若依赖可用） |
 
 - [ ] **Step 3: 链接与内容抽查**
 

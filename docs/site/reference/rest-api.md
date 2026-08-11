@@ -1,5 +1,7 @@
 # Viewer REST API
 
+> **机器可消费 OpenAPI：** 完整请求/响应 schema（OpenAPI 3.0）见 [go-server.openapi.json](/go-server.openapi.json)，由 `docs/scripts/gen-go-openapi.mjs` 生成，并对 mux 路由做覆盖漂移检测（见 [OpenAPI 文件](/reference/openapi)）。
+
 后端 base：`http://localhost:8090`；JSON 信封统一为 `{code, message, data}`，`code=0` 表示成功。模型 id 格式 `m_` + 16 位小写 hex。
 
 ## 模型

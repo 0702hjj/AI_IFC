@@ -13,7 +13,7 @@ routes_design.py 第 56 行用 `__import__("os").path.isfile` 而非正常的 `i
 
 ## 涉及位置
 
-- `viewer/edit-service/app/routes_design.py:56` — `__import__("os").path.isfile`
+- `services/ifc/app/routes_design.py:56` — `__import__("os").path.isfile`
 
 ## 方案
 

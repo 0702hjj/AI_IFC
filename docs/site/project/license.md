@@ -4,7 +4,7 @@
 
 AI_IFC 以 **AGPL-3.0-only** 发布（[LICENSE](https://github.com/0702hjj/AI_IFC/blob/main/LICENSE)）。许可证继承自 SimpleCADAPI fork，也与 AGPL-3.0 的 xeokit 栈保持一致。
 
-`viewer/` 与 `docs/` 下全部新代码 Copyright (C) 2026 0702hjj（SPDX-License-Identifier 头）。
+`web/`、`server/`、`converter/`、`services/`、`mcp/`、`skills/` 与 `docs/` 下全部新代码 Copyright (C) 2026 0702hjj（SPDX-License-Identifier 头）。
 
 ## 归档代码边界
 

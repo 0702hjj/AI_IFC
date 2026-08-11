@@ -158,13 +158,13 @@
 |---|---|---|---|
 | 1 | **workflow skill** | plan→DXF→IFC 三阶段 skill + DXF 生成 | `skills/aiifc/` |
 | 2 | **确定性身份** | DESIGN_JSON_SCHEMA 加 `key`；build_script 写确定性 GlobalId + designKey Pset | `skills/aiifc/references/DESIGN_JSON_SCHEMA.md`、`flows/build_script_template.py` |
-| 3 | **版本/暂存模型** | 保存→大版本（designs/v{n}.json + versions/v{n}.ifc）；回退=恢复 design JSON；暂存区（10 步） | `viewer/server`、`viewer/edit-service`、`viewer/web` |
-| 4 | **差异引擎** | design JSON 语义 diff（主）+ IFC 指纹 diff（兜底，ifcquery.info）；统一 schema；Diff Viewer 改造 | `viewer/edit-service/app/diffing.py`、`viewer/web` |
-| 5 | **前端参数编辑** | 构件选中→design JSON 参数表单→更新→重生成 | `viewer/web`、`viewer/server` |
+| 3 | **版本/暂存模型** | 保存→大版本（designs/v{n}.json + versions/v{n}.ifc）；回退=恢复 design JSON；暂存区（10 步） | `server`、`services/ifc`、`web` |
+| 4 | **差异引擎** | design JSON 语义 diff（主）+ IFC 指纹 diff（兜底，ifcquery.info）；统一 schema；Diff Viewer 改造 | `services/ifc/app/diffing.py`、`web` |
+| 5 | **前端参数编辑** | 构件选中→design JSON 参数表单→更新→重生成 | `web`、`server` |
 | 6 | **CI/测试** | 各迭代测试 + 新 diff 引擎单测 | `tests/`、CI |
 | 7 | **文档** | 文档站/README 更新（版本模型、diff、工作流） | `docs/` |
 
-> 注：§4.2 路径 B 依赖 ifcquery 是否纳入 edit-service 依赖——若纳入，`viewer/edit-service/pyproject.toml` 加 `ifcquery`。
+> 注：§4.2 路径 B 依赖 ifcquery 是否纳入 edit-service 依赖——若纳入，`services/ifc/pyproject.toml` 加 `ifcquery`。
 
 ## 7. 与后续展望的关系
 

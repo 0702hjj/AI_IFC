@@ -1,12 +1,18 @@
 # 项目介绍
 
-AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它从 SimpleCADAPI fork 而来，但活跃产品是 `viewer/` 下的 IFC 平台；SimpleCADAPI 相关代码已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，详见 [License 与第三方组件](/project/license)。
+AI_IFC 是一个**自托管、开源**的 AI 生成平台，提供两个对等的逻辑外加一个推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
+
+- **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心（diff 与面向前端修改的接口协议，script-as-source 编辑 API）。
+- **逻辑二：AI 生成 CAD**（skill 域已交付，diff/编辑 API 待建）——`skills/aidxfv/`（v1/v2 迁移自 `AI_CAD/skills/aidxfv*`）+ `services/cad`（与 ifc 同构）。
+- **推荐项：Agent 工作流控制**（可选，做不好可删）——orchestrator + 事件总线。
+
+可复用性原则：skill 封装两个、业务逻辑两个、前端可选实现、PostgreSQL 可选实现，接口写好可直接调用或移植。它从 SimpleCADAPI fork 而来；SimpleCADAPI 相关代码已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)。
 
 ## 定位
 
-- **是什么**：IFC 模型的自托管审查 + 编辑平台——script-as-source 编辑（一切修改落在 Python 构建脚本上）、语义化版本对比，以及设计师/AI 双角色共用的编辑 API。
-- **面向谁**：内网/个人自托管的 BIM 团队；做 IFC 工具链的开发者；需要「AI 可接入的 BIM 编辑底座」的研究者。
-- **当前能力**：端到端可用——上传 → 转换 → 三维审查 → Issue → 脚本编辑（定位/改写/沙箱/暂存）→ 大版本 → 版本 diff。
+- **是什么**：IFC 模型的自托管审查 + 编辑平台——script-as-source 编辑（一切修改落在 Python 构建脚本上）、语义化版本对比，以及设计师/AI 双角色共用的编辑 API；同一套「skill + diff + 接口协议」模式将复制到 CAD 段。
+- **面向谁**：内网/个人自托管的 BIM 团队；做 IFC / CAD 工具链的开发者；需要「AI 可接入的编辑底座」的研究者。
+- **当前能力**：IFC 段端到端可用——上传 → 转换 → 三维审查 → Issue → 脚本编辑（定位/改写/沙箱/暂存）→ 大版本 → 版本 diff。
 
 ## 能力边界
 
@@ -22,7 +28,7 @@ AI_IFC 是一个**自托管、开源**的 IFC 模型审查与编辑平台。它�
 
 **未交付（见 [已知限制](/project/known-limits) 与 [Roadmap](/project/roadmap)）：**
 
-- 多用户/鉴权；几何 diff；Docker Compose 一键部署；Viewer 使用与开发指南细节页的英文版本。
+- 多用户/鉴权；开发指南细节页（`development/` 除 `architecture`）与部分项目页（`known-limits`/`license`/`roadmap`）的英文版本。（几何 diff 不做——IFC 是脚本产物，改几何 = 改脚本，diff 为脚本 diff + 属性级语义 diff。）
 
 ## 四组件架构
 

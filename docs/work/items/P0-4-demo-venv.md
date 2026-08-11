@@ -9,18 +9,18 @@
 
 ## 背景
 
-SKILL.md 与 ifc-demo.md 声称 demo 使用根 `.venv`（已装 ifcopenshell）；实测根 `.venv` 中没有 ifcopenshell/ezdxf/ifcquery——这些依赖装在 `viewer/edit-service/.venv`（edit-service 的 uv 项目自包含环境）。按文档逐条执行直接 ImportError，demo 流程第一步就走不通。
+SKILL.md 与 ifc-demo.md 声称 demo 使用根 `.venv`（已装 ifcopenshell）；实测根 `.venv` 中没有 ifcopenshell/ezdxf/ifcquery——这些依赖装在 `services/ifc/.venv`（edit-service 的 uv 项目自包含环境）。按文档逐条执行直接 ImportError，demo 流程第一步就走不通。
 
 ## 涉及位置
 
 - `skills/aiifc/SKILL.md:133` — 声称 demo 用根 `.venv`
 - `.opencode/agent/ifc-demo.md:14` — 同上
-- `viewer/edit-service/.venv` — 实际装有 ifcopenshell/ezdxf/ifcquery 的环境（uv sync 自包含）
+- `services/ifc/.venv` — 实际装有 ifcopenshell/ezdxf/ifcquery 的环境（uv sync 自包含）
 - `examples/README.md` — 已按 edit-service venv 写法，可作为参照
 
 ## 方案
 
-把 SKILL.md:133 与 .opencode/agent/ifc-demo.md:14 的环境指引改为 `viewer/edit-service/.venv`（由 edit-service 的 uv 项目 `uv sync` 自包含生成）；同时核实 ifc-demo.md 其余命令均在 edit-service 根目录下可跑，路径/工作目录假设一并修正。
+把 SKILL.md:133 与 .opencode/agent/ifc-demo.md:14 的环境指引改为 `services/ifc/.venv`（由 edit-service 的 uv 项目 `uv sync` 自包含生成）；同时核实 ifc-demo.md 其余命令均在 edit-service 根目录下可跑，路径/工作目录假设一并修正。
 
 ## 验收标准
 

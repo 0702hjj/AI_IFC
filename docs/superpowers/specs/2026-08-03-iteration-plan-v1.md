@@ -82,9 +82,9 @@ AI_IFC 已完成 aiifc skill 开发、打包器 tool、CI Python job 集成和�
 
 ### 3.3 涉及文件
 
-- `viewer/server/internal/api/*.go`（路由注册）
-- `viewer/web/src/api/client.ts`（前端调用）
-- `viewer/scripts/smoke.sh`（端到端测试）
+- `server/internal/api/*.go`（路由注册）
+- `web/src/api/client.ts`（前端调用）
+- `scripts/smoke.sh`（端到端测试）
 - `docs/site/reference/rest-api.md` + `en/`（文档站 API 文档）
 - `docs/site/reference/edit-api.md` + `en/`
 - `docs/site/reference/ai.md` + `en/`（AI 接入文档里的路径）
@@ -136,7 +136,7 @@ AI_IFC 已完成 aiifc skill 开发、打包器 tool、CI Python job 集成和�
 按优先级逐文档审查：
 
 1. **高优先级（外部可见）**：`docs/site/reference/ai.md`、`docs/site/reference/edit-api.md`、`docs/site/reference/rest-api.md` 中的路径/依赖说明——API 变更后必须更新
-2. **中优先级（内部可读）**：`docs/internal/team-sync.md`、`docs/internal/architecture/roadmap.md`、`viewer/README.md`、`viewer/edit-service/README.md`——路径/依赖描述同步
+2. **中优先级（内部可读）**：`docs/internal/team-sync.md`、`docs/internal/architecture/roadmap.md`、`viewer/README.md`、`services/ifc/README.md`——路径/依赖描述同步
 3. **低优先级（归档）**：`docs/archive/`、`docs/superpowers/`、`research/`——标记过时或不更新
 
 ### 5.2 screenshots/videos

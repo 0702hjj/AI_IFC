@@ -169,7 +169,7 @@ docs/
 | --- | --- | --- |
 | 首页 | `README.md`、`README.zh-CN.md` | 提炼 Viewer 定位、能力、架构和快速入口，不复制完整 README |
 | 快速开始 | `docs/usage.md`、`viewer/README.md` | 合并环境、四服务启动、首次上传和基础验证 |
-| 配置说明 | `viewer/server/server_config.json`、服务 README | 汇总配置文件、环境变量、端口和数据目录 |
+| 配置说明 | `server/server_config.json`、服务 README | 汇总配置文件、环境变量、端口和数据目录 |
 | Viewer 使用 | `docs/usage.md`、Viewer 实现 | 按真实用户工作流拆分，避免组件清单式重复 |
 | 总体架构 | `docs/architecture/ai-bim.md`、`viewer-detail.md` | 保留稳定架构，删除阶段性汇报语气 |
 | 子系统开发 | 四个 Viewer 子目录及 README | 各页说明职责、依赖、启动、关键边界和测试 |
@@ -188,7 +188,7 @@ docs/
 
 - 活跃产品是 `viewer/`，SimpleCADAPI 为归档代码。
 - Viewer 已实现上传、转换、模型树、属性检查、可见性工具、Issue、3D Pin、真实 IFC 属性编辑、pending/commit、版本快照和属性级 diff。
-- `viewer/edit-service/` 已落地，不能再描述为未来计划。
+- `services/ifc/` 已落地，不能再描述为未来计划。
 - diff 当前聚焦直接属性和 property set 语义变化，不宣称提供完整几何 diff。
 - PostgreSQL 对 Issue、override 和 change store 是可选项，模型文件仍使用文件系统。
 - Docker Compose 尚未完成时，不宣称支持一键部署。

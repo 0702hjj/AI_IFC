@@ -129,21 +129,21 @@ class TestOpencodePluginProbe:
 
     def test_venv_python_candidate_resolves_under_repo_root(self):
         text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
-        assert '"viewer", "edit-service", ".venv", "bin", "python"' in text, \
-            "插件必须构造仓库内 edit-service venv python 候选路径"
+        assert '"services", "ifc", ".venv", "bin", "python"' in text, \
+            "插件必须构造仓库内 services/ifc venv python 候选路径"
         # 只断言候选路径是仓库根下的相对构造，不断言文件真实存在：
-        # CI 的 skill job 用独立 .ci-venv，不创建 edit-service 的 .venv——
+        # CI 的 skill job 用独立 .ci-venv，不创建 services/ifc 的 .venv——
         # 存在性由插件运行时 existsSync 探测决定（缺失时降级 python3），
         # 测试环境不得假设本机开发 venv（2026-08-10 CI flake）。
-        candidate = REPO_ROOT / "viewer" / "edit-service" / ".venv" / "bin" / "python"
-        assert candidate.parents[2].name == "edit-service"
-        assert candidate.parents[3].name == "viewer"
+        candidate = REPO_ROOT / "services" / "ifc" / ".venv" / "bin" / "python"
+        assert candidate.parents[2].name == "ifc"
+        assert candidate.parents[3].name == "services"
         assert REPO_ROOT in candidate.parents
 
     def test_probe_chain_order_env_then_venv_then_python3(self):
         text = (HOOKS_DIR / "opencode-plugin.ts").read_text(encoding="utf-8")
         assert "AIIFC_PYTHON" in text
-        assert text.index("AIIFC_PYTHON") < text.index('"viewer", "edit-service"') < text.index('"python3"'), \
+        assert text.index("AIIFC_PYTHON") < text.index('"services", "ifc"') < text.index('"python3"'), \
             "探测链顺序必须 AIIFC_PYTHON → 仓库 venv → python3"
 
 

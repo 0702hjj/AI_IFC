@@ -7,7 +7,7 @@ name: ai-ifc
 services:
   web:
     build:
-      context: ./viewer/web
+      context: ./web
     image: aiifc-web
     ports:
       - "${WEB_PORT:-8080}:80"
@@ -17,7 +17,7 @@ services:
 
   server:
     build:
-      context: ./viewer
+      context: .
       dockerfile: server/Dockerfile
     image: aiifc-server
     environment:
@@ -39,7 +39,7 @@ services:
   edit-service:
     build:
       context: .
-      dockerfile: viewer/edit-service/Dockerfile
+      dockerfile: services/ifc/Dockerfile
     image: aiifc-edit-service
     environment:
       VIEWER_DATA_DIR: /data

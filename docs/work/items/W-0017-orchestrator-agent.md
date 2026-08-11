@@ -12,11 +12,13 @@
 
 ## 涉及位置
 
-- `viewer/server/internal/api/chat_orchestrator.go`（现状：单 opencode 会话）
-- 可能新增 `viewer/server/internal/orchestrator/` 或独立服务
+- `server/internal/api/chat_orchestrator.go`（现状：单 opencode 会话）
+- 可能新增 `server/internal/orchestrator/` 或独立服务
 - 子 Agent 提示词：`.opencode/agent/` 或 skill 侧
 
 ## 方案（待细化，先在实施前补 spec）
+
+**spec 已定稿（2026-08-11）：docs/superpowers/specs/2026-08-11-orchestrator-design.md**
 
 **叙事已定（2026-08-07 用户裁决）**：平台自持 orchestrator 为**内向**用户对话面；A2A 协议仅作为子 agent 的**对外暴露形态**（与同事的外部主 agent 对接，见 docs/internal/architecture/ai-bim-agent-page.md §4.5）。两者不冲突：orchestrator 是内部枢纽，A2A 是出口。
 

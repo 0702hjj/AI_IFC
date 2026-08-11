@@ -35,7 +35,7 @@ The skill is an agent-agnostic directory bundle; any tool supporting the Agent S
 # 1) Copy from the repo, or extract a release bundle
 cp -r skills/aiifc ~/.config/opencode/skills/aiifc
 # or build a distributable tar.gz
-python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
+python tools/skill_pack.py --archive   # produces skills/dist/aiifc.tar.gz (default skill: aiifc)
 tar xzf skills/dist/aiifc.tar.gz -C ~/.config/opencode/skills/
 
 # 2) Install runtime deps (needed by the flows)
@@ -53,7 +53,7 @@ They complement each other: the skill handles "generate / big-edit", the platfor
 
 ## Packaging & distribution
 
-- Packager: `tools/skill_pack_aiifc.py` (validates SKILL.md frontmatter / required paths / no noise, copies to `skills/dist/`, optionally tars).
+- Packager: `tools/skill_pack.py` (generic; validates SKILL.md frontmatter / required paths / no noise, copies to `skills/dist/`, optionally tars). `--skill <name>` defaults to `aiifc`; `--skill-dir <path>` packages any skill dir.
 - Artifact is agent-agnostic: `SKILL.md` + `references/` is the Agent Skills spec.
 - CI (`skill (aiifc pack + flows smoke)` job) validates bundle integrity and runs flow smoke tests on every PR.
 

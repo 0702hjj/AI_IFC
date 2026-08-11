@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: viewer/converter
+        working-directory: converter
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: viewer/converter/package-lock.json
+          cache-dependency-path: converter/package-lock.json
       - run: npm ci
       - run: npm test
 
@@ -46,7 +46,7 @@ jobs:
           --health-retries 5
     defaults:
       run:
-        working-directory: viewer/server
+        working-directory: server
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -62,14 +62,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: viewer/web
+        working-directory: web
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: viewer/web/package-lock.json
+          cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm test
       - run: npm run build
@@ -79,7 +79,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: viewer/edit-service
+        working-directory: services/ifc
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: viewer/mcp-server
+        working-directory: mcp
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -120,7 +120,7 @@ jobs:
           python -m pytest tests/skill/ -q
       - name: Build skill bundle + archive
         run: |
-          python tools/skill_pack_aiifc.py --archive --output-root /tmp/skill-dist
+          python tools/skill_pack.py --archive --output-root /tmp/skill-dist
           test -f /tmp/skill-dist/aiifc.tar.gz
           test -d /tmp/skill-dist/aiifc/references/docs/flows
           test -d /tmp/skill-dist/aiifc/templates
@@ -178,10 +178,10 @@ jobs:
         with:
           go-version: "1.26"
       - name: Install converter deps
-        working-directory: viewer/converter
+        working-directory: converter
         run: npm ci
       - name: Start backend
-        working-directory: viewer/server
+        working-directory: server
         run: |
           go build -o /tmp/ifcserver ./cmd/server
           /tmp/ifcserver &
@@ -191,7 +191,7 @@ jobs:
             sleep 1
           done
       - name: Run smoke
-        run: viewer/scripts/smoke.sh
+        run: scripts/smoke.sh
       - name: Stop backend
         if: always()
         run: kill "$(cat /tmp/ifcserver.pid)" 2>/dev/null || true
@@ -215,7 +215,7 @@ jobs:
           curl -sf http://127.0.0.1:8080/ > /dev/null || { docker compose logs; exit 1; }
       - name: Upload fixture and wait for ready
         run: |
-          ID=$(curl -sf -F "file=@viewer/converter/test/fixtures/wall-with-opening-and-window.ifc" \
+          ID=$(curl -sf -F "file=@converter/test/fixtures/wall-with-opening-and-window.ifc" \
             http://127.0.0.1:8080/api/v1/models | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["id"])')
           echo "uploaded: $ID"
           echo "MODEL_ID=$ID" >> "$GITHUB_ENV"
@@ -327,7 +327,7 @@ jobs:
           curl -sf http://127.0.0.1:8080/ > /dev/null || { docker compose --profile pg logs; exit 1; }
       - name: Upload fixture (pg round)
         run: |
-          ID=$(curl -sf -F "file=@viewer/converter/test/fixtures/wall-with-opening-and-window.ifc" \
+          ID=$(curl -sf -F "file=@converter/test/fixtures/wall-with-opening-and-window.ifc" \
             http://127.0.0.1:8080/api/v1/models | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["id"])')
           echo "uploaded (pg): $ID"
           echo "PG_MODEL_ID=$ID" >> "$GITHUB_ENV"

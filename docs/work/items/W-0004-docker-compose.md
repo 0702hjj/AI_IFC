@@ -14,7 +14,7 @@
 ## 涉及位置
 
 - 新增：根 `docker-compose.yml`、`.env.example`、各组件 Dockerfile
-- `viewer/web/vite.config.ts`（参考：dev 代理 `/api`、`/v1` → :8090）
+- `web/vite.config.ts`（参考：dev 代理 `/api`、`/v1` → :8090）
 - `docs/site/guide/quickstart.md`（+ 英文页）补 Docker 启动方式
 
 ## 方案（建议架构，实现者可调整但需说明理由）
@@ -28,7 +28,7 @@
 
 ## 验收标准
 
-- 干净环境 `docker compose up --build` 后：浏览器开 web 端口 → 上传 fixture IFC（`viewer/converter/test/fixtures/wall-with-opening-and-window.ifc`）→ 转换 ready → 3D 可见
+- 干净环境 `docker compose up --build` 后：浏览器开 web 端口 → 上传 fixture IFC（`converter/test/fixtures/wall-with-opening-and-window.ifc`）→ 转换 ready → 3D 可见
 - edit-service 联通：design/edit 端点经 server 代理可达（envelope）
 - `--profile pg` 起 PG 后 issues/overrides/changes 走 PG（建表自动）
 - 数据卷持久化：down/up 后模型仍在
@@ -36,5 +36,5 @@
 ## 测试要求
 
 - compose 配置级验证：`docker compose config -q` 语法合法
-- 冒烟脚本（可复用/扩展 `viewer/scripts/smoke.sh` 指向 compose 栈）或 CI 新增 compose 冒烟 job（build + up + curl 上传 → ready）
+- 冒烟脚本（可复用/扩展 `scripts/smoke.sh` 指向 compose 栈）或 CI 新增 compose 冒烟 job（build + up + curl 上传 → ready）
 - quickstart 文档命令与实际一致（文档即验收）
