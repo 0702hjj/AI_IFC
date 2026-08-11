@@ -8,13 +8,13 @@ See [Environment & Local Deployment](/en/guide/quickstart). Development follows 
 
 ```bash
 # backend
-cd viewer/server && go test ./... && go vet ./...
+cd server && go test ./... && go vet ./...
 # edit service
-cd viewer/edit-service && uv run --group dev pytest
+cd services/ifc && uv run --group dev pytest
 # frontend
-cd viewer/web && npm test && npm run build
+cd web && npm test && npm run build
 # converter
-cd viewer/converter && npm test
+cd converter && npm test
 # documentation (public site + API reference drift)
 cd docs && npm ci && npm run docs:build && npm run check:api
 ```
@@ -32,7 +32,7 @@ cd docs && npm ci && npm run docs:build && npm run check:api
 
 - Commit messages follow the repository convention: `feat:` / `fix:` / `docs:` / `ci:` / `chore:` prefix plus a short Chinese description.
 - PRs to `main` run the viewer CI and the docs build; both must pass.
-- Never commit personal machine paths, secrets or runtime data (`viewer/data/`).
+- Never commit personal machine paths, secrets or runtime data (`data/`).
 
 ## License
 

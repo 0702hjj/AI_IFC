@@ -2,8 +2,8 @@
 
 AI_IFC 是一个**自托管、开源**的 AI 生成平台，提供两个对等的逻辑外加一个推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
-- **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc`（`viewer/edit-service/`）的 diff 与面向前端修改的接口协议（script-as-source 编辑 API）。
-- **逻辑二：AI 生成 CAD**（skill 域已交付，diff/编辑 API 待建）——`skills/aidxfv/`（由 `AI_CAD/skills/aidxfv*` 收敛）+ `services/cad`（与 ifc 同构）。
+- **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心（diff 与面向前端修改的接口协议，script-as-source 编辑 API）。
+- **逻辑二：AI 生成 CAD**（skill 域已交付，diff/编辑 API 待建）——`skills/aidxfv/`（v1/v2 迁移自 `AI_CAD/skills/aidxfv*`）+ `services/cad`（与 ifc 同构）。
 - **推荐项：Agent 工作流控制**（可选，做不好可删）——orchestrator + 事件总线。
 
 可复用性原则：skill 封装两个、业务逻辑两个、前端可选实现、PostgreSQL 可选实现，接口写好可直接调用或移植。它从 SimpleCADAPI fork 而来；SimpleCADAPI 相关代码已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)。

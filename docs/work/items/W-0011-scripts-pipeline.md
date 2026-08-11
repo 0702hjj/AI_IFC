@@ -12,7 +12,7 @@ design JSON 管线（regenerate.py + routes_design 的 design 端点）下线，
 
 ## 涉及位置
 
-- `viewer/edit-service/app/`：`script_runner.py`（新）、`design_staging.py`（改脚本快照）、`design_versions.py`（改 script_versions：scripts/v{n}.py + 联动 versions/v{n}.ifc）、`routes_design.py`（端点换脚本语义，可改名 routes_scripts.py）
+- `services/ifc/app/`：`script_runner.py`（新）、`design_staging.py`（改脚本快照）、`design_versions.py`（改 script_versions：scripts/v{n}.py + 联动 versions/v{n}.ifc）、`routes_design.py`（端点换脚本语义，可改名 routes_scripts.py）
 - 依赖 W-0014 的契约（PARAMS、build(params, out_path)）
 
 ## 方案

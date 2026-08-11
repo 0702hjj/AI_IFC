@@ -10,6 +10,9 @@ wheels/
 # Virtual environments
 .venv
 
+# Runtime data (edit-service / Go server 共享)
+data/
+
 .env
 
 # Generated skills archives

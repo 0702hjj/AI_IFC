@@ -2,7 +2,7 @@
 
 The repository bundles an official buildingSMART sample IFC:
 
-`viewer/converter/test/fixtures/wall-with-opening-and-window.ifc`
+`converter/test/fixtures/wall-with-opening-and-window.ifc`
 
 ## Workflow
 
@@ -16,7 +16,7 @@ The repository bundles an official buildingSMART sample IFC:
 
 | Symptom | Action |
 | --- | --- |
-| Stuck in converting | Check the converter stderr in server logs; run `node viewer/converter/convert.js <ifc> <outDir>` manually; verify `nodeBin` / `converterScript` |
+| Stuck in converting | Check the converter stderr in server logs; run `node converter/convert.js <ifc> <outDir>` manually; verify `nodeBin` / `converterScript` |
 | Conversion failed | Retry with `POST /api/v1/models/{id}/retry` |
 | Editing returns 404 model not found | `VIEWER_DATA_DIR` and the Go `dataDir` point to different directories |
 | Script edit returns 422 | Script contract validation or sandbox build failed — the request had no side effects, fix per the detail and resend |

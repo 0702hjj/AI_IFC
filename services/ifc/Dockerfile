@@ -12,9 +12,9 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY viewer/edit-service/pyproject.toml viewer/edit-service/uv.lock ./
+COPY services/ifc/pyproject.toml services/ifc/uv.lock ./
 RUN uv sync --frozen --no-group dev
-COPY viewer/edit-service/app ./app
+COPY services/ifc/app ./app
 COPY skills/aiifc/references/docs/flows /opt/aiifc/flows
 
 ENV VIEWER_DATA_DIR=/data \

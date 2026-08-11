@@ -12,8 +12,8 @@
 
 ## 涉及位置
 
-- `viewer/server/internal/api/chat_orchestrator.go`（现状：单 opencode 会话）
-- 可能新增 `viewer/server/internal/orchestrator/` 或独立服务
+- `server/internal/api/chat_orchestrator.go`（现状：单 opencode 会话）
+- 可能新增 `server/internal/orchestrator/` 或独立服务
 - 子 Agent 提示词：`.opencode/agent/` 或 skill 侧
 
 ## 方案（待细化，先在实施前补 spec）

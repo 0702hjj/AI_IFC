@@ -13,9 +13,9 @@ edit-service 的关键状态全部驻留内存：pending 编辑队列、design s
 
 ## 涉及位置
 
-- `viewer/edit-service/main.py:23` — pending 编辑队列（内存态）
-- `viewer/edit-service/main.py:24` — design staging（内存态）
-- `viewer/edit-service/app/registry.py` — ModelRegistry，无淘汰机制
+- `services/ifc/main.py:23` — pending 编辑队列（内存态）
+- `services/ifc/main.py:24` — design staging（内存态）
+- `services/ifc/app/registry.py` — ModelRegistry，无淘汰机制
 
 ## 方案
 

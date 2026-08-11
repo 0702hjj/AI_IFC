@@ -16,4 +16,4 @@
 - [ ] 改了 API：已执行 `cd docs && npm run gen:api && npm run check:api` 且无漂移
 - [ ] 关联工作项状态已更新（in-progress / done，见 docs/work/）
 - [ ] Commit 信息为中文前缀式（`feat(server): ...` / `fix(web): ...` / `docs: ...` / `chore: ...`）
-- [ ] 未提交本机路径、密钥、运行时数据（`viewer/data/`）
+- [ ] 未提交本机路径、密钥、运行时数据（`data/`）

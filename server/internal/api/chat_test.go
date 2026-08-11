@@ -46,8 +46,8 @@ func TestModelIDFromEditedFile(t *testing.T) {
 		want string
 	}{
 		{"/data/uploads/m_cd21fae2ad2ae764.ifc", "m_cd21fae2ad2ae764"},
-		{"/home/x/viewer/data/uploads/m_0517c9fce8b1827a.ifc", "m_0517c9fce8b1827a"},
-		{"viewer/data/uploads/m_cd21fae2ad2ae764.ifc.new", ""}, // 临时文件不命中
+		{"/home/x/data/uploads/m_0517c9fce8b1827a.ifc", "m_0517c9fce8b1827a"},
+		{"data/uploads/m_cd21fae2ad2ae764.ifc.new", ""}, // 临时文件不命中
 		{"/data/staging/c_abc.ifc", ""},                        // 非 uploads 目录
 		{"/data/uploads/not-a-model-id.ifc", ""},               // id 格式不符
 		{"/data/uploads/m_CD21FAE2AD2AE764.ifc", ""},           // 大写不符

@@ -12,7 +12,7 @@
 - verify*/validate* 校验隔离机器强制契约测试已入 CI（本迭代改动不得触发新违规）。
 - 沙箱/异步测试必须条件等待（轮询+超时，禁止固定 sleep）。
 - API 变更走 envelope + 契约测试；改端点后 `cd docs && npm run gen:api && npm run check:api`。
-- Go 测试：`cd viewer/server && go vet ./... && go test ./...`（PG 无 DSN 自动 skip）。
+- Go 测试：`cd server && go vet ./... && go test ./...`（PG 无 DSN 自动 skip）。
 - commit 信息中文、前缀式；一天一次 PR。
 
 ---
@@ -36,8 +36,8 @@
 ## Task 2: chat notify 事件化重写（Pure Core + Imperative Shell）
 
 **Files:**
-- Add: `viewer/server/internal/api/chat_core_test.go`（纯函数单测）
-- Modify: `viewer/server/internal/api/chat_orchestrator.go`（notify 拆 Core 纯函数 + Shell 副作用）、`viewer/server/internal/api/chat_notify_test.go`（Shell 契约测试保留/适配）
+- Add: `server/internal/api/chat_core_test.go`（纯函数单测）
+- Modify: `server/internal/api/chat_orchestrator.go`（notify 拆 Core 纯函数 + Shell 副作用）、`server/internal/api/chat_notify_test.go`（Shell 契约测试保留/适配）
 - 事件 URI 按 spec（`aiifc://model/{id}/script/{staged|run|saved|failed}`）
 
 **Interfaces:**
@@ -53,10 +53,10 @@
 ## Task 3: deferred minors 清扫（终审 triage 5 项）
 
 **Files:**
-- Modify: `viewer/server/internal/api/api_verify_isolation_test.go`（Go 侧补闭包 handler 扫描 + 自证）
-- Modify: `viewer/edit-service/tests/test_verify_isolation.py`（Python 侧别名 import 逃逸检测补注 + 自证）
+- Modify: `server/internal/api/api_verify_isolation_test.go`（Go 侧补闭包 handler 扫描 + 自证）
+- Modify: `services/ifc/tests/test_verify_isolation.py`（Python 侧别名 import 逃逸检测补注 + 自证）
 - Modify: `tests/skill/test_script_contract.py`（骨架 origin 恒真断言改锁具体值 "traced"）
-- Modify: `viewer/web/src/viewer/DesignPanel.tsx`（嵌套键 scrollIntoView 前缀匹配）+ `viewer/web/src/viewer/DesignPanel.test.tsx`（聚焦 effect + 手动切模式清焦点测试）
+- Modify: `web/src/viewer/DesignPanel.tsx`（嵌套键 scrollIntoView 前缀匹配）+ `web/src/viewer/DesignPanel.test.tsx`（聚焦 effect + 手动切模式清焦点测试）
 - Modify: `skills/aiifc/hooks/opencode-plugin.ts`（win32 注释：超时终止只杀父进程）或文档注
 
 **Interfaces:**

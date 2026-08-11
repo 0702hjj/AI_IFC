@@ -3,14 +3,14 @@
 ```mermaid
 graph LR
   subgraph 客户端层
-    UI[浏览器<br/>React 19 + xeokit<br/>viewer/web]
+    UI[浏览器<br/>React 19 + xeokit<br/>web]
     AI[AI Agent]
   end
 
   subgraph 服务层
-    GO[Go server :8090<br/>viewer/server<br/>编排 / REST / 存储抽象]
-    PY[Python edit-service :8100<br/>viewer/edit-service<br/>FastAPI + IfcOpenShell]
-    CV[Node converter<br/>viewer/converter<br/>IFC → XKT + metadata.json]
+    GO[Go server :8090<br/>server<br/>编排 / REST / 存储抽象]
+    PY[Python edit-service :8100<br/>services/ifc<br/>FastAPI + IfcOpenShell]
+    CV[Node converter<br/>converter<br/>IFC → XKT + metadata.json]
   end
 
   subgraph 存储层

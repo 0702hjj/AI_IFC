@@ -13,9 +13,9 @@ Go server 的 CORS 配置为 `Access-Control-Allow-Origin: *`，且全部端点�
 
 ## 涉及位置
 
-- `viewer/server/internal/api/api.go:74` — `Access-Control-Allow-Origin: *`
+- `server/internal/api/api.go:74` — `Access-Control-Allow-Origin: *`
 - 全部 API 端点 — 无认证中间件
-- `viewer/edit-service` — 同样无鉴权，依赖网络隔离
+- `services/ifc` — 同样无鉴权，依赖网络隔离
 
 ## 方案
 

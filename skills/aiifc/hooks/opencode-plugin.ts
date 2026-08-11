@@ -51,12 +51,12 @@ function findRepoRoot(): string {
   return THIS_DIR;
 }
 
-/** Python 探测：AIIFC_PYTHON → 仓库 edit-service venv → python3（降级链）。 */
+/** Python 探测：AIIFC_PYTHON → 仓库 services/ifc venv → python3（降级链）。 */
 function findPython(): string {
   const fromEnv = process.env.AIIFC_PYTHON;
   if (fromEnv) return fromEnv;
   const venvPython = path.join(
-    findRepoRoot(), "viewer", "edit-service", ".venv", "bin", "python",
+    findRepoRoot(), "services", "ifc", ".venv", "bin", "python",
   );
   if (existsSync(venvPython)) return venvPython;
   return "python3";

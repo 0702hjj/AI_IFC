@@ -25,8 +25,8 @@
 ## M2 测试补盲
 
 - **P1-5**：CI 加 Postgres service job，`VIEWER_TEST_PG_DSN` 指向它，跑 `go test ./...`（含 pgstore 测试）
-- **W-0001**：`viewer/server/internal/api/design.go` 全部 11 条路由的 Go 测试（mock edit-service，断言 envelope 包装）——与 P0-1 修复同 PR 或紧随其后
-- **W-0002**：ChatSidebar SSE 测试（viewer/web，MockEventSource）
+- **W-0001**：`server/internal/api/design.go` 全部 11 条路由的 Go 测试（mock edit-service，断言 envelope 包装）——与 P0-1 修复同 PR 或紧随其后
+- **W-0002**：ChatSidebar SSE 测试（web，MockEventSource）
 - **W-0003**：flows 单测——`design_builder.py` SchemaError 分支、`dxf_from_design.py`（含 shaft fixture）；converter 测试加进 CI（当前 ci.yml 有 converter job，确认其在） 
 - 目标比率（AGENTS.md 纪律）：新增实现代码的测试量 ≥ 3 倍
 

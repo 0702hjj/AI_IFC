@@ -7,11 +7,11 @@ dist
 __pycache__
 **/__pycache__
 *.pyc
-viewer/data
-viewer/web/node_modules
-viewer/web/dist
-viewer/converter/node_modules
-viewer/edit-service/.venv
+data
+web/node_modules
+web/dist
+converter/node_modules
+services/ifc/.venv
 .env
 docs/node_modules
 .superpowers

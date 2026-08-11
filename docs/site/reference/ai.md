@@ -22,12 +22,12 @@ AI agent ────────► REST 直连 ──────────�
 
 ```bash
 # 1) Python 编辑服务（默认端口 8100）
-cd viewer/edit-service
+cd services/ifc
 uv sync
 uv run uvicorn app.main:app --port 8100
 
 # 2) Go server（默认 127.0.0.1:8090）
-cd viewer/server
+cd server
 go run ./cmd/server
 ```
 

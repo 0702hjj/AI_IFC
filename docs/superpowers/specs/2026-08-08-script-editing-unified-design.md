@@ -191,7 +191,7 @@ envelope `{code,message,data}` 与契约测试按 AGENTS.md 硬规则执行；�
 
 ## 9. L1 直改链路扬弃策略
 
-- **回捞锚点**：`fb55a8a`（2026-08-08 main HEAD，本 spec 分支点）。相关代码：`viewer/edit-service/app/routes_edits.py`、`pending.py`、`history.py`、web 端 PropertyPanel 真改表单、server 端 edit 代理与编排。
+- **回捞锚点**：`fb55a8a`（2026-08-08 main HEAD，本 spec 分支点）。相关代码：`services/ifc/app/routes_edits.py`、`pending.py`、`history.py`、web 端 PropertyPanel 真改表单、server 端 edit 代理与编排。
 - **退役顺序**（独立工作项，先落后做）：① 契约测试固定退役行为 → ② 前端隐藏直改入口 → ③ edit-service 端点下线 → ④ server 代理清理 → ⑤ 文档站 editing.md 重写。
 - **回捞判据**：bootstrap 复现质量不达标（对齐报告持续大面积 diff）或 edit-call 覆盖率不足以支撑设计师日常修改时，从 git log 恢复双轨。
 

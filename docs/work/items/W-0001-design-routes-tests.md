@@ -9,7 +9,7 @@
 
 ## 背景
 
-`viewer/server/internal/api/design.go` 的 11 条 design 代理路由此前零测试，是 P0-1 契约断裂长期不可见的三大盲区之一。
+`server/internal/api/design.go` 的 11 条 design 代理路由此前零测试，是 P0-1 契约断裂长期不可见的三大盲区之一。
 
 ## 方案
 

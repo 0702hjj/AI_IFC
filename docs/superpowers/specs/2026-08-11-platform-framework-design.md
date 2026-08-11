@@ -9,7 +9,7 @@
 
 | 项 | 内容 | 当前状态 |
 |---|---|---|
-| **逻辑一：AI 生成 IFC** | skill 封装 + Python diff + 面向前端修改的接口协议 | 已交付（`skills/aiifc/` + `viewer/edit-service/` 的 diff 与 script-as-source 编辑 API） |
+| **逻辑一：AI 生成 IFC** | skill 封装 + Python diff + 面向前端修改的接口协议 | 已交付（`skills/aiifc/` + `services/ifc/` 的 diff 与 script-as-source 编辑 API） |
 | **逻辑二：AI 生成 CAD** | 完全类似的 skill 封装 + 对应 diff + 面向前端修改的接口协议 | 部分交付（`AI_CAD/skills/aidxfv*` 纯 skill 域；diff 与前端接口协议待补） |
 | **推荐形式：Agent 工作流控制** | orchestrator（意图路由 + 子 Agent）+ 事件总线 | 方向已定（W-0017 spec）；落地可选，做不好可删 |
 
@@ -45,24 +45,23 @@ docs/              # 文档站 + 工作看板 + spec
 
 对应关系：`skill ×2` ↔ `services ×2` ↔ 共享 `web / server / converter / pg`。
 
-## 4. 当前 → 目标映射（渐进收敛，不搬家）
+## 4. 当前 → 目标映射（物理重组完成）
 
-| 目标 | 当前物理位置 | 说明 |
+| 目标 | 物理位置 | 说明 |
 |---|---|---|
 | `skills/aiifc` | `skills/aiifc/` | 已就位 |
-| `skills/aidxfv` | `AI_CAD/skills/aidxfv1/`、`aidxfv2/` | 渐进收敛（AI_CAD 下多版本并存），搬入 `skills/aidxfv/` |
-| `services/ifc` | `viewer/edit-service/` | IFC 业务逻辑核心（diff + 编辑 API），目录名保留为历史别名 |
+| `skills/aidxfv` | `skills/aidxfv/v1/`、`v2/` | 自 `AI_CAD/skills/aidxfv1|aidxfv2` 迁移（2026-08-11 物理重组），MIT 归属保留在各自 LICENSE |
+| `services/ifc` | `services/ifc/` | IFC 业务逻辑核心（diff + 编辑 API），自原 `viewer/edit-service` 迁移 |
 | `services/cad` | （待建） | CAD 段业务逻辑核心，与 `services/ifc` 同构 |
-| `web` | `viewer/web/` | 前端（可选实现） |
-| `server` | `viewer/server/` | Go 网关（共用运行时骨架） |
-| `converter` | `viewer/converter/` | 格式转换（共用） |
-| `pg` | `viewer/server/internal/{store,override,change,issue}/pgstore.go` | PostgreSQL 可选存储 |
-| `AI_CAD/research` | `AI_CAD/research/` | 调研材料，保留原目录 |
+| `web` | `web/` | 前端（可选实现），自原 `viewer/web` 迁移 |
+| `server` | `server/` | Go 网关（共用运行时骨架），自原 `viewer/server` 迁移 |
+| `converter` | `converter/` | 格式转换（共用），自原 `viewer/converter` 迁移 |
+| `mcp` | `mcp/` | MCP 桥（可选），自原 `viewer/mcp-server` 迁移 |
+| `scripts` / `data` | `scripts/`、`data/` | 冒烟脚本 / 运行时数据（gitignored），自原 `viewer/` 迁移 |
+| `pg` | `server/internal/{store,override,change,issue}/pgstore.go` | PostgreSQL 可选存储 |
+| `AI_CAD` | `AI_CAD/` | 保留 `docs/`、`research/`、`opencode.json`、`skills/aiblueprint-mcp`；aidxfv1/aidxfv2 已迁出 |
 
-**渐进规则**：
-- 存量目录（`viewer/`、`AI_CAD/`）物理位置**不动**，避免破坏 git 历史与 CI；新逻辑按目标结构落位。
-- 文档与契约按目标结构表述（README/AGENTS/docs 用 `services/ifc`、`skills/aidxfv` 指代），物理路径作为实现细节。
-- `AI_CAD/` 逐步收敛：skill 部分迁入 `skills/aidxfv/`（保留 MIT 归属），research 保留；收敛完成前以 `skills/aidxfv/` 为正式入口。
+**历史**：原 `viewer/` 目录已于 2026-08-11 物理拆分（`edit-service` → `services/ifc/`，其余 → 顶层同名目录），`AI_CAD/skills/aidxfv*` 迁入 `skills/aidxfv/v1|v2`。文档与契约一律按目标结构表述，物理路径即目标结构。
 
 ## 5. Agent 工作流控制（推荐形式）
 

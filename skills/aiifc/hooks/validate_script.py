@@ -49,7 +49,7 @@ def looks_like_build_script(path: Path) -> bool:
 def extract_model_id(path: Path) -> str | None:
     """从路径启发式提取 modelId：文件 stem 或任一祖先目录名匹配 ^m_[0-9a-f]{16}$。
 
-    demo 布局：viewer/data/staging/{modelId}.py、viewer/data/models/{modelId}/scripts/v{n}.py。
+    demo 布局：data/staging/{modelId}.py、data/models/{modelId}/scripts/v{n}.py。
     """
     candidates = [path.stem, *(p.name for p in reversed(path.parents))]
     for c in candidates:

@@ -38,8 +38,8 @@ MCP 客户端注册示例（`.mcp.json`）：
       "type": "stdio",
       "command": "uv",
       "args": ["run", "python", "-m", "app.server"],
-      "cwd": "viewer/mcp-server",
-      "env": {"VIEWER_DATA_DIR": "/abs/path/to/viewer/data"}
+      "cwd": "mcp",
+      "env": {"VIEWER_DATA_DIR": "/abs/path/to/data"}
     }
   }
 }

@@ -4,7 +4,7 @@
 //
 // Generate docs/site/reference/edit-api-reference.md from the committed OpenAPI
 // schema at docs/site/public/ai-tools.openapi.json (exported from the FastAPI
-// edit-service by viewer/edit-service/scripts/export_openapi.py).
+// edit-service by services/ifc/scripts/export_openapi.py).
 // Deterministic output: stable sorting, no timestamps.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -19,7 +19,7 @@ const out = []
 out.push('# 编辑 API 参考（自动生成）', '')
 out.push(
   '> 本页由 `docs/scripts/gen-edit-api-reference.mjs` 从 `docs/site/public/ai-tools.openapi.json` 自动生成，**请勿手工编辑**。',
-  '> 源 schema 由 edit-service 导出（`viewer/edit-service/scripts/export_openapi.py`）；工作流与语义解释见 [IFC 编辑 API](/reference/edit-api)。',
+  '> 源 schema 由 edit-service 导出（`services/ifc/scripts/export_openapi.py`）；工作流与语义解释见 [IFC 编辑 API](/reference/edit-api)。',
   ''
 )
 out.push(`- 服务：${schema.info?.title ?? 'ifc-edit-service'} ${schema.info?.version ?? ''}`)

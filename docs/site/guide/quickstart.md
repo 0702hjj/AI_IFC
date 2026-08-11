@@ -35,19 +35,19 @@ docker compose --profile pg up -d
 
 ```bash
 # 0. 一次性：安装依赖
-cd viewer/converter && npm install
+cd converter && npm install
 cd ../web && npm install
 cd ../edit-service && uv sync
 
-# 1. edit-service（:8100）—— VIEWER_DATA_DIR 必须指向 viewer/data 的绝对路径
-cd viewer/edit-service
+# 1. edit-service（:8100）—— VIEWER_DATA_DIR 必须指向 data 的绝对路径
+cd services/ifc
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
 
 # 2. Go server（:8090）
-cd viewer/server && go run ./cmd/server
+cd server && go run ./cmd/server
 
 # 3. web（:5173）
-cd viewer/web && npm run dev
+cd web && npm run dev
 ```
 
 打开 `http://localhost:5173` 即可使用。完整配置项见 [配置说明](/guide/configuration)。
@@ -56,13 +56,13 @@ cd viewer/web && npm run dev
 
 ```bash
 # 端到端冒烟（需 server 运行；edit-flow 段在 edit-service 不可达时自动跳过）
-cd viewer && ./scripts/smoke.sh
+./scripts/smoke.sh
 
 # 各层测试
-cd viewer/server && go test ./...
-cd viewer/edit-service && uv run --group dev pytest
-cd viewer/web && npm test
-cd viewer/converter && npm test
+cd server && go test ./...
+cd services/ifc && uv run --group dev pytest
+cd web && npm test
+cd converter && npm test
 ```
 
 > 注意：上传、转换、审查等浏览功能不依赖 edit-service 与 PostgreSQL；编辑、版本、diff 需要 edit-service 运行。

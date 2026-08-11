@@ -27,14 +27,14 @@ AI_IFC 是一个**自托管、开源的 IFC 审查与编辑平台**。报告的�
 ```mermaid
 graph LR
   subgraph 客户端层
-    UI[浏览器<br/>React 19 + xeokit<br/>viewer/web]
+    UI[浏览器<br/>React 19 + xeokit<br/>web]
     AI[AI Agent<br/>（另一同学的生成线）]
   end
 
   subgraph 服务层
-    GO[Go server :8090<br/>viewer/server<br/>编排 / REST / 存储抽象]
-    PY[Python edit-service :8100<br/>viewer/edit-service<br/>FastAPI + IfcOpenShell]
-    CV[Node converter<br/>viewer/converter<br/>IFC → XKT + metadata.json]
+    GO[Go server :8090<br/>server<br/>编排 / REST / 存储抽象]
+    PY[Python edit-service :8100<br/>services/ifc<br/>FastAPI + IfcOpenShell]
+    CV[Node converter<br/>converter<br/>IFC → XKT + metadata.json]
   end
 
   subgraph 存储层
@@ -136,7 +136,7 @@ POST /models/{id}/commit
 
 - **人**：浏览器 → Go 代理（`/api/models/{id}/edit/*`）→ edit-service；编排附带 change log + 重转
 - **AI**：REST 直连 edit-service 或经 Go 代理，**同一套端点**；`provenance.source="AI"` 标记来源
-- **工具目录**（报告 §2.3 的 REST 形态）：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，`viewer/edit-service/scripts/export_openapi.py` 再生成，保证文档与实现不漂移）+ `docs/site/reference/ai.md`（端点目录、JSON Schema、curl 全流程）
+- **工具目录**（报告 §2.3 的 REST 形态）：`docs/site/public/ai-tools.openapi.json`（FastAPI 导出，`services/ifc/scripts/export_openapi.py` 再生成，保证文档与实现不漂移）+ `docs/site/reference/ai.md`（端点目录、JSON Schema、curl 全流程）
 - **MCP**：报告 §4.1 建议 REST+MCP 双暴露；v1 REST 先行，MCP 薄包装（参考 ifcmcp 31 工具模式）列 v1.1
 - **沙箱/代码执行**：属 AI 侧范围；架构不阻塞（edit-service 进程隔离，后续可加 execute 端点）
 - **认证**：v1 单机自托管不做（报告 §2.1 的 OAuth2/RBAC 属 v2）；provenance 是声明字段，无防伪语义

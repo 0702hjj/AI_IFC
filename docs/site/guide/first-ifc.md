@@ -2,7 +2,7 @@
 
 仓库自带一个 buildingSMART 官方样例 IFC：
 
-`viewer/converter/test/fixtures/wall-with-opening-and-window.ifc`
+`converter/test/fixtures/wall-with-opening-and-window.ifc`
 
 ## 操作流程
 
@@ -16,7 +16,7 @@
 
 | 现象 | 处理 |
 | --- | --- |
-| 上传后一直 converting | 查看 server 日志中的 converter stderr；手动运行 `node viewer/converter/convert.js <ifc> <outDir>` 复现；确认 `nodeBin` / `converterScript` 配置 |
+| 上传后一直 converting | 查看 server 日志中的 converter stderr；手动运行 `node converter/convert.js <ifc> <outDir>` 复现；确认 `nodeBin` / `converterScript` 配置 |
 | 转换 failed | `POST /api/v1/models/{id}/retry` 重试 |
 | 编辑报 404 model not found | edit-service 的 `VIEWER_DATA_DIR` 与 Go `dataDir` 不是同一目录 |
 | 脚本编辑报 422 | 脚本契约校验失败或沙箱 build 失败——请求零副作用，按 detail 修正后重发 |

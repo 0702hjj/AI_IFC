@@ -13,7 +13,7 @@ chat.go 单文件 697 行，混合了六类职责：会话管理、SSE 分发、
 
 ## 涉及位置
 
-- `viewer/server/internal/api/chat.go` — 697 行上帝文件
+- `server/internal/api/chat.go` — 697 行上帝文件
 - `chat.go:57-70` — ChatHandler 持 6 依赖 + 4 map
 - `chat.go:681-688` — pushLocked 订阅者慢时丢帧，无重同步
 

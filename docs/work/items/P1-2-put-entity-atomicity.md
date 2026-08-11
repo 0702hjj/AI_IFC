@@ -13,7 +13,7 @@ routes_edits.py 的 put_entity 中，fields 修改包在 try/except 内、异常
 
 ## 涉及位置
 
-- `viewer/edit-service/app/routes_edits.py:113-145` — put_entity 处理逻辑
+- `services/ifc/app/routes_edits.py:113-145` — put_entity 处理逻辑
 - 其中 132-145 行的 pset 修改在 try/except 之外，无回滚保护
 
 ## 方案

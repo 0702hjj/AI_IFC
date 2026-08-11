@@ -23,7 +23,7 @@
 
 ## 近期
 
-- **平台框架（2026-08-11）**：两个对等逻辑（AI 生成 IFC / AI 生成 CAD）+ Agent 工作流推荐项入约；功能块横切结构（skill ×2 ↔ services ×2 ↔ 共享运行时）；渐进收敛不搬家（见 [框架 spec](https://github.com/0702hjj/AI_IFC/blob/main/docs/superpowers/specs/2026-08-11-platform-framework-design.md)）。
+- **平台框架（2026-08-11）**：两个对等逻辑（AI 生成 IFC / AI 生成 CAD）+ Agent 工作流推荐项入约；功能块横切结构（skill ×2 ↔ services ×2 ↔ 共享运行时）；物理重组一步到位（`viewer/` 拆分、`AI_CAD/skills/aidxfv*` 迁入 `skills/aidxfv/`，见 [框架 spec](https://github.com/0702hjj/AI_IFC/blob/main/docs/superpowers/specs/2026-08-11-platform-framework-design.md)）。
 - **notify 事件化（2026-08-11）**：chat notify 按 Pure Core + Imperative Shell 重构，事件 URI 化（`aiifc://`），为 Agent 工作流控制打底。
 - **services/cad（后续，可选项）**：CAD 段业务逻辑核心（diff + 面向前端修改的编辑 API，与 services/ifc 同构），配套 CAD skill 收敛入 `skills/aidxfv/`。
 - 部署化：Docker Compose 一键启动（server / web / PostgreSQL / edit-service / converter），配置外置。

@@ -1,7 +1,7 @@
 # 编辑 API 参考（自动生成）
 
 > 本页由 `docs/scripts/gen-edit-api-reference.mjs` 从 `docs/site/public/ai-tools.openapi.json` 自动生成，**请勿手工编辑**。
-> 源 schema 由 edit-service 导出（`viewer/edit-service/scripts/export_openapi.py`）；工作流与语义解释见 [IFC 编辑 API](/reference/edit-api)。
+> 源 schema 由 edit-service 导出（`services/ifc/scripts/export_openapi.py`）；工作流与语义解释见 [IFC 编辑 API](/reference/edit-api)。
 
 - 服务：ifc-edit-service 0.1.0
 - OpenAPI 版本：3.1.0

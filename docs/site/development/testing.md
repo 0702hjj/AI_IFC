@@ -4,11 +4,11 @@
 
 | 模块 | 框架 | 覆盖范围 | 运行命令 |
 | --- | --- | --- | --- |
-| converter | node:test | 真实 IFC 转换集成（快照、引用完整性、id 一致性） | `cd viewer/converter && npm test` |
-| server | go test | 单元 + httptest API + 并发（`-race`） | `cd viewer/server && go test ./... && go vet ./...` |
-| edit-service | pytest | 脚本编辑（staging/run/save/locate/edit-call）/ 版本 / diff 路由 | `cd viewer/edit-service && uv run --group dev pytest` |
-| web | vitest + jsdom | api client / 组件 / store / hook / 纯函数 | `cd viewer/web && npm test` |
-| 端到端 | bash smoke | 上传→转换→下载→Issue→override/changes→script 管线（暂存/run/save）全链路 | `cd viewer && ./scripts/smoke.sh`（需 server 运行） |
+| converter | node:test | 真实 IFC 转换集成（快照、引用完整性、id 一致性） | `cd converter && npm test` |
+| server | go test | 单元 + httptest API + 并发（`-race`） | `cd server && go test ./... && go vet ./...` |
+| edit-service | pytest | 脚本编辑（staging/run/save/locate/edit-call）/ 版本 / diff 路由 | `cd services/ifc && uv run --group dev pytest` |
+| web | vitest + jsdom | api client / 组件 / store / hook / 纯函数 | `cd web && npm test` |
+| 端到端 | bash smoke | 上传→转换→下载→Issue→override/changes→script 管线（暂存/run/save）全链路 | `./scripts/smoke.sh`（需 server 运行） |
 
 开发过程采用 TDD：每个模块先写失败测试再实现，测试文件与源码同目录。
 
@@ -18,7 +18,7 @@
 
 ```bash
 cd server && go run ./cmd/server &
-cd viewer && ./scripts/smoke.sh    # 成功以 smoke OK 结尾
+./scripts/smoke.sh    # 成功以 smoke OK 结尾
 ```
 
 覆盖：上传 fixture IFC → 轮询至 ready → XKT/metadata/download 200 → Issue 创建/列表/截图/状态流转/删除 → override 写入与生效值断言 → change log old→new 断言 → script 管线（暂存 → 沙箱 run → save v1 → 版本记录断言）→ 清理。

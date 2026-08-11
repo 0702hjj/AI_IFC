@@ -68,7 +68,7 @@ hooks 是 skill 包的可选增强层，**不是替代**——不支持 hooks �
 ln -s $(pwd)/skills/aiifc/hooks/opencode-plugin.ts .opencode/plugin/aiifc-hooks.ts
 ```
 
-Python 探测链：`AIIFC_PYTHON` 环境变量 → 仓库内 `viewer/edit-service/.venv/bin/python`
+Python 探测链：`AIIFC_PYTHON` 环境变量 → 仓库内 `services/ifc/.venv/bin/python`
 （有 ifcopenshell）→ `python3`。仓库根不按固定层级数硬编码：从 hooks 目录（软链
 安装经 `import.meta.url` 解析到真实目录；复制安装则在 `.opencode/plugin/`）逐级向上，
 按含 `AGENTS.md`/`.git` 的目录定位——两种安装形态均成立。
@@ -111,7 +111,7 @@ hooks 是**增强不是替代**：
 python3 hooks/validate_script.py path/to/script.py --static-only
 
 # 完整事件（有 ifcopenshell 的解释器，默认含沙箱试跑）
-viewer/edit-service/.venv/bin/python hooks/validate_script.py path/to/script.py
+services/ifc/.venv/bin/python hooks/validate_script.py path/to/script.py
 
 # Claude Code 载荷模拟
 echo '{"tool_name":"Write","tool_input":{"file_path":"a.py"}}' \

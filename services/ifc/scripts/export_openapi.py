@@ -3,7 +3,7 @@
 
 """Export the FastAPI app's OpenAPI schema to docs/site/public/ai-tools.openapi.json.
 
-Run from viewer/edit-service:
+Run from services/ifc:
 
     uv run python scripts/export_openapi.py
 

@@ -7,7 +7,7 @@
 编辑 API 变更后重新生成：
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv run python scripts/export_openapi.py
 ```
 

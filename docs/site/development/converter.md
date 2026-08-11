@@ -1,6 +1,6 @@
 # IFC Converter
 
-`viewer/converter/`：Node CLI，基于 web-ifc + xeokit-convert，把 IFC 转为 XKT 几何与语义元数据，由 server 以子进程方式调用，无需常驻。
+`converter/`：Node CLI，基于 web-ifc + xeokit-convert，把 IFC 转为 XKT 几何与语义元数据，由 server 以子进程方式调用，无需常驻。
 
 ## 用法
 
@@ -24,7 +24,7 @@ node convert.js <input.ifc> <outDir>
 ## 测试
 
 ```bash
-cd viewer/converter
+cd converter
 npm install
 npm test    # node:test 集成测试：真实 IFC 样例（buildingSMART 官方 fixture）转换快照
 ```

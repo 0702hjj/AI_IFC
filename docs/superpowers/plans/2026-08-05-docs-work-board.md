@@ -205,10 +205,10 @@ git commit -m "docs(internal): 精简至 4 篇有效文档，internal wiki 清�
 ```markdown
 # AI_IFC Examples
 
-IFC 时代的示例脚本。从仓库根运行（需 `viewer/edit-service` 的 Python 环境，含 ifcopenshell）：
+IFC 时代的示例脚本。从仓库根运行（需 `services/ifc` 的 Python 环境，含 ifcopenshell）：
 
 ```bash
-cd viewer/edit-service && uv run python ../../examples/<script>.py
+cd services/ifc && uv run python ../../examples/<script>.py
 ```
 
 - `build_two_storey.py` — 用 ifcopenshell 直写一栋两层小楼（墙/板/开洞），演示骨架优先建模流程；产物 `two_storey.ifc` 可上传到 viewer 查看。
@@ -333,30 +333,30 @@ git commit -m "docs(work): 工作项看板规则"
 ## P0 详情
 
 ### P0-1 design 代理契约断裂
-`viewer/server/internal/api/design.go:54-63` 的 `designProxy` 把 Python 原始 JSON 直接写出，不包 `{code,message,data}` envelope；前端 `viewer/web/src/api/client.ts:8-13` 的 `request()` 强制要求 `env.code === 0`。Python 返回无 `code` 字段 → 所有 `/api/v1/models/{id}/design*` 端点前端必然 reject。三方测试盲区叠加：Go 侧 design.go 全部 11 条路由无测试；前端 DesignPanel 测试整体 mock 了 `@/api/client`（DesignPanel.test.tsx:50-59）；smoke.sh 不覆盖 design。**修复前必须实测验证**（起 Go server + edit-service，curl 一遍 design 端点）。
+`server/internal/api/design.go:54-63` 的 `designProxy` 把 Python 原始 JSON 直接写出，不包 `{code,message,data}` envelope；前端 `web/src/api/client.ts:8-13` 的 `request()` 强制要求 `env.code === 0`。Python 返回无 `code` 字段 → 所有 `/api/v1/models/{id}/design*` 端点前端必然 reject。三方测试盲区叠加：Go 侧 design.go 全部 11 条路由无测试；前端 DesignPanel 测试整体 mock 了 `@/api/client`（DesignPanel.test.tsx:50-59）；smoke.sh 不覆盖 design。**修复前必须实测验证**（起 Go server + edit-service，curl 一遍 design 端点）。
 
 ### P0-2 dxf_from_design 楼梯 shaft KeyError
 `skills/aiifc/references/docs/flows/design_builder.py:114-119` 把 shaft 展开为 `{x0,x1,y0,y1}` 坐标矩形；`dxf_from_design.py:141-147` 仍按轴网索引 `s["x"][0]` 读取 → 含 shaft 楼梯必 KeyError。CI 冒烟 fixture（tests/skill/fixtures/sample_design.json）不含楼梯，绕开此路径。
 
 ### P0-3 createChatProject 路径不匹配
-前端 `viewer/web/src/api/client.ts:35` 调 `POST /api/v1/chat/projects`；Go 只注册 `POST /api/v1/projects`（`viewer/server/internal/api/chat.go:96`，`cmd/server/main.go:129`）。经 `/api/v1/chat/` 前缀 mux 落到 chat mux 后 404。**修复前实测验证**；统一方向建议：Go 侧改注册 `/api/v1/chat/projects`（与 chat 模块其余端点前缀一致），README/文档同步。
+前端 `web/src/api/client.ts:35` 调 `POST /api/v1/chat/projects`；Go 只注册 `POST /api/v1/projects`（`server/internal/api/chat.go:96`，`cmd/server/main.go:129`）。经 `/api/v1/chat/` 前缀 mux 落到 chat mux 后 404。**修复前实测验证**；统一方向建议：Go 侧改注册 `/api/v1/chat/projects`（与 chat 模块其余端点前缀一致），README/文档同步。
 
 ### P0-4 demo 环境文档与实际 venv 不符
-`skills/aiifc/SKILL.md:133` 与 `.opencode/agent/ifc-demo.md:14` 声称 demo 用根 `.venv`（已装 ifcopenshell）；实测根 `.venv` 无 ifcopenshell/ezdxf/ifcquery（装在 `viewer/edit-service/.venv`）。按文档执行直接 ImportError。修复方向：统一为 `viewer/edit-service/.venv`（edit-service 的 uv 项目自包含），改两处文档 + examples/README.md 已按此写。
+`skills/aiifc/SKILL.md:133` 与 `.opencode/agent/ifc-demo.md:14` 声称 demo 用根 `.venv`（已装 ifcopenshell）；实测根 `.venv` 无 ifcopenshell/ezdxf/ifcquery（装在 `services/ifc/.venv`）。按文档执行直接 ImportError。修复方向：统一为 `services/ifc/.venv`（edit-service 的 uv 项目自包含），改两处文档 + examples/README.md 已按此写。
 
 ## P1 详情
 
 ### P1-1 零鉴权 + CORS *
-`viewer/server/internal/api/api.go:74` `Access-Control-Allow-Origin: *`；全部端点（含删除模型、edit commit、AI 聊天）无认证。默认绑 127.0.0.1 尚可，改 host 即裸奔。方案：最小 API token 中间件（env 配置，未设置=关闭，保持单机体验），CORS 白名单化。
+`server/internal/api/api.go:74` `Access-Control-Allow-Origin: *`；全部端点（含删除模型、edit commit、AI 聊天）无认证。默认绑 127.0.0.1 尚可，改 host 即裸奔。方案：最小 API token 中间件（env 配置，未设置=关闭，保持单机体验），CORS 白名单化。
 
 ### P1-2 put_entity pset 修改无回滚
-`viewer/edit-service/app/routes_edits.py:113-145`：fields 修改包 try/except 可回滚；pset 修改（132-145 行）在 try 之外——edit_pset 抛异常时内存模型已被部分修改且无 pending 记录，与模块 docstring 宣称的原子性矛盾。
+`services/ifc/app/routes_edits.py:113-145`：fields 修改包 try/except 可回滚；pset 修改（132-145 行）在 try 之外——edit_pset 抛异常时内存模型已被部分修改且无 pending 记录，与模块 docstring 宣称的原子性矛盾。
 
 ### P1-3 edit-service 全内存状态
 pending（main.py:23）、design staging（main.py:24）、ModelRegistry（registry.py，无淘汰机制）均内存态：重启即丢，内存随模型数增长。方案：staging/pending 可选落盘、Registry LRU 淘汰。
 
 ### P1-4 chat.go 上帝文件
-`viewer/server/internal/api/chat.go` 697 行：会话管理 + SSE 分发 + IFC GlobalId 生成 + 骨架 IFC 模板 + 三连编排 + 制品归档；`ChatHandler` 持 6 依赖 + 4 map（chat.go:57-70）。`pushLocked` 订阅者慢时丢帧（chat.go:681-688）无重同步。拆为 session/sse/orchestrator/artifact 四文件。
+`server/internal/api/chat.go` 697 行：会话管理 + SSE 分发 + IFC GlobalId 生成 + 骨架 IFC 模板 + 三连编排 + 制品归档；`ChatHandler` 持 6 依赖 + 4 map（chat.go:57-70）。`pushLocked` 订阅者慢时丢帧（chat.go:681-688）无重同步。拆为 session/sse/orchestrator/artifact 四文件。
 
 ### P1-5 PG 测试默认 skip
 `*_pgstore_test.go` 需 `VIEWER_TEST_PG_DSN`，未设即 skip → CI 跑不到 PG 路径，File/PG 双实现 parity 无保障。方案：CI 加 Postgres service container job。
@@ -422,8 +422,8 @@ git commit -m "docs(work): 2026-08-05 审计报告（19 个工作项索引 + 技
 ## M2 测试补盲
 
 - **P1-5**：CI 加 Postgres service job，`VIEWER_TEST_PG_DSN` 指向它，跑 `go test ./...`（含 pgstore 测试）
-- **W-0001**：`viewer/server/internal/api/design.go` 全部 11 条路由的 Go 测试（mock edit-service，断言 envelope 包装）——与 P0-1 修复同 PR 或紧随其后
-- **W-0002**：ChatSidebar SSE 测试（viewer/web，MockEventSource）
+- **W-0001**：`server/internal/api/design.go` 全部 11 条路由的 Go 测试（mock edit-service，断言 envelope 包装）——与 P0-1 修复同 PR 或紧随其后
+- **W-0002**：ChatSidebar SSE 测试（web，MockEventSource）
 - **W-0003**：flows 单测——`design_builder.py` SchemaError 分支、`dxf_from_design.py`（含 shaft fixture）；converter 测试加进 CI（当前 ci.yml 有 converter job，确认其在） 
 - 目标比率（AGENTS.md 纪律）：新增实现代码的测试量 ≥ 3 倍
 
@@ -490,7 +490,7 @@ git commit -m "docs(work): v0.1.0 计划（四 milestone + 许可证审计迁移
 
 `P0-3-chat-projects-path.md`：方案（推荐）：Go 侧注册改为 `/api/v1/chat/projects`（与 chat 模块前缀一致），保留 `/api/v1/projects` 兼容一个版本或直接替换（单机产品，直接替换即可）。验收：前端「新建 AI 项目」按钮真实可用。测试要求：Go chat 路由测试断言 POST /api/v1/chat/projects 201/200；前端 client.createChatProject 测试断言请求路径。
 
-`P0-4-demo-venv.md`：方案：SKILL.md:133 与 .opencode/agent/ifc-demo.md:14 改指 `viewer/edit-service/.venv`（uv sync 自包含）；核实 ifc-demo.md 其余命令在 edit-service 根下可跑。验收：在新 shell 按文档逐条执行不 ImportError。测试要求：CI skill-pack 的 flows 冒烟已覆盖环境正确性；文档修复本身无新测试，但验收必须人工/脚本走一遍文档命令。
+`P0-4-demo-venv.md`：方案：SKILL.md:133 与 .opencode/agent/ifc-demo.md:14 改指 `services/ifc/.venv`（uv sync 自包含）；核实 ifc-demo.md 其余命令在 edit-service 根下可跑。验收：在新 shell 按文档逐条执行不 ImportError。测试要求：CI skill-pack 的 flows 冒烟已覆盖环境正确性；文档修复本身无新测试，但验收必须人工/脚本走一遍文档命令。
 
 - [ ] **Step 2: 写 P1 五个 item**
 
@@ -572,12 +572,12 @@ AI agent ──► REST 编辑 API ────┘
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，107 用例）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
-| server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（98 测试）；`go vet ./...` | `go run ./cmd/server`（:8090） |
-| converter (Node，web-ifc + xeokit-convert) | `viewer/converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run pytest`（54 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| web (React 19 + xeokit + zustand) | `web` | `npm test`（vitest，107 用例）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| server (Go 1.26，stdlib + pgx/v5) | `server` | `go test ./...`（98 测试）；`go vet ./...` | `go run ./cmd/server`（:8090） |
+| converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run pytest`（54 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
 | skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（11 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
-| 端到端 | `viewer/scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
+| 端到端 | `scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
 | 文档站 | `docs/` | `npm run docs:build`；`npm run check:api`（API 文档漂移检测） | `npm run docs:dev`；内部 wiki `npm run docs:dev:internal` |
 
 ## 测试纪律（硬规则）
@@ -592,7 +592,7 @@ AI agent ──► REST 编辑 API ────┘
 - Go server 是唯一对外入口，对外路径统一 `/api/v1/{resource}/{id}`。
 - 响应统一 envelope `{code, message, data}`，`code=0` 成功；**新增/修改端点必须包 envelope 并配契约测试**。
 - 改 API 后必须：`cd docs && npm run gen:api && npm run check:api`（漂移检测会拦 PR）。
-- modelId 格式 `^m_[0-9a-f]{16}$`；issue 截图、上传大小等限制见 `viewer/server/internal/api/api.go`。
+- modelId 格式 `^m_[0-9a-f]{16}$`；issue 截图、上传大小等限制见 `server/internal/api/api.go`。
 
 ## Git 工作流（硬规则）
 
@@ -611,13 +611,13 @@ AI agent ──► REST 编辑 API ────┘
 
 - `src/`、`skills/simplecadapi/`：SimpleCADAPI 归档区，收编决策（P2-1）落地前冻结。
 - `docs/site/public/` 下的自动生成物（`go-rest-api.routes.json` 等）：只经 `npm run gen:api` 更新。
-- `viewer/data/`：运行时数据，gitignored，不要手工改。
+- `data/`：运行时数据，gitignored，不要手工改。
 - 内部文档（`docs/internal/`、`docs/work/`、`docs/superpowers/`）的内容**不得**复制进 `docs/site/`（公开站）。
 
 ## 环境注意
 
-- edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `viewer/data` 绝对路径，配错会 404 或改错文件。
-- demo/flows 用 `viewer/edit-service/.venv`（含 ifcopenshell/ezdxf/ifcquery）；**根 `.venv` 没有这些包**。
+- edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `data` 绝对路径，配错会 404 或改错文件。
+- demo/flows 用 `services/ifc/.venv`（含 ifcopenshell/ezdxf/ifcquery）；**根 `.venv` 没有这些包**。
 - AI agent 直连 edit-service :8100 时传 `provenance.source="AI"`。
 ````
 
@@ -741,10 +741,10 @@ git commit -m "docs(site): roadmap 指向 docs/work 工作项看板"
 - [ ] **Step 1: 各组件测试**
 
 ```bash
-cd <repo>/viewer/server && go vet ./... && go test ./...
-cd <repo>/viewer/edit-service && uv run pytest -q
-cd <repo>/viewer/web && npm test && npm run lint && npm run build
-cd <repo>/viewer/converter && npm test
+cd <repo>/server && go vet ./... && go test ./...
+cd <repo>/services/ifc && uv run pytest -q
+cd <repo>/web && npm test && npm run lint && npm run build
+cd <repo>/converter && npm test
 cd <repo> && .ci-venv/bin/python -m pytest tests/skill/ -q
 ```
 

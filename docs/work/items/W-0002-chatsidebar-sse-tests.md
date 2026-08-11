@@ -9,13 +9,13 @@
 
 ## 背景
 
-`viewer/web/src/viewer/ChatSidebar.tsx`（362 行）是前端最大文件且零测试：EventSource SSE 流式渲染、会话创建/中止、消息历史、三连触发状态都在其中。P0-3 类契约问题曾因缺测试潜伏。
+`web/src/viewer/ChatSidebar.tsx`（362 行）是前端最大文件且零测试：EventSource SSE 流式渲染、会话创建/中止、消息历史、三连触发状态都在其中。P0-3 类契约问题曾因缺测试潜伏。
 
 ## 涉及位置
 
-- `viewer/web/src/viewer/ChatSidebar.tsx`（EventSource 使用见 :121 附近）
-- 测试落点：`viewer/web/src/viewer/ChatSidebar.test.tsx`
-- API 层：`viewer/web/src/api/client.ts`（chat 系列方法）
+- `web/src/viewer/ChatSidebar.tsx`（EventSource 使用见 :121 附近）
+- 测试落点：`web/src/viewer/ChatSidebar.test.tsx`
+- API 层：`web/src/api/client.ts`（chat 系列方法）
 
 ## 方案
 

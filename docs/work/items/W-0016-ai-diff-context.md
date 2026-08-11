@@ -13,7 +13,7 @@ script-as-source 的核心收益：AI 下次介入时看到「当前脚本 + 与
 
 ## 涉及位置
 
-- `viewer/server/internal/api/chat_orchestrator.go`（[系统上下文] 注入点，现注入模型文件路径）
+- `server/internal/api/chat_orchestrator.go`（[系统上下文] 注入点，现注入模型文件路径）
 - edit-service `POST /models/{id}/script/diff`（W-0012 供给）
 
 ## 方案

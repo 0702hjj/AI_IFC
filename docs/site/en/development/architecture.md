@@ -3,14 +3,14 @@
 ```mermaid
 graph LR
   subgraph Clients
-    UI[Browser<br/>React 19 + xeokit<br/>viewer/web]
+    UI[Browser<br/>React 19 + xeokit<br/>web]
     AI[AI Agent]
   end
 
   subgraph Services
-    GO[Go server :8090<br/>viewer/server<br/>orchestration / REST / storage abstraction]
-    PY[Python edit-service :8100<br/>viewer/edit-service<br/>FastAPI + IfcOpenShell]
-    CV[Node converter<br/>viewer/converter<br/>IFC → XKT + metadata.json]
+    GO[Go server :8090<br/>server<br/>orchestration / REST / storage abstraction]
+    PY[Python edit-service :8100<br/>services/ifc<br/>FastAPI + IfcOpenShell]
+    CV[Node converter<br/>converter<br/>IFC → XKT + metadata.json]
   end
 
   subgraph Storage

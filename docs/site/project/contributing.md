@@ -8,13 +8,13 @@
 
 ```bash
 # 后端
-cd viewer/server && go test ./... && go vet ./...
+cd server && go test ./... && go vet ./...
 # 编辑服务
-cd viewer/edit-service && uv run --group dev pytest
+cd services/ifc && uv run --group dev pytest
 # 前端
-cd viewer/web && npm test && npm run build
+cd web && npm test && npm run build
 # 转换器
-cd viewer/converter && npm test
+cd converter && npm test
 # 文档
 cd docs && npm ci && npm run docs:build
 ```
@@ -30,7 +30,7 @@ cd docs && npm ci && npm run docs:build
 
 - Commit 消息遵循仓库惯例：`feat:` / `fix:` / `docs:` / `ci:` / `chore:` 前缀 + 中文简短描述。
 - PR 到 `main`：GitHub Actions 会运行现有 viewer CI 与文档构建；两者都必须通过。
-- 不提交个人本机路径、密钥、运行时数据（`viewer/data/`）。
+- 不提交个人本机路径、密钥、运行时数据（`data/`）。
 
 ## License
 

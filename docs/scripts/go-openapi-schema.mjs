@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (C) 2026 0702hjj
 //
-// 手工维护的 Go server（viewer/server，:8090）OpenAPI schema 定义源。
+// 手工维护的 Go server（server，:8090）OpenAPI schema 定义源。
 //
 // 诚实设计边界：Go 用 stdlib net/http mux，无 schema 反射——request/response
 // schema 无法从代码自动导出。方案 = 路由清单自动（gen-go-routes.mjs 从 mux 注册
@@ -9,8 +9,8 @@
 // 「schema 端点集 ⊆ routes 端点集 且 routes 端点集 ⊆ schema 端点集」）。
 //
 // 键格式：`<METHOD> <path>`（与 go-rest-api.routes.json 的 method/path 完全一致）。
-// 内容来源：docs/site/reference/rest-api.md 契约 + viewer/server/internal/api/*.go
-// 实际行为 + viewer/edit-service/app/routes_scripts.py（script 代理透传的响应形状）。
+// 内容来源：docs/site/reference/rest-api.md 契约 + server/internal/api/*.go
+// 实际行为 + services/ifc/app/routes_scripts.py（script 代理透传的响应形状）。
 //
 // 每条端点可含：
 //   summary / description / tags / operationId

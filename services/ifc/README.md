@@ -9,7 +9,7 @@ uv sync
 uv run uvicorn app.main:app --port 8100
 ```
 
-配置（环境变量）：`EDIT_SERVICE_PORT`（默认 8100）、`VIEWER_DATA_DIR`（默认 `../data`，与 viewer/server 数据目录语义一致）。
+配置（环境变量）：`EDIT_SERVICE_PORT`（默认 8100）、`VIEWER_DATA_DIR`（默认 `../data`，与 server 数据目录语义一致）。
 
 ## 编辑 API
 

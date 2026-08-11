@@ -217,7 +217,7 @@ func TestPostMessageInjectsScriptDiff(t *testing.T) {
 	}
 	got := capturedPrompt(t, prompts)
 	for _, want := range []string{
-		"[系统上下文]", "viewer/data/uploads/m_aaaaaaaaaaaaaaaa.ifc",
+		"[系统上下文]", "data/uploads/m_aaaaaaaaaaaaaaaa.ifc",
 		`+PARAMS = {"width": 5}`, "增量修改", "[用户需求] 把宽度改成 6",
 	} {
 		if !strings.Contains(got, want) {
@@ -242,7 +242,7 @@ func TestPostMessageNoScriptKeepsLegacyContext(t *testing.T) {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
 	got := capturedPrompt(t, prompts)
-	if !strings.Contains(got, "viewer/data/uploads/m_bbbbbbbbbbbbbbbb.ifc") || !strings.Contains(got, "[用户需求] hi") {
+	if !strings.Contains(got, "data/uploads/m_bbbbbbbbbbbbbbbb.ifc") || !strings.Contains(got, "[用户需求] hi") {
 		t.Errorf("应保留现有系统上下文格式:\n%s", got)
 	}
 	if strings.Contains(got, "增量修改") || strings.Contains(got, "```diff") {

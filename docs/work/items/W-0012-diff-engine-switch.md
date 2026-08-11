@@ -13,7 +13,7 @@ design JSON diff 引擎（design_diff.py）废弃。大版本 diff 三层：脚�
 
 ## 涉及位置
 
-- 删：`viewer/edit-service/app/design_diff.py` + `tests/test_design_diff.py`（改写为脚本 diff 测试）
+- 删：`services/ifc/app/design_diff.py` + `tests/test_design_diff.py`（改写为脚本 diff 测试）
 - 改：`routes_diff.py`（design/diff、design/diff-ifc 端点 → script/diff）、`diff_summary.py`（保留共用）
 - 新：`script_diff.py`（unified diff 生成 + 摘要统计）
 

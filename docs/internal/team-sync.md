@@ -30,7 +30,7 @@
 ```mermaid
 graph LR
   subgraph 客户端
-    UI[浏览器 React+xeokit<br/>viewer/web]
+    UI[浏览器 React+xeokit<br/>web]
     AI[AI Agent<br/>（另一同学）]
   end
   subgraph 服务
@@ -40,7 +40,7 @@ graph LR
   end
   subgraph 存储
     PG[(PostgreSQL<br/>可选，默认文件)]
-    FS[(viewer/data<br/>IFC/XKT/版本/历史)]
+    FS[(data<br/>IFC/XKT/版本/历史)]
   end
   UI --> GO
   AI -->|同一套 REST API| PY
@@ -90,7 +90,7 @@ graph LR
 **Live demo 路径**（5 分钟可复现）：
 ```bash
 # 起服务后（docs/site/guide/quickstart.md）
-# 1. 上传 viewer/converter/test/fixtures/wall-with-opening-and-window.ifc
+# 1. 上传 converter/test/fixtures/wall-with-opening-and-window.ifc
 # 2. 经 Go 代理改个 Name 并 commit：
 MID=<上传返回的id>; GUID=$(curl -s localhost:8090/models/$MID/metadata.json | python3 -c 'import sys,json;print([o["id"] for o in json.load(sys.stdin)["metaObjects"] if o.get("type")=="IfcWall"][0])')
 curl -X PUT localhost:8090/api/models/$MID/edit/entities/$GUID -H 'Content-Type: application/json' -d '{"fields":{"Name":"live-demo-wall"}}'
@@ -112,7 +112,7 @@ curl -X POST localhost:8090/api/models/$MID/edit/commit
 2. 修改是 pending/commit 两阶段：PUT 不落盘，commit 才生效并产生版本；丢弃用 `DELETE pending`
 3. 字段分两类：`fields`（直接属性，如 Name）与 `psets`（属性集，需显式 pset 名，如 `{"Pset_WallCommon":{"FireRating":"F60"}}`）；校验失败整请求零副作用
 4. commit 可带 `{"operation":"update"|"migrate"}`；GET history 拿真原值 oldValue
-5. 工具目录：`docs/site/public/ai-tools.openapi.json`（可直接喂 LLM；变更后用 `viewer/edit-service/scripts/export_openapi.py` 再导出）；接入指南 `docs/site/reference/ai.md`
+5. 工具目录：`docs/site/public/ai-tools.openapi.json`（可直接喂 LLM；变更后用 `services/ifc/scripts/export_openapi.py` 再导出）；接入指南 `docs/site/reference/ai.md`
 6. **MCP**：v1.1 候选，薄包装这套 REST（参考 ifcmcp 31 工具模式）；AI 沙箱/代码执行属你们侧，架构不阻塞
 
 ## 六、已知限制与技术债（诚实清单）

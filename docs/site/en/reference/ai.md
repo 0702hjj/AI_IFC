@@ -22,12 +22,12 @@ AI agent ────────► REST direct ──────────�
 
 ```bash
 # 1) Python edit service (default port 8100)
-cd viewer/edit-service
+cd services/ifc
 uv sync
 uv run uvicorn app.main:app --port 8100
 
 # 2) Go server (default 127.0.0.1:8090)
-cd viewer/server
+cd server
 go run ./cmd/server
 ```
 

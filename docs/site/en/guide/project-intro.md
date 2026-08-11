@@ -2,8 +2,8 @@
 
 AI_IFC is a **self-hosted, open-source** AI generation platform with two peer logic legs and one optional recommendation (framework spec: `docs/superpowers/specs/2026-08-11-platform-framework-design.md`):
 
-- **Leg 1: AI-generated IFC** (delivered) — the `skills/aiifc/` skill plus `services/ifc` (currently `viewer/edit-service/`) with its diff engine and frontend-facing editing API protocol (script-as-source).
-- **Leg 2: AI-generated CAD** (skill domain delivered; diff/editing API to build) — the `skills/aidxfv/` skill (converging from `AI_CAD/skills/aidxfv*`) plus `services/cad` (peer of `services/ifc`).
+- **Leg 1: AI-generated IFC** (delivered) — the `skills/aiifc/` skill plus the `services/ifc` business-logic core with its diff engine and frontend-facing editing API protocol (script-as-source).
+- **Leg 2: AI-generated CAD** (skill domain delivered; diff/editing API to build) — the `skills/aidxfv/` skill (v1/v2 moved from `AI_CAD/skills/aidxfv*`) plus `services/cad` (peer of `services/ifc`).
 - **Recommendation (optional, removable): Agent workflow control** — orchestrator + event bus.
 
 Reusability-first: two skills, two business-logic cores, optional frontend, optional PostgreSQL, interfaces callable or portable on their own. It was forked from SimpleCADAPI; SimpleCADAPI-related code was moved on 2026-08-06 to the private archive repo [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive), see [License & third-party components](/project/license) (Chinese).

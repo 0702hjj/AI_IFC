@@ -18,7 +18,7 @@ examples/ 目录中 SCAD 时代与 IFC 时代的示例混杂，SCAD 示例对当
 
 ## 方案
 
-删除 examples/ 中的 SCAD 示例，重写 examples/README.md 以反映现行内容（含 demo 环境指向 `viewer/edit-service/.venv` 的写法，与 P0-4 一致）。
+删除 examples/ 中的 SCAD 示例，重写 examples/README.md 以反映现行内容（含 demo 环境指向 `services/ifc/.venv` 的写法，与 P0-4 一致）。
 
 ## 验收标准
 

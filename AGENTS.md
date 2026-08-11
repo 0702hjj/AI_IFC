@@ -7,11 +7,11 @@
 
 自托管、开源（AGPL-3.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
-- **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc`（`viewer/edit-service/`）的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
-- **逻辑二：AI 生成 CAD**（skill 域已交付，diff/编辑 API 待建）——`skills/aidxfv/`（由 `AI_CAD/skills/aidxfv*` 渐进收敛）+ `services/cad`（待建，与 ifc 同构）。
+- **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
+- **逻辑二：AI 生成 CAD**（skill 域已交付，diff/编辑 API 待建）——`skills/aidxfv/`（v1/v2 迁移自 `AI_CAD/skills/aidxfv*`）+ `services/cad`（待建，与 ifc 同构）。
 - **推荐项：Agent 工作流控制**（可选，做不好可删）——orchestrator + 事件总线，设计见 `2026-08-11-orchestrator-design.md`。
 
-两逻辑共享运行时骨架：`viewer/web`（可选前端）/ `viewer/server`（Go 网关 :8090）/ `viewer/converter`（Node 转换）/ `viewer/edit-service`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
+两逻辑共享运行时骨架：`web`（可选前端）/ `server`（Go 网关 :8090）/ `converter`（Node 转换）/ `services/ifc`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
 
 ```
 浏览器 (React+xeokit) ──► Go server :8090 ──► services/ifc（edit-service :8100, FastAPI+IfcOpenShell）
@@ -25,13 +25,13 @@ AI agent ──► REST 编辑 API ────┘
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + zustand) | `viewer/web` | `npm test`（vitest，194 用例 / 20 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
-| server (Go 1.26，stdlib + pgx/v5) | `viewer/server` | `go test ./...`（138 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
-| converter (Node，web-ifc + xeokit-convert) | `viewer/converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `viewer/edit-service` | `uv run --group dev pytest`（238 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
-| mcp-server (Python + mcp 2.x MCPServer，stdio) | `viewer/mcp-server` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
+| web (React 19 + xeokit + zustand) | `web` | `npm test`（vitest，194 用例 / 20 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| server (Go 1.26，stdlib + pgx/v5) | `server` | `go test ./...`（138 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
+| converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（238 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| mcp-server (Python + mcp 2.x MCPServer，stdio) | `mcp` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
 | skill 打包 | `tools/skill_pack_aiifc.py` | `python -m pytest tests/skill/ -q`（139 测试，CI 用独立 .ci-venv） | `python tools/skill_pack_aiifc.py --archive` |
-| 端到端 | `viewer/scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
+| 端到端 | `scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
 | 文档站 | `docs/` | `npm run docs:build`；`npm run check:api`（API 文档漂移检测） | `npm run docs:dev`；内部 wiki `npm run docs:dev:internal` |
 
 ## 测试纪律（硬规则）
@@ -45,7 +45,7 @@ AI agent ──► REST 编辑 API ────┘
 ## 校验与业务隔离（硬规则）
 
 1. 业务规则校验必须住在 `verify*`/`validate*` 函数里；handler 内禁止内联 `if + raise HTTPException`（Python）/ `if + writeErr`（Go）的业务规则检查——请求形状校验归声明式层（pydantic `Field(pattern=...)`、解码），不在此列。handler 只做：decode → verify → 调领域 → 翻译错误。
-   - Python 范例：`viewer/edit-service/app/routes_scripts.py` 的 `verify_script_body` / `verify_params_target` / `verify_script_contract`；纯函数校验器范例 `skills/aiifc/references/docs/flows/script_lib.py` 的 `validate_script_contract()`（返回错误列表，与执行分离）。
+   - Python 范例：`services/ifc/app/routes_scripts.py` 的 `verify_script_body` / `verify_params_target` / `verify_script_contract`；纯函数校验器范例 `skills/aiifc/references/docs/flows/script_lib.py` 的 `validate_script_contract()`（返回错误列表，与执行分离）。
    - Go：校验归 domain 包的 `validate()`/`Valid*()` + 哨兵错误，handler 只做 解码 → 调用 → `errors.Is` 翻译。
 2. 看到 `verify*`/`validate*` 函数名，新增检查只允许加在该函数内部，不得在调用点另写。
 3. 跨文件的请求解析/校验 helper 只允许单点定义（edit-service 统一在 `app/route_common.py`），禁止复制第二份。
@@ -60,8 +60,8 @@ AI agent ──► REST 编辑 API ────┘
 - Go server 是唯一对外入口，对外路径统一 `/api/v1/{resource}/{id}`。
 - 响应统一 envelope `{code, message, data}`，`code=0` 成功；**新增/修改端点必须包 envelope 并配契约测试**。
 - 编辑统一走 script-as-source：`PUT /script`（暂存）→ `script/run`（沙箱）→ `script/save`（大版本，`scripts/v{n}.py` + `v{n}.map.json` 全留、`versions/v{n}.ifc` 只留最新）；定位 `GET /script/locate?guid=`；`POST /script/edit-call`（libcst 标量改写）仅在 edit-service 直连暴露。L1 直改端点（`/entities/...`、`/commit`）已退役返回 410，回捞锚点 `fb55a8a`。
-- 改 API 后必须：`cd docs && npm run gen:api && npm run check:api`（漂移检测会拦 PR）。openapi 源 schema 变更时先跑 `viewer/edit-service/scripts/export_openapi.py`。
-- modelId 格式 `^m_[0-9a-f]{16}$`；issue 截图、上传大小等限制见 `viewer/server/internal/api/api.go`。
+- 改 API 后必须：`cd docs && npm run gen:api && npm run check:api`（漂移检测会拦 PR）。openapi 源 schema 变更时先跑 `services/ifc/scripts/export_openapi.py`。
+- modelId 格式 `^m_[0-9a-f]{16}$`；issue 截图、上传大小等限制见 `server/internal/api/api.go`。
 
 ## Git 工作流（硬规则）
 
@@ -83,12 +83,12 @@ AI agent ──► REST 编辑 API ────┘
 - `AI_CAD/skills/aidxfv1`：fork 自 earthtojake/text-to-cad（MIT），vendored 运行时自包含——改动注意保留 MIT 归属（其 LICENSE 文件），勿与主仓 AGPL 文件混排。
 - SCAD 遗产（`src/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不含，勿引用。
 - `docs/site/public/` 下的自动生成物（`go-rest-api.routes.json` 等）：只经 `npm run gen:api` 更新。
-- `viewer/data/`：运行时数据，gitignored，不要手工改。
+- `data/`：运行时数据，gitignored，不要手工改。
 - 内部文档（`docs/internal/`、`docs/work/`、`docs/superpowers/`）的内容**不得**复制进 `docs/site/`（公开站）。
 
 ## 环境注意
 
-- edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `viewer/data` 绝对路径，配错会 404 或改错文件。
-- demo/flows 用 `viewer/edit-service/.venv`（含 ifcopenshell/ezdxf/ifcquery）；**根 `.venv` 没有这些包**。
+- edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `data` 绝对路径，配错会 404 或改错文件。
+- demo/flows 用 `services/ifc/.venv`（含 ifcopenshell/ezdxf/ifcquery）；**根 `.venv` 没有这些包**。
 - AI agent 直连 edit-service :8100 时传 `provenance.source="AI"`。
 - Go server 鉴权默认关闭（`apiToken`/`VIEWER_API_TOKEN` 为空）；设置后除 OPTIONS 与 `GET /v1/models/...` 只读文件外全部端点要 `Authorization: Bearer <token>`（401 envelope 码 `40100`）。CORS 为白名单制（`corsOrigins`/`VIEWER_CORS_ORIGINS`，默认 `http://localhost:5173,http://localhost:8080`）。edit-service :8100 无鉴权，务必保持 127.0.0.1；AI agent 直连 :8100 绕过 token 校验。

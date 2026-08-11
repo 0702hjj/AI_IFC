@@ -2,7 +2,7 @@
 # Copyright (C) 2026 0702hjj
 # Go server 镜像：构建期用 golang，运行期用 node 基础镜像
 # （server 以子进程调 `node /opt/converter/convert.js` 做 IFC→XKT）。
-# 构建上下文为 viewer/（需要 server + converter 两个目录）。
+# 构建上下文为仓库根（需要 server + converter 两个目录）。
 
 FROM golang:1.26-bookworm AS server-build
 WORKDIR /src/server

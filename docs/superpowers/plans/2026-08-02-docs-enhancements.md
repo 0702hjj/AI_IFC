@@ -4,7 +4,7 @@
 
 **Goal:** 为公开文档站补齐三类增强：真实产品截图、VitePress 英文 locale（优先覆盖首页/快速开始/总体架构/贡献/API 入口）、edit-service API 参考页与 Go 端点清单的机器生成 + CI 漂移检测。
 
-**Architecture:** 双语采用 VitePress `locales`（root=zh-CN 保持现有 URL，新增 `en` locale 于 `docs/site/en/`，参考 BotRS 的中英镜像组织）；API 自动生成采用"从已提交产物生成参考"策略——edit-service 参考页由 `docs/site/public/ai-tools.openapi.json` 生成，Go 端点清单由 `viewer/server/internal/api/*.go` 的 mux 注册扫描生成，两者都接入 `npm run check:api` + CI 漂移检测；截图在本地跑起四组件后用浏览器实拍，存 `docs/site/public/screenshots/`。
+**Architecture:** 双语采用 VitePress `locales`（root=zh-CN 保持现有 URL，新增 `en` locale 于 `docs/site/en/`，参考 BotRS 的中英镜像组织）；API 自动生成采用"从已提交产物生成参考"策略——edit-service 参考页由 `docs/site/public/ai-tools.openapi.json` 生成，Go 端点清单由 `server/internal/api/*.go` 的 mux 注册扫描生成，两者都接入 `npm run check:api` + CI 漂移检测；截图在本地跑起四组件后用浏览器实拍，存 `docs/site/public/screenshots/`。
 
 **Tech Stack:** VitePress 1.6（locales + local search）、Node 脚本（生成器）、GitHub Actions（新增 api-reference 漂移检查 job）、agent-browser（截图）、本地四组件栈（Go server / Node converter / React web / FastAPI edit-service）。
 
@@ -412,25 +412,25 @@ Detailed architecture: [Architecture](/en/development/architecture).
 | PostgreSQL | 14+ | issues/changes/overrides persistence | optional (file storage by default) |
 | IfcOpenShell source checkout | v0.8 | local editable dependency of ifcdiff | currently required (see below) |
 
-> **ifcdiff dependency note**: `viewer/edit-service/pyproject.toml` currently references the IfcOpenShell source checkout (`src/ifcdiff`) next to this repo as a local editable dependency. Before running edit-service you need an IfcOpenShell v0.8 checkout in a sibling directory. This is a documented deployment limitation; self-containment (vendor or git source) is tracked in the [Roadmap](/project/roadmap) (Chinese).
+> **ifcdiff dependency note**: `services/ifc/pyproject.toml` currently references the IfcOpenShell source checkout (`src/ifcdiff`) next to this repo as a local editable dependency. Before running edit-service you need an IfcOpenShell v0.8 checkout in a sibling directory. This is a documented deployment limitation; self-containment (vendor or git source) is tracked in the [Roadmap](/project/roadmap) (Chinese).
 
 ## Start (four terminals)
 
 ```bash
 # 0. One-time dependency install
-cd viewer/converter && npm install
+cd converter && npm install
 cd ../web && npm install
 cd ../edit-service && uv sync
 
-# 1. edit-service (:8100) — VIEWER_DATA_DIR must point to the absolute path of viewer/data
-cd viewer/edit-service
+# 1. edit-service (:8100) — VIEWER_DATA_DIR must point to the absolute path of data
+cd services/ifc
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
 
 # 2. Go server (:8090)
-cd viewer/server && go run ./cmd/server
+cd server && go run ./cmd/server
 
 # 3. web (:5173)
-cd viewer/web && npm run dev
+cd web && npm run dev
 ```
 
 Open `http://localhost:5173` and you are ready. Full configuration: [Configuration](/en/guide/configuration).
@@ -442,10 +442,10 @@ Open `http://localhost:5173` and you are ready. Full configuration: [Configurati
 cd viewer && ./scripts/smoke.sh
 
 # Per-layer tests
-cd viewer/server && go test ./...
-cd viewer/edit-service && uv run pytest
-cd viewer/web && npm test
-cd viewer/converter && npm test
+cd server && go test ./...
+cd services/ifc && uv run pytest
+cd web && npm test
+cd converter && npm test
 ```
 
 > Note: upload, conversion and review do not need edit-service or PostgreSQL; editing, versions and diff do.
@@ -458,7 +458,7 @@ cd viewer/converter && npm test
 
 The repository bundles an official buildingSMART sample IFC:
 
-`viewer/converter/test/fixtures/wall-with-opening-and-window.ifc`
+`converter/test/fixtures/wall-with-opening-and-window.ifc`
 
 ## Workflow
 
@@ -472,7 +472,7 @@ The repository bundles an official buildingSMART sample IFC:
 
 | Symptom | Action |
 | --- | --- |
-| Stuck in converting | Check the converter stderr in server logs; run `node viewer/converter/convert.js <ifc> <outDir>` manually; verify `nodeBin` / `converterScript` |
+| Stuck in converting | Check the converter stderr in server logs; run `node converter/convert.js <ifc> <outDir>` manually; verify `nodeBin` / `converterScript` |
 | Conversion failed | Retry with `POST /api/models/{id}/retry` |
 | Editing returns 404 model not found | `VIEWER_DATA_DIR` and the Go `dataDir` point to different directories |
 | Editing returns 422 | Attribute name or value type is wrong — the request had no side effects, fix and resend |
@@ -487,7 +487,7 @@ The full troubleshooting table: [Testing & Debugging](/development/testing) (Chi
 ```markdown
 # Configuration
 
-## Go server (`viewer/server/server_config.json`)
+## Go server (`server/server_config.json`)
 
 Paths are resolved relative to the process working directory (not the executable).
 
@@ -557,14 +557,14 @@ git commit -m "docs: add English quickstart section"
 ```mermaid
 graph LR
   subgraph Clients
-    UI[Browser<br/>React 19 + xeokit<br/>viewer/web]
+    UI[Browser<br/>React 19 + xeokit<br/>web]
     AI[AI Agent]
   end
 
   subgraph Services
-    GO[Go server :8090<br/>viewer/server<br/>orchestration / REST / storage abstraction]
-    PY[Python edit-service :8100<br/>viewer/edit-service<br/>FastAPI + IfcOpenShell]
-    CV[Node converter<br/>viewer/converter<br/>IFC → XKT + metadata.json]
+    GO[Go server :8090<br/>server<br/>orchestration / REST / storage abstraction]
+    PY[Python edit-service :8100<br/>services/ifc<br/>FastAPI + IfcOpenShell]
+    CV[Node converter<br/>converter<br/>IFC → XKT + metadata.json]
   end
 
   subgraph Storage
@@ -654,13 +654,13 @@ See [Environment & Local Deployment](/en/guide/quickstart). Development follows 
 
 ```bash
 # backend
-cd viewer/server && go test ./... && go vet ./...
+cd server && go test ./... && go vet ./...
 # edit service
-cd viewer/edit-service && uv run pytest
+cd services/ifc && uv run pytest
 # frontend
-cd viewer/web && npm test && npm run build
+cd web && npm test && npm run build
 # converter
-cd viewer/converter && npm test
+cd converter && npm test
 # documentation (public site + API reference drift)
 cd docs && npm ci && npm run docs:build && npm run check:api
 ```
@@ -678,7 +678,7 @@ cd docs && npm ci && npm run docs:build && npm run check:api
 
 - Commit messages follow the repository convention: `feat:` / `fix:` / `docs:` / `ci:` / `chore:` prefix plus a short Chinese or English description.
 - PRs to `main` run the viewer CI and the docs build; both must pass.
-- Never commit personal machine paths, secrets or runtime data (`viewer/data/`).
+- Never commit personal machine paths, secrets or runtime data (`data/`).
 
 ## License
 
@@ -992,12 +992,12 @@ AI agent ────────► REST direct ──────────�
 
 ```bash
 # 1) Python edit service (default port 8100)
-cd viewer/edit-service
+cd services/ifc
 uv sync
 uv run uvicorn app.main:app --port 8100
 
 # 2) Go server (default 127.0.0.1:8090)
-cd viewer/server
+cd server
 go run ./cmd/server
 ```
 
@@ -1071,7 +1071,7 @@ The full OpenAPI schema: [ai-tools.openapi.json](/ai-tools.openapi.json), export
 Regenerate after editing the editing API:
 
 ```bash
-cd viewer/edit-service
+cd services/ifc
 uv run python scripts/export_openapi.py
 ```
 
@@ -1128,7 +1128,7 @@ git commit -m "docs: add English API section and note machine-readable Go contra
 //
 // Generate docs/site/reference/edit-api-reference.md from the committed OpenAPI
 // schema at docs/site/public/ai-tools.openapi.json (exported from the FastAPI
-// edit-service by viewer/edit-service/scripts/export_openapi.py).
+// edit-service by services/ifc/scripts/export_openapi.py).
 // Deterministic output: stable sorting, no timestamps.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -1143,7 +1143,7 @@ const out = []
 out.push('# 编辑 API 参考（自动生成）', '')
 out.push(
   '> 本页由 `docs/scripts/gen-edit-api-reference.mjs` 从 `docs/site/public/ai-tools.openapi.json` 自动生成，**请勿手工编辑**。',
-  '> 源 schema 由 edit-service 导出（`viewer/edit-service/scripts/export_openapi.py`）；工作流与语义解释见 [IFC 编辑 API](/reference/edit-api)。',
+  '> 源 schema 由 edit-service 导出（`services/ifc/scripts/export_openapi.py`）；工作流与语义解释见 [IFC 编辑 API](/reference/edit-api)。',
   ''
 )
 out.push(`- 服务：${schema.info?.title ?? 'ifc-edit-service'} ${schema.info?.version ?? ''}`)
@@ -1210,7 +1210,7 @@ console.log(`wrote ${outPath}`)
 // Copyright (C) 2026 0702hjj
 //
 // Generate docs/site/public/go-rest-api.routes.json from the Go server's mux
-// registrations (viewer/server/internal/api/{api,edit}.go). Deterministic.
+// registrations (server/internal/api/{api,edit}.go). Deterministic.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -1225,14 +1225,14 @@ const endpoints = []
 for (const f of files) {
   const src = readFileSync(join(apiDir, f), 'utf8')
   for (const m of src.matchAll(endpointRe)) {
-    endpoints.push({ method: m[1], path: m[2], handler: m[3], file: `viewer/server/internal/api/${f}` })
+    endpoints.push({ method: m[1], path: m[2], handler: m[3], file: `server/internal/api/${f}` })
   }
 }
 endpoints.sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method))
 
 const contract = {
   service: 'viewer server (Go)',
-  source: 'viewer/server/internal/api/{api,edit}.go',
+  source: 'server/internal/api/{api,edit}.go',
   generatedBy: 'docs/scripts/gen-go-routes.mjs',
   note: 'Machine-readable endpoint inventory extracted from Go mux registrations. Human-readable contract: docs/site/reference/rest-api.md.',
   endpoints,
@@ -1313,7 +1313,7 @@ Expected: 了解截图与点击命令用法（`agent-browser open/screenshot/cli
 Run（仓库根，需批准后台进程与网络）:
 
 ```bash
-cd viewer/edit-service && VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 > /tmp/es.log 2>&1 &
+cd services/ifc && VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 > /tmp/es.log 2>&1 &
 cd ../server && go run ./cmd/server > /tmp/server.log 2>&1 &
 cd ../web && npm run dev -- --host 127.0.0.1 > /tmp/web.log 2>&1 &
 ```
@@ -1325,7 +1325,7 @@ Expected: 三个进程就绪；`curl -sf http://127.0.0.1:8090/api/models` 与 `
 Run（仓库根）:
 
 ```bash
-ID=$(curl -sf -F "file=@viewer/converter/test/fixtures/wall-with-opening-and-window.ifc" http://127.0.0.1:8090/api/models | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["id"])')
+ID=$(curl -sf -F "file=@converter/test/fixtures/wall-with-opening-and-window.ifc" http://127.0.0.1:8090/api/models | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["id"])')
 for i in $(seq 1 60); do
   ST=$(curl -sf http://127.0.0.1:8090/api/models/$ID | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["status"])')
   [ "$ST" = "ready" ] && break; sleep 2

@@ -8,11 +8,11 @@
 
 ## 背景
 
-`viewer/web/src/viewer/ChatSidebar.tsx` 只监听业务事件（:123-214），未监听 EventSource 原生 `error`：SSE 断连无 UI 反馈；事件帧为非法 JSON 时 `JSON.parse` 在回调内抛出，无容错。与 P1-4（chat.go SSE 无重同步）属同一可靠性面。
+`web/src/viewer/ChatSidebar.tsx` 只监听业务事件（:123-214），未监听 EventSource 原生 `error`：SSE 断连无 UI 反馈；事件帧为非法 JSON 时 `JSON.parse` 在回调内抛出，无容错。与 P1-4（chat.go SSE 无重同步）属同一可靠性面。
 
 ## 涉及位置
 
-- `viewer/web/src/viewer/ChatSidebar.tsx:121-214`
+- `web/src/viewer/ChatSidebar.tsx:121-214`
 
 ## 方案
 
