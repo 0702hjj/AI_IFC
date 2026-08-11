@@ -186,7 +186,9 @@ class TestMapSidecar:
         """W-0023：create_skeleton 骨架实体走 create_entity → 进 map，可 locate。
 
         骨架调用点指向用户脚本里的 create_skeleton 调用行（snippet 含
-        create_skeleton，非 script_lib 内部行）。
+        create_skeleton，非 script_lib 内部行）。origin 锁 ``"traced"``
+        （2026-08-11 用户裁决）：调用行无 key 关键字参数，无法自动改写，
+        只能定位（与 literal/params 的「可改写」语义区分）。
         """
         out = tmp_path / "out.ifc"
         script_runner.run_script(settings, LITERAL_SCRIPT, str(out))
@@ -195,7 +197,7 @@ class TestMapSidecar:
             entry = m[key]
             assert entry["line"] > 0
             assert "create_skeleton" in entry["snippet"]
-            assert entry["origin"] in ("literal", "params", "traced")
+            assert entry["origin"] == "traced"
 
     def test_rerun_same_script_map_bytes_identical(
         self, settings, tmp_path: Path
