@@ -5,17 +5,21 @@
 
 ## 项目是什么
 
-自托管、开源（AGPL-3.0）的 IFC 审查与编辑平台：script-as-source 编辑（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）、版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API、aiifc 建模 skill。
+自托管、开源（AGPL-3.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
+
+- **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc`（`viewer/edit-service/`）的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
+- **逻辑二：AI 生成 CAD**（skill 域已交付，diff/编辑 API 待建）——`skills/aidxfv/`（由 `AI_CAD/skills/aidxfv*` 渐进收敛）+ `services/cad`（待建，与 ifc 同构）。
+- **推荐项：Agent 工作流控制**（可选，做不好可删）——orchestrator + 事件总线，设计见 `2026-08-11-orchestrator-design.md`。
+
+两逻辑共享运行时骨架：`viewer/web`（可选前端）/ `viewer/server`（Go 网关 :8090）/ `viewer/converter`（Node 转换）/ `viewer/edit-service`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
 
 ```
-浏览器 (React+xeokit) ──► Go server :8090 ──► edit-service :8100 (FastAPI+IfcOpenShell)
+浏览器 (React+xeokit) ──► Go server :8090 ──► services/ifc（edit-service :8100, FastAPI+IfcOpenShell）
                                │                  └─ 脚本沙箱执行 + 版本 + diff
                                ├─► converter (Node, IFC→XKT)
 AI agent ──► REST 编辑 API ────┘
-           └─► skills/aiifc/（agent 直接写 ifcopenshell.api 代码）
+           └─► skills/aiifc（IFC）/ skills/aidxfv（CAD）（agent 直接写代码）
 ```
-
-能力域按 plan→DXF→IFC 三步走划分：`AI_CAD/` 是 plan/DXF 段（aidxfv1 通用 DXF 生成/校验、aidxfv2 建筑平面管线、aiblueprint-mcp，含调研材料；纯 skill 域，无服务运行时）；`viewer/` + `skills/aiifc/` 是 IFC 段（本平台）。段间经契约衔接（plan.json → DXF → 构建脚本 → IFC），不经代码耦合。
 
 ## 组件与命令
 

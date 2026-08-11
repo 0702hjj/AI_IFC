@@ -77,11 +77,16 @@ python tools/skill_pack_aiifc.py --archive   # 产出 skills/dist/aiifc.tar.gz
 
 ## 仓库布局
 
+平台提供**两个对等的逻辑**——AI 生成 IFC、AI 生成 CAD——外加一个可选的 Agent 工作流控制。每个逻辑把可分发的 **skill** 与 `services/` 业务逻辑核心（diff + 面向前端修改的接口协议）配对；前端、Go 网关、转换器与 PostgreSQL 是共享的可选运行时。见 [平台框架 spec](docs/superpowers/specs/2026-08-11-platform-framework-design.md)。
+
 ```
 AGENTS.md          # 人机协同契约（AI agent 入口）
-viewer/            # 活跃产品：IFC 平台（web / server / converter / edit-service / mcp-server）
-skills/aiifc/      # AI 建模 skill（可分发包，agent 无关）——plan→DXF→IFC 管线的 IFC 段
-AI_CAD/            # plan→DXF 段：aidxfv1（通用 DXF 生成/校验）/ aidxfv2（建筑平面管线）/ aiblueprint-mcp + 调研
+skills/aiifc/      # AI 建模 skill——IFC 逻辑（可分发包，agent 无关）
+skills/aidxfv/     # AI 制图 skill——CAD 逻辑（由 AI_CAD/skills/aidxfv* 渐进收敛）
+services/ifc/      # IFC 业务逻辑核心：diff + script-as-source 编辑 API（现为 viewer/edit-service）
+services/cad/      # CAD 业务逻辑核心：diff + 编辑 API（待建，与 services/ifc 同构）
+viewer/            # 共享运行时：web（可选前端）/ server（Go 网关）/ converter / edit-service / mcp-server
+AI_CAD/            # CAD skill 域 + 调研（skill 收敛进 skills/aidxfv，调研保留）
 tools/             # skill 打包器（skill_pack_aiifc.py）
 docs/site/         # 公开文档站（VitePress，发布到 GitHub Pages）
 docs/work/         # 工作项看板（审计/计划/可追踪工作项）
@@ -89,6 +94,8 @@ docs/internal/     # 内部团队文档（不发布）
 docs/superpowers/  # 设计规范与实施计划（过程产物）
 examples/          # IFC 时代示例脚本
 ```
+
+映射（渐进——存量路径不动，文档用目标名指代）：`viewer/edit-service/` 即 `services/ifc/`；`AI_CAD/skills/aidxfv*` 收敛进 `skills/aidxfv/`；`viewer/web|server|converter` 即共享可选运行时。
 
 SCAD 遗产代码（`src/`、`skills/simplecadapi/`、SCAD 时代打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
 

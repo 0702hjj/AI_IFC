@@ -77,11 +77,16 @@ python tools/skill_pack_aiifc.py --archive   # produces skills/dist/aiifc.tar.gz
 
 ## Repository layout
 
+The platform provides **two peer logic legs** — AI-generated IFC and AI-generated CAD — plus an optional Agent workflow control. Each logic leg pairs a distributable **skill** with a **services/** business-logic core (diff + frontend-facing edit API); the frontend, Go gateway, converter and PostgreSQL are shared, optional runtime. See [platform framework spec](docs/superpowers/specs/2026-08-11-platform-framework-design.md).
+
 ```
 AGENTS.md          # human-AI collaboration contract (agent entry point)
-viewer/            # active product: the IFC platform (web / server / converter / edit-service / mcp-server)
-skills/aiifc/      # AI authoring skill (distributable, agent-agnostic) — the IFC leg of plan→DXF→IFC
-AI_CAD/            # plan→DXF leg: aidxfv1 (general DXF gen/validation) / aidxfv2 (floor-plan pipeline) / aiblueprint-mcp + research
+skills/aiifc/      # AI authoring skill — IFC leg (distributable, agent-agnostic)
+skills/aidxfv/     # AI authoring skill — CAD leg (converging from AI_CAD/skills/aidxfv*)
+services/ifc/      # IFC business-logic core: diff + script-as-source editing API (currently viewer/edit-service)
+services/cad/      # CAD business-logic core: diff + editing API (to build, peer of services/ifc)
+viewer/            # shared runtime: web (optional frontend) / server (Go gateway) / converter / edit-service / mcp-server
+AI_CAD/            # CAD skill domain + research (converging into skills/aidxfv; research stays)
 tools/             # skill packager (skill_pack_aiifc.py)
 docs/site/         # public docs site (VitePress, published to GitHub Pages)
 docs/work/         # work-item board (audit, plans, trackable items)
@@ -89,6 +94,8 @@ docs/internal/     # internal team docs (not published)
 docs/superpowers/  # design specs and implementation plans (process artifacts)
 examples/          # IFC-era example scripts
 ```
+
+Mapping (progressive — existing paths stay, docs use the target names): `viewer/edit-service/` is `services/ifc/`; `AI_CAD/skills/aidxfv*` converge into `skills/aidxfv/`; `viewer/web|server|converter` are the shared optional runtime.
 
 The SimpleCADAPI heritage code (`src/`, `skills/simplecadapi/`, SCAD-era packaging files) was moved to the private archive repo [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive) on 2026-08-06; this repo no longer contains it.
 
