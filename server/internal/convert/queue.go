@@ -6,7 +6,9 @@ package convert
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 
 	"ifcviewer/server/internal/store"
@@ -98,6 +100,37 @@ func (q *Queue) Enqueue(id string) bool {
 	q.pending[id] = true
 	q.jobs <- id
 	return true
+}
+
+// EnqueueIfStale 重转去重：仅当 IFC 相比 XKT 更旧需要重转时才置 converting 并排队。
+// 同源未变（IFC mtime 不新于 XKT）→ 跳过并返回 false——调用点状态不动，保持 ready；
+// 多次 idle 重放/同脚本重复 run 的冗余全量重转被去掉。
+// 防误跳过：任何 stat 失败都保守重转（XKT 缺失 / IFC 缺失 / 权限错误均返回 true，
+// 宁可多转不可漏转）。返回 true 表示已置 converting 并（可能已）排队。
+// 注意 Enqueue 可能因已在队返回 false，此时仍返回 true（转换已在途）。
+// SetStatus(converting) 必须先于 Enqueue：保证本次任务的 ready/failed 一定在其后，
+// 避免 worker 先置 ready 再被 converting 覆盖而卡死（教训：flaky TestScriptMutating…）。
+func (q *Queue) EnqueueIfStale(id string) bool {
+	if !q.needsReconvert(id) {
+		return false
+	}
+	_ = q.st.SetStatus(id, "converting", "")
+	q.Enqueue(id)
+	return true
+}
+
+// needsReconvert 判断是否需要重转：IFC 缺失/stat 失败 → 保守重转；
+// XKT 缺失 → 重转；IFC mtime 新于 XKT → 重转；否则（mtime 不新于 XKT）→ 跳过。
+func (q *Queue) needsReconvert(id string) bool {
+	ifi, err := os.Stat(q.st.IFCPath(id))
+	if err != nil {
+		return true
+	}
+	xkt, err := os.Stat(filepath.Join(q.st.ModelDir(id), "model.xkt"))
+	if err != nil {
+		return true
+	}
+	return ifi.ModTime().After(xkt.ModTime())
 }
 
 func (q *Queue) work() {

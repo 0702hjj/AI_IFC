@@ -58,7 +58,8 @@ func (h *handler) scriptPost(action string) func(http.ResponseWriter, *http.Requ
 // scriptMutatingPost 用于会重写 uploads/{id}.ifc 的动作（run/save/rollback，
 // 见 edit-service routes_scripts.py _run_into_uploads）：成功后排 XKT 重转，
 // 否则前端 3D 不刷新（M5 集成缺口）。沙箱执行最长 60s（RUN_TIMEOUT_S），
-// 必须走 slow client（M5 终审 C2）。
+// 必须走 slow client（M5 终审 C2）。重转走 EnqueueIfStale 去重：run/save/rollback
+// 一定重写 uploads 使 mtime 更新，正常必然重转；仅并发/重放下 IFC 未变时跳过冗余重转。
 func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body := readBody(w, r)
@@ -69,12 +70,12 @@ func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *h
 		if !h.scriptProxyDo(w, r, http.MethodPost, "/models/"+modelID+"/script/"+action, body, h.ed.DoSlow) {
 			return
 		}
-		if err := h.st.SetStatus(modelID, "converting", ""); err != nil {
-			log.Printf("script %s %s: set converting: %v", action, modelID, err)
+		if !h.q.EnqueueIfStale(modelID) {
+			// 同源未变：IFC mtime 不新于 XKT → 跳过冗余重转，保持 ready。
+			log.Printf("script %s %s: reconvert skipped (IFC not newer than XKT)", action, modelID)
+			return
 		}
-		if !h.q.Enqueue(modelID) {
-			log.Printf("script %s %s: conversion already pending", action, modelID)
-		}
+		log.Printf("script %s %s: reconvert queued", action, modelID)
 	}
 }
 

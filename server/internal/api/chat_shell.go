@@ -91,13 +91,13 @@ func (h *ChatHandler) execAction(ctx context.Context, cs *chatSession, a Action)
 		return Event{}, nil
 
 	case ActionReconvert:
-		// run/save 已重写 uploads/{id}.ifc，必须重转。置 converting 失败 / 已在队均仅日志。
-		if err := h.deps.St.SetStatus(modelID, "converting", ""); err != nil {
-			log.Printf("chat: notify %s: set converting: %v", modelID, err)
+		// run/save 已重写 uploads/{id}.ifc，正常必重转；同源未变（IFC mtime 不新于
+		// XKT）的冗余重放（无脚本手术式路径、多次 idle 重触发）被去重跳过，保持 ready。
+		if !h.deps.Q.EnqueueIfStale(modelID) {
+			log.Printf("chat: notify %s: reconvert skipped (IFC not newer than XKT)", modelID)
+			return Event{}, nil
 		}
-		if !h.deps.Q.Enqueue(modelID) {
-			log.Printf("chat: notify %s: conversion already pending", modelID)
-		}
+		log.Printf("chat: notify %s: reconvert queued", modelID)
 		return Event{}, nil
 
 	case ActionNotify:

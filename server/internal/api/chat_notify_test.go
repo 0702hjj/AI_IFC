@@ -208,6 +208,42 @@ func TestNotifyNoScriptReloadOnly(t *testing.T) {
 	waitReady(t, st, mid)
 }
 
+// TestNotifyReconvertSkippedWhenNotStale 断言无脚本手术式路径 + IFC 未变
+//（mtime 不新于 XKT）时 notify 跳过重转：不发 converting、不入队，保持 ready——
+// 这是重转去重的核心收益（多次 idle 重放同源不再全量重转）。
+func TestNotifyReconvertSkippedWhenNotStale(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	h, st, runs := newNotifyTestHandler(t, pyURL)
+	cs := newNotifySession(t, h)
+	mid := cs.ModelID
+
+	py.set("DELETE", "/models/"+mid+"/pending", 200, `{"discarded":0}`)
+
+	// 造一个 mtime 不早于 IFC 的 XKT → 同源未变
+	base := time.Now()
+	if err := os.Chtimes(h.deps.St.IFCPath(mid), base, base); err != nil {
+		t.Fatal(err)
+	}
+	xkt := filepath.Join(h.deps.DataDir, "models", mid, "model.xkt")
+	if err := os.WriteFile(xkt, []byte("xkt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(xkt, base, base.Add(time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetStatus(mid, "ready", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	h.notify(cs)
+
+	assertNoRun(t, runs)
+	m, _ := st.Get(mid)
+	if m.Status != "ready" {
+		t.Fatalf("status = %s, want ready（重转跳过、不发 converting）", m.Status)
+	}
+}
+
 // TestNotifySaveVersionUnresolvableFails 断言 save 成功但版本不可解析
 //（响应未带 version，且兜底 GetVersions 失败 / 读到空 current）→ 显式
 // viewer.notify_failed(save_version)、不排重转、不推 committed、staging 脚本保留

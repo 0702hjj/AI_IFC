@@ -6,6 +6,8 @@ package convert
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -180,5 +182,119 @@ func TestShutdownCancelsInflightJob(t *testing.T) {
 	got, _ := st.Get(m.ID)
 	if got.Error == "" {
 		t.Fatal("expected cancellation error recorded")
+	}
+}
+
+// waitRuns 条件等待 runner 执行次数达标（异步写盘不得固定 sleep，教训 2026-08-06）。
+func waitRuns(t *testing.T, cr *countingRunner, want int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if cr.count() >= want {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("runs = %d, want >= %d", cr.count(), want)
+}
+
+// writeXKT 在 models/{id}/ 下写 model.xkt 并把 mtime 设为 t。
+func writeXKT(t *testing.T, st *store.Store, id string, mt time.Time) {
+	t.Helper()
+	xkt := filepath.Join(st.ModelDir(id), "model.xkt")
+	if err := os.WriteFile(xkt, []byte("xkt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(xkt, mt, mt); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestEnqueueIfStale 断言同源去重：IFC mtime 不新于 XKT → 跳过（false、不入队）；
+// IFC 更新（mtime 新于 XKT）→ 重转（true、入队）。
+func TestEnqueueIfStale(t *testing.T) {
+	st := store.NewStore(t.TempDir())
+	m, _ := st.Create("stale.ifc", 1, strings.NewReader("x"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cr := &countingRunner{}
+	q := NewQueue(st, cr, 1)
+	q.Start(ctx)
+
+	base := time.Now()
+	if err := os.Chtimes(st.IFCPath(m.ID), base, base); err != nil {
+		t.Fatal(err)
+	}
+	writeXKT(t, st, m.ID, base.Add(time.Minute))
+
+	if q.EnqueueIfStale(m.ID) {
+		t.Fatal("IFC mtime 早于 XKT：期望跳过（false）")
+	}
+	if n := cr.count(); n != 0 {
+		t.Fatalf("runs = %d, want 0（跳过不入队）", n)
+	}
+
+	if err := os.Chtimes(st.IFCPath(m.ID), base, base.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if !q.EnqueueIfStale(m.ID) {
+		t.Fatal("IFC mtime 新于 XKT：期望重转（true）")
+	}
+	waitRuns(t, cr, 1)
+}
+
+// TestEnqueueIfStaleConservative 断言保守原则：XKT 缺失 / IFC 缺失 → 都返回 true 重转。
+func TestEnqueueIfStaleConservative(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	st := store.NewStore(t.TempDir())
+	m, _ := st.Create("no-xkt.ifc", 1, strings.NewReader("x"))
+	cr := &countingRunner{}
+	q := NewQueue(st, cr, 1)
+	q.Start(ctx)
+	if !q.EnqueueIfStale(m.ID) {
+		t.Fatal("XKT 缺失：期望保守重转（true）")
+	}
+	waitRuns(t, cr, 1)
+
+	st2 := store.NewStore(t.TempDir())
+	m2, _ := st2.Create("no-ifc.ifc", 1, strings.NewReader("x"))
+	cr2 := &countingRunner{}
+	q2 := NewQueue(st2, cr2, 1)
+	q2.Start(ctx)
+	if err := os.Remove(st2.IFCPath(m2.ID)); err != nil {
+		t.Fatal(err)
+	}
+	if !q2.EnqueueIfStale(m2.ID) {
+		t.Fatal("IFC 缺失：期望保守重转（true）")
+	}
+	waitRuns(t, cr2, 1)
+}
+
+// TestEnqueueIfStaleEqualMtime 断言 mtime 相等（IFC 恰好等于 XKT）也跳过——
+// 严格「不新于」语义：IFC mtime <= XKT mtime → false。
+func TestEnqueueIfStaleEqualMtime(t *testing.T) {
+	st := store.NewStore(t.TempDir())
+	m, _ := st.Create("equal.ifc", 1, strings.NewReader("x"))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cr := &countingRunner{}
+	q := NewQueue(st, cr, 1)
+	q.Start(ctx)
+
+	base := time.Now()
+	if err := os.Chtimes(st.IFCPath(m.ID), base, base); err != nil {
+		t.Fatal(err)
+	}
+	writeXKT(t, st, m.ID, base)
+
+	if q.EnqueueIfStale(m.ID) {
+		t.Fatal("IFC mtime == XKT mtime：期望跳过（false）")
+	}
+	if n := cr.count(); n != 0 {
+		t.Fatalf("runs = %d, want 0", n)
 	}
 }
