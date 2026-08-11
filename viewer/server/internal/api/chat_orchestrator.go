@@ -9,7 +9,6 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -93,7 +92,7 @@ func (h *ChatHandler) createProject(w http.ResponseWriter, r *http.Request) {
 }
 
 // onEvent 是 P2 三连触发器：file.edited 命中工作区 → 置 dirty；
-// session.idle + dirty + bound → 异步执行 notify 三连。
+// session.idle + dirty + bound → 异步执行 notify（Core+Shell 闭环落盘）。
 func (h *ChatHandler) onEvent(ev opencode.Event) {
 	switch ev.Type {
 	case "file.edited":
@@ -161,93 +160,29 @@ func modelIDFromEditedFile(file string) string {
 
 var modelIDRe = regexp.MustCompile(`^m_[0-9a-f]{16}$`)
 
-// notify 是 AI 大改后的固定流程（顺序不可换）：
-// ① DELETE pending（强制 edit-service 从磁盘重载 = 坏文件自检，防旧内存模型覆盖 agent 的修改）
-// ② staging 有构建脚本（{dataDir}/staging/{modelId}.py）→ script 管线：
-//   PUT /script（暂存）→ POST /script/run（沙箱试跑）→ POST /script/save（落 v{n}
-//   大版本 + IFC 快照）；无脚本（手术式编辑）→ 跳过，仅重转。
-// ③ 置 converting + 入队重转（run/save 已重写 uploads/{id}.ifc，必须重转）。
-// 完成后向该会话推送 viewer.committed；失败推 viewer.notify_failed。
+// notify 是 AI 大改后的固定流程入口（Shell 壳）：组装第一轮 Event + NotifyState
+// （读 staging 注入 Script），交给 Core+Shell 闭环执行。
+// 流程（决策在 planNotify，顺序即契约）：
+// 第一轮 idle+dirty+bound → DELETE pending（坏文件自检）→ 有脚本则 PUT /script →
+// run → save；saved 事件驱动第二轮 archive + 重转 + viewer.committed；无脚本路径
+// discard 后即重转 + viewer.committed（空版本）；任一步失败 → viewer.notify_failed。
 func (h *ChatHandler) notify(cs *chatSession) {
-	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
 	defer cancel()
 	modelID := cs.ModelID
-	fail := func(step string, err error) {
-		log.Printf("chat: notify %s step %s failed: %v", modelID, step, err)
-		h.pushSystem(cs.ID, "viewer.notify_failed", map[string]any{
-			"modelId": modelID, "step": step, "reason": err.Error(),
-		})
-	}
-
-	if _, err := h.deps.Ed.DeletePending(ctx, modelID); err != nil {
-		fail("discard_pending", err)
-		return
-	}
-	version := ""
+	st := NotifyState{Dirty: true, Bound: true}
 	scriptPath := filepath.Join(h.deps.DataDir, "staging", modelID+".py")
 	if fileExists(scriptPath) {
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
-			fail("read_staging_script", err)
+			h.runFailed(ctx, cs, "read_staging_script", err)
 			return
 		}
-		stageBody, _ := json.Marshal(map[string]any{"script": string(content)})
-		if _, err := h.deps.Ed.Do(ctx, http.MethodPut, "/models/"+modelID+"/script", stageBody); err != nil {
-			fail("stage_script", err)
-			return
-		}
-		if _, err := h.deps.Ed.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/run", nil); err != nil {
-			fail("run_script", err)
-			return
-		}
-		saveRaw, err := h.deps.Ed.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/save", nil)
-		if err != nil {
-			fail("save_script", err)
-			return
-		}
-		var saveResp struct {
-			Version string `json:"version"`
-		}
-		if err := json.Unmarshal(saveRaw, &saveResp); err != nil || saveResp.Version == "" {
-			// 兜底：save 响应解码失败（或未带 version）时回退查 versions current
-			//（save 已落盘，GetVersions 必可读到新版本）。
-			if vers, verr := h.deps.Ed.GetVersions(ctx, modelID); verr == nil && vers.Current != "" {
-				version = vers.Current
-			} else {
-				// 版本不可解析 = script 管线契约破坏（save 成功必产生版本）。
-				// 显式 fail：空版本会让 archiveStagingArtifact 静默跳过 → staging 脚本
-				// 滞留 → 下次 idle 再次触发重复 save，且 committed 假报空版本。
-				var cause error
-				switch {
-				case err != nil:
-					cause = fmt.Errorf("decode save response: %w", err)
-				case verr != nil:
-					cause = fmt.Errorf("fallback GetVersions: %w", verr)
-				default:
-					cause = errors.New("save succeeded but no version (decode ok, versions current empty)")
-				}
-				fail("save_version", cause)
-				return
-			}
-		} else {
-			version = saveResp.Version
-		}
+		st.HasStagingScript = true
+		st.Script = string(content)
 	}
-	// 重转：script save / 手术式编辑均已重写 uploads/{id}.ifc
-	if err := h.deps.St.SetStatus(modelID, "converting", ""); err != nil {
-		log.Printf("chat: notify %s: set converting: %v", modelID, err)
-	}
-	if !h.deps.Q.Enqueue(modelID) {
-		log.Printf("chat: notify %s: conversion already pending", modelID)
-	}
-	// ⑤ 制品归档（过程与结果同存，随版本同步）：staging/{modelId}.py → scripts/v{n}.py。
-	// 无对应 staging 文件则跳过（手术式编辑无脚本）。
-	h.archiveStagingArtifact(modelID, version, modelID+".py", "scripts", "py")
-	out := map[string]any{
-		"modelId": modelID, "version": version, "committed": true,
-	}
-	log.Printf("chat: notify %s committed (version %s)", modelID, version)
-	h.pushSystem(cs.ID, "viewer.committed", out)
+	ev := newEvent("aiifc://chat/"+cs.ID+"/idle", modelID, cs.ID, map[string]any{})
+	h.runShell(ctx, cs, ev, st)
 }
 
 func fileExists(path string) bool {
