@@ -54,7 +54,7 @@ Model ids must match `^m_[0-9a-f]{16}$`, mapped to `uploads/{id}.ifc`:
 
 ## Callable endpoint catalog
 
-Errors are FastAPI-shaped `{"detail": ...}`; **direct calls have no `{code, message, data}` envelope** — that is added by the Go server proxy (`code=0` on success, see [IFC Editing API](/en/reference/edit-api)). Machine-readable schema: [Editing API Reference (generated)](/reference/edit-api-reference).
+Errors are FastAPI-shaped `{"detail": ...}`; **direct calls have no `{code, message, data}` envelope** — that is added by the Go server proxy (`code=0` on success, see [IFC Editing API](/en/reference/edit-api)). Machine-readable schema: [Editing API Reference (generated)](/reference/edit-api-reference) (Chinese).
 
 ### script-as-source editing (`app/routes_scripts.py`)
 
@@ -79,7 +79,6 @@ Errors are FastAPI-shaped `{"detail": ...}`; **direct calls have no `{code, mess
 | --- | --- |
 | `GET /models/{id}/versions` | version list + current version |
 | `POST /models/{id}/diff` | body `{"base": "v1", "target": "v2"}` (target may be `"current"`); GlobalId-keyed `added/removed/changed` field-level semantic diff |
-| `POST /models/{id}/diff/upload` | multipart upload of a user-modified IFC vs current state (not persisted, not cached); adds a `labels` map |
 
 ### read-only pending / history & user-edits (`routes_edits.py` / `routes_user_edits.py`)
 
@@ -89,6 +88,7 @@ Errors are FastAPI-shaped `{"detail": ...}`; **direct calls have no `{code, mess
 | `DELETE /models/{id}/pending` | discard pending |
 | `GET /models/{id}/history` | persisted edit history (read-only; new records come from `user-edits`) |
 | `POST /models/{id}/user-edits` | record external user edits (`origin: "ifc-upload"|"dxf-upload"`) into history, stamped `source="USER"` |
+| `POST /models/{id}/diff/upload` | multipart upload of a user-modified IFC vs current state (not persisted, not cached); adds a `labels` map |
 
 ### Retired endpoints (410 Gone)
 

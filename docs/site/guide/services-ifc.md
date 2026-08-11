@@ -79,7 +79,6 @@ VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
 | --- | --- |
 | `GET /models/{id}/versions` | 版本快照列表 + 当前版本 |
 | `POST /models/{id}/diff` | body `{"base": "v1", "target": "v2"}`（target 可为 `"current"`）；GlobalId 级 `added/removed/changed` 字段级语义 diff |
-| `POST /models/{id}/diff/upload` | multipart 上传用户改后 IFC 与现态对比（不落盘、不缓存），响应多 `labels` |
 
 ### 只读 pending / history 与 user-edits（`routes_edits.py` / `routes_user_edits.py`）
 
@@ -89,6 +88,7 @@ VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
 | `DELETE /models/{id}/pending` | 丢弃 pending |
 | `GET /models/{id}/history` | 持久化编辑历史（只读；新增记录来自 `user-edits`） |
 | `POST /models/{id}/user-edits` | 把外部用户修改事件（`origin: "ifc-upload"|"dxf-upload"`）登记进 history，stamped `source="USER"` |
+| `POST /models/{id}/diff/upload` | multipart 上传用户改后 IFC 与现态对比（不落盘、不缓存），响应多 `labels` |
 
 ### 退役端点（410 Gone）
 

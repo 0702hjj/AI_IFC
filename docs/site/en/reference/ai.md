@@ -33,6 +33,8 @@ go run ./cmd/server
 
 **dataDir consistency**: `VIEWER_DATA_DIR` must point to the same directory as the Go `server_config.json` `dataDir` (both locate model files at `{dataDir}/uploads/{id}.ifc`).
 
+> **Standalone deployment without the viewer**: AI agents can skip the Go server / web / converter / PostgreSQL entirely — install only `services/ifc/` (`uv sync`) and use the exact same endpoints for script editing, versions, and diffs. Standalone deployment, model file layout, full endpoint catalog, optionality boundary, and porting guide: [services/ifc standalone deployment & invocation](/en/guide/services-ifc).
+
 ## Direct AI flow (curl)
 
 Prerequisite: a model exists (id like `m_` + 16 lowercase hex) with its file at `{VIEWER_DATA_DIR}/uploads/{id}.ifc`.

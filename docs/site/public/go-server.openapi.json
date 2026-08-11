@@ -1000,6 +1000,16 @@
                 }
               }
             }
+          },
+          "504": {
+            "description": "diff timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         },
         "requestBody": {

@@ -390,6 +390,7 @@ export const errorCodes = {
   40900: { status: 409, description: '状态冲突（无脚本可执行/无可撤销/暂存步骤不足等）' },
   50000: { status: 500, description: '服务器内部错误' },
   50200: { status: 502, description: '上游服务不可达或错误（edit-service / opencode）' },
+  50400: { status: 504, description: 'diff timed out' },
 }
 
 function modelIdParam() {
@@ -700,7 +701,7 @@ export const endpoints = {
     responses: {
       200: { description: 'ok', data: '#/components/schemas/DiffResult' },
     },
-    errors: ['40001', '40400', '40900', '50200'],
+    errors: ['40001', '40400', '40900', '50200', '50400'],
   },
   'GET /api/v1/models/{id}/edit/history': {
     summary: '编辑历史（代理 edit-service，只读）',
