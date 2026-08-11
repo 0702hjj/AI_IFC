@@ -11,7 +11,8 @@ AGENTS.md「校验与业务隔离」硬规则：业务规则校验必须住在 `
 - 模块 ``route_common.py`` 内（单点 helper）。
 
 判定粒度：raise 所在的「最小函数」。若该函数名不是 verify*/validate* 且模块不是
-route_common，即违规。
+route_common，即违规。别名 import（``from fastapi import HTTPException as H``）的
+``raise H(...)`` 按同一判定（W-0024 逃逸补丁，见自证）。
 
 机器强制的目标是「新代码不得违规」：存量违规以显式 ``ALLOWLIST`` 登记（保证 CI 绿），
 新 handler 内联 raise 不在白名单 → 变红。存量违规的收拢无专项 deadline（W-0024
@@ -60,10 +61,21 @@ def violations_in_module(tree: ast.AST, module_name: str) -> list[tuple[str, int
     判定：``raise HTTPException`` 所在的最小函数名既非 verify*/validate*、
     模块又非 route_common.py，即违规。verify*/validate* 函数内 raise 合法；
     route_common.py 整体豁免（单点 helper 的合法翻译点）。
+
+    W-0024 逃逸补丁：别名 import（``from fastapi import HTTPException as H``）的
+    ``raise H(...)`` 按同一判定（别名名纳入异常名集合）。作用域内重绑定
+    （函数内局部 ``H = ...`` 遮蔽）不在契约测试范围。
     """
     if module_name == "route_common.py":
         return []
     found: list[tuple[str, int]] = []
+    # 收集模块级别名：``from fastapi import HTTPException as H`` → H 也算。
+    exception_names = {"HTTPException"}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module == "fastapi":
+            for alias in node.names:
+                if alias.name == "HTTPException":
+                    exception_names.add(alias.asname or "HTTPException")
 
     class _V(ast.NodeVisitor):
         def __init__(self) -> None:
@@ -89,7 +101,7 @@ def violations_in_module(tree: ast.AST, module_name: str) -> list[tuple[str, int
             if (
                 isinstance(node.exc, ast.Call)
                 and isinstance(node.exc.func, ast.Name)
-                and node.exc.func.id == "HTTPException"
+                and node.exc.func.id in exception_names
             ):
                 func = self.stack[-1] if self.stack else "<module>"
                 if not VERIFY_RE.match(func):
@@ -189,3 +201,43 @@ def test_checker_accepts_route_common_module():
     assert violations_in_module(tree, "route_common.py") == []
     # 同一代码若放在 routes_* 里则必须检出（模块豁免是真实豁免，不是检查逻辑失效）
     assert ("model_upload_path", 5) in violations_in_module(tree, "routes_x.py")
+
+
+ALIAS_VIOLATING_SAMPLE = """\
+from fastapi import APIRouter, HTTPException as H
+
+router = APIRouter()
+
+
+@router.get("/models/{id}/script")
+def get_script_alias(id: str) -> str:
+    if not id:
+        raise H(status_code=404, detail="no script for model")
+    return id
+"""
+
+ALIAS_VERIFY_SAMPLE = """\
+from fastapi import HTTPException as H
+
+
+def verify_script_body_alias(body):
+    if body is None:
+        raise H(status_code=422, detail="body required")
+"""
+
+
+def test_checker_detects_alias_import_raise():
+    """自证：别名 import（``HTTPException as H``）的 ``raise H(...)`` 必须被检出。
+
+    W-0024 逃逸补丁：检查若只匹配字面 ``HTTPException`` 标识符，别名 import 可
+    绕过（raise 体完全相同，仅名不同）。检出别名即按同一判定。
+    """
+    tree = ast.parse(ALIAS_VIOLATING_SAMPLE)
+    viol = violations_in_module(tree, "routes_x.py")
+    assert ("get_script_alias", 9) in viol, f"检查逻辑未检出别名 raise: {viol}"
+
+
+def test_checker_accepts_verify_function_alias_raise():
+    """自证：别名 raise 落在 verify* 函数内仍合法，不得误报。"""
+    tree = ast.parse(ALIAS_VERIFY_SAMPLE)
+    assert violations_in_module(tree, "routes_x.py") == []

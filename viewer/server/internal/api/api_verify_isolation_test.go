@@ -40,6 +40,13 @@ type writeErrCall struct {
 	line     int
 }
 
+// handlerBody 是一个待扫描的 handler 体：方法/闭包工厂用方法名，内联闭包用路由
+// pattern（无方法名，如 "GET /api/v1/closure"）。
+type handlerBody struct {
+	name string
+	body ast.Node
+}
+
 // httpStatusNameCode 是 net/http 状态码常量名 → 数值映射（自足，不依赖 type-checker）。
 var httpStatusNameCode = map[string]int{
 	"StatusOK":                            200,
@@ -134,13 +141,15 @@ func statusArgCode(arg ast.Expr) int {
 // inlineWriteErrCalls 扫描一组 Go 源文件，返回注册路由的 handler 体内
 // 直接调用的 writeErr（非 400 状态码，即可静态判定的违规点）。
 //
-// handler 判定：在 HandleFunc 调用中被引用的方法（h.upload）或闭包工厂
-// （h.scriptPost(...) / h.serveModelFile(...)）。嵌套闭包（handler 工厂返回的
-// FuncLit）视为 handler 代码的一部分一并检查。
+// handler 判定：在 HandleFunc 调用中被引用的方法（h.upload）、闭包工厂
+// （h.scriptPost(...) / h.serveModelFile(...)），或内联闭包（mux.HandleFunc(path,
+// func(w, r){...})）。嵌套闭包（handler 工厂返回的 FuncLit）视为 handler 代码的
+// 一部分一并检查；内联闭包 handler 以路由 pattern 字符串为名（无方法名）。
 func inlineWriteErrCalls(files []string) ([]writeErrCall, error) {
 	fset := token.NewFileSet()
 	funcs := map[string]*ast.FuncDecl{}
-	handlers := map[string]bool{}
+	var handlerBodies []handlerBody
+	seen := map[string]bool{}
 	var trees []*ast.File
 	for _, f := range files {
 		src, err := os.ReadFile(f)
@@ -158,6 +167,14 @@ func inlineWriteErrCalls(files []string) ([]writeErrCall, error) {
 			}
 		}
 	}
+	// addHandler 去重登记一个 handler 体（方法/闭包工厂按方法名，闭包按 pattern）。
+	addHandler := func(name string, body ast.Node) {
+		if seen[name] {
+			return
+		}
+		seen[name] = true
+		handlerBodies = append(handlerBodies, handlerBody{name: name, body: body})
+	}
 	for _, tree := range trees {
 		ast.Inspect(tree, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
@@ -168,24 +185,38 @@ func inlineWriteErrCalls(files []string) ([]writeErrCall, error) {
 			if !ok || sel.Sel.Name != "HandleFunc" || len(call.Args) < 2 {
 				return true
 			}
+			if lit, ok := call.Args[1].(*ast.FuncLit); ok {
+				// 内联闭包 handler：mux.HandleFunc("GET /api/v1/x", func(w, r){...})
+				pattern := ""
+				if s, ok := call.Args[0].(*ast.BasicLit); ok && s.Kind == token.STRING {
+					if v, err := strconv.Unquote(s.Value); err == nil {
+						pattern = v
+					}
+				}
+				if pattern == "" {
+					pattern = "<closure>"
+				}
+				addHandler(pattern, lit)
+				return true
+			}
 			switch a := call.Args[1].(type) {
 			case *ast.SelectorExpr: // h.upload
-				handlers[a.Sel.Name] = true
+				if fd := funcs[a.Sel.Name]; fd != nil {
+					addHandler(a.Sel.Name, fd)
+				}
 			case *ast.CallExpr: // h.scriptPost("undo")
 				if s, ok := a.Fun.(*ast.SelectorExpr); ok {
-					handlers[s.Sel.Name] = true
+					if fd := funcs[s.Sel.Name]; fd != nil {
+						addHandler(s.Sel.Name, fd)
+					}
 				}
 			}
 			return true
 		})
 	}
 	var out []writeErrCall
-	for name := range handlers {
-		fd := funcs[name]
-		if fd == nil {
-			continue
-		}
-		ast.Inspect(fd, func(n ast.Node) bool {
+	for _, h := range handlerBodies {
+		ast.Inspect(h.body, func(n ast.Node) bool {
 			call, ok := n.(*ast.CallExpr)
 			if !ok {
 				return true
@@ -204,7 +235,7 @@ func inlineWriteErrCalls(files []string) ([]writeErrCall, error) {
 			}
 			if status := statusArgCode(call.Args[1]); status != 0 && status != http.StatusBadRequest {
 				out = append(out, writeErrCall{
-					funcName: name, status: status, line: fset.Position(call.Pos()).Line,
+					funcName: h.name, status: status, line: fset.Position(call.Pos()).Line,
 				})
 			}
 			return true
@@ -366,5 +397,67 @@ func (h *handler) registerTrans(mux *http.ServeMux) {
 	}
 	if len(gotExempt) > 0 {
 		t.Fatalf("自证失败：请求形状校验 400 / 翻译 helper 被误报（calls=%+v）", calls)
+	}
+}
+
+func TestCheckerDetectsClosureHandlerWriteErr(t *testing.T) {
+	// 自证：mux.HandleFunc(path, func(w, r){...}) 内联闭包 handler 也必须被扫描
+	// （W-0024 逃逸补丁：此前只扫注册为方法引用的 handler，闭包形态可绕过）。
+	dir := t.TempDir()
+	files := map[string]string{
+		"clos.go": `package api
+
+import "net/http"
+
+func (h *handler) registerClosure(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/v1/closure", func(w http.ResponseWriter, r *http.Request) {
+		writeErr(w, http.StatusNotFound, codeNotFound, "closure model not found")
+	})
+}
+`,
+		"closok.go": `package api
+
+import "net/http"
+
+func (h *handler) registerClosureOk(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/v1/closure-ok", func(w http.ResponseWriter, r *http.Request) {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "invalid json body")
+	})
+}
+`,
+		"clostrans.go": `package api
+
+import "net/http"
+
+func (h *handler) registerClosureTrans(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/v1/closure-trans", func(w http.ResponseWriter, r *http.Request) {
+		writeEditErr(w, someErr)
+	})
+}
+`,
+	}
+	var paths []string
+	for name, body := range files {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, p)
+	}
+	calls, err := inlineWriteErrCalls(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got404 bool
+	for _, c := range calls {
+		if c.funcName == "GET /api/v1/closure" && c.status == http.StatusNotFound {
+			got404 = true
+		}
+		if c.funcName == "GET /api/v1/closure-ok" || c.funcName == "GET /api/v1/closure-trans" {
+			t.Fatalf("自证失败：闭包 handler 400 / 翻译 helper 被误报（calls=%+v）", calls)
+		}
+	}
+	if !got404 {
+		t.Fatalf("自证失败：内联闭包 handler 的 writeErr 404 未被检出（calls=%+v）", calls)
 	}
 }
