@@ -33,6 +33,8 @@ go run ./cmd/server
 
 **dataDir 一致性**：`VIEWER_DATA_DIR` 必须与 Go `server_config.json` 的 `dataDir` 指向同一目录（两边都按 `{dataDir}/uploads/{id}.ifc` 定位模型文件）。
 
+> **脱离 viewer 独立部署**：AI agent 可以不装 Go server / web / converter / PostgreSQL，只装 `services/ifc/`（`uv sync`）即可用上述同一套端点做脚本编辑、版本与 diff。独立部署、模型文件布局、端点全清单、可缺省边界与移植指南见 [services/ifc 独立部署与调用](/guide/services-ifc)。
+
 ## AI 直连全流程（curl）
 
 前提：已有一个模型（id 形如 `m_` + 16 位小写 hex），文件在 `{VIEWER_DATA_DIR}/uploads/{id}.ifc`。

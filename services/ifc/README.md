@@ -1,15 +1,15 @@
 # ifc-edit-service
 
-IFC 模型编辑服务（FastAPI + ifcopenshell）。迭代 N+2 起为 viewer 栈提供真实的 IFC 编辑能力：`/health` + `ModelRegistry`（模型缓存 / 原子保存 / 每路径文件锁）+ 实体编辑 API（pending/commit 两阶段 + history）。
+IFC 业务逻辑核心（FastAPI + ifcopenshell）：**script-as-source 编辑 API**（`PUT /script` 暂存 → `script/run` 沙箱试运行 → `script/save` 大版本）+ 版本快照与语义 diff。可脱离 Go server / web / converter / PostgreSQL 独立部署与调用，详见文档站 [services/ifc 独立部署与调用](https://0702hjj.github.io/AI_IFC/guide/services-ifc.html)。
 
 ## 运行
 
 ```bash
 uv sync
-uv run uvicorn app.main:app --port 8100
+VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
 ```
 
-配置（环境变量）：`EDIT_SERVICE_PORT`（默认 8100）、`VIEWER_DATA_DIR`（默认 `../data`，与 server 数据目录语义一致）。
+配置（环境变量）：`EDIT_SERVICE_PORT`（默认 8100）、`VIEWER_DATA_DIR`（默认 `../data`，建议绝对路径）、`AIIFC_FLOWS_DIR`（默认 `../../skills/aiifc/references/docs/flows`，沙箱脚本契约校验依赖 aiifc skill flows）、`EDIT_SERVICE_MAX_MODELS`（默认 8）。
 
 ## 编辑 API
 
@@ -17,44 +17,18 @@ uv run uvicorn app.main:app --port 8100
 
 | 端点 | 语义 |
 | --- | --- |
-| `PUT /models/{id}/entities/{guid}` | 把 `fields`（实体直接属性）/`psets`（pset 单值属性，不存在则创建）应用到内存模型并记为一条 pending change（不落盘）。body：`{"fields": {...}, "psets": {...}, "author": "local-user", "provenance": {"source": "UI"\|"AI"\|"USER", "origin"?}}`。先全量校验再应用（原子）；属性不存在 / 类型不符 / 坏 provenance → 422；guid 或模型不存在 → 404 |
-| `GET /models/{id}/pending` | 列出当前 pending changes |
-| `POST /models/{id}/commit` | 全部 pending 原子落盘（持锁）→ 追加 history（entries 补 `"operation": "update"`）→ 清空 pending；返回 `{committed, entries}`；无 pending → 409 |
-| `DELETE /models/{id}/pending` | 丢弃 pending：卸载并重新从磁盘加载模型 |
-| `GET /models/{id}/history` | 列出 history |
+| `GET/PUT /models/{id}/script` | 读当前脚本 / 暂存一次编辑（整体替换或仅改 PARAMS） |
+| `GET /models/{id}/script/params` · `POST .../undo|redo|discard` | PARAMS 提取 / 暂存导航与放弃 |
+| `POST /models/{id}/script/run` | 沙箱试运行（预览，无版本） |
+| `POST /models/{id}/script/save` | 晋升大版本（`scripts/v{n}.py` + `v{n}.map.json` 全留，`versions/v{n}.ifc` 只留最新） |
+| `GET /models/{id}/scripts` · `POST .../script/rollback` · `.../diff` · `GET .../staging/diff` | 大版本列表 / 回退 / 脚本 diff / 暂存步 diff |
+| `GET /models/{id}/script/locate?guid=` · `POST .../script/edit-call` | guid→调用点定位 / libcst 标量改写（edit-call 仅直连） |
+| `GET /models/{id}/versions` · `POST /models/{id}/diff` · `POST .../diff/upload` | 版本列表 / 版本间语义 diff / 上传对比 |
+| `GET/DELETE /models/{id}/pending` · `GET /models/{id}/history` | 只读保留（pending 为 script-run 回放簿记；history 只增） |
+| `POST /models/{id}/user-edits` | 登记外部用户修改（`source="USER"`） |
+| `PUT/DELETE /models/{id}/entities/{guid}` · `GET .../editable-schema` · `POST /models/{id}/commit` | **退役，410 Gone**（直改 IFC 已废弃，一切修改走构建脚本；回捞锚点 `fb55a8a`） |
 
-history 持久化在 `{VIEWER_DATA_DIR}/models/{id}/edit-history.json`（原子写），每条 entry 记录从 IFC 读到的真实 `oldValue`（pset 属性原本不存在时为 `null`）。
-
-**注意**：pending changes 只存在于内存（按模型 id）；服务重启会丢失未 commit 的 pending（v1 可接受行为），history 不受影响。
-
-## 版本快照与 diff
-
-版本快照规则（`app/versions.py`，版本文件只增不改、原子写 tmp + os.replace）：
-
-- 快照存放在 `{VIEWER_DATA_DIR}/models/{id}/versions/v{n}.ifc`（n 从 1 开始）。
-- 首次 commit：先把 `uploads/{id}.ifc`（原始上传态）复制为 `v1.ifc`，落盘后把新文件复制为 `v2.ifc`。
-- 之后每次 commit 成功：新落盘文件复制为 `v{n+1}.ifc`。
-
-| 端点 | 语义 |
-| --- | --- |
-| `GET /models/{id}/versions` | `{"versions": [{"version": "v1", "createdAt": ...}, ...], "current": "v2"}`；未 commit 过时 versions 为空、current 为 null |
-| `POST /models/{id}/diff` | body `{"base": "v1", "target": "v2"}`（target 也接受 `"current"` = uploads 现态）。返回 `{"base", "target", "added": [guid], "removed": [guid], "changed": [{"guid", "changes": [{"field", "old", "new"}]}]}`；版本不存在 → 404；缺参 → 422 |
-| `POST /models/{id}/diff/upload` | multipart 上传用户改后的 IFC，与 uploads 现态跑同一套语义 diff（不落盘、不缓存）。返回 `{"base": "current", "target": "upload", ...diff, "labels": {guid: {"name", "type"}}}`（removed 的 label 取自基线文件）；模型不存在 → 404；非 IFC → 422 |
-| `POST /models/{id}/user-edits` | 把结构化「用户修改事件」追加到 edit-history：body `{"origin": "ifc-upload"\|"dxf-upload", "author"?, "events": [{"guid", "name"?, "kind": "added"\|"removed"\|"modified", "changes": [{"field", "oldValue", "newValue"}]}]}`，每条 stamped `provenance={"source": "USER", "origin"}` + `operation="upload"`；events 空 → 422；模型不存在 → 404 |
-
-diff 语义（`app/diffing.py`，基于 ifcdiff 的 `IfcDiff`，仅以 `attributes`/`property` 两种 relationship 运行）：以 GlobalId 为实体标识；changed 归约为实体直接属性与 pset 属性的字段级 old→new，entity 引用属性（ObjectPlacement/Representation 等几何表示层）不参与比较，天然过滤几何噪声。
-
-**缓存策略**：base/target 都是不可变版本快照时，结果缓存在 `versions/diff-{base}-{target}.json`，二次调用直接命中；`target="current"` 时不缓存（uploads 文件可变，无稳定缓存 key）。
-
-**ifcdiff 依赖**：`ifcopenshell`、`ifcdiff` 均为 **PyPI 官方发布**（版本对齐 IfcOpenShell 0.8.5），无本地源码依赖——`uv sync` 直接安装，不再需要 `../../../IfcOpenShell` 本地目录。（`ifcquery` 是 aiifc skill 的运行依赖，不属于本服务，见 `skills/aiifc/requirements.txt`。）
-
-## AI 接入
-
-AI agent 以 REST 直连本服务（默认 `http://127.0.0.1:8100`，与浏览器经 Go 代理走的是同一套端点），调用时传 `provenance.source="AI"`。完整接入指南（双角色架构、curl 全流程、tool catalog、provenance/commit 模型、限制与 MCP 化路线）见 [`docs/internal/ai-integration.md`](../../docs/internal/ai-integration.md)；机器可消费的 OpenAPI schema 见 [`docs/site/public/ai-tools.openapi.json`](../../docs/site/public/ai-tools.openapi.json)，编辑 API 变更后重新导出：
-
-```bash
-uv run python scripts/export_openapi.py
-```
+完整契约（body、错误码、envelope 语义、Go 代理映射）见文档站 [IFC 编辑 API](https://0702hjj.github.io/AI_IFC/reference/edit-api.html)；独立部署、端点全清单与移植指南见 [services/ifc 独立部署与调用](https://0702hjj.github.io/AI_IFC/guide/services-ifc.html)；机器可消费 OpenAPI schema 见 `docs/site/public/ai-tools.openapi.json`（编辑 API 变更后重新导出：`uv run python scripts/export_openapi.py`）。
 
 ## 测试
 

@@ -34,6 +34,7 @@ export default defineConfig({
             items: [
               { text: '项目介绍', link: '/guide/project-intro' },
               { text: '环境要求与本地部署', link: '/guide/quickstart' },
+              { text: 'services/ifc 独立部署', link: '/guide/services-ifc' },
               { text: '上传第一个 IFC', link: '/guide/first-ifc' },
               { text: '配置说明', link: '/guide/configuration' },
             ],
@@ -143,6 +144,7 @@ export default defineConfig({
             items: [
               { text: 'Project Introduction', link: '/en/guide/project-intro' },
               { text: 'Environment & Local Deployment', link: '/en/guide/quickstart' },
+              { text: 'services/ifc Standalone', link: '/en/guide/services-ifc' },
               { text: 'Upload Your First IFC', link: '/en/guide/first-ifc' },
               { text: 'Configuration', link: '/en/guide/configuration' },
             ],
