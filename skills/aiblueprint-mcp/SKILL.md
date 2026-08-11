@@ -31,7 +31,7 @@ MCP 工具逐实体调用，token 成本高，**不要用它从零画整图**；
 ## 标准工作流程
 
 **A. 产物核查/微调（最常用）**:
-1. 目标 DXF 若在 workspace 外，先 `cp` 进 `AI_CAD/results/mcp/`（沙箱限制，绝对路径/`..` 会被拒）
+1. 目标 DXF 若在 workspace 外，先 `cp` 进 `AIBLUEPRINT_WORKSPACE`（沙箱限制，绝对路径/`..` 会被拒）
 2. `drawing.open` → `entity.list`（可按 layer 过滤）→ `entity.measure` 量测
 3. 修改后 **`view.screenshot` 自查**，确认无误再 `drawing.save`；改错用 `drawing.undo` 回滚
 4. 注意：MCP 直接改 DXF 后，cadpy 产物与源码脱钩（sourceHash 可检出）——重大修改应回到 aidxfv1 改 `gen_dxf()` 源码重生成，MCP 只做微调
@@ -57,4 +57,4 @@ MCP 工具逐实体调用，token 成本高，**不要用它从零画整图**；
 
 ## 完整手册
 
-详见 `AI_CAD/docs/aiblueprint_mcp.md`（工具全表、Gotchas 原理、P0-P7 测试方案、实测记录）。
+详见 `skills/aiblueprint-mcp/README.md`（工具全表、Gotchas 原理、P0-P7 测试方案、实测记录）。

@@ -1,7 +1,0 @@
-# 大体积源码/数据克隆：不入库，获取方式见 docs/buildingplan/buildV2/05_reference_libraries.md
-src/or-tools/
-src/shapely/
-resource/zind/
-
-# WSL 挂载盘 artifact
-*:Zone.Identifier

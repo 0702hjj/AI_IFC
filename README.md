@@ -92,7 +92,7 @@ converter/         # Node converter (IFC → XKT)
 mcp/               # MCP bridge (optional, thin wrapper over services/ifc)
 scripts/           # end-to-end smoke test (smoke.sh)
 data/              # runtime data (gitignored, shared by services/ifc and server)
-AI_CAD/            # CAD skill domain + research (aidxfv moved into skills/aidxfv; research stays)
+skills/aiblueprint-mcp/  # aiblueprint MCP handbook + config (MIT, CAD interactive editing)
 tools/             # skill packager (skill_pack.py)
 docs/site/         # public docs site (VitePress, published to GitHub Pages)
 docs/work/         # work-item board (audit, plans, trackable items)
@@ -101,7 +101,7 @@ docs/superpowers/  # design specs and implementation plans (process artifacts)
 examples/          # IFC-era example scripts
 ```
 
-`services/ifc/` is the IFC business-logic core; `skills/aidxfv/v1|v2` are the CAD skill entry points (moved from `AI_CAD/skills/aidxfv*`); `web|server|converter|mcp|scripts|data` are the shared optional runtime (moved out of the former `viewer/`).
+`services/ifc/` is the IFC business-logic core; `skills/aidxfv/v1|v2` + `skills/aiblueprint-mcp` are the CAD skill domain (moved from the former `AI_CAD/`); `web|server|converter|mcp|scripts|data` are the shared optional runtime (moved out of the former `viewer/`). CAD research material lives in `research/cad/`.
 
 The SimpleCADAPI heritage code (`src/`, `skills/simplecadapi/`, SCAD-era packaging files) was moved to the private archive repo [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive) on 2026-08-06; this repo no longer contains it.
 

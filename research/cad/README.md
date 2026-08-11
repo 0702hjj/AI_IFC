@@ -1,4 +1,4 @@
-# AI_CAD research
+# CAD research
 
 调研材料目录。论文 PDF **不入库**（体积大、可随时重新下载）——本目录 `.gitignore` 已排除 `*.pdf`。
 

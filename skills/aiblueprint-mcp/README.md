@@ -15,16 +15,16 @@
 
 ## 2. 接入方式
 
-`AI_CAD/opencode.json`（已配置）:
+`skills/aiblueprint-mcp/opencode.json`（已配置）:
 
 ```json
 "mcp": {
   "aiblueprint": {
     "type": "local",
-    "command": ["<repo>/resource/aiblueprint-mcp/.venv/bin/aiblueprint-mcp"],
+    "command": ["<repo>/skills/aiblueprint-mcp/.venv/bin/aiblueprint-mcp"],
     "enabled": true,
     "environment": {
-      "AIBLUEPRINT_WORKSPACE": "<repo>/AI_CAD/results/mcp"
+      "AIBLUEPRINT_WORKSPACE": "<repo>/data/mcp-aiblueprint"
     }
   }
 }
