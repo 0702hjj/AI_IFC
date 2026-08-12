@@ -52,6 +52,23 @@ Model ids must match `^m_[0-9a-f]{16}$`, mapped to `uploads/{id}.ifc`:
         └── edit-history.json    # edit history (appended by user-edits, atomic write)
 ```
 
+### Docker single-container deployment
+
+The repo ships `services/ifc/Dockerfile` (Python 3.10 + uv + ifcopenshell, bubblewrap sandbox included). **The build context must be the repo root** — the image COPYs `skills/aiifc/references/docs/flows` (required by sandbox contract validation):
+
+```bash
+# run from the repo root
+docker build -f services/ifc/Dockerfile -t aiifc-edit-service .
+
+# run: mount the data volume + map the port (same semantics as VIEWER_DATA_DIR)
+mkdir -p /srv/aiifc-data
+docker run -d --name edit-service -p 8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
+```
+
+`VIEWER_DATA_DIR=/data`, `AIIFC_FLOWS_DIR=/opt/aiifc/flows` and `:8100` are baked into the image — no extra env needed. Smoke check: `curl -sf http://127.0.0.1:8100/openapi.json` returns 200, `GET /health` returns `{"status": "ok"}`.
+
+Relationship to the full platform: **this container is only the business core**. The complete public chain (envelope wrapping, auth, upload → convert → browse) still needs the Go server + converter; an AI agent may also call the editing API directly on :8100 (pass `provenance.source="AI"`). Direct access has no auth — bind the port to 127.0.0.1 or keep it on an internal network; never expose it publicly.
+
 ## Callable endpoint catalog
 
 Errors are FastAPI-shaped `{"detail": ...}`; **direct calls have no `{code, message, data}` envelope** — that is added by the Go server proxy (`code=0` on success, see [IFC Editing API](/en/reference/edit-api)). Machine-readable schema: [Editing API Reference (generated)](/reference/edit-api-reference) (Chinese).
