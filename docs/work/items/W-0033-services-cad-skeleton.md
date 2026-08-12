@@ -1,6 +1,6 @@
 # W-0033: services/cad 骨架（staging/versions/run/save/rollback + 沙箱）
 
-- **状态：** open
+- **状态：** in-progress（Task 3 地基已交付：config/main/route_common/staging/versions/params/script_diff + 27 测试；沙箱与 routes_scripts 待 Task 4）
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §1.2 + 「工作项建议」2
