@@ -142,3 +142,8 @@ aiblueprint_view preview             # LibreCAD render, saved files
 ## Final response
 
 Final responses should include generated files, validation actually run, and assumptions.
+
+## services/cad 脚本契约（build 形，主仓追加）
+
+面向 services/cad script-as-source 管线的 DXF 构建脚本采用与 aiifc 同形的契约（区别于 cadpy CLI 的 `gen_dxf()` 契约）：
+顶层 `PARAMS` 字面量 dict、`build(params, out_path)` 入口、`__main__` 守卫、实体一律经 `cad_script_lib.add_entity` 工厂（XDATA 确定性身份）、出口 `cad_script_lib.write_and_validate`、增量编辑不重写。实现与校验：`scripts/flows/cad_script_lib.py`（`cad_script_lib.validate_script_contract` 为唯一校验点）。

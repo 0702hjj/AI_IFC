@@ -1,6 +1,6 @@
 # W-0032: cad_script_lib + 契约校验（DXF script-as-source 契约层）
 
-- **状态：** open
+- **状态：** done（关闭 commit 为 feat/v0.5-portability-reuse 分支上引用 W-0032 的提交）
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §1.1 + 「工作项建议」1 + 「测试要求」

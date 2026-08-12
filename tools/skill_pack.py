@@ -61,6 +61,7 @@ SKILL_REGISTRY: dict[str, tuple[str, ...]] = {
         "agents/",
         "references/",
         "scripts/",
+        "scripts/flows/cad_script_lib.py",
         "steps/",
         "tests/",
     ),
