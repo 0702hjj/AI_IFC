@@ -1,6 +1,7 @@
 ---
 name: aidxfv1
 description: Generate, regenerate, and validate 2D DXF drawings from Python ezdxf sources. Use for DXF files, gen_dxf() sources, 2D profiles, outlines, templates, gaskets, panels, flat patterns, laser/plasma/waterjet cut layouts, and 2D drawing exports. Also for architectural floor plans and building drawings (平面图, 建筑平面, 户型图, 商场/购物中心/mall, 住宅/residence/ADU, doors/windows 门窗, walls 墙体) with standard drafting via the vendored archdxf library, including the step-routed building pipeline (plan.json 对齐 → 草案 → 确认 → 逐层 DXF → building.json 交付, plan→cad→bim 管线的 cad 段).
+version: 0.1.0
 license: MIT
 compatibility: Self-contained runtime (scripts/dxf + vendored slim cadpy); only external dependency is ezdxf.
 metadata:
@@ -141,3 +142,8 @@ aiblueprint_view preview             # LibreCAD render, saved files
 ## Final response
 
 Final responses should include generated files, validation actually run, and assumptions.
+
+## services/cad 脚本契约（build 形，主仓追加）
+
+面向 services/cad script-as-source 管线的 DXF 构建脚本采用与 aiifc 同形的契约（区别于 cadpy CLI 的 `gen_dxf()` 契约）：
+顶层 `PARAMS` 字面量 dict、`build(params, out_path)` 入口、`__main__` 守卫、实体一律经 `cad_script_lib.add_entity` 工厂（XDATA 确定性身份）、出口 `cad_script_lib.write_and_validate`、增量编辑不重写。实现与校验：`scripts/flows/cad_script_lib.py`（`cad_script_lib.validate_script_contract` 为唯一校验点）。

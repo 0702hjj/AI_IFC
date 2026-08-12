@@ -1,0 +1,24 @@
+[project]
+name = "cad-edit-service"
+version = "0.1.0"
+description = "CAD (DXF) model editing service (FastAPI + ezdxf)"
+license = { text = "AGPL-3.0-only" }
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "ezdxf>=1.3",
+    "python-multipart>=0.0.9",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

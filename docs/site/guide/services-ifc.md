@@ -52,6 +52,23 @@ VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
         └── edit-history.json    # 编辑历史（user-edits 追加，原子写）
 ```
 
+### Docker 单容器部署
+
+仓库自带 `services/ifc/Dockerfile`（Python 3.10 + uv + ifcopenshell，含 bubblewrap 沙箱）。**构建上下文必须是仓库根**——镜像内 COPY 了 `skills/aiifc/references/docs/flows`（沙箱契约校验依赖）：
+
+```bash
+# 在仓库根执行
+docker build -f services/ifc/Dockerfile -t aiifc-edit-service .
+
+# 运行：挂数据卷 + 端口映射（数据目录语义同 VIEWER_DATA_DIR）
+mkdir -p /srv/aiifc-data
+docker run -d --name edit-service -p 127.0.0.1:8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
+```
+
+镜像内已固定 `VIEWER_DATA_DIR=/data`、`AIIFC_FLOWS_DIR=/opt/aiifc/flows`、`:8100`，无需再配环境变量。自检：`curl -sf http://127.0.0.1:8100/openapi.json` 返回 200、`GET /health` 返回 `{"status": "ok"}`。
+
+与完整平台的关系：**本容器只是业务核心**。对外完整链路（envelope 包装、鉴权、上传→转换→浏览）仍需 Go server + converter；AI agent 也可直连 :8100 调编辑 API（传 `provenance.source="AI"`）。直连无鉴权——保持容器端口绑定 127.0.0.1 或仅内网可达，勿暴露公网。
+
 ## 可调用端点全清单
 
 错误响应为 FastAPI 形态 `{"detail": ...}`；**直连时无 `{code, message, data}` envelope**——envelope 是经 Go server 代理时统一包装（`code=0` 成功，见 [IFC 编辑 API](/reference/edit-api)）。机器可读 schema 见 [编辑 API 参考（自动生成）](/reference/edit-api-reference)。

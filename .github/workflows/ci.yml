@@ -102,6 +102,20 @@ jobs:
       - run: uv sync --group dev
       - run: uv run --group dev pytest
 
+  cad-edit-service:
+    name: cad-edit-service (Python, FastAPI + ezdxf)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/cad
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.10"
+      - run: uv sync --group dev
+      - run: uv run --group dev pytest
+
   skill-pack:
     name: skill (aiifc pack + flows smoke)
     runs-on: ubuntu-latest
@@ -121,14 +135,17 @@ jobs:
       - name: Build skill bundle + archive
         run: |
           python tools/skill_pack.py --archive --output-root /tmp/skill-dist
-          test -f /tmp/skill-dist/aiifc.tar.gz
+          ARCHIVE=$(ls /tmp/skill-dist/aiifc-*.tar.gz)
+          test -f "$ARCHIVE"
           test -d /tmp/skill-dist/aiifc/references/docs/flows
           test -d /tmp/skill-dist/aiifc/templates
       - name: Verify bundle integrity
         run: |
           python -c "
-          import tarfile
-          names = tarfile.open('/tmp/skill-dist/aiifc.tar.gz').getnames()
+          import glob, tarfile
+          archive = glob.glob('/tmp/skill-dist/aiifc-*.tar.gz')
+          assert len(archive) == 1, archive
+          names = tarfile.open(archive[0]).getnames()
           assert 'aiifc/SKILL.md' in names
           assert 'aiifc/requirements.txt' in names
           assert 'aiifc/templates/build_skeleton.py' in names

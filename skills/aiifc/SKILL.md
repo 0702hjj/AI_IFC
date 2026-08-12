@@ -1,6 +1,7 @@
 ---
 name: aiifc
 description: Thin IfcOpenShell reference skill for IFC model authoring via ifcopenshell.api, including spatial structure, geometry, openings, materials, psets and design-review workflows.
+version: 0.1.0
 license: LGPL-3.0
 compatibility: Documentation/reference bundle for ifcopenshell API surfaces.
 metadata:

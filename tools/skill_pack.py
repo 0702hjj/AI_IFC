@@ -61,6 +61,7 @@ SKILL_REGISTRY: dict[str, tuple[str, ...]] = {
         "agents/",
         "references/",
         "scripts/",
+        "scripts/flows/cad_script_lib.py",
         "steps/",
         "tests/",
     ),
@@ -71,6 +72,15 @@ SKILL_REGISTRY: dict[str, tuple[str, ...]] = {
         "scripts/",
         "steps/",
         "tests/",
+    ),
+    "aibim-orchestrator": (
+        "references/SUBAGENTS.md",
+        "references/RELAY_CONTRACT.md",
+        "references/fixtures/plan.sample.json",
+        "examples/opencode/agent/aibim-orchestrator.md",
+        "examples/opencode/agent/ifc-agent.md",
+        "examples/opencode/agent/cad-agent.md",
+        "CHANGELOG.md",
     ),
 }
 
@@ -103,6 +113,11 @@ def _parse_frontmatter(skill_root: Path) -> dict[str, str]:
     return fields
 
 
+def skill_version(skill_root: Path) -> str:
+    """Return the SKILL.md frontmatter version, or "" when absent."""
+    return _parse_frontmatter(skill_root).get("version", "")
+
+
 def _validate_frontmatter(skill_root: Path, skill_name: str | None = None) -> None:
     """Check SKILL.md frontmatter: parses, name/description non-empty.
 
@@ -118,6 +133,10 @@ def _validate_frontmatter(skill_root: Path, skill_name: str | None = None) -> No
     if skill_name is not None and name != skill_name:
         raise ValueError(
             f"SKILL.md frontmatter name {name!r} != skill name {skill_name!r}"
+        )
+    if skill_name is not None and not fields.get("version", ""):
+        raise ValueError(
+            f"SKILL.md frontmatter version is empty (skill {skill_name!r})"
         )
 
 
@@ -217,7 +236,13 @@ def build(
 
     archive_path = None
     if archive:
-        archive_path = output_root / f"{skill_name}.tar.gz"
+        version = skill_version(skill_root)
+        if not version:
+            raise ValueError(
+                "SKILL.md frontmatter version is empty; "
+                "cannot produce a versioned archive name"
+            )
+        archive_path = output_root / f"{skill_name}-{version}.tar.gz"
         log(f"Creating archive: {archive_path}")
         with tarfile.open(archive_path, "w:gz") as tar:
             tar.add(dest, arcname=skill_name)

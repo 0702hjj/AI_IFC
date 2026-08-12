@@ -1,0 +1,1 @@
+# no python dependencies; the MCP server is driven via opencode.json
