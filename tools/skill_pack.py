@@ -72,6 +72,13 @@ SKILL_REGISTRY: dict[str, tuple[str, ...]] = {
         "steps/",
         "tests/",
     ),
+    "aibim-orchestrator": (
+        "references/SUBAGENTS.md",
+        "references/RELAY_CONTRACT.md",
+        "references/fixtures/plan.sample.json",
+        "examples/opencode/agent/aibim-orchestrator.md",
+        "CHANGELOG.md",
+    ),
 }
 
 # Anything matching these is considered build noise, not skill content.

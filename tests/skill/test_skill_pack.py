@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REAL_SKILL = REPO_ROOT / "skills" / "aiifc"
 REAL_CAD_SKILL = REPO_ROOT / "skills" / "aidxfv" / "v1"
 REAL_CAD_SKILL_V2 = REPO_ROOT / "skills" / "aidxfv" / "v2"
+REAL_ORCH_SKILL = REPO_ROOT / "skills" / "aibim-orchestrator"
 
 SKILL_MD = """---
 name: {name}
@@ -63,6 +64,9 @@ class TestSkillPackValidate(unittest.TestCase):
 
     def test_validate_real_cad_skill_v2_passes(self):
         packer.validate(REAL_CAD_SKILL_V2, strict_noise=False, skill_name="aidxfv2")
+
+    def test_validate_real_orchestrator_skill_passes(self):
+        packer.validate(REAL_ORCH_SKILL, strict_noise=False)
 
     def test_validate_missing_required_path(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -288,6 +292,22 @@ class TestSkillPackRealBundle(unittest.TestCase):
                 any(n.endswith("/LICENSE") for n in names),
                 "MIT LICENSE 必须保留在 CAD v2 skill 打包产物中",
             )
+
+    def test_real_orchestrator_skill_builds_and_archives(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "dist"
+            result = packer.build(
+                skill_root=REAL_ORCH_SKILL,
+                output_root=out,
+                skill_name="aibim-orchestrator",
+                archive=True,
+            )
+            self.assertIsNotNone(result.archive_path)
+            with tarfile.open(result.archive_path, "r:gz") as tar:
+                names = tar.getnames()
+            self.assertIn("aibim-orchestrator/SKILL.md", names)
+            self.assertIn("aibim-orchestrator/references/RELAY_CONTRACT.md", names)
+            self.assertIn("aibim-orchestrator/references/SUBAGENTS.md", names)
 
     def test_real_cad_skill_cli_archive_contains_license(self):
         """`--skill aidxfv1 --skill-dir skills/aidxfv/v1 --archive` 显式名覆盖推断名 v1。"""

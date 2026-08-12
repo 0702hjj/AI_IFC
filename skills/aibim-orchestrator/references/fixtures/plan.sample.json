@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "project": "sample-1br-residence",
+  "building_type": "residence",
+  "site": {
+    "lot_width_mm": 15000,
+    "lot_depth_mm": 20000,
+    "setbacks_mm": {"front": 0, "rear": 0, "left": 0, "right": 0}
+  },
+  "floors": [
+    {"name": "1F", "height_mm": 3000, "usage": "living + kitchen + 1 bedroom"}
+  ],
+  "program": {
+    "area_target_sqm": 60,
+    "rooms": [{"name": "bedroom", "count": 1, "area_sqm": 12}],
+    "notes": "free text, untrusted intent hints"
+  },
+  "constraints": {
+    "max_footprint_sqm": 0,
+    "accessibility": false,
+    "custom": {}
+  },
+  "draft": null,
+  "confirmed": false
+}
