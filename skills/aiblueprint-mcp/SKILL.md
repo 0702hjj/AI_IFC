@@ -1,6 +1,7 @@
 ---
 name: aiblueprint-mcp
 description: Drive the aiblueprint MCP server for interactive DXF inspection, editing, measuring, and preview. Use when working with aiblueprint_* MCP tools (drawing/entity/layer/block/annotation/view/project/compliance), opening existing DXF files, measuring areas/perimeters, moving/offsetting/filleting entities, undo/redo, rendering screenshots or previews, running the jurisdiction questionnaire, or generating compliance-checked site plans. NOT for batch DXF generation from Python sources (use aidxfv1 for that).
+version: 0.1.0
 metadata:
   project: AI_CAD
   upstream: thebossnow/aiblueprint-mcp (MIT)

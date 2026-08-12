@@ -1,6 +1,6 @@
 # W-0028: skill 版本化 + Release 分发
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P1
 - **Milestone：** v0.5（可移植复用）
 - **来源：** spec 2026-08-12-portability-reuse-design.md §3

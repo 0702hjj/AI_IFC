@@ -28,6 +28,7 @@ REAL_CAD_SKILL_V2 = REPO_ROOT / "skills" / "aidxfv" / "v2"
 SKILL_MD = """---
 name: {name}
 description: test skill
+version: 0.1.0
 ---
 # Test
 """
@@ -111,8 +112,38 @@ class TestSkillPackValidate(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             skill = _make_skill(Path(tmp), "aiifc")
             (skill / "references/docs/flows/__pycache__").mkdir(parents=True)
-            (skill / "references/docs/flows/__pycache__/skeleton.pyc").write_bytes(b"\x00")
+            (skill / "references/docs/flows/__pycache__/x.pyc").write_bytes(b"\x00")
             packer.validate(skill, strict_noise=False)
+
+    def test_validate_registered_skill_missing_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = _make_skill(Path(tmp), "aiifc")
+            (skill / "SKILL.md").write_text(
+                SKILL_MD.format(name="aiifc").replace("version: 0.1.0\n", ""),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                packer.validate(skill)
+
+    def test_validate_unknown_skill_version_not_enforced(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            skill = _make_skill(Path(tmp), "unregistered")
+            (skill / "SKILL.md").write_text(
+                SKILL_MD.format(name="whatever").replace("version: 0.1.0\n", ""),
+                encoding="utf-8",
+            )
+            packer.validate(skill, strict_noise=False)
+
+    def test_real_skills_have_version(self):
+        for root, name in (
+            (REAL_SKILL, "aiifc"),
+            (REAL_CAD_SKILL, "aidxfv1"),
+            (REAL_CAD_SKILL_V2, "aidxfv2"),
+        ):
+            self.assertTrue(
+                packer.skill_version(root),
+                f"{name} SKILL.md frontmatter 缺 version",
+            )
 
 
 class TestSkillPackBuild(unittest.TestCase):
@@ -178,6 +209,30 @@ class TestSkillPackBuild(unittest.TestCase):
             out = root / "out"
             result = packer.build(skill_root=skill, output_root=out, skill_name="aiifc")
             self.assertTrue((result.skill_root / "hooks/validate_script.py").is_file())
+
+    def test_build_archive_requires_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = _make_skill(root, "unregistered")
+            (skill / "SKILL.md").write_text(
+                SKILL_MD.format(name="unregistered").replace("version: 0.1.0\n", ""),
+                encoding="utf-8",
+            )
+            with self.assertRaises(ValueError):
+                packer.build(
+                    skill_root=skill, output_root=root / "out",
+                    skill_name="unregistered", archive=True,
+                )
+
+    def test_build_archive_name_includes_version(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            skill = _make_skill(root, "aiifc")
+            out = root / "out"
+            result = packer.build(
+                skill_root=skill, output_root=out, skill_name="aiifc", archive=True
+            )
+            self.assertEqual(result.archive_path, out / "aiifc-0.1.0.tar.gz")
 
 
 class TestSkillPackRealBundle(unittest.TestCase):
@@ -249,7 +304,8 @@ class TestSkillPackRealBundle(unittest.TestCase):
             ]
             with patch("sys.argv", argv):
                 packer.main()
-            archive = Path(tmp) / "dist" / "aidxfv1.tar.gz"
+            version = packer.skill_version(REAL_CAD_SKILL)
+            archive = Path(tmp) / "dist" / f"aidxfv1-{version}.tar.gz"
             self.assertTrue(archive.exists())
             with tarfile.open(archive, "r:gz") as tar:
                 names = tar.getnames()
