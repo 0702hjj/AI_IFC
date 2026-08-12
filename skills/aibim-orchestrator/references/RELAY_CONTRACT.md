@@ -1,9 +1,11 @@
-# 接力数据契约：plan.json → DXF → IFC
+# 主 Agent 接力手册：plan.json → DXF → IFC
 
-主 Agent 编排 plan→cad→ifc 全链路时，三个锚点的落盘格式与确认门禁。
+主 Agent 编排 plan→cad→ifc 全链路时的产物落盘格式索引与确认门禁。plan 范式是**可选**的：设计师带成熟方案（口述/草图/既有 DXF/既有脚本）时直接派生成子 Agent，本手册仅锚点 2/3 适用；仅「从模糊想法起步」才启用锚点 1 的 plan 范式。
 **字段名全部以真实 skill 源为准**：锚点 1/2 复制自 `skills/aidxfv/v2/references/plan_contract.md`（§1/§2/§3），锚点 3 复制自 `skills/aiifc/SKILL.md`（MUST #25-31）与 `skills/aiifc/workflows/PLAN_DXF_IFC.md`。本文件不重定义，只做接力视角的索引与门禁约定。
 
-## 锚点 1：plan.json
+## 锚点 1：plan.json（可选范式）
+
+**仅当设计师从模糊想法起步、主 Agent 提示并确认启用 plan 范式时存在。** plan.json 的对齐/草案/确认全部由 cad-agent 的 aidxfv v2 管线内部承载（step-00 ingest → step-04 deliver，状态机 draft/confirmed 在 v2 内部流转）；主 Agent 不另设 plan 确认门禁，只负责把 v2 的确认请求转述给设计师。
 
 **Schema 事实源：`skills/aidxfv/v2/references/plan_contract.md` §1**（本包正例 fixture `fixtures/plan.sample.json` 由该节复制简化）。
 
@@ -89,10 +91,11 @@ v2 管线交付物 = 逐层 DXF 集 + `building.json`（bim 段唯一输入）�
 
 ## 确认门禁
 
-每个锚点交付前必须经设计师确认，主 Agent 负责卡点：
+主 Agent 负责的强制卡点只有两个：
 
-1. **plan.json 确认**：设计师确认 plan（或明确跳过）后才派 cad-agent 构建；v2 状态机 `confirmed: true` 即此门禁的落盘形式。
-2. **DXF 确认**：cad-agent 交付 DXF 集 + building.json + 校验摘要后，设计师确认才进入 IFC 段。
-3. **IFC 交付**：ifc-agent 报告 validate / design_review 结果，设计师确认保存为大版本。
+1. **DXF 确认**：cad-agent 交付 DXF 集 + building.json + 校验摘要后，设计师确认才进入 IFC 段。
+2. **IFC 交付**：ifc-agent 报告 validate / design_review 结果，设计师确认保存为大版本。
+
+plan 确认仅在启用可选 plan 范式时存在，且由 cad-agent 的 v2 管线内部承载（v2 状态机 `confirmed: true` 是其落盘形式），不是主 Agent 门禁——主 Agent 只转述 v2 的确认请求。
 
 **反例约定**：缺硬约束字段（`building_type` / `site` / `floors` 任一缺失）的 plan.json 应被 cad-agent 在 step-00 **拒收并停步**，报告缺哪些字段，补齐后才许进 step1（v2 `steps/step-00-ingest-plan.md` 执行 §2）。主 Agent 收到此类报告应原样转述字段清单向设计师索取，不得自行编造默认值填充硬约束。
