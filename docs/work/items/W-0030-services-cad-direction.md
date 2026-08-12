@@ -25,6 +25,8 @@
 
 下一迭代先补独立 spec，再按 spec 实施。
 
+> 2026-08-12：chunk A（骨架 + 沙箱 + script-as-source REST，W-0032/W-0033）已落地，见 spec 2026-08-12-services-cad-script-as-source-design.md；剩余（locate/edit-call/语义 diff/Go 代理/render.json）按 spec 工作项 3-7 走后续 chunk。
+
 ## 验收标准
 
 - 本 item 存在且方向写清（本轮验收仅此；实施验收由下迭代 spec 定）。
