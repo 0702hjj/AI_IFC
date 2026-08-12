@@ -38,7 +38,7 @@
 约定（v2 plan_contract.md §1/§3 原文要点）：
 
 - 单位 **mm**；`floors[].height_mm` 为层高；`floors[].name` 即后续 DXF 文件名（`<name>.dxf`，v2 step-00 归一化规则）。
-- `building_type` / `site` / `floors` 是 cad 阶段**硬约束**；`program` 是意图，cad 可重排但必须在 step2 向用户说明偏差。
+- `building_type` / `site` / `floors` 是 cad 阶段**硬约束**；`program` 是意图，cad 可在 step1 草案中重排但必须在 step2 向用户说明偏差。
 - `draft` / `confirmed` 由 cad 阶段写回，plan 阶段一律留初值（`draft: null, confirmed: false`）。
 - 状态机：`draft: null, confirmed: false` → 待草拟；`draft` 存在、`confirmed: false` → 待确认；`confirmed: true` → 已定稿（draft 冻结为硬约束，只许构建）。
 - 可选 `plan.dxf` 确认图：由 aiifc 的 `dxf_from_design.py` 或 cad-agent 草案渲染产出，仅供设计师确认平面，不是契约的一部分。

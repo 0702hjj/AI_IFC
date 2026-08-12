@@ -20,7 +20,7 @@ W-0027 验收时实施机 Docker 29.7.2 已装但 daemon 未运行且无 sudo �
 在有 docker daemon 的机器上执行：
 
 1. `docker build -f services/ifc/Dockerfile -t aiifc-edit-service:v0.5 .`（**构建上下文=仓库根**，镜像 COPY 了 `skills/aiifc/references/docs/flows`）。
-2. `mkdir -p /tmp/editvc-data && docker run --rm -d --name editvc-smoke -p 18100:8100 -v /tmp/editvc-data:/data aiifc-edit-service:v0.5`。
+2. `mkdir -p /tmp/editvc-data && docker run --rm -d --name editvc-smoke -p 127.0.0.1:18100:8100 -v /tmp/editvc-data:/data aiifc-edit-service:v0.5`。
 3. `curl -sf http://127.0.0.1:18100/openapi.json` → 200；`curl http://127.0.0.1:18100/health` → `{"status":"ok"}`。
 4. 关注两点等价复现未覆盖的差异：
    - **bwrap 沙箱在容器内行为**：镜像装了 bubblewrap，run/save 的沙箱 backend 在容器内是否真正生效（而非降级 rlimit）——可进容器 `bwrap --version` + 跑一次 script/run 类调用观察日志。

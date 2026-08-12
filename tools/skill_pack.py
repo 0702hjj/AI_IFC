@@ -77,6 +77,8 @@ SKILL_REGISTRY: dict[str, tuple[str, ...]] = {
         "references/RELAY_CONTRACT.md",
         "references/fixtures/plan.sample.json",
         "examples/opencode/agent/aibim-orchestrator.md",
+        "examples/opencode/agent/ifc-agent.md",
+        "examples/opencode/agent/cad-agent.md",
         "CHANGELOG.md",
     ),
 }

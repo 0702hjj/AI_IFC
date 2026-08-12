@@ -30,7 +30,11 @@ skill 目前只能从源码仓打包，无版本号、无分发渠道，第三�
 - 5 个 SKILL.md 带 `version`，各有 CHANGELOG。
 - archive 命名 `<name>-<version>.tar.gz`；缺 version 打包报错。
 - 安装/发布文档入站，`npm run docs:build` 绿。
-- Release 流程至少走通一次。
+- Release 流程文档化（development/release.md runbook）；实际首次发布随下迭代首个真实版本 bump 走通。
+
+## 备注
+
+- 2026-08-12 用户裁决：判据降级，本轮不实际发 Release（runbook 已文档化，首发布随下迭代走通）。
 
 ## 测试要求
 

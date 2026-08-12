@@ -29,7 +29,7 @@ python tools/skill_pack.py --skill aidxfv1 --skill-dir skills/aidxfv/v1 --archiv
 
 解压到 agent 运行时的 skill 目录：
 
-- **opencode**：`~/.agents/skills/<name>/`，或项目级 `.opencode/skill` 等价目录（以运行时文档为准）
+- **opencode**：用户级 `~/.agents/skills/<name>/`，或项目级 `<项目>/.opencode/skill/<name>/`（单数 `skill`）
 - **Claude Code**：`~/.claude/skills/<name>/`
 
 安装后 `SKILL.md` 的 `name`/`description` 会被运行时自动索引，无需额外注册。

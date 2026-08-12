@@ -29,7 +29,7 @@ Artifacts land in `skills/dist/`.
 
 Extract into the agent runtime's skills directory:
 
-- **opencode**: `~/.agents/skills/<name>/`, or the project-level `.opencode/skill` equivalent (see your runtime's docs)
+- **opencode**: user-level `~/.agents/skills/<name>/`, or project-level `<project>/.opencode/skill/<name>/` (singular `skill`)
 - **Claude Code**: `~/.claude/skills/<name>/`
 
 Once installed, the runtime indexes `name`/`description` from `SKILL.md` automatically — no extra registration needed.
