@@ -1,7 +1,7 @@
 # W-0017: 整体 Agent（orchestrator）与子 Agent 编排
 
 - **状态：** done
-- **关闭于：** 本迭代分支 feat/v0.5-portability-reuse（PR 待提）
+- **关闭于：** 本迭代分支 feat/v0.5-portability-reuse（PR #31）
 - **优先级：** P1
 - **Milestone：** M6 多 Agent 编排（见 spec 2026-08-06-script-as-source-design.md §多 Agent 编排）
 - **来源：** 2026-08-06 用户愿景
