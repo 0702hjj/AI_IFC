@@ -37,6 +37,7 @@ export default defineConfig({
               { text: 'services/ifc 独立部署', link: '/guide/services-ifc' },
               { text: '上传第一个 IFC', link: '/guide/first-ifc' },
               { text: '配置说明', link: '/guide/configuration' },
+              { text: 'AI Skill 获取与安装', link: '/guide/skills' },
             ],
           },
           {
@@ -60,6 +61,7 @@ export default defineConfig({
               { text: 'IFC Converter', link: '/development/converter' },
               { text: 'Edit Service', link: '/development/edit-service' },
               { text: '测试与调试', link: '/development/testing' },
+              { text: '发布流程', link: '/development/release' },
             ],
           },
           {
@@ -147,6 +149,7 @@ export default defineConfig({
               { text: 'services/ifc Standalone', link: '/en/guide/services-ifc' },
               { text: 'Upload Your First IFC', link: '/en/guide/first-ifc' },
               { text: 'Configuration', link: '/en/guide/configuration' },
+              { text: 'AI Skills: Get & Install', link: '/en/guide/skills' },
             ],
           },
           {
