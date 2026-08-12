@@ -1,6 +1,6 @@
 # W-0033: services/cad 骨架（staging/versions/run/save/rollback + 沙箱）
 
-- **状态：** in-progress（Task 3 地基已交付：config/main/route_common/staging/versions/params/script_diff + 27 测试；沙箱与 routes_scripts 待 Task 4）
+- **状态：** done（Task 3 地基 2382ad1：config/main/route_common/staging/versions/params/script_diff + 27 测试；Task 4 沙箱 + routes_scripts 0513084：95 测试全绿）
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §1.2 + 「工作项建议」2
@@ -32,7 +32,7 @@ spec 决策 4 锁定两阶段实施：Phase 1 服务端闭环（services/cad 全
    - `GET .../versions`（版本列表）
 5. **校验纪律**：业务校验住 `verify*`/`validate*`，handler 只做 decode→verify→调领域→翻译错误；配 `test_verify_isolation` 同款契约测试。
 
-**显式范围外（chunk B）：** `script/locate`、`script/edit-call`（libcst 改写）、`POST /script/diff` 大版本 diff 与实体级语义 diff 引擎、Go 代理路由、render payload v2。
+**显式范围外（chunk B）：** `script/locate`、`script/edit-call`（libcst 改写）、实体级语义 diff 引擎、Go 代理路由、render payload v2。（订正：脚本**文本** diff——`POST /script/diff` 大版本 diff 与 `GET /script/staging/diff`——属本项 chunk A，已交付；chunk B 不含的是实体级语义 diff。）
 
 ## 验收标准
 
