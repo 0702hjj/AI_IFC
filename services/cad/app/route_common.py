@@ -30,7 +30,7 @@ def model_upload_path(request: Request, model_id: str) -> str:
     return path
 
 
-def model_lock(request: Request, model_id: str) -> threading.RLock:
+def model_lock(model_id: str) -> threading.RLock:
     """Per-model reentrant lock keyed by model_id (shared across edit surfaces).
 
     Unlike services/ifc there is no ModelRegistry, so locks live in a
