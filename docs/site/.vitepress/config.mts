@@ -62,6 +62,8 @@ export default defineConfig({
               { text: 'Edit Service', link: '/development/edit-service' },
               { text: '测试与调试', link: '/development/testing' },
               { text: '发布流程', link: '/development/release' },
+              { text: '存储接口契约', link: '/development/storage-integration' },
+              { text: '前端对接契约', link: '/development/frontend-integration' },
             ],
           },
           {

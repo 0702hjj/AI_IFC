@@ -1,6 +1,7 @@
 # W-0026: 对接契约文档（存储 + 前端）
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** 本迭代分支 feat/v0.5-portability-reuse（PR 待提）
 - **优先级：** P1
 - **Milestone：** v0.5（可移植复用）
 - **来源：** spec 2026-08-12-portability-reuse-design.md §2
