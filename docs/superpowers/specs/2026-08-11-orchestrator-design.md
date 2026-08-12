@@ -1,6 +1,7 @@
 # Orchestrator 设计（Eino 评估 + 事件总线规约）
 
 > 日期：2026-08-11 · 状态：定稿（2026-08-11 用户裁决，配套框架 spec）
+> 修订（2026-08-12）：本文的代码级 orchestrator/Eino 方向退役为「不推荐」；落地形态改为提示词包（skills/aibim-orchestrator），见 2026-08-12-portability-reuse-design.md §4。事件总线规约（Pure Core/Shell、事件 URI）仍然有效。
 > 前置：W-0017（docs/work/items/W-0017-orchestrator-agent.md）、W-0025（事件 URI 化，skills/aiifc/hooks/README.md）
 > 架构基调：help.md 架构精要 **Pure Core + Imperative Shell**；AGENTS.md「纪律事件化」（controller 不轮询、子代理报告即事件载荷）
 > 关联代码：`server/internal/api/chat_orchestrator.go`（现状 notify 命令式编排）、`chat.go/chat_sse.go/chat_session.go`（SSE 地基）、`internal/opencode/opencode.go`（opencode serve 客户端）

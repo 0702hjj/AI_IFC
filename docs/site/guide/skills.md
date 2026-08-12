@@ -10,6 +10,7 @@
 | `aidxfv1` | 通用 CAD/DXF 生成（fork 自 earthtojake/text-to-cad，运行时 vendored 自包含） | MIT |
 | `aidxfv2` | 建筑平面管线（plan.json 对齐 → 草案 → 逐层 DXF） | MIT |
 | `aiblueprint-mcp` | DXF 交互微调 MCP server（检查/编辑/测量/预览） | MIT |
+| `aibim-orchestrator` | 主 Agent 编排提示词包（意图路由 + 子 Agent 分工契约 + plan→cad→ifc 接力数据契约） | AGPL-3.0-only |
 
 每个 skill 的变更记录见包内 `CHANGELOG.md`，当前版本均为 `0.1.0`。
 

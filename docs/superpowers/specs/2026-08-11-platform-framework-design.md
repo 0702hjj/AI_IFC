@@ -11,7 +11,7 @@
 |---|---|---|
 | **逻辑一：AI 生成 IFC** | skill 封装 + Python diff + 面向前端修改的接口协议 | 已交付（`skills/aiifc/` + `services/ifc/` 的 diff 与 script-as-source 编辑 API） |
 | **逻辑二：AI 生成 CAD** | 完全类似的 skill 封装 + 对应 diff + 面向前端修改的接口协议 | 部分交付（`skills/aidxfv/` + `skills/aiblueprint-mcp` 纯 skill 域；diff 与前端接口协议待补） |
-| **推荐形式：Agent 工作流控制** | orchestrator（意图路由 + 子 Agent）+ 事件总线 | 方向已定（W-0017 spec）；落地可选，做不好可删 |
+| **推荐形式：Agent 工作流控制** | 主 Agent 编排提示词包（skills/aibim-orchestrator）+ 事件总线（地基保留） | 提示词包随 v0.5 交付（W-0029）；代码级编排不再追求 |
 
 两逻辑**对等**：不是「IFC 为主、CAD 附属」，而是各成一套「skill → 业务逻辑（diff + 接口协议）→ 可选运行时」的闭环。平台对外的承诺是两套接口协议可独立调用、可移植。
 
@@ -67,8 +67,8 @@ docs/              # 文档站 + 工作看板 + spec
 ## 5. Agent 工作流控制（推荐形式）
 
 - **定位**：推荐项，不是平台本体；做不好可整体删除，不影响两逻辑。
-- **内容**：orchestrator（意图路由 + 子 Agent 封装 + 结果汇总）+ 事件总线（`aiifc://` URI 规约 + Pure Core/Shell）。设计见 `2026-08-11-orchestrator-design.md`。
-- **落地节奏**：notify 事件化（已随 2026-08-11 迭代交付）→ orchestrator 骨架（M6，可选）→ 子 Agent 接入（M6+，可选）。
+- **内容**：主 Agent 编排提示词包（skills/aibim-orchestrator：意图路由 + 子 Agent 分工契约 + plan→cad→ifc 接力数据契约）+ 事件总线（已交付，地基保留）。原设计见 `2026-08-11-orchestrator-design.md`（代码级编排方向已退役，事件总线规约仍有效）。
+- **落地节奏**：notify 事件化（已交付）→ 提示词包（v0.5 交付）→ 代码级编排不再追求。
 
 ## 6. 里程碑
 

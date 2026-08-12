@@ -10,6 +10,7 @@
 | `aidxfv1` | General CAD/DXF generation (forked from earthtojake/text-to-cad, self-contained vendored runtime) | MIT |
 | `aidxfv2` | Architectural floor-plan pipeline (plan.json alignment → draft → per-floor DXF) | MIT |
 | `aiblueprint-mcp` | MCP server for interactive DXF inspection/editing/measure/preview | MIT |
+| `aibim-orchestrator` | Main-agent orchestration prompt pack (intent routing + sub-agent contracts + plan→cad→ifc relay data contract) | AGPL-3.0-only |
 
 Each skill's history lives in its bundled `CHANGELOG.md`; current versions are all `0.1.0`.
 

@@ -1,14 +1,19 @@
 # W-0017: 整体 Agent（orchestrator）与子 Agent 编排
 
-- **状态：** open
+- **状态：** done
+- **关闭于：** 本迭代分支 feat/v0.5-portability-reuse（PR 待提）
 - **优先级：** P1
 - **Milestone：** M6 多 Agent 编排（见 spec 2026-08-06-script-as-source-design.md §多 Agent 编排）
 - **来源：** 2026-08-06 用户愿景
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode / feat/v0.5-portability-reuse
 
 ## 背景
 
 平台演化方向：一个整体 Agent 作为与设计师对话的总交互面，按任务调用子 Agent（IFCagent / CADAgent / designerAgent），并统一封装各子 Agent 的提示词设计。现有 chat 模块（chat_orchestrator.go + opencode serve）是单 agent 形态，需升级为编排层。
+
+## 形态变更（2026-08-12 用户裁决）
+
+落地形态由「代码级 orchestrator（Eino 评估方向）」改为「agent-agnostic 提示词包 + 数据契约」（skills/aibim-orchestrator，spec 2026-08-12-portability-reuse-design.md §4）。代码级编排与 A2A 出口不再追求；已交付的 notify 事件化/事件 URI 化保留为平台地基，不被提示词包依赖。
 
 ## 涉及位置
 

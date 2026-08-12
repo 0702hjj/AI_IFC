@@ -17,7 +17,7 @@
 | v0.2 | script-closure 收口 ✅（2026-08-10，分支 feat/v0.2-script-closure）| W-0021..W-0025 | 直改退役残留消费者收口（notify 走 script 管线）；params_keys 定位聚焦；骨架确定性；校验隔离机器强制；skill hooks 校验即事件 |
 | v0.3 | orchestrator-closure ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure）| W-0017 spec + notify 事件化 + minors 清扫 + 平台框架入约 | notify 重构为 Pure Core + Imperative Shell；事件 URI 化闭环；架构方向定稿入约 |
 | v0.4 | 可复用性 + 上线健壮性 ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure，PR 待提）| 物理重组（viewer/ 拆分）+ Go OpenAPI + skill 打包器泛化 + services/ifc 独立调用文档 + diff 超时 + 重转去重 + stale 清扫 | 结构一步到位（services/ifc + web/server/converter/mcp 顶层化 + skills/aidxfv 收敛）；对外唯一入口机器可消费 OpenAPI；任意 skill 可打包；diff 超时 504；同源跳过重转 |
-| v0.5 | 可移植复用（spec: 2026-08-12-portability-reuse-design.md，分支 feat/v0.5-portability-reuse）| W-0026..W-0029（W-0030 仅立项） | 对接契约入站；services/ifc 镜像冒烟通过；skill 版本化 + Release 流程走通；aibim-orchestrator 提示词包可打包、W-0017 关闭 |
+| v0.5 | 可移植复用 ✅（2026-08-12，spec: 2026-08-12-portability-reuse-design.md，分支 feat/v0.5-portability-reuse，PR 待提）| W-0026..W-0029（W-0030 仅立项保留 open；W-0031 转入下迭代） | 对接契约入站；services/ifc 镜像冒烟通过；skill 版本化 + Release 流程走通；aibim-orchestrator 提示词包可打包、W-0017 关闭 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 
