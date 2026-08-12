@@ -62,7 +62,7 @@ docker build -f services/ifc/Dockerfile -t aiifc-edit-service .
 
 # run: mount the data volume + map the port (same semantics as VIEWER_DATA_DIR)
 mkdir -p /srv/aiifc-data
-docker run -d --name edit-service -p 8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
+docker run -d --name edit-service -p 127.0.0.1:8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
 ```
 
 `VIEWER_DATA_DIR=/data`, `AIIFC_FLOWS_DIR=/opt/aiifc/flows` and `:8100` are baked into the image — no extra env needed. Smoke check: `curl -sf http://127.0.0.1:8100/openapi.json` returns 200, `GET /health` returns `{"status": "ok"}`.

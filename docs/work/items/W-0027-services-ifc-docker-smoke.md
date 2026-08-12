@@ -47,6 +47,8 @@ services/ifc 目前只能在本仓骨架内以 uv 起服务，第三方想单组
 - 真 `docker build` + `docker run` + `curl :8100/openapi.json` 冒烟（含 bubblewrap 沙箱路径在容器内的行为）。
 - spec 的更全期望「起容器 → 上传/编辑一条链路通」未覆盖——上传→转换→浏览完整链路需 Go 网关编排，超出本 item 的单容器范围。
 
+真容器冒烟转出 W-0031 追踪（本机无 docker daemon，等价复现已记录）。
+
 ## 测试要求
 
 - 冒烟命令序列记入 item（见方案 2），实施时逐条实测通过；Dockerfile 无单测，冒烟即验收。

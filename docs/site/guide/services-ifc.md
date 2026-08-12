@@ -62,7 +62,7 @@ docker build -f services/ifc/Dockerfile -t aiifc-edit-service .
 
 # 运行：挂数据卷 + 端口映射（数据目录语义同 VIEWER_DATA_DIR）
 mkdir -p /srv/aiifc-data
-docker run -d --name edit-service -p 8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
+docker run -d --name edit-service -p 127.0.0.1:8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
 ```
 
 镜像内已固定 `VIEWER_DATA_DIR=/data`、`AIIFC_FLOWS_DIR=/opt/aiifc/flows`、`:8100`，无需再配环境变量。自检：`curl -sf http://127.0.0.1:8100/openapi.json` 返回 200、`GET /health` 返回 `{"status": "ok"}`。
