@@ -92,4 +92,4 @@ AI agent ──► REST 编辑 API ────┘
 - edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `data` 绝对路径，配错会 404 或改错文件。
 - demo/flows 用 `services/ifc/.venv`（含 ifcopenshell/ifcquery；ezdxf 不在其中，DXF 依赖用 `services/cad/.venv`）；**根 `.venv` 没有这些包**。
 - AI agent 直连 edit-service :8100 时传 `provenance.source="AI"`。
-- Go server 鉴权默认关闭（`apiToken`/`VIEWER_API_TOKEN` 为空）；设置后除 OPTIONS 与 `GET /v1/models/...` 只读文件外全部端点要 `Authorization: Bearer <token>`（401 envelope 码 `40100`）。CORS 为白名单制（`corsOrigins`/`VIEWER_CORS_ORIGINS`，默认 `http://localhost:5173,http://localhost:8080`）。edit-service :8100 无鉴权，务必保持 127.0.0.1；AI agent 直连 :8100 绕过 token 校验。
+- Go server 鉴权默认关闭（`apiToken`/`VIEWER_API_TOKEN` 为空）；设置后除 OPTIONS 与 `GET /v1/models/...` 只读文件外全部端点要 `Authorization: Bearer <token>`（401 envelope 码 `40100`）。CORS 为白名单制（`corsOrigins`/`VIEWER_CORS_ORIGINS`，默认 `http://localhost:5173,http://localhost:8080`）。edit-service :8100 与 cad-edit-service :8200（同约束）无鉴权，务必保持 127.0.0.1；AI agent 直连 :8100/:8200 绕过 token 校验。
