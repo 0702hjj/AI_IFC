@@ -1,0 +1,419 @@
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (C) 2026 0702hjj
+
+"""edit-call 端点与 script_edit 标量重写（镜像 services/ifc 同款，适配 DXF）。
+
+- ``script_edit.rewrite_call_argument``：libcst 无损重写指定行的调用参数
+  （仅标量字面量；表达式/容器注入 → ValueError；无调用行/语法错误 → ValueError）。
+- ``POST /models/{id}/script/edit-call``：XDATA key → current.map.json 定位
+  → 重写 → 沙箱 run → staging.push。任何失败 422 且零副作用；
+  origin=traced → 422（不可自动改写）；key 未定位 → 404。
+- ScriptMap 信封绑定脚本哈希：staging 与 map 分叉（未 run 的暂存/undo/
+  旧版裸 map）→ 409 拒绝改写，零副作用（防 stale 行号改写错误调用）。
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import ezdxf
+import pytest
+from fastapi.testclient import TestClient
+
+from app import script_edit
+from tests.conftest import MODEL_ID
+
+TEXT_SCRIPT = '''\
+import sys
+
+import ezdxf
+
+from cad_script_lib import add_entity, write_and_validate
+
+PARAMS = {{"key": "{key}"}}
+
+def build(params, out_path):
+    doc = ezdxf.new("R2010")
+    msp = doc.modelspace()
+    add_entity(msp, "TEXT", key="s1:text:1", text="W1", insert=(0, 0))
+    write_and_validate(doc, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
+PARAMS_KEY_SCRIPT = '''\
+import sys
+
+import ezdxf
+
+from cad_script_lib import add_entity, write_and_validate
+
+PARAMS = {{"key": "{key}"}}
+
+def build(params, out_path):
+    doc = ezdxf.new("R2010")
+    msp = doc.modelspace()
+    add_entity(msp, "TEXT", key=params["key"], text="W1", insert=(0, 0))
+    write_and_validate(doc, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
+TRACED_KEY_SCRIPT = '''\
+import sys
+
+import ezdxf
+
+from cad_script_lib import add_entity, write_and_validate
+
+PARAMS = {{"key": "{key}"}}
+
+def build(params, out_path):
+    doc = ezdxf.new("R2010")
+    msp = doc.modelspace()
+    add_entity(msp, "TEXT", key="s1:" + "text:1", text="W1", insert=(0, 0))
+    write_and_validate(doc, out_path)
+
+if __name__ == "__main__":
+    build(PARAMS, sys.argv[1])
+'''
+
+
+class TestRewriteCallArgument:
+    def test_rewrite_string_argument(self):
+        script = 'w = create_entity(model, "IfcWall", key="s1:wall:1", name="old")\n'
+        out = script_edit.rewrite_call_argument(script, 1, "name", "new")
+        assert '"new"' in out and '"old"' not in out
+        assert 'key="s1:wall:1"' in out
+
+    def test_rewrite_int_argument(self):
+        script = 'w = create_entity(model, "IfcWall", key="k", count=1)\n'
+        out = script_edit.rewrite_call_argument(script, 1, "count", 42)
+        assert "count=42" in out
+
+    def test_rewrite_float_argument(self):
+        script = 'w = create_entity(model, "IfcWall", key="k", height=3.0)\n'
+        out = script_edit.rewrite_call_argument(script, 1, "height", 2.5)
+        assert "height=2.5" in out
+
+    def test_rewrite_bool_argument_not_int(self):
+        """bool 是 int 子类：True 必须写成 True 而不是 1。"""
+        script = 'w = create_entity(model, "IfcWall", key="k", flag=False)\n'
+        out = script_edit.rewrite_call_argument(script, 1, "flag", True)
+        assert "flag=True" in out
+        assert "flag=1" not in out
+
+    def test_rewrite_appends_missing_argument(self):
+        script = 'w = create_entity(model, "IfcWall", key="k")\n'
+        out = script_edit.rewrite_call_argument(script, 1, "name", "W9")
+        assert 'name="W9"' in out
+
+    def test_rewrite_only_touches_target_line(self):
+        script = (
+            'a = create_entity(model, "IfcWall", key="k1", name="one")\n'
+            'b = create_entity(model, "IfcWall", key="k2", name="two")\n'
+        )
+        out = script_edit.rewrite_call_argument(script, 2, "name", "TWO")
+        assert 'name="one"' in out
+        assert 'name="TWO"' in out
+
+    def test_rewrite_preserves_comments_and_blank_lines(self):
+        """libcst 无损：注释、空行、缩进原样保留。"""
+        script = (
+            "# header comment\n"
+            "\n"
+            "def build(params, out_path):\n"
+            "    # inner comment\n"
+            "    w = create_entity(model, \"IfcWall\", key=\"k\", name=\"old\")  # tail\n"
+            "\n"
+            "    return w\n"
+        )
+        out = script_edit.rewrite_call_argument(script, 5, "name", "new")
+        assert out == script.replace('name="old"', 'name="new"')
+
+    def test_rewrite_no_call_at_line_raises(self):
+        with pytest.raises(ValueError):
+            script_edit.rewrite_call_argument("x = 1\n", 1, "name", "v")
+
+    def test_rewrite_syntax_error_raises_valueerror(self):
+        with pytest.raises(ValueError):
+            script_edit.rewrite_call_argument("def broken(:\n", 1, "name", "v")
+
+    @pytest.mark.parametrize("bad", [{"a": 1}, [1, 2], (1,), None])
+    def test_rewrite_rejects_non_scalar_value(self, bad):
+        """容器/None 注入 → ValueError（只允许 str/int/float/bool 字面量）。"""
+        with pytest.raises(ValueError):
+            script_edit.rewrite_call_argument(
+                'w = f(key="k", name="x")\n', 1, "name", bad
+            )
+
+    @pytest.mark.parametrize("bad_arg", ["na me", '**{"k": 1}, x', "", "1abc", "name;x"])
+    def test_rewrite_rejects_non_identifier_argument(self, bad_arg):
+        """非法参数名会让 libcst 抛 CSTValidationError(非 ValueError) → 提前 422。"""
+        with pytest.raises(ValueError):
+            script_edit.rewrite_call_argument(
+                'w = f(key="k", name="x")\n', 1, bad_arg, "v"
+            )
+
+    @pytest.mark.parametrize("bad_float", [float("nan"), float("inf"), float("-inf")])
+    def test_rewrite_rejects_non_finite_float(self, bad_float):
+        """nan/inf 的 repr 不是合法 Python 字面量 → ValueError。"""
+        with pytest.raises(ValueError):
+            script_edit.rewrite_call_argument(
+                'w = f(key="k", height=3.0)\n', 1, "height", bad_float
+            )
+
+
+def _uploads_dxf(data_dir: Path) -> Path:
+    return data_dir / "uploads" / f"{MODEL_ID}.dxf"
+
+
+def _text_value(data_dir: Path) -> str:
+    doc = ezdxf.readfile(str(_uploads_dxf(data_dir)))
+    return doc.modelspace().query("TEXT")[0].dxf.text
+
+
+def _save_script(client: TestClient, script: str) -> None:
+    r = client.put(f"/models/{MODEL_ID}/script", json={"script": script})
+    assert r.status_code == 200, r.text
+    r = client.post(f"/models/{MODEL_ID}/script/save", json={})
+    assert r.status_code == 200, r.text
+
+
+def _edit_call(client: TestClient, body: dict, model_id: str = MODEL_ID):
+    return client.post(f"/models/{model_id}/script/edit-call", json=body)
+
+
+class TestEditCallSuccess:
+    def test_edit_call_stages_and_reruns(
+        self, client: TestClient, data_dir: Path
+    ):
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        assert _text_value(data_dir) == "W1"
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": "W2"},
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["modelId"] == MODEL_ID
+        assert body["staged"] == 1
+        assert 'text="W2"' in body["script"]
+
+        assert _text_value(data_dir) == "W2"
+
+        r = client.get(f"/models/{MODEL_ID}/script")
+        assert r.status_code == 200
+        staged = r.json()
+        assert staged["staged"] == 1
+        assert staged["canUndo"] is True
+
+    def test_edit_call_params_origin_editable_for_other_argument(
+        self, client: TestClient, data_dir: Path
+    ):
+        """origin=params 的调用点可改写：key 走 params 引用，但 text 仍是字面量。"""
+        _save_script(client, PARAMS_KEY_SCRIPT.format(key="s1:text:2"))
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        entry = json.loads(map_path.read_text(encoding="utf-8"))["map"]["s1:text:2"]
+        assert entry["origin"] == "params"
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:2", "argument": "text", "value": "WP"},
+        )
+        assert r.status_code == 200, r.text
+        assert _text_value(data_dir) == "WP"
+
+
+class TestEditCallFailures:
+    def test_edit_call_unknown_key_404(
+        self, client: TestClient, data_dir: Path
+    ):
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        r = _edit_call(
+            client,
+            {"key": "s1:text:nope", "argument": "text", "value": "X"},
+        )
+        assert r.status_code == 404
+
+    def test_edit_call_missing_map_404(self, client: TestClient, data_dir: Path):
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        assert map_path.is_file()
+        map_path.unlink()
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": "X"},
+        )
+        assert r.status_code == 404
+
+    def test_edit_call_unknown_model_404(self, client: TestClient, data_dir: Path):
+        r = _edit_call(
+            client,
+            {"key": "k", "argument": "text", "value": "X"},
+            model_id="m_ffffffffffffffff",
+        )
+        assert r.status_code == 404
+
+    def test_edit_call_traced_origin_422(
+        self, client: TestClient, data_dir: Path
+    ):
+        """key 来自表达式（origin=traced）→ 422，提示直接改脚本。"""
+        _save_script(client, TRACED_KEY_SCRIPT.format(key="s1:text:1"))
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        entry = json.loads(map_path.read_text(encoding="utf-8"))["map"]["s1:text:1"]
+        assert entry["origin"] == "traced"
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": "X"},
+        )
+        assert r.status_code == 422
+        assert _text_value(data_dir) == "W1"
+
+    def test_edit_call_non_scalar_value_422(
+        self, client: TestClient, data_dir: Path
+    ):
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": {"x": 1}},
+        )
+        assert r.status_code == 422
+        assert _text_value(data_dir) == "W1"
+
+    def test_edit_call_non_identifier_argument_422(
+        self, client: TestClient, data_dir: Path
+    ):
+        """非法参数名（libcst CSTValidationError 路径）→ 422 而非 500。"""
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "na me", "value": "X"},
+        )
+        assert r.status_code == 422
+        assert _text_value(data_dir) == "W1"
+
+    def test_edit_call_non_finite_float_422(
+        self, client: TestClient, data_dir: Path
+    ):
+        """NaN 值（json.loads 接受 NaN 字面量）→ 422 而非 500。"""
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        r = client.post(
+            f"/models/{MODEL_ID}/script/edit-call",
+            content=b'{"key": "s1:text:1", "argument": "text", "value": NaN}',
+            headers={"Content-Type": "application/json"},
+        )
+        assert r.status_code == 422
+        assert _text_value(data_dir) == "W1"
+
+    def test_edit_call_build_failure_422_zero_side_effects(
+        self, client: TestClient, data_dir: Path
+    ):
+        """重写本身合法但沙箱 run 失败（追加工厂不认识的 kwargs → TypeError）
+        → 422，且 staging/uploads/map 全部不变。"""
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        before_dxf = _uploads_dxf(data_dir).read_bytes()
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        before_map = map_path.read_bytes()
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "bogus_kwarg", "value": 1},
+        )
+        assert r.status_code == 422, r.text
+
+        r = client.get(f"/models/{MODEL_ID}/script")
+        assert r.status_code == 200
+        assert r.json()["staged"] == 0
+        assert _uploads_dxf(data_dir).read_bytes() == before_dxf
+        assert map_path.read_bytes() == before_map
+
+
+class TestEditCallStaleMap:
+    """staging 与 current.map.json 分叉（map 描述的是另一份脚本）→ 409 拒绝。
+
+    map 只在 run/save/rollback/edit-call 时重建；未 run 的暂存、undo/redo
+    都会让 map 的行号失效——此时 edit-call 若放行会按旧行号改写错误的调用。
+    """
+
+    def test_edit_call_unrun_staged_edit_409_zero_side_effects(
+        self, client: TestClient, data_dir: Path
+    ):
+        """PUT 一个移位编辑但不 run → edit-call 409；uploads/staging/map 均不变。"""
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        before_dxf = _uploads_dxf(data_dir).read_bytes()
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        before_map = map_path.read_bytes()
+        shifted = "# line-shifting edit\n" + TEXT_SCRIPT.format(key="s1:text:1")
+        r = client.put(f"/models/{MODEL_ID}/script", json={"script": shifted})
+        assert r.status_code == 200, r.text
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": "W9"},
+        )
+        assert r.status_code == 409, r.text
+
+        assert _uploads_dxf(data_dir).read_bytes() == before_dxf
+        assert map_path.read_bytes() == before_map
+        r = client.get(f"/models/{MODEL_ID}/script")
+        assert r.status_code == 200
+        staged = r.json()
+        assert staged["script"] == shifted  # staging 未被 edit-call 触碰
+        assert staged["staged"] == 1
+
+    def test_edit_call_undo_after_run_409(
+        self, client: TestClient, data_dir: Path
+    ):
+        """run 之后 undo：map 描述的是 undo 前的脚本 → 409。"""
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        renamed = TEXT_SCRIPT.format(key="s1:text:1").replace(
+            'text="W1"', 'text="W2"'
+        )
+        r = client.put(f"/models/{MODEL_ID}/script", json={"script": renamed})
+        assert r.status_code == 200, r.text
+        r = client.post(f"/models/{MODEL_ID}/script/run")
+        assert r.status_code == 200, r.text
+        r = client.post(f"/models/{MODEL_ID}/script/undo")
+        assert r.status_code == 200, r.text
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": "W9"},
+        )
+        assert r.status_code == 409, r.text
+        assert _text_value(data_dir) == "W2"  # uploads 保持 run 后的状态
+
+    def test_edit_call_legacy_bare_map_409(
+        self, client: TestClient, data_dir: Path
+    ):
+        """旧版裸 map（无 scriptHash 信封）→ 视为过期，409 而非 500/放行。"""
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        map_path = data_dir / "models" / MODEL_ID / "current.map.json"
+        envelope = json.loads(map_path.read_text(encoding="utf-8"))
+        map_path.write_text(json.dumps(envelope["map"]), encoding="utf-8")
+
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": "W9"},
+        )
+        assert r.status_code == 409, r.text
+        assert _text_value(data_dir) == "W1"
+
+    def test_edit_call_happy_path_hash_matches(
+        self, client: TestClient, data_dir: Path
+    ):
+        """回归：save 后 map 与 staging 同源，edit-call 照常 200。"""
+        _save_script(client, TEXT_SCRIPT.format(key="s1:text:1"))
+        r = _edit_call(
+            client,
+            {"key": "s1:text:1", "argument": "text", "value": "W2"},
+        )
+        assert r.status_code == 200, r.text
+        assert _text_value(data_dir) == "W2"

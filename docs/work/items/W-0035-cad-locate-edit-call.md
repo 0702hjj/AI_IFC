@@ -1,6 +1,6 @@
 # W-0035: cad locate/edit-call（key→脚本定位 + libcst 标量改写）
 
-- **状态：** open
+- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR 待提）」）
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source，chunk B）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §1.2 端点表 + §三展望 locate 部分 + 「工作项建议」4

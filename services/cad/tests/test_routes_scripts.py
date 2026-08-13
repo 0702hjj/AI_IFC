@@ -5,7 +5,8 @@
 
 HTTP-level coverage over the full script-as-source route set (Task 3 delivered
 only pure-function modules). Mirrors services/ifc endpoint shapes; locate /
-edit-call / semantic entity diff are chunk B and intentionally absent.
+edit-call live in test_script_locate.py / test_script_edit.py (chunk B), the
+semantic entity diff is chunk B and intentionally absent.
 """
 
 from __future__ import annotations
