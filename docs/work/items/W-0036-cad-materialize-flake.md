@@ -1,10 +1,18 @@
 # W-0036: cad materialize/LRU 低频竞态 flake（test_concurrent_diffs_across_lru_eviction_no_500）
 
-- **状态：** open
+- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR 待提）」，commit 0f12428）
 - **优先级：** P2
 - **Milestone：** v0.6（services/cad script-as-source）
 - **来源：** chunk B Task 4 评审（2026-08-13，分支 feat/v0.6-cad-diff）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** opencode subagent / feat/v0.6-cad-diff
+
+## 关闭结论（2026-08-13）
+
+根因非 evict-vs-read：`routes_diff.post_diff` 的结果缓存发布段在模型锁外，
+同 `(base,target)` 并发请求双双未命中缓存时共享 `diff-*.json.tmp` 名，一方
+`os.replace` 后另一方必抛 FileNotFoundError → 500（flaky 用例 `[1..5]*2` 的
+重复 base 对命中该窗口）。修复：tmp 名按 pid+线程 id 唯一化。证据与 5× 全绿
+证明见 `.superpowers/sdd/2026-08-13-services-cad-chunk-b/w0036-report.md`。
 
 ## 背景
 
