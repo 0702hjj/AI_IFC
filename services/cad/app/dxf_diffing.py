@@ -24,11 +24,14 @@ added/removed 为排序后的 key 列表。与 IFC 的本质差异：CAD 里几�
 
 from __future__ import annotations
 
+import logging
 import sys
 from collections import Counter
 from typing import Any, Dict, List, Optional, Tuple
 
 import ezdxf
+
+logger = logging.getLogger(__name__)
 
 _PRECISION = 6
 
@@ -111,6 +114,10 @@ def _entities_by_key(
     for entity in doc.modelspace():
         key = _entity_key(entity)
         if key is not None:
+            if key in keyed:
+                # 同 key 多实体：身份对齐歧义，后者覆盖前者但必须明面化，
+                # 不得静默（Task 2 review 遗留）。
+                logger.warning("duplicate XDATA key %r in DXF; later entity wins", key)
             keyed[key] = entity
         else:
             keyless.append((entity.dxftype(), _signature(entity)))

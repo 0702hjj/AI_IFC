@@ -18,6 +18,7 @@ class Settings:
     data_dir: str = "../data"
     flows_dir: str = "../../skills/aidxfv/v1/scripts/flows"
     max_models: int = 8
+    diff_timeout_s: int = 60
 
 
 def _resolve_path(value: str, anchor: Path) -> str:
@@ -27,7 +28,7 @@ def _resolve_path(value: str, anchor: Path) -> str:
 
 
 def load_settings() -> Settings:
-    """Build Settings from env (CAD_SERVICE_PORT, VIEWER_DATA_DIR, AIDXF_FLOWS_DIR, CAD_SERVICE_MAX_MODELS)."""
+    """Build Settings from env (CAD_SERVICE_PORT, VIEWER_DATA_DIR, AIDXF_FLOWS_DIR, CAD_SERVICE_MAX_MODELS, CAD_SERVICE_DIFF_TIMEOUT_S)."""
     anchor = Path(__file__).resolve().parent.parent  # edit-service root
     data_dir = os.environ.get("VIEWER_DATA_DIR", "../data")
     flows_dir = os.environ.get(
@@ -38,4 +39,5 @@ def load_settings() -> Settings:
         data_dir=data_dir,
         flows_dir=_resolve_path(flows_dir, anchor),
         max_models=int(os.environ.get("CAD_SERVICE_MAX_MODELS", "8")),
+        diff_timeout_s=int(os.environ.get("CAD_SERVICE_DIFF_TIMEOUT_S", "60")),
     )

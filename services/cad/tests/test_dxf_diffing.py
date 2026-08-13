@@ -252,6 +252,29 @@ class TestShape:
         assert compute_diff(str(path), str(path)) == {
             "added": [], "removed": [], "changed": []}
 
+    def test_duplicate_xdata_key_warns(self, tmp_path, caplog):
+        """同 key 两实体：后者覆盖前者（不静默），并 logger.warning 明面化。"""
+        import logging
+
+        base = _build(tmp_path / "base.dxf", _line("0:line:1"))
+        cad_script_lib.reset_state()
+        doc = ezdxf.new("R2010")
+        msp = doc.modelspace()
+        cad_script_lib.add_entity(msp, "LINE", key="0:line:1", start=(0, 0), end=(1, 1))
+        cad_script_lib.add_entity(msp, "LINE", key="0:line:1", start=(0, 0), end=(2, 2))
+        dup = tmp_path / "dup.dxf"
+        doc.saveas(dup)
+
+        with caplog.at_level(logging.WARNING, logger="app.dxf_diffing"):
+            diff = compute_diff(str(dup), str(base))
+        assert any(
+            "0:line:1" in r.message and "duplicate" in r.message.lower()
+            for r in caplog.records
+        )
+        # 后者（end=(2,2)）覆盖前者参与对齐：与 base 的 end=(10,0) 形成 changed
+        fields = _changed_fields(diff, "0:line:1")
+        assert fields["end"][0] == [2.0, 2.0, 0.0]
+
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

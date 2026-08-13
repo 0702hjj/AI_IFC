@@ -11,12 +11,15 @@ from __future__ import annotations
 
 import os
 import threading
+from collections import OrderedDict
 
 from fastapi import HTTPException, Request
 
 MODEL_ID_PATTERN = r"^m_[0-9a-f]{16}$"
 
-_locks: "dict[str, threading.RLock]" = {}
+LOCKS_MAX = 1024
+
+_locks: "OrderedDict[str, threading.RLock]" = OrderedDict()
 _locks_guard = threading.Lock()
 
 
@@ -34,7 +37,17 @@ def model_lock(model_id: str) -> threading.RLock:
     """Per-model reentrant lock keyed by model_id (shared across edit surfaces).
 
     Unlike services/ifc there is no ModelRegistry, so locks live in a
-    module-level map handed out under a guard lock.
+    module-level map handed out under a guard lock. The map is LRU-bounded
+    (``LOCKS_MAX``): hits move the entry to the end, inserts past the cap
+    evict the oldest — bounded memory for unbounded model ids.
     """
     with _locks_guard:
-        return _locks.setdefault(model_id, threading.RLock())
+        lock = _locks.get(model_id)
+        if lock is None:
+            lock = threading.RLock()
+            _locks[model_id] = lock
+        else:
+            _locks.move_to_end(model_id)
+        while len(_locks) > LOCKS_MAX:
+            _locks.popitem(last=False)
+        return lock
