@@ -28,7 +28,7 @@ VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200
 | `GET /models/{id}/scripts` · `POST .../script/rollback` · `.../script/diff` · `GET .../script/staging/diff` | 大版本列表 / 回退 / 脚本 diff / 暂存步 diff |
 | `GET /models/{id}/versions` | DXF 版本快照列表 |
 | `POST /models/{id}/diff` | 实体级语义 diff（XDATA key 对齐；body `{base, target}`，target 接受 `"current"`；不可变对缓存 `versions/diff-{base}-{target}.json`，504 超时） |
-| `GET /models/{id}/script/locate?key=` | XDATA key → 脚本调用点定位（map scriptHash stale 时 409 fail-closed） |
+| `GET /models/{id}/script/locate?key=` | XDATA key → 脚本调用点定位（map scriptHash stale 时 200 降级 `{"found": false, "stale": true}`） |
 | `POST /models/{id}/script/edit-call` | libcst 标量改写（locate 命中的调用点；stale 409 fail-closed） |
 | `GET /health` | 存活探针 |
 
@@ -37,5 +37,5 @@ Chunk 边界——**本服务尚未包含**（后续 chunk 按 spec 2026-08-12-s
 ## 测试
 
 ```bash
-uv run --group dev pytest   # 185 测试
+uv run --group dev pytest   # 186 测试
 ```
