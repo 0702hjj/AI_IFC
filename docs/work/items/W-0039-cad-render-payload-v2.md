@@ -1,6 +1,6 @@
 # W-0039: cad render.json（render payload v2：实体带 XDATA key + unsupported 明面化）
 
-- **状态：** open
+- **状态：** done（关闭于 commit 48600ff + 本迭代分支 feat/v0.7-cad-render（PR 待提））
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source，chunk C）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §二「实现路径：前端显示」1 + 「工作项建议」5
