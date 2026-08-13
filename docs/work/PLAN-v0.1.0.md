@@ -20,6 +20,7 @@
 | v0.5 | 可移植复用 ✅（2026-08-12，spec: 2026-08-12-portability-reuse-design.md，分支 feat/v0.5-portability-reuse，PR #31）| W-0026..W-0029（W-0030 仅立项保留 open；W-0031 转入下迭代） | 对接契约入站；services/ifc 镜像冒烟通过；skill 版本化 + Release runbook 文档化（首发布随下迭代）；aibim-orchestrator 提示词包可打包、W-0017 关闭 |
 | v0.6 | services/cad script-as-source chunk A ✅（2026-08-12，分支 feat/v0.5-portability-reuse 累积，PR #31）| W-0032, W-0033 | cad_script_lib 契约+XDATA 身份测试绿；services/cad 骨架端点与沙箱全测试绿 |
 | v0.6 | services/cad script-as-source chunk B ✅（2026-08-13，分支 feat/v0.6-cad-diff，PR #34）| W-0034, W-0035 | diff 引擎与 locate/edit-call 测试绿 |
+| v0.6 | services/cad script-as-source chunk C（分支 feat/v0.7-cad-render）| W-0039, W-0040 | render.json 实体带 key + unsupported 明面化；Go kind 分流 + 13 端点代理契约测试绿 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 
