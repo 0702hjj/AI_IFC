@@ -55,6 +55,7 @@ from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from . import (
+    render,
     script_diff,
     script_edit,
     script_params,
@@ -333,6 +334,33 @@ def _map_is_stale(script_hash: Optional[str], current: Optional[str]) -> bool:
     return script_hash != script_runner.script_hash(current)
 
 
+def _publish_render_json(request: Request, model_id: str, dxf_path: str) -> None:
+    """run/save 后原子发布 render.json（tmp + os.replace，与 map sidecar 同纪律）。
+
+    生成失败不阻断 run/save 主流程：记 warning 并删除旧 render.json，
+    防止旧 payload 与新 uploads dxf 错位（map 侧车同纪律）。
+    调用方须持有模型锁（唯一写者，tmp 名无竞争）。
+    """
+    dest = os.path.join(
+        request.app.state.settings.data_dir, "models", model_id, "render.json"
+    )
+    try:
+        payload = render.build_render_payload(dxf_path)
+    except Exception:
+        logger.warning(
+            "render.json 生成失败，删除旧文件防错位: model=%s", model_id,
+            exc_info=True,
+        )
+        if os.path.exists(dest):
+            os.remove(dest)
+        return
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    tmp = dest + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(payload, fh, ensure_ascii=False)
+    os.replace(tmp, dest)
+
+
 def _run_into_uploads(request: Request, model_id: str, script: str) -> str:
     """Sandbox-run script into uploads/{id}.dxf; publish the run's ScriptMap
     envelope to ``models/{id}/current.map.json``.
@@ -345,6 +373,7 @@ def _run_into_uploads(request: Request, model_id: str, script: str) -> str:
         request.app.state.settings, script, dxf_path,
         map_out=_current_map_path(request, model_id),
     )
+    _publish_render_json(request, model_id, dxf_path)
     return dxf_path
 
 
