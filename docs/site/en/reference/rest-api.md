@@ -156,7 +156,7 @@ Atomically published by services/cad after `script/run` and `script/save` succee
 }
 ```
 
-Conventions: `entities[].key` is the stable XDATA key (APPID `AIDXF`, same source as the ScriptMap), so the frontend gets the key on selection; LWPOLYLINE is exploded into LINE/ARC entries (multiple entries share one key); INSERT is expanded one level only (child entities have `key=null` and a `block` marker); entity types outside the whitelist are listed in `unsupported` instead of being silently dropped.
+Conventions: `bounds` is nullable — it is `null` when `entities` is empty (or has no usable coordinates); `entities[].key` is the stable XDATA key (APPID `AIDXF`, same source as the ScriptMap), so the frontend gets the key on selection; LWPOLYLINE is exploded into LINE/ARC entries (multiple entries share one key); INSERT is expanded one level only (child entities have `key=null` and a `block` marker); entity types outside the whitelist are listed in `unsupported` instead of being silently dropped.
 
 ## Common error codes
 

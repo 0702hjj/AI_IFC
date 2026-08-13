@@ -76,7 +76,6 @@ func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *h
 			return
 		}
 		if m.Kind == store.KindDXF {
-			log.Printf("script %s %s: dxf kind, XKT reconvert not applicable", action, modelID)
 			return
 		}
 		if !h.q.EnqueueIfStale(modelID) {

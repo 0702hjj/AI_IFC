@@ -334,11 +334,22 @@ def _map_is_stale(script_hash: Optional[str], current: Optional[str]) -> bool:
     return script_hash != script_runner.script_hash(current)
 
 
+def _remove_quiet(path: str) -> None:
+    """Best-effort 删除：磁盘错误只记日志，绝不向上抛。"""
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError:
+        logger.warning("删除旧 render.json 失败: %s", path, exc_info=True)
+
+
 def _publish_render_json(request: Request, model_id: str, dxf_path: str) -> None:
     """run/save 后原子发布 render.json（tmp + os.replace，与 map sidecar 同纪律）。
 
     生成失败不阻断 run/save 主流程：记 warning 并删除旧 render.json，
     防止旧 payload 与新 uploads dxf 错位（map 侧车同纪律）。
+    写盘失败（makedirs/open/os.replace）同样不阻断：记 warning 并尽量删旧，
+    绝不让磁盘错误把一次成功的 run/save 变 500。
     调用方须持有模型锁（唯一写者，tmp 名无竞争）。
     """
     dest = os.path.join(
@@ -351,14 +362,21 @@ def _publish_render_json(request: Request, model_id: str, dxf_path: str) -> None
             "render.json 生成失败，删除旧文件防错位: model=%s", model_id,
             exc_info=True,
         )
-        if os.path.exists(dest):
-            os.remove(dest)
+        _remove_quiet(dest)
         return
-    os.makedirs(os.path.dirname(dest), exist_ok=True)
-    tmp = dest + ".tmp"
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False)
-    os.replace(tmp, dest)
+    try:
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        tmp = dest + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh, ensure_ascii=False)
+        os.replace(tmp, dest)
+    except OSError:
+        logger.warning(
+            "render.json 写盘失败，删除旧文件防错位: model=%s", model_id,
+            exc_info=True,
+        )
+        _remove_quiet(dest + ".tmp")
+        _remove_quiet(dest)
 
 
 def _run_into_uploads(request: Request, model_id: str, script: str) -> str:

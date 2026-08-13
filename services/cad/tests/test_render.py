@@ -341,6 +341,30 @@ class TestRunSaveHook:
         assert resp.status_code == 200
         assert not _render_path(data_dir).exists()
 
+    def test_write_failure_keeps_run_ok_and_removes_stale(
+            self, client, data_dir, monkeypatch):
+        """render.json 写盘失败（os.replace OSError）不阻断 run，且删旧文件防错位。"""
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        assert client.post(f"{BASE}/script/run").status_code == 200
+        assert _render_path(data_dir).is_file()
+
+        import os as os_module
+
+        import app.routes_scripts as routes_module
+
+        real_replace = os_module.replace
+
+        def boom(src, dst, *args, **kwargs):
+            if str(dst).endswith("render.json"):
+                raise OSError("disk-full")
+            return real_replace(src, dst, *args, **kwargs)
+
+        monkeypatch.setattr(routes_module.os, "replace", boom)
+        client.put(f"{BASE}/script", json={"params": {"length": 20}})
+        resp = client.post(f"{BASE}/script/run")
+        assert resp.status_code == 200
+        assert not _render_path(data_dir).exists()
+
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

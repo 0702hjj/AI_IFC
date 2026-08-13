@@ -158,7 +158,7 @@ Go server 把 edit-service 的脚本编辑端点暴露在 `/api/v1/models/{id}/s
 }
 ```
 
-约定：`entities[].key` 为 XDATA 稳定 key（APPID `AIDXF`，与 ScriptMap 同源），前端选中即得 key；LWPOLYLINE 炸开为 LINE/ARC 条目（同 key 多条目）；INSERT 仅展开一层（子实体 `key=null` 且带 `block` 标记）；白名单外实体明面列入 `unsupported`，不静默丢弃。
+约定：`bounds` 可空——`entities` 为空（或无可用坐标）时为 `null`；`entities[].key` 为 XDATA 稳定 key（APPID `AIDXF`，与 ScriptMap 同源），前端选中即得 key；LWPOLYLINE 炸开为 LINE/ARC 条目（同 key 多条目）；INSERT 仅展开一层（子实体 `key=null` 且带 `block` 标记）；白名单外实体明面列入 `unsupported`，不静默丢弃。
 
 ## 通用错误码
 
