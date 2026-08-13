@@ -23,4 +23,4 @@ https://0702hjj.github.io/AI_IFC/project/contributing
 
 ## License
 
-本仓库为 AGPL-3.0-only，贡献即表示同意以该许可证发布。
+本仓库为 Apache-2.0，贡献即表示同意以该许可证发布。

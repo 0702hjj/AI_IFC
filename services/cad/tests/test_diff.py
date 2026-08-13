@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 
 """POST /models/{id}/diff endpoint tests (semantic entity diff, mirrors ifc test_diff.py).

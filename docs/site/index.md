@@ -31,7 +31,7 @@ features:
     details: MCP server 薄封装编辑 API（stdio），可解析用户在外部工具改后的 IFC/DXF 并标注 USER 来源。
   - icon: 🏠
     title: 自托管
-    details: 四个本地进程即可跑全平台，文件存储零依赖；可选 PostgreSQL。AGPL-3.0 开源。
+    details: 四个本地进程即可跑全平台，文件存储零依赖；可选 PostgreSQL。Apache-2.0 开源。
 ---
 
 ## 什么是 AI_IFC

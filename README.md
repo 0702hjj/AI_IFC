@@ -14,7 +14,7 @@ A self-hosted, open-source **BIM review and editing platform** for IFC models �
 | **Semantic version diff** | Attribute-level diff keyed by GlobalId (added / removed / changed), rendered in the Diff Viewer with old → new detail — no geometry noise. |
 | **One API, two roles** | The same REST editing API for designers (via the Go server) and AI agents (direct, with `provenance.source="AI"`). |
 | **AI authoring skill** | An agent-agnostic `aiifc` skill lets AI write `ifcopenshell.api` code to build or modify models from natural language. |
-| **Self-hosted & open** | AGPL-3.0, four components (web / server / converter / edit-service), file or PostgreSQL storage, single-machine friendly. |
+| **Self-hosted & open** | Apache-2.0, four components (web / server / converter / edit-service), file or PostgreSQL storage, single-machine friendly. |
 
 ## What it does
 
@@ -107,4 +107,4 @@ The SimpleCADAPI heritage code (`src/`, `skills/simplecadapi/`, SCAD-era packagi
 
 ## License
 
-[AGPL-3.0-only](LICENSE) — inherited from the SimpleCADAPI fork and consistent with the AGPL-licensed xeokit stack. Third-party attributions and the archived-code boundary: [NOTICE](NOTICE). The `skills/aiifc/` skill itself declares **LGPL-3.0** (reference docs for the LGPL-licensed IfcOpenShell).
+[Apache-2.0](LICENSE) — relicensed from AGPL-3.0-only on 2026-08-13 with all contributors' consent, aligning with upstream SimpleCADAPI. Third-party attributions and the archived-code boundary: [NOTICE](NOTICE). Note: the `web/` frontend bundles AGPL-licensed xeokit — built frontend artifacts stay AGPL-affected; commercial/closed-source use should take the three.js + web-ifc path instead (see NOTICE).

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // PropertyPanel：只读属性展示（L1 直改端点已 410 退役，编辑统一走 script-as-source）。

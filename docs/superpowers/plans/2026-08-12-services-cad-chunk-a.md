@@ -96,7 +96,7 @@ class TestDocDrift:  # 照 TestSkillDocContractDrift：SKILL.md 中所有 cad_sc
 
 - [ ] **Step 3: 实现 `cad_script_lib.py`**
 
-文件头：`# SPDX-License-Identifier: AGPL-3.0-only`（主仓新增文件）。实现要点：
+文件头：`# SPDX-License-Identifier: Apache-2.0`（主仓新增文件）。实现要点：
 
 ```python
 NAMESPACE_AIDXF = uuid.UUID("8f2e1c4a-3b5d-4e6f-9a0b-1c2d3e4f5a6b")  # 固定常量

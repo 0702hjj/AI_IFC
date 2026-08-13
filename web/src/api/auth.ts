@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // API token 存取与 401 通知（W-0010）。token 存 localStorage，键名 aiifc_token；

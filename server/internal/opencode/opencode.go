@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // Package opencode 是 opencode serve（AI agent 服务）的 HTTP/SSE 客户端。

@@ -36,4 +36,4 @@ cd docs && npm ci && npm run docs:build && npm run check:api
 
 ## License
 
-This repository is AGPL-3.0-only. Contributing means you agree to release your contribution under that license; third-party attributions: [License & third-party components](/project/license) (Chinese).
+This repository is Apache-2.0. Contributing means you agree to release your contribution under that license; third-party attributions: [License & third-party components](/project/license) (Chinese).

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // ChatSidebar：挂在项目页右侧的 AI 对话侧边栏（可展开/收敛、可拖拽宽度）。

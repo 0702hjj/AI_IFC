@@ -364,7 +364,7 @@ def test_edit_call_success_stages_and_reruns(client, data_dir, model_id):
 - [ ] **Step 3: 实现 script_edit.py**
 
 ```python
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """Targeted scalar-argument rewrite of a script factory call (libcst, lossless)."""
 
 from __future__ import annotations

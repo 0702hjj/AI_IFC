@@ -5,7 +5,7 @@
 
 ## 项目是什么
 
-自托管、开源（AGPL-3.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
+自托管、开源（Apache-2.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
 - **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
 - **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B 已交付（骨架/沙箱/REST + 语义 diff/locate/edit-call），Go 代理/render/前端待续）——`skills/aidxfv/`（v1/v2，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。
@@ -81,7 +81,7 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 边界（不要碰）
 
-- `skills/aidxfv/v1`（含 vendored cadpy/archdxf）与 `skills/aiblueprint-mcp`：fork 自 earthtojake/text-to-cad（MIT）——改动注意保留 MIT 归属（其 LICENSE 文件），勿与主仓 AGPL 文件混排。
+- `skills/aidxfv/v1`（含 vendored cadpy/archdxf）与 `skills/aiblueprint-mcp`：fork 自 earthtojake/text-to-cad（MIT）——改动注意保留 MIT 归属（其 LICENSE 文件），勿与主仓 Apache 文件混排。
 - SCAD 遗产（`src/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不含，勿引用。
 - `docs/site/public/` 下的自动生成物（`go-rest-api.routes.json` 等）：只经 `npm run gen:api` 更新。
 - `data/`：运行时数据，gitignored，不要手工改。

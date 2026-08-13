@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 
 """DXF 存储策略（镜像 ifc test_ifc_lazy_materialize.py）：只物化最新大版本，

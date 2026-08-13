@@ -28,7 +28,7 @@ AI_IFC/
 │   ├── work/                 # 工作项看板（审计、计划、可跟踪条目）
 │   └── superpowers/          # 设计规范与实施计划
 ├── .github/workflows/        # CI（server/web 等）与 docs（构建 + Pages 部署）
-├── LICENSE                   # AGPL-3.0-only
+├── LICENSE                   # Apache-2.0
 └── NOTICE                    # 三方组件与归档代码边界
 ```
 

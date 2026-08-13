@@ -14,7 +14,7 @@
 | **语义版本对比** | 按 GlobalId 的属性级 diff（新增/删除/修改），Diff Viewer 展示 old → new 明细，无几何噪声。 |
 | **一套 API，双角色** | 人与 AI 共用同一套 REST 编辑 API（人走 Go 代理，AI 直连并标记 `provenance.source="AI"`）。 |
 | **AI 建模 skill** | agent 无关的 `aiifc` skill，让 AI 用自然语言驱动 `ifcopenshell.api` 代码生成或修改模型。 |
-| **自托管、开源** | AGPL-3.0，四组件（web / server / converter / edit-service），文件或 PostgreSQL 存储，单机友好。 |
+| **自托管、开源** | Apache-2.0，四组件（web / server / converter / edit-service），文件或 PostgreSQL 存储，单机友好。 |
 
 ## 功能
 
@@ -107,4 +107,4 @@ SCAD 遗产代码（`src/`、`skills/simplecadapi/`、SCAD 时代打包配置）
 
 ## 许可证
 
-[AGPL-3.0-only](LICENSE)——继承自 SimpleCADAPI fork，与 AGPL 的 xeokit 栈一致。三方组件与归档代码边界见 [NOTICE](NOTICE)。`skills/aiifc/` skill 本身声明为 **LGPL-3.0**（参考 LGPL 的 IfcOpenShell 官方文档）。
+[Apache-2.0](LICENSE)——2026-08-13 经全体贡献者同意由 AGPL-3.0-only 改授，与上游 SimpleCADAPI 对齐。三方组件与归档代码边界见 [NOTICE](NOTICE)。注意：`web/` 前端打包 AGPL 的 xeokit——前端构建产物仍受 AGPL 约束；闭源/商用场景请走 three.js + web-ifc 路径（见 NOTICE）。

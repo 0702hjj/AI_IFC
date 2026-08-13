@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 """cad_script_lib.py — DXF 构建脚本公共 helper(services/cad script-as-source 契约层)。
 
 契约(见 skills/aidxfv/v1/SKILL.md「services/cad 脚本契约」节, 镜像 aiifc script_lib):

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 # edit-service 镜像（FastAPI + ifcopenshell，uv 管理依赖）。
 # 构建上下文为仓库根（flows 目录在 skills/aiifc/references/docs/flows）。

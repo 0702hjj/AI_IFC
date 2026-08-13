@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // chat 模块（demo）：对话式 AI 建模。独立 Handler，与既有 NewHandler 并列挂载

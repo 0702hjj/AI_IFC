@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 # Go server 镜像：构建期用 golang，运行期用 node 基础镜像
 # （server 以子进程调 `node /opt/converter/convert.js` 做 IFC→XKT）。

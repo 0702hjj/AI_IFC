@@ -1,8 +1,8 @@
 ---
 name: aibim-orchestrator
 description: 主 Agent 编排提示词包——IFC/CAD 任务的意图路由与子 Agent 派发契约，附可选 plan 范式（从模糊想法起步时的 plan→cad→ifc 路径）。Use when a main/designer-facing agent needs to route tasks to IFC (aiifc) or CAD (aidxfv) subagents, or chain the full plan.json → DXF → IFC pipeline. Agent-agnostic; ships opencode agent config examples.
-version: 0.2.0
-license: AGPL-3.0-only
+version: 0.2.1
+license: Apache-2.0
 ---
 
 # AIBIM 主 Agent 编排
