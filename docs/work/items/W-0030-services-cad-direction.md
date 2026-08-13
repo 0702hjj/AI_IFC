@@ -26,6 +26,8 @@
 下一迭代先补独立 spec，再按 spec 实施。
 
 > 2026-08-12：chunk A（骨架 + 沙箱 + script-as-source REST，W-0032/W-0033）已落地，见 spec 2026-08-12-services-cad-script-as-source-design.md；剩余（locate/edit-call/语义 diff/Go 代理/render.json）按 spec 工作项 3-7 走后续 chunk。
+>
+> 2026-08-13：chunk B（语义 diff + locate/edit-call，W-0034/W-0035，分支 feat/v0.6-cad-diff）已落地；剩余 spec 工作项 5-7（Go 代理 + MCP、render.json、前端）为后续 chunk。
 
 ## 验收标准
 

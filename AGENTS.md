@@ -8,7 +8,7 @@
 自托管、开源（AGPL-3.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
 - **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
-- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A 已交付：骨架+沙箱+script-as-source REST，diff/locate/edit-call 与前端待续）——`skills/aidxfv/`（v1/v2，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。
+- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B 已交付（骨架/沙箱/REST + 语义 diff/locate/edit-call），Go 代理/render/前端待续）——`skills/aidxfv/`（v1/v2，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。
 - **推荐项：Agent 工作流控制**（可选，做不好可删）——主 Agent 编排提示词包 `skills/aibim-orchestrator` + 事件总线（已交付，地基保留）；代码级 orchestrator 不再追求，原设计见 `2026-08-11-orchestrator-design.md`。
 
 两逻辑共享运行时骨架：`web`（可选前端）/ `server`（Go 网关 :8090）/ `converter`（Node 转换）/ `services/ifc`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
@@ -28,8 +28,8 @@ AI agent ──► REST 编辑 API ────┘
 | web (React 19 + xeokit + zustand) | `web` | `npm test`（vitest，194 用例 / 20 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
 | server (Go 1.26，stdlib + pgx/v5) | `server` | `go test ./...`（138 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（242 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
-| cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（95 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（243 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（186 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
 | mcp-server (Python + mcp 2.x MCPServer，stdio) | `mcp` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
 | skill 打包 | `tools/skill_pack.py`（泛化打包器：`--skill <name>` 默认 aiifc，`--skill-dir <path>` 任意 skill） | `python -m pytest tests/skill/ -q`（154 测试，CI 用独立 .ci-venv） | `python tools/skill_pack.py --archive`（默认 aiifc；`--skill-dir skills/aidxfv/v1 --archive` 打 CAD） |
 | 端到端 | `scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |

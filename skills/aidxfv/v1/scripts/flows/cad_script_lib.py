@@ -23,14 +23,10 @@ import ast
 import inspect
 import json
 import linecache
-import uuid
 from collections import OrderedDict
 from pathlib import Path
 
 APPID = "AIDXF"
-
-# 确定性 key 派生的命名空间(固定不变; 改动会使所有已生成图纸的身份变化)
-NAMESPACE_AIDXF = uuid.UUID("8f2e1c4a-3b5d-4e6f-9a0b-1c2d3e4f5a6b")
 
 # add_entity 调用点登记(key → {"line","col","snippet","origin","params_keys"});
 # 出口落 .map.json

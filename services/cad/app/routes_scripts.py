@@ -29,8 +29,14 @@ The build script is the single source of truth for generated DXF models:
   two staging steps.
 - ``GET  /models/{id}/versions`` — materialized DXF snapshot listing.
 
-Chunk B (explicitly absent here): ``script/locate``, ``script/edit-call``,
-entity-level semantic diff.
+- ``GET  /models/{id}/script/locate?key=`` — XDATA key → CallSite
+  (line/col/snippet/origin/params_keys)；staging 与 map 分叉 → 200 降级
+  ``{"found": false, "stale": true}``（绝不跳错误行）。
+- ``POST /models/{id}/script/edit-call`` — libcst 标量改写定位到的调用点
+  实参，沙箱 run + staging.push；任何失败 422 零副作用，stale map → 409
+  fail-closed，origin=traced → 422。
+
+Chunk B (explicitly absent here): entity-level semantic diff.
 
 All mutating endpoints hold the per-model lock. 校验隔离：所有
 ``raise HTTPException`` 住在 verify* 函数（route_common.py 豁免），
@@ -39,6 +45,7 @@ All mutating endpoints hold the per-model lock. 校验隔离：所有
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -49,6 +56,7 @@ from pydantic import BaseModel, Field
 
 from . import (
     script_diff,
+    script_edit,
     script_params,
     script_runner,
     script_staging,
@@ -90,6 +98,14 @@ class ScriptDiffBody(BaseModel):
 
     base: str = Field(..., pattern=VERSION_NAME_PATTERN)
     target: str = Field(..., pattern=VERSION_NAME_PATTERN)
+
+
+class EditCallBody(BaseModel):
+    """Body of POST /models/{id}/script/edit-call: scalar argument rewrite."""
+
+    key: str
+    argument: str
+    value: Any  # 服务端强校验为标量（str/int/float/bool）
 
 
 def verify_script_body(body: ScriptBody) -> None:
@@ -180,6 +196,51 @@ def verify_step_pair(
     return i, j
 
 
+def verify_map_fresh(
+    map_hash: Optional[str],
+    entries: Optional[Dict[str, Any]],
+    current: str,
+    key: str,
+) -> Dict[str, Any]:
+    """edit-call 前置：map 缺失 → 404；staging 与 map 分叉 → 409 fail-closed。
+
+    map 行号只对生成它的那份脚本有效，放行过期 map 会把改写落到错误的调用上。
+    """
+    if entries is None:
+        raise HTTPException(status_code=404, detail=f"callsite not found: {key}")
+    if _map_is_stale(map_hash, current):
+        raise HTTPException(
+            status_code=409,
+            detail="staging has un-run edits; run the script before edit-call",
+        )
+    return entries
+
+
+def verify_editable_origin(entries: Dict[str, Any], key: str) -> Dict[str, Any]:
+    """callsite 必须存在且可自动改写（origin=traced → 422，提示直接改脚本）。"""
+    entry = entries.get(key)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"callsite not found: {key}")
+    if entry.get("origin") == "traced":
+        raise HTTPException(
+            status_code=422,
+            detail="callsite not auto-editable (traced); edit the script directly",
+        )
+    return entry
+
+
+def verify_rewritten_script(
+    current: str, entry: Dict[str, Any], argument: str, value: Any
+) -> str:
+    """libcst 标量重写错误的唯一 HTTP 翻译点（422）。"""
+    try:
+        return script_edit.rewrite_call_argument(
+            current, entry["line"], argument, value
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
 def _staging(request: Request, model_id: str) -> script_staging.ScriptStaging:
     return request.app.state.script_staging.get(model_id)
 
@@ -240,6 +301,36 @@ def _current_map_path(request: Request, model_id: str) -> str:
     return os.path.join(
         request.app.state.settings.data_dir, "models", model_id, "current.map.json"
     )
+
+
+def _read_current_map(map_path: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+    """读取 current.map.json 发布信封：返回 (script_hash, entries)。
+
+    信封为 ``{"scriptHash": sha256(script), "map": {...}}``（run_script 发布）。
+    文件缺失/损坏/非对象 → (None, None)；旧版裸 map（无信封）→ (None, {})，
+    调用侧按过期处理（edit-call 409 / locate stale），绝不对形状变化 500。
+    """
+    if not os.path.isfile(map_path):
+        return None, None
+    try:
+        with open(map_path, encoding="utf-8") as fh:
+            raw = json.load(fh)
+    except (OSError, ValueError):
+        return None, None
+    if not isinstance(raw, dict):
+        return None, None
+    script_hash = raw.get("scriptHash")
+    entries = raw.get("map")
+    if not isinstance(script_hash, str) or not isinstance(entries, dict):
+        return None, {}
+    return script_hash, entries
+
+
+def _map_is_stale(script_hash: Optional[str], current: Optional[str]) -> bool:
+    """map 与 staging 当前脚本不同源（含无脚本可比对的旧版裸 map）→ 过期。"""
+    if script_hash is None or current is None:
+        return True
+    return script_hash != script_runner.script_hash(current)
 
 
 def _run_into_uploads(request: Request, model_id: str, script: str) -> str:
@@ -472,3 +563,51 @@ def diff_staging_steps(
         "to": j,
         **script_diff.diff_scripts(base, target, f"step{i}", f"step{j}"),
     }
+
+
+@router.get("/models/{id}/script/locate")
+def locate_callsite(
+    request: Request, key: str = Query(...), id: str = Path(pattern=MODEL_ID_PATTERN)
+) -> Dict[str, Any]:
+    """Locate the script callsite for an XDATA key (key → CallSite).
+
+    Unlike services/ifc the key is the direct input (no guid→designKey hop,
+    no registry). staging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）→ 200
+    降级 ``{"found": false, "stale": true}``：行号不可信，绝不让前端跳到
+    错误行。
+    """
+    model_upload_path(request, id)
+    map_hash, entries = _read_current_map(_current_map_path(request, id))
+    if entries is None:
+        return {"found": False, "key": key}
+    staging = _staging_or_seed(request, id)
+    if _map_is_stale(map_hash, staging.current()):
+        return {"found": False, "key": key, "stale": True}
+    entry = entries.get(key)
+    if entry is None:
+        return {"found": False, "key": key}
+    return {"found": True, "key": key, **entry}
+
+
+@router.post("/models/{id}/script/edit-call")
+def edit_call(
+    request: Request, body: EditCallBody, id: str = Path(pattern=MODEL_ID_PATTERN)
+) -> Dict[str, Any]:
+    """Rewrite one scalar argument at a located callsite, then sandbox-run.
+
+    顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。
+    origin=traced 的调用点不可自动改写 → 422。
+    staging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）→ 409 fail-closed：
+    map 行号只对生成它的那份脚本有效，放行会把改写落到错误的调用上。
+    """
+    model_upload_path(request, id)
+    with model_lock(id):
+        staging = _staging(request, id)
+        current = verify_current_script(staging, 409)
+        map_hash, entries = _read_current_map(_current_map_path(request, id))
+        entries = verify_map_fresh(map_hash, entries, current, body.key)
+        entry = verify_editable_origin(entries, body.key)
+        text = verify_rewritten_script(current, entry, body.argument, body.value)
+        _run_into_uploads(request, id, text)
+        staging.push(text)
+        return {"modelId": id, "staged": staging.staged_count(), "script": text}
