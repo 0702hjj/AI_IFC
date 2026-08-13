@@ -1,4 +1,4 @@
-# W-0040: Go kind 分流 + services/cad 代理（Model.Kind + .dxf 上传分流 + 13 端点代理 + render.json 只读）
+# W-0040: Go kind 分流 + services/cad 代理（Model.Kind + .dxf 上传分流 + cad 端点代理 + render.json 只读）
 
 - **状态：** open
 - **优先级：** P1
@@ -20,7 +20,7 @@ services/cad :8200 已具备与 services/ifc 同构的全套 REST 端点（chunk
 
 1. **Model.Kind**：模型记录加 `kind: "ifc"|"dxf"`；存量记录迁移默认 `ifc`（不破坏现有模型）。
 2. **上传分流**：`.dxf` 上传走 services/cad 引导（bootstrap.dxf + 初始脚本），不进 converter 子进程（DXF 无需 XKT 转换，services/cad 直接产 render.json）。
-3. **代理 13 端点**：`/api/v1` 下 cad script 全量端点代理（GET/PUT script、params、undo/redo/discard、run、save、scripts、rollback、script/diff、staging/diff、locate）；`edit-call` 按 spec 不经 Go 代理（仅服务直连暴露）。fast/slow 双 client——run/save/rollback 走 120s slow client；响应统一 envelope `{code,message,data}`。
+3. **代理面 = cad 全端点（edit-call 除外）**：`/api/v1` 下代理 services/cad 全部端点——GET/PUT script、params、undo/redo/discard、run、save、scripts、rollback、script/diff、staging/diff、locate，以及 `GET /versions` 与 `POST /diff`（镜像 IFC `/edit/*` 代理先例纳入，不做封闭计数）；`edit-call` 按 spec 不经 Go 代理（仅服务直连暴露）。fast/slow 双 client——run/save/rollback 走 120s slow client；响应统一 envelope `{code,message,data}`。
 4. **render.json 只读端点**：`GET /api/v1/models/{id}/render.json`（只读文件下发）；auth 豁免白名单同步更新（对齐 IFC 侧 `GET /v1/models/...` 只读豁免）。
 
 **显式范围外：** render payload v2 生成本身（W-0039）、web Canvas 查看器与 ViewerPage 分流（后续工作项）、MCP diff 切换（spec「工作项建议」7 后半）。
@@ -29,14 +29,14 @@ services/cad :8200 已具备与 services/ifc 同构的全套 REST 端点（chunk
 
 - `Model.Kind` 落库；旧记录迁移后默认 `ifc`，现有 IFC 模型行为不回归。
 - `.dxf` 上传创建 kind=dxf 模型、走 services/cad，不触发 converter 子进程；`.ifc` 路径不回归。
-- cad script 13 端点经 `/api/v1` 代理可达；run/save/rollback 走 slow client（120s）；edit-call 不出现在 Go 路由表。
+- cad 全端点（含 `GET /versions`、`POST /diff`，edit-call 除外）经 `/api/v1` 代理可达；run/save/rollback 走 slow client（120s）；edit-call 不出现在 Go 路由表。
 - envelope 契约测试覆盖代理端点（`code=0` 成功形态 + 错误翻译）。
 - render.json 只读端点可下文件；auth 开启时该 GET 在豁免白名单内，其余 cad 端点需 Bearer token（401 envelope 码 `40100`）。
 - `cd server && go test ./... && go vet ./...` 全绿。
 
 ## 测试要求
 
-- envelope 契约测试：13 代理端点 mock services/cad 断言 envelope 包装与状态码翻译（镜像 IFC 侧代理测试）。
+- envelope 契约测试：代理端点（含 versions/diff）mock services/cad 断言 envelope 包装与状态码翻译（镜像 IFC 侧代理测试）。
 - kind 分流测试：dxf 上传不进 converter（断言无子进程调用/无 XKT 入队）；旧记录迁移默认 ifc。
 - 双 client 测试：run/save/rollback 路由到 slow client（超时配置断言）。
 - auth 白名单测试：render.json GET 豁免、写端点 401。
