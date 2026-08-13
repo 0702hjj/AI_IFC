@@ -1,6 +1,6 @@
 # W-0040: Go kind 分流 + services/cad 代理（Model.Kind + .dxf 上传分流 + cad 端点代理 + render.json 只读）
 
-- **状态：** open
+- **状态：** done（关闭于 commit 340da58 + 本迭代分支 feat/v0.7-cad-render（PR 待提））
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source，chunk C）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §1.3「Go 网关」+ §二 3「模型类型」+「工作项建议」5/7
