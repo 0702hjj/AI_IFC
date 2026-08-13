@@ -1,6 +1,6 @@
 # W-0036: cad materialize/LRU 低频竞态 flake（test_concurrent_diffs_across_lru_eviction_no_500）
 
-- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR 待提）」，commit 0f12428）
+- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR #34）」，commit 0f12428）
 - **优先级：** P2
 - **Milestone：** v0.6（services/cad script-as-source）
 - **来源：** chunk B Task 4 评审（2026-08-13，分支 feat/v0.6-cad-diff）

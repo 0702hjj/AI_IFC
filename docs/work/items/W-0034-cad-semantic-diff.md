@@ -1,6 +1,6 @@
 # W-0034: cad 语义 diff 引擎（XDATA key 对齐 + POST /diff + 历史版本物化）
 
-- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR 待提）」：Task 2 diff 引擎 c5a4833；Task 3 POST /diff + 物化 + 缓存/504 本提交——135 测试全绿）
+- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR #34）」：Task 2 diff 引擎 c5a4833；Task 3 POST /diff + 物化 + 缓存/504 本提交——135 测试全绿）
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source，chunk B）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §1.2 语义 diff 段 + 「工作项建议」3

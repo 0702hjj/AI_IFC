@@ -1,6 +1,6 @@
 # W-0037: ifc diff 结果缓存发布共享 tmp 名竞态（并发同 (base,target) → 500）
 
-- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR 待提）」）
+- **状态：** done（关闭于「本迭代分支 feat/v0.6-cad-diff（PR #34）」）
 
 ## 关闭结论（2026-08-13）
 
