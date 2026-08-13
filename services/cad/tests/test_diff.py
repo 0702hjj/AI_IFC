@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -137,6 +138,56 @@ def test_diff_unknown_version_returns_404(client: TestClient) -> None:
     for body in ({"base": "v9", "target": "v1"}, {"base": "v1", "target": "v9"}):
         resp = client.post(f"/models/{MODEL_ID}/diff", json=body)
         assert resp.status_code == 404, body
+
+
+def test_concurrent_same_pair_diff_cache_publish_no_500(
+    client: TestClient, data_dir: Path, dxf_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """同 (base,target) 并发 diff 双双未命中结果缓存：发布不得共享 tmp 名（W-0036）。
+
+    修复前两个 handler 写同一 ``diff-{base}-{target}.json.tmp``：一方
+    ``os.replace`` 把 tmp 改名后，另一方的 ``os.replace`` 必抛
+    FileNotFoundError → 500。用 barrier 确定性排出该交错：两写者都写完
+    tmp 后才放行 → 并发 replace（compute 段被模型锁串行，无法也不需要
+    对齐——只要 B 的结果缓存检查先于 A 的发布，而发布被 dump barrier
+    挡住等 B，时序即被锁死）。全程条件等待，无固定 sleep。
+    """
+    # 直接落两个快照（绕开沙箱/物化），只演练 diff 结果缓存的发布路径
+    versions_dir = _versions_dir(data_dir)
+    versions_dir.mkdir(parents=True)
+    shutil.copy(dxf_path, versions_dir / "v1.dxf")
+    shutil.copy(dxf_path, versions_dir / "v2.dxf")
+
+    empty_diff = {"added": [], "removed": [], "changed": []}
+
+    real_dump = json.dump
+    dump_barrier = threading.Barrier(2)
+
+    def _rendezvous_dump(obj: object, fh: object, **kwargs: object) -> None:
+        real_dump(obj, fh, **kwargs)
+        dump_barrier.wait(10)  # 两写者都写完 tmp 后才放行 → 并发 os.replace
+
+    monkeypatch.setattr(routes_diff.json, "dump", _rendezvous_dump)
+    # 不把服务端异常就地抛出，统一走状态码断言
+    client.raise_server_exceptions = False
+
+    def diff_one(_: int) -> tuple[int, str]:
+        resp = client.post(
+            f"/models/{MODEL_ID}/diff", json={"base": "v1", "target": "v2"}
+        )
+        return resp.status_code, resp.text
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(pool.map(diff_one, range(2)))
+    codes = [code for code, _ in results]
+    assert codes == [200, 200], f"concurrent same-pair diff failures: {results!r}"
+    # 结果缓存完整可读，且无残留 tmp 文件
+    cache_file = versions_dir / "diff-v1-v2.json"
+    payload = json.loads(cache_file.read_text(encoding="utf-8"))
+    assert payload == {"base": "v1", "target": "v2", **empty_diff}
+    assert [p.name for p in versions_dir.glob("diff-v1-v2.json*")] == [
+        "diff-v1-v2.json"
+    ]
 
 
 def test_diff_without_any_commit_returns_404(client: TestClient) -> None:

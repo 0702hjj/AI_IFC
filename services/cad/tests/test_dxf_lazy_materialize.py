@@ -232,6 +232,8 @@ class TestDiffRebuild:
 
         并发烟雾验证，不断言特定时序（镜像 ifc 同款）。
         """
+        # 诊断（W-0036）：不把服务端异常就地抛出，统一走状态码 + 响应体 dump。
+        client.raise_server_exceptions = False
         for i in range(1, 7):
             _put_and_save(
                 client, REAL_DXF_SCRIPT.replace('"x": 10', f'"x": {10 * i}')
@@ -239,15 +241,23 @@ class TestDiffRebuild:
         _, versions_dir, _ = _dirs(data_dir)
         assert [p.name for p in versions_dir.glob("v*.dxf")] == ["v6.dxf"]
 
-        def diff_one(base: int) -> int:
-            return client.post(
+        def diff_one(base: int) -> tuple[int, str]:
+            resp = client.post(
                 f"/models/{MODEL_ID}/diff",
                 json={"base": f"v{base}", "target": "v6"},
-            ).status_code
+            )
+            return resp.status_code, resp.text
 
         with ThreadPoolExecutor(max_workers=5) as pool:
-            codes = list(pool.map(diff_one, [1, 2, 3, 4, 5] * 2))
-        assert codes == [200] * 10
+            results = list(pool.map(diff_one, [1, 2, 3, 4, 5] * 2))
+        codes = [code for code, _ in results]
+        # 诊断（W-0036 方案 1）：失败时 dump 每个请求的状态码 + 响应体，
+        # 让低频竞态的下一次失败自解释（状态码分布 + 服务端 detail）。
+        assert codes == [200] * 10, (
+            "concurrent diff failures: "
+            + repr([(i, code, body) for i, (code, body) in enumerate(results) if code != 200])
+            + f"; all codes={codes}"
+        )
 
     def test_rebuilt_dxf_semantically_empty_diff(
         self, client: TestClient, data_dir: Path, tmp_path: Path
