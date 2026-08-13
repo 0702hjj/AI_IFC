@@ -29,6 +29,7 @@ from __future__ import annotations
 import atexit
 import json
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, Callable, Dict
 
@@ -137,7 +138,12 @@ def post_diff(
     payload = _run_diff_with_timeout(settings, _compute_payload)
 
     if cache_path is not None:
-        tmp = cache_path + ".tmp"
+        # tmp 名必须按写者唯一：同 (base,target) 的并发请求都未命中结果缓存时，
+        # 计算虽被模型锁串行，发布段却在锁外——共享 tmp 名会让一方的 os.replace
+        # 把另一方在写的 tmp 改名，第二个 replace 抛 FileNotFoundError → 500
+        # （W-0037，镜像 services/cad 的 W-0036 修复）。唯一 tmp + replace
+        # 后者覆盖前者，两次发布同 payload 等价。
+        tmp = f"{cache_path}.{os.getpid()}.{threading.get_ident()}.tmp"
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump(payload, fh, ensure_ascii=False, indent=2)
         os.replace(tmp, cache_path)
