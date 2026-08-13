@@ -1,6 +1,6 @@
 # W-0034: cad 语义 diff 引擎（XDATA key 对齐 + POST /diff + 历史版本物化）
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source，chunk B）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §1.2 语义 diff 段 + 「工作项建议」3
