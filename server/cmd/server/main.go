@@ -147,6 +147,8 @@ func main() {
 	cad := editsvc.New(cfg.CadServiceURL)
 	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
+	// 注意：chat 固定注入 ifc edit-service（Ed: ed）——dxf 项目经 chat 会打到 :8100，
+	// kind 感知（dxf→cad :8200）待后续 chat/Eino chunk。
 	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
 		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Q: q, DataDir: cfg.DataDir,
 	})

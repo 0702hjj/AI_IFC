@@ -110,6 +110,7 @@ The Go server proxies the edit-service script-editing endpoints under `/api/v1/m
 | --- | --- |
 | `GET /v1/models/{id}/model.xkt` | XKT geometry (supports Range) |
 | `GET /v1/models/{id}/metadata.json` | metadata (below) |
+| `GET /v1/models/{id}/render.json` | CAD render payload (kind=dxf models only, below) |
 | `GET /v1/models/{id}/issues/{file}` | issue screenshots |
 
 ## metadata.json Schema (xeokit meta-model format)
@@ -138,6 +139,24 @@ Extracted from the original IFC by the converter (spatial tree + property sets),
 ```
 
 Conventions: `metaObjects[].id` is the IFC GlobalId (identical to the XKT entity id); hierarchy is Site → Building → Storey → element; elements without psets omit `propertySetIds`.
+
+## render.json Schema (render payload v2)
+
+Atomically published by services/cad after `script/run` and `script/save` succeed (the file exists only for kind=dxf models); serves the frontend Canvas 2D read-only preview. Coordinates keep the original DXF coordinate system (no normalization):
+
+```json
+{
+  "schemaVersion": 2,
+  "bounds": {"min": [0, 0], "max": [100, 80]},
+  "layers": [{"name": "WALL", "color": 7, "linetype": "CONTINUOUS"}],
+  "entities": [
+    {"key": "e_1a2b3c", "type": "LINE", "layer": "WALL", "start": [0, 0], "end": [10, 0]}
+  ],
+  "unsupported": [{"type": "HATCH", "handle": "1F", "coords": [5, 5]}]
+}
+```
+
+Conventions: `entities[].key` is the stable XDATA key (APPID `AIDXF`, same source as the ScriptMap), so the frontend gets the key on selection; LWPOLYLINE is exploded into LINE/ARC entries (multiple entries share one key); INSERT is expanded one level only (child entities have `key=null` and a `block` marker); entity types outside the whitelist are listed in `unsupported` instead of being silently dropped.
 
 ## Common error codes
 

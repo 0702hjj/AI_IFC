@@ -21,7 +21,7 @@ services/cad :8200 已具备与 services/ifc 同构的全套 REST 端点（chunk
 1. **Model.Kind**：模型记录加 `kind: "ifc"|"dxf"`；存量记录迁移默认 `ifc`（不破坏现有模型）。
 2. **上传分流**：`.dxf` 上传走 services/cad 引导（bootstrap.dxf + 初始脚本），不进 converter 子进程（DXF 无需 XKT 转换，services/cad 直接产 render.json）。
 3. **代理面 = cad 全端点（edit-call 除外）**：`/api/v1` 下代理 services/cad 全部端点——GET/PUT script、params、undo/redo/discard、run、save、scripts、rollback、script/diff、staging/diff、locate，以及 `GET /versions` 与 `POST /diff`（镜像 IFC `/edit/*` 代理先例纳入，不做封闭计数）；`edit-call` 按 spec 不经 Go 代理（仅服务直连暴露）。fast/slow 双 client——run/save/rollback 走 120s slow client；响应统一 envelope `{code,message,data}`。
-4. **render.json 只读端点**：`GET /api/v1/models/{id}/render.json`（只读文件下发）；auth 豁免白名单同步更新（对齐 IFC 侧 `GET /v1/models/...` 只读豁免）。
+4. **render.json 只读端点**：`GET /v1/models/{id}/render.json`（只读文件下发，与 model.xkt 同构的直挂静态资源，不走 `/api/v1` 信封）；auth 豁免白名单同步更新（对齐 IFC 侧 `GET /v1/models/...` 只读豁免）。
 
 **显式范围外：** render payload v2 生成本身（W-0039）、web Canvas 查看器与 ViewerPage 分流（后续工作项）、MCP diff 切换（spec「工作项建议」7 后半）。
 

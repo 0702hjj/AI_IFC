@@ -3272,6 +3272,51 @@
           }
         }
       }
+    },
+    "/v1/models/{id}/render.json": {
+      "get": {
+        "summary": "CAD 渲染数据（render payload v2）",
+        "description": "非信封响应。services/cad 在 script/run、script/save 成功后原子发布的实体级渲染 JSON（schemaVersion 2，实体带 XDATA key），供前端 Canvas 2D 预览；仅 kind=dxf 模型存在。",
+        "operationId": "getV1ModelsIdRenderJson",
+        "tags": [
+          "static"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "模型 id",
+            "schema": {
+              "type": "string",
+              "pattern": "^m_[0-9a-f]{16}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "render payload v2 JSON",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "见 rest-api.md「render.json Schema」"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "模型/Issue/会话/资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

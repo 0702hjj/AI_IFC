@@ -112,6 +112,7 @@ Go server 把 edit-service 的脚本编辑端点暴露在 `/api/v1/models/{id}/s
 | --- | --- |
 | `GET /v1/models/{id}/model.xkt` | XKT 几何数据（支持 Range） |
 | `GET /v1/models/{id}/metadata.json` | 元数据（见下） |
+| `GET /v1/models/{id}/render.json` | CAD 渲染数据（仅 kind=dxf 模型，见下） |
 | `GET /v1/models/{id}/issues/{file}` | Issue 截图 |
 
 ## metadata.json Schema（xeokit 元模型格式）
@@ -140,6 +141,24 @@ Go server 把 edit-service 的脚本编辑端点暴露在 `/api/v1/models/{id}/s
 ```
 
 约定：`metaObjects[].id` 为 IFC GlobalId（与 XKT entity id 一致）；层级为 Site → Building → Storey → 构件；无 pset 的构件省略 `propertySetIds`。
+
+## render.json Schema（render payload v2）
+
+由 services/cad 在 `script/run`、`script/save` 成功后原子发布（仅 kind=dxf 模型存在该文件），供前端 Canvas 2D 只读预览；坐标保留原始 DXF 坐标系（不归一化）：
+
+```json
+{
+  "schemaVersion": 2,
+  "bounds": {"min": [0, 0], "max": [100, 80]},
+  "layers": [{"name": "WALL", "color": 7, "linetype": "CONTINUOUS"}],
+  "entities": [
+    {"key": "e_1a2b3c", "type": "LINE", "layer": "WALL", "start": [0, 0], "end": [10, 0]}
+  ],
+  "unsupported": [{"type": "HATCH", "handle": "1F", "coords": [5, 5]}]
+}
+```
+
+约定：`entities[].key` 为 XDATA 稳定 key（APPID `AIDXF`，与 ScriptMap 同源），前端选中即得 key；LWPOLYLINE 炸开为 LINE/ARC 条目（同 key 多条目）；INSERT 仅展开一层（子实体 `key=null` 且带 `block` 标记）；白名单外实体明面列入 `unsupported`，不静默丢弃。
 
 ## 通用错误码
 
