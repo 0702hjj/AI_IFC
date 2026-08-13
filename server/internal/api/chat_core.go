@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // chat_core.go：notify 流程的 Pure Core——Event + State → Action 列表纯函数（零 IO）。

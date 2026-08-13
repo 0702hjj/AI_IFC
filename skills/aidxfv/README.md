@@ -8,4 +8,4 @@ CAD 逻辑的 skill 封装正式入口，物理内容由 `AI_CAD/skills/aidxfv*`
 | `v2/` | 建筑平面管线（plan.json 对齐 → 草案 → 确认 → 逐层 DXF → building.json） | 同源演进，独立自包含运行时 |
 
 - 入口指针见 `SKILL.md`，实际内容以 `v1/`、`v2/` 为准。
-- **MIT 归属保留在各子目录的 LICENSE 文件内，勿与主仓 AGPL 文件混排。**
+- **MIT 归属保留在各子目录的 LICENSE 文件内，勿与主仓 Apache 文件混排。**

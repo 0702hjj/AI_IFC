@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // chat_sse.go：SSE 事件流分发（opencode /event 订阅循环、订阅管理、帧推送）。

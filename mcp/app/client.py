@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 
 """Thin REST client for the platform edit-service (default http://127.0.0.1:8100)."""

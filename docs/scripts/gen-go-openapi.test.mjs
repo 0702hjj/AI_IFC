@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 //
 // 自证测试：docs/scripts/gen-go-openapi.mjs 的覆盖漂移检测对两类违规输入断言红：

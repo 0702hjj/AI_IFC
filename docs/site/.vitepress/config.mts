@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 import { defineConfig } from 'vitepress'
 
@@ -121,7 +121,7 @@ export default defineConfig({
         socialLinks: [{ icon: 'github', link: 'https://github.com/0702hjj/AI_IFC' }],
 
         footer: {
-          message: 'AGPL-3.0-only',
+          message: 'Apache-2.0',
           copyright: 'Copyright © 2026 0702hjj',
         },
       },
@@ -211,7 +211,7 @@ export default defineConfig({
         socialLinks: [{ icon: 'github', link: 'https://github.com/0702hjj/AI_IFC' }],
 
         footer: {
-          message: 'AGPL-3.0-only',
+          message: 'Apache-2.0',
           copyright: 'Copyright © 2026 0702hjj',
         },
       },

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 //
 // 手工维护的 Go server（server，:8090）OpenAPI schema 定义源。

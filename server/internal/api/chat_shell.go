@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // chat_shell.go：notify 流程的 Imperative Shell——执行 Core（chat_core.go）产出的

@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 
 """校验隔离契约测试（机器强制），镜像 services/ifc 同款（W-0024）。

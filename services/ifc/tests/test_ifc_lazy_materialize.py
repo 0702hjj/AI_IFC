@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 
 """IFC 存储策略（spec §5.5 / I5）：只物化最新大版本，历史按需沙箱重建 + LRU 缓存。

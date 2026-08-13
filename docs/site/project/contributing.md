@@ -34,4 +34,4 @@ cd docs && npm ci && npm run docs:build
 
 ## License
 
-本仓库为 AGPL-3.0-only。贡献即表示同意以该许可证发布；第三方组件归属见 [License 与第三方组件](/project/license)。
+本仓库为 Apache-2.0。贡献即表示同意以该许可证发布；第三方组件归属见 [License 与第三方组件](/project/license)。

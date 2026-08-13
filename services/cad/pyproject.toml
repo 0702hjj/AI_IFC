@@ -2,7 +2,7 @@
 name = "cad-edit-service"
 version = "0.1.0"
 description = "CAD (DXF) model editing service (FastAPI + ezdxf)"
-license = { text = "AGPL-3.0-only" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.115",

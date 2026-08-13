@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 # web 镜像：node 构建 dist → nginx 托管，反代 /api、/v1 到 server:8090。
 # 构建上下文为 web/。

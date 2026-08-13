@@ -2,7 +2,7 @@
 name = "aiifc-mcp-server"
 version = "0.1.0"
 description = "Platform MCP server: parse user-modified IFC/DXF files and annotate them (provenance=USER)"
-license = { text = "AGPL-3.0-only" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 dependencies = [
     "mcp>=2,<3",

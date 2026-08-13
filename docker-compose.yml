@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: AGPL-3.0-only
+# SPDX-License-Identifier: Apache-2.0
 # Copyright (C) 2026 0702hjj
 # AI_IFC 一键启动：web (nginx) → server (Go+Node) → edit-service (FastAPI)
 # 默认文件存储零依赖；`docker compose --profile pg up` 追加 PostgreSQL。

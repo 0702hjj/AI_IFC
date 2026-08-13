@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
 // Node 22+ 内置实验性 localStorage 全局（无 --localstorage-file 时值为 undefined），

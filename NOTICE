@@ -1,40 +1,50 @@
-AI_IFC — BIM review & editing platform for IFC models
+AI_IFC — AI 生成平台（IFC / CAD 两个对等逻辑）
 Copyright (C) 2026 0702hjj
 
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU Affero General Public License as published by the Free
-Software Foundation, version 3 only (AGPL-3.0-only). See the LICENSE file.
+Licensed under the Apache License, Version 2.0. See the LICENSE file.
+
+许可沿革：本仓库 2026-08-13 前以 AGPL-3.0-only 发布；经全体贡献者
+（0702hjj / NiJingzhe（倪旌哲）/ CyvolLi / fanfengxiao）同意，自 2026-08-13
+起改为 Apache-2.0（与上游 SimpleCADAPI 2026-08-12 的协议调整对齐）。
+历史提交仍可按其当时协议解读；当前及后续版本以 Apache-2.0 为准。
 
 =====================================================================
 Origin (archived portion)
 =====================================================================
 This repository was forked from SimpleCADAPI — the CADDesigner research
-artifact (https://562590763.github.io/CADDesigner/), licensed AGPL-3.0.
+artifact (https://562590763.github.io/CADDesigner/), originally AGPL-3.0,
+relicensed Apache-2.0 by its author on 2026-08-12
+(https://github.com/NiJingzhe/SimpleCADAPI).
 
 The SimpleCADAPI heritage code (src/simplecadapi/, skills/simplecadapi/, and
-the SCAD-era packaging files pyproject.toml / uv.lock / MANIFEST.in) was moved
-out of this repository on 2026-08-06 to the private archive repository
+the SCAD-era packaging files) was moved out of this repository on 2026-08-06
+to the private archive repository
 https://github.com/0702hjj/SimpleCADAPI-archive, where it retains its original
-copyright and license (SimpleCAD API Team / 倪旌哲 <nijingzhe@zju.edu.cn>,
-AGPL-3.0). This repository no longer contains that code; see git history for
-the pre-move state.
-
-The following archived portions retain their original copyright and license:
-  - docs/archive/simplecadapi/    (docs only; removed in the 2026-08-05 cleanup —
-                                    see git history)
+copyright and license (SimpleCAD API Team / 倪旌哲 <nijingzhe@zju.edu.cn>).
+This repository no longer contains that code; see git history for the
+pre-move state.
 
 The current examples/ directory was rewritten for the IFC era after the move
 (2026-08) and is new content of this repository; the historical SimpleCADAPI
 examples (gearbox/robot etc.) live only in the archive repo / git history.
 
-All new code under web/, server/, converter/, services/, mcp/, skills/ and docs/ is Copyright (C) 2026 0702hjj,
-licensed AGPL-3.0-only (SPDX-License-Identifier headers in each file).
+All code under web/, server/, converter/, services/, mcp/, skills/ and docs/
+is Copyright (C) 2026 0702hjj, licensed Apache-2.0 (SPDX-License-Identifier
+headers in each file), except the vendored portions listed below.
 
 =====================================================================
-Third-party components
+Vendored / forked portions (keep their own licenses)
 =====================================================================
-Runtime dependencies and their licenses:
+  skills/aidxfv/v1/            MIT — fork of earthtojake/text-to-cad (skills/dxf);
+                               see LICENSE in that directory
+  skills/aidxfv/v2/            MIT — same upstream; see LICENSE in that directory
+                               (except scripts/flows/, which is main-repo Apache-2.0)
+  skills/aiblueprint-mcp/      MIT — upstream thebossnow/aiblueprint-mcp;
+                               see frontmatter attribution in SKILL.md
 
+=====================================================================
+Third-party components (dependencies, not distributed with this repo)
+=====================================================================
   Component                          License            Source
   ---------------------------------  -----------------  ------------------------------------------
   @xeokit/xeokit-sdk                 AGPL-3.0           https://github.com/xeokit/xeokit-sdk
@@ -42,6 +52,7 @@ Runtime dependencies and their licenses:
   web-ifc                            MPL-2.0            https://github.com/ThatOpen/web-ifc
   ifcopenshell                       LGPL-3.0-or-later  https://github.com/IfcOpenShell/IfcOpenShell
   ifcdiff                            LGPL-3.0-or-later  https://github.com/IfcOpenShell/IfcOpenShell (src/ifcdiff)
+  ezdxf                              MIT                https://github.com/mozman/ezdxf
   pgx (jackc/pgx/v5)                 MIT                https://github.com/jackc/pgx
   React                              MIT                https://github.com/facebook/react
   Vite                               MIT                https://github.com/vitejs/vite
@@ -51,10 +62,18 @@ Runtime dependencies and their licenses:
   uvicorn                            BSD-3-Clause       https://github.com/encode/uvicorn
   pydantic                           MIT                https://github.com/pydantic/pydantic
   deepdiff                           MIT                https://github.com/seperman/deepdiff
+  libcst                             MIT                https://github.com/Instagram/LibCST
+
+注意（xeokit / AGPL）：web/ 前端构建产物会打包 AGPL-3.0 的 @xeokit/xeokit-sdk。
+本仓库代码本身是 Apache-2.0，但**分发含 xeokit 的前端构建产物**时，该构建产物
+整体受 AGPL-3.0 约束（网络使用即触发源码提供义务）。闭源/商用场景请勿打包
+xeokit——改用 three.js（MIT）+ web-ifc（MPL-2.0）路径（参见 gaia 商用方案）。
+converter/ 以服务侧子进程方式使用 @xeokit/xeokit-convert，其输出（XKT 数据）
+不受 AGPL 覆盖。
 
 Note: ifcdiff is consumed as an official PyPI release (`ifcdiff>=0.8`,
 LGPL-3.0-or-later) and is NOT distributed with this repository.
 
 Full dependency manifests:
   server/go.mod, web/package.json,
-  converter/package.json, services/ifc/pyproject.toml
+  converter/package.json, services/ifc/pyproject.toml, services/cad/pyproject.toml

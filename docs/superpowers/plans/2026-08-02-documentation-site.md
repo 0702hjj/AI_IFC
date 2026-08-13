@@ -98,7 +98,7 @@ Expected: 生成 `docs/package-lock.json`；`node_modules/.bin/vitepress --versi
 - [ ] **Step 4: 创建 `docs/site/.vitepress/config.mts`**
 
 ````ts
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 import { defineConfig } from 'vitepress'
 

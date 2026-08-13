@@ -31,7 +31,7 @@ features:
     details: An MCP server thinly wraps the editing API (stdio) and can parse user-modified IFC/DXF files, tagging them with USER provenance.
   - icon: 🏠
     title: Self-Hosted
-    details: Four local processes run the whole platform; file storage works with zero dependencies, PostgreSQL optional. AGPL-3.0 open source.
+    details: Four local processes run the whole platform; file storage works with zero dependencies, PostgreSQL optional. Apache-2.0 open source.
 ---
 
 ## What is AI_IFC

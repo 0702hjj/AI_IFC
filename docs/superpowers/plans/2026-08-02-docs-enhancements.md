@@ -63,7 +63,7 @@ Expected: 退出码 0，`build complete`。
 - [ ] **Step 1: 重写 `docs/site/.vitepress/config.mts` 为 locales 结构**
 
 ```ts
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 import { defineConfig } from 'vitepress'
 
@@ -1123,7 +1123,7 @@ git commit -m "docs: add English API section and note machine-readable Go contra
 
 ````js
 #!/usr/bin/env node
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 //
 // Generate docs/site/reference/edit-api-reference.md from the committed OpenAPI
@@ -1206,7 +1206,7 @@ console.log(`wrote ${outPath}`)
 
 ```js
 #!/usr/bin/env node
-// SPDX-License-Identifier: AGPL-3.0-only
+// SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 //
 // Generate docs/site/public/go-rest-api.routes.json from the Go server's mux
