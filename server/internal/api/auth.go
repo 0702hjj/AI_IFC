@@ -13,9 +13,9 @@ const codeUnauthorized = 40100
 
 // TokenAuth 返回最小 Bearer token 鉴权中间件。token 为空 = 鉴权关闭（单机零配置默认）。
 // 豁免：OPTIONS 预检；GET /v1/models/ 下白名单内的只读模型文件（model.xkt /
-// metadata.json / issues 截图），前端 xeokit 与 <img> 标签无法携带 Authorization 头，
-// 需匿名可读。其余全部端点（含 GET /api/v1/models 列表与 chat 子树）要求
-// Authorization: Bearer <token>（强制 Bearer scheme，裸 token 拒绝）。
+// metadata.json / render.json / issues 截图），前端 xeokit 与 <img> 标签无法携带
+// Authorization 头，需匿名可读。其余全部端点（含 GET /api/v1/models 列表与 chat
+// 子树）要求 Authorization: Bearer <token>（强制 Bearer scheme，裸 token 拒绝）。
 // 例外：SSE events 端点（EventSource 无法携带自定义头）允许 ?token= query 回退。
 func TokenAuth(token string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
@@ -67,7 +67,7 @@ func isExemptReadOnly(r *http.Request) bool {
 		return false
 	}
 	parts := strings.Split(rest, "/")
-	if len(parts) == 2 && parts[0] != "" && (parts[1] == "model.xkt" || parts[1] == "metadata.json") {
+	if len(parts) == 2 && parts[0] != "" && (parts[1] == "model.xkt" || parts[1] == "metadata.json" || parts[1] == "render.json") {
 		return true
 	}
 	return len(parts) == 3 && parts[0] != "" && parts[1] == "issues" && parts[2] != ""

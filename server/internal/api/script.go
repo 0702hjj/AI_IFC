@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+
+	"ifcviewer/server/internal/store"
 )
 
 // registerScriptRoutes 暴露 script-as-source 编辑/暂存/大版本端点（代理到 edit-service）。
@@ -55,11 +57,10 @@ func (h *handler) scriptPost(action string) func(http.ResponseWriter, *http.Requ
 	}
 }
 
-// scriptMutatingPost 用于会重写 uploads/{id}.ifc 的动作（run/save/rollback，
-// 见 edit-service routes_scripts.py _run_into_uploads）：成功后排 XKT 重转，
-// 否则前端 3D 不刷新（M5 集成缺口）。沙箱执行最长 60s（RUN_TIMEOUT_S），
-// 必须走 slow client（M5 终审 C2）。重转走 EnqueueIfStale 去重：run/save/rollback
-// 一定重写 uploads 使 mtime 更新，正常必然重转；仅并发/重放下 IFC 未变时跳过冗余重转。
+// scriptMutatingPost 用于会重写上传源文件的动作（run/save/rollback）：ifc kind
+// 成功后排 XKT 重转（EnqueueIfStale 去重），否则前端 3D 不刷新（M5 集成缺口）；
+// dxf kind 无 XKT 产物，成功后直接返回（W-0040）。沙箱执行最长 60s
+//（RUN_TIMEOUT_S），必须走 slow client（M5 终审 C2）。
 func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body := readBody(w, r)
@@ -67,7 +68,15 @@ func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *h
 			return
 		}
 		modelID := r.PathValue("id")
-		if !h.scriptProxyDo(w, r, http.MethodPost, "/models/"+modelID+"/script/"+action, body, h.ed.DoSlow) {
+		m, cl := h.editClientFor(w, modelID)
+		if cl == nil {
+			return
+		}
+		if !h.scriptProxyDo(w, r, http.MethodPost, "/models/"+modelID+"/script/"+action, body, cl.DoSlow) {
+			return
+		}
+		if m.Kind == store.KindDXF {
+			log.Printf("script %s %s: dxf kind, XKT reconvert not applicable", action, modelID)
 			return
 		}
 		if !h.q.EnqueueIfStale(modelID) {
@@ -101,10 +110,15 @@ func (h *handler) scriptLocate(w http.ResponseWriter, r *http.Request) {
 	h.scriptProxy(w, r, http.MethodGet, path, nil)
 }
 
-// scriptProxy 透传 edit-service 的 script 端点（包 envelope + 错误映射，P0-1 教训）。
-// 返回 edit-service 调用是否成功（供成功后编排重转）。只读/轻量端点走 fast client。
+// scriptProxy 透传 script 端点（包 envelope + 错误映射，P0-1 教训）。
+// 返回后端调用是否成功（供成功后编排重转）。只读/轻量端点走 fast client。
+// 按模型 kind 分流后端（editClientFor，W-0040）；未知模型 404，不再透传。
 func (h *handler) scriptProxy(w http.ResponseWriter, r *http.Request, method, path string, body []byte) bool {
-	return h.scriptProxyDo(w, r, method, path, body, h.ed.Do)
+	_, cl := h.editClientFor(w, r.PathValue("id"))
+	if cl == nil {
+		return false
+	}
+	return h.scriptProxyDo(w, r, method, path, body, cl.Do)
 }
 
 // scriptProxyDo 用指定 client 方法转发（Do=fast 只读；DoSlow=slow 沙箱执行）。

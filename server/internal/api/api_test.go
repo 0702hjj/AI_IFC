@@ -40,7 +40,7 @@ func setup(t *testing.T) (*httptest.Server, *store.Store) {
 	t.Cleanup(cancel)
 	q := convert.NewQueue(st, okRunner{}, 1)
 	q.Start(ctx)
-	srv := httptest.NewServer(NewHandler(st, q, issue.NewFileStore(st.DataDir), change.NewFileStore(st.DataDir), override.NewFileStore(st.DataDir), nil, 1<<20)) // 测试上限 1MB
+	srv := httptest.NewServer(NewHandler(st, q, issue.NewFileStore(st.DataDir), change.NewFileStore(st.DataDir), override.NewFileStore(st.DataDir), nil, nil, 1<<20)) // 测试上限 1MB
 	t.Cleanup(srv.Close)
 	return srv, st
 }
