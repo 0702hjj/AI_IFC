@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from . import routes_diff, routes_scripts
+from . import routes_diff, routes_render, routes_scripts
 from .config import load_settings
 from .script_staging import StagingRegistry
 
@@ -27,6 +27,7 @@ def create_app() -> FastAPI:
     app.state.script_staging = StagingRegistry(settings.data_dir)
     app.include_router(routes_scripts.router)
     app.include_router(routes_diff.router)
+    app.include_router(routes_render.router)
 
     @app.get("/health")
     def health() -> dict:

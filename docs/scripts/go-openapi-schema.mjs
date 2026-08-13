@@ -932,6 +932,19 @@ export const endpoints = {
     },
     errors: ['40400'],
   },
+  'GET /v1/models/{id}/render.json': {
+    summary: 'CAD 渲染数据（render payload v2）',
+    description: '非信封响应。services/cad 在 script/run、script/save 成功后原子发布的实体级渲染 JSON（schemaVersion 2，实体带 XDATA key），供前端 Canvas 2D 预览；仅 kind=dxf 模型存在。',
+    tags: ['static'],
+    parameters: [modelIdParam()],
+    responses: {
+      200: {
+        description: 'render payload v2 JSON',
+        raw: { contentType: 'application/json', schema: { type: 'object', description: '见 rest-api.md「render.json Schema」' } },
+      },
+    },
+    errors: ['40400'],
+  },
   'GET /v1/models/{id}/model.xkt': {
     summary: 'XKT 几何数据',
     description: '非信封响应。XKT 二进制几何数据（支持 Range 请求）。',

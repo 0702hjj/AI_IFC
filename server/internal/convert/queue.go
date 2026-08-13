@@ -111,7 +111,12 @@ func (q *Queue) Enqueue(id string) bool {
 // 注意 Enqueue 可能因已在队返回 false，此时仍返回 true（转换已在途）。
 // SetStatus(converting) 必须先于 Enqueue：保证本次任务的 ready/failed 一定在其后，
 // 避免 worker 先置 ready 再被 converting 覆盖而卡死（教训：flaky TestScriptMutating…）。
+// dxf kind 短路：XKT 是 ifc 专属产物，dxf 无转换可排（W-0040）。
 func (q *Queue) EnqueueIfStale(id string) bool {
+	if m, err := q.st.Get(id); err == nil && m.Kind == store.KindDXF {
+		log.Printf("convert %s: reconvert skipped (dxf kind has no XKT)", id)
+		return false
+	}
 	if !q.needsReconvert(id) {
 		log.Printf("convert %s: reconvert skipped (IFC not newer than XKT)", id)
 		return false

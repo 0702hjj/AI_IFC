@@ -41,12 +41,13 @@ type handler struct {
 	iss       issue.Store
 	chg       change.Store
 	ovr       override.Store
-	ed        *editsvc.Client
+	ed        *editsvc.Client // services/ifc :8100（kind=ifc）
+	cad       *editsvc.Client // services/cad :8200（kind=dxf，W-0040）
 	maxUpload int64
 }
 
-func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed *editsvc.Client, maxUploadBytes int64) http.Handler {
-	return NewHandlerWithCORS(st, q, iss, chg, ovr, ed, maxUploadBytes, nil)
+func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed, cad *editsvc.Client, maxUploadBytes int64) http.Handler {
+	return NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, maxUploadBytes, nil)
 }
 
 // DefaultCORSOrigins 是 corsOrigins 为空时的默认白名单（本地开发端口）。
@@ -55,8 +56,8 @@ func DefaultCORSOrigins() []string {
 }
 
 // NewHandlerWithCORS 同 NewHandler，corsOrigins 指定 CORS 白名单（空 = 默认）。
-func NewHandlerWithCORS(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed *editsvc.Client, maxUploadBytes int64, corsOrigins []string) http.Handler {
-	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, ed: ed, maxUpload: maxUploadBytes}
+func NewHandlerWithCORS(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed, cad *editsvc.Client, maxUploadBytes int64, corsOrigins []string) http.Handler {
+	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, ed: ed, cad: cad, maxUpload: maxUploadBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/models", h.upload)
 	mux.HandleFunc("GET /api/v1/models", h.list)
@@ -66,6 +67,7 @@ func NewHandlerWithCORS(st *store.Store, q *convert.Queue, iss issue.Store, chg 
 	mux.HandleFunc("GET /api/v1/models/{id}/download", h.download)
 	mux.HandleFunc("GET /v1/models/{id}/model.xkt", h.serveModelFile("model.xkt"))
 	mux.HandleFunc("GET /v1/models/{id}/metadata.json", h.serveModelFile("metadata.json"))
+	mux.HandleFunc("GET /v1/models/{id}/render.json", h.serveModelFile("render.json"))
 	mux.HandleFunc("GET /api/v1/models/{id}/issues", h.listIssues)
 	mux.HandleFunc("POST /api/v1/models/{id}/issues", h.createIssue)
 	mux.HandleFunc("PATCH /api/v1/models/{id}/issues/{issueId}", h.updateIssue)
@@ -140,16 +142,20 @@ func (h *handler) upload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer file.Close()
-	if !strings.EqualFold(filepath.Ext(fh.Filename), ".ifc") {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "only .ifc files are allowed")
+	kind, err := store.KindForFilename(fh.Filename)
+	if errors.Is(err, store.ErrUnsupportedExt) {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "only .ifc and .dxf files are allowed")
 		return
 	}
-	m, err := h.st.Create(fh.Filename, fh.Size, file)
+	m, err := h.st.CreateWithKind(fh.Filename, fh.Size, file, kind)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
 		return
 	}
-	h.q.Enqueue(m.ID)
+	// dxf 无 XKT 转换（services/cad 直接产 render.json），创建即 ready、不入队。
+	if kind == store.KindIFC {
+		h.q.Enqueue(m.ID)
+	}
 	writeJSON(w, m)
 }
 
@@ -182,11 +188,19 @@ func (h *handler) retry(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "only failed models can be retried")
 		return
 	}
-	if err := h.st.SetStatus(m.ID, "converting", ""); err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
+	// dxf 无转换链路：直接回 ready，不入队（W-0040）。
+	if m.Kind == store.KindDXF {
+		if err := h.st.SetStatus(m.ID, "ready", ""); err != nil {
+			writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+			return
+		}
+	} else {
+		if err := h.st.SetStatus(m.ID, "converting", ""); err != nil {
+			writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+			return
+		}
+		h.q.Enqueue(m.ID)
 	}
-	h.q.Enqueue(m.ID)
 	m, err := h.st.Get(m.ID)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
@@ -226,7 +240,7 @@ func (h *handler) download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(m.Name))
-	http.ServeFile(w, r, h.st.IFCPath(m.ID))
+	http.ServeFile(w, r, h.st.SourcePath(m))
 }
 
 func (h *handler) serveModelFile(name string) http.HandlerFunc {

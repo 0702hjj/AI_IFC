@@ -35,7 +35,7 @@ func newChangesTestServer(t *testing.T) (http.Handler, string, *change.FileStore
 	q := convert.NewQueue(st, okRunner{}, 1)
 	q.Start(ctx)
 	chg := change.NewFileStore(st.DataDir)
-	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), chg, override.NewFileStore(st.DataDir), nil, 1<<20)
+	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), chg, override.NewFileStore(st.DataDir), nil, nil, 1<<20)
 	m, err := st.Create("ok.ifc", 4, strings.NewReader("fake"))
 	if err != nil {
 		t.Fatal(err)

@@ -7,5 +7,6 @@
   "maxUploadMB": 200,
   "pgDSN": "",
   "editServiceURL": "http://127.0.0.1:8100",
+  "cadServiceURL": "http://127.0.0.1:8200",
   "openCodeURL": "http://127.0.0.1:4096"
 }

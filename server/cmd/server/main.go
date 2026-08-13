@@ -38,6 +38,7 @@ type config struct {
 	MaxUploadMB     int64  `json:"maxUploadMB"`
 	PgDSN           string `json:"pgDSN"`
 	EditServiceURL  string `json:"editServiceURL"`
+	CadServiceURL   string `json:"cadServiceURL"`
 	OpenCodeURL     string `json:"openCodeURL"`
 	APIToken        string `json:"apiToken"`
 	CORSOriginsRaw  string `json:"corsOrigins"`
@@ -64,6 +65,12 @@ func loadConfig(path string) (*config, error) {
 	}
 	if cfg.EditServiceURL == "" {
 		cfg.EditServiceURL = "http://127.0.0.1:8100"
+	}
+	if u := os.Getenv("VIEWER_CAD_SERVICE_URL"); u != "" {
+		cfg.CadServiceURL = u
+	}
+	if cfg.CadServiceURL == "" {
+		cfg.CadServiceURL = "http://127.0.0.1:8200"
 	}
 	if u := os.Getenv("VIEWER_OPENCODE_URL"); u != "" {
 		cfg.OpenCodeURL = u
@@ -137,8 +144,11 @@ func main() {
 		ovr = override.NewFileStore(cfg.DataDir)
 	}
 	ed := editsvc.New(cfg.EditServiceURL)
-	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
+	cad := editsvc.New(cfg.CadServiceURL)
+	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
+	// 注意：chat 固定注入 ifc edit-service（Ed: ed）——dxf 项目经 chat 会打到 :8100，
+	// kind 感知（dxf→cad :8200）待后续 chat/Eino chunk。
 	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
 		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Q: q, DataDir: cfg.DataDir,
 	})

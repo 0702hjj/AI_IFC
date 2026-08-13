@@ -130,7 +130,7 @@ func newEditEnvWithClient(t *testing.T, ed *editsvc.Client, chg change.Store) *e
 		chg = change.NewFileStore(st.DataDir)
 	}
 	ovr := override.NewFileStore(st.DataDir)
-	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), chg, ovr, ed, 1<<20)
+	mux := NewHandler(st, q, issue.NewFileStore(st.DataDir), chg, ovr, ed, nil, 1<<20)
 	m, err := st.Create("ok.ifc", 4, strings.NewReader("fake"))
 	if err != nil {
 		t.Fatal(err)

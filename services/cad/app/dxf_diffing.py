@@ -62,13 +62,21 @@ def _point(value: Any) -> Tuple[float, ...]:
     return tuple(round(float(v), _PRECISION) for v in value)
 
 
-def _entity_key(entity: Any) -> Optional[str]:
-    """实体的 XDATA 确定性 key；无 XDATA / 异常 → None。"""
+def entity_key(entity: Any) -> Optional[str]:
+    """实体的 XDATA 确定性 key；无 XDATA / 异常 → None。
+
+    单点定义：render.py（render.json key 与 ScriptMap 同源）同样经此读取。
+    """
     return _load_cad_script_lib().get_entity_key(entity)
 
 
-def _signature(entity: Any) -> Optional[Tuple[Tuple[str, Any], ...]]:
-    """按 dxftype 的关键属性集 + 公共三字段；未知类型 → None（仅计数）。"""
+def _signature(entity: Any) -> Tuple[Tuple[str, Any], ...]:
+    """按 dxftype 的关键属性集 + 公共三字段。
+
+    未知类型 → 仅公共三字段（layer/color/linetype）：keyed 未知实体按
+    三字段参与 changed，不再静默（W-0039 deferred 清偿）；无 key 降级
+    的计数对齐同样以三字段区分，行为更严但方向正确。
+    """
     dxftype = entity.dxftype()
     dxf = entity.dxf
     if dxftype == "LINE":
@@ -97,7 +105,7 @@ def _signature(entity: Any) -> Optional[Tuple[Tuple[str, Any], ...]]:
     elif dxftype == "INSERT":
         sig = (("name", dxf.name), ("insert", _point(dxf.insert)))
     else:
-        return None
+        sig = ()
     return sig + (
         ("layer", dxf.layer),
         ("color", dxf.color),
@@ -112,7 +120,7 @@ def _entities_by_key(
     keyed: Dict[str, Any] = {}
     keyless: List[Tuple[str, Any]] = []
     for entity in doc.modelspace():
-        key = _entity_key(entity)
+        key = entity_key(entity)
         if key is not None:
             if key in keyed:
                 # 同 key 多实体：身份对齐歧义，后者覆盖前者但必须明面化，
@@ -163,8 +171,8 @@ def compute_diff(base_path: str, target_path: str) -> Dict[str, Any]:
                 "new": new_entity.dxftype(),
             }]
         else:
-            old_sig = dict(_signature(old_entity) or ())
-            new_sig = dict(_signature(new_entity) or ())
+            old_sig = dict(_signature(old_entity))
+            new_sig = dict(_signature(new_entity))
             changes = [
                 {"field": field, "old": _jsonable(old_sig.get(field)),
                  "new": _jsonable(new_sig.get(field))}

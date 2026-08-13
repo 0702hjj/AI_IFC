@@ -101,11 +101,11 @@ func (h *handler) editHistory(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) editVersions(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
+	m, cl := h.editClientFor(w, r.PathValue("id"))
+	if cl == nil {
 		return
 	}
-	versions, err := h.ed.GetVersions(r.Context(), m.ID)
+	versions, err := cl.GetVersions(r.Context(), m.ID)
 	if err != nil {
 		writeEditErr(w, err)
 		return
@@ -114,15 +114,15 @@ func (h *handler) editVersions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) editDiff(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
+	m, cl := h.editClientFor(w, r.PathValue("id"))
+	if cl == nil {
 		return
 	}
 	body := readBody(w, r)
 	if body == nil {
 		return
 	}
-	data, err := h.ed.PostDiff(r.Context(), m.ID, body)
+	data, err := cl.PostDiff(r.Context(), m.ID, body)
 	if err != nil {
 		writeEditErr(w, err)
 		return

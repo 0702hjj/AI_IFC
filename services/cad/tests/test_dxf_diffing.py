@@ -206,6 +206,38 @@ class TestFieldDiff:
         fields = _changed_fields(diff, "0:line:1")
         assert fields["start"] == ([0.0, 0.0, 0.0], [1.0, 0.0, 0.0])
 
+    def test_unknown_type_keyed_entity_triple_signature(self, tmp_path):
+        """未知类型 keyed 实体：签名降级为 layer/color/linetype 三字段，
+        三字段变化必须进 changed（不再静默）。"""
+        def ellipse(key, **attribs):
+            def op(msp):
+                if cad_script_lib.APPID not in msp.doc.appids:
+                    msp.doc.appids.add(cad_script_lib.APPID)
+                e = msp.add_ellipse((0, 0), major_axis=(3, 0), ratio=0.5,
+                                    dxfattribs=attribs or None)
+                e.set_xdata(cad_script_lib.APPID, [(1000, key)])
+            return op
+        base = _build(tmp_path / "base.dxf", ellipse("0:ellipse:1"))
+        target = _build(tmp_path / "target.dxf",
+                        ellipse("0:ellipse:1", layer="WALL", color=3))
+        fields = _changed_fields(compute_diff(str(base), str(target)), "0:ellipse:1")
+        assert fields["layer"] == ("0", "WALL")
+        assert fields["color"] == (256, 3)
+
+    def test_unknown_type_keyed_entity_unchanged_when_triple_same(self, tmp_path):
+        """未知类型 keyed 实体三字段一致 → 不进 changed。"""
+        def ellipse(key):
+            def op(msp):
+                if cad_script_lib.APPID not in msp.doc.appids:
+                    msp.doc.appids.add(cad_script_lib.APPID)
+                e = msp.add_ellipse((0, 0), major_axis=(3, 0), ratio=0.5)
+                e.set_xdata(cad_script_lib.APPID, [(1000, key)])
+            return op
+        base = _build(tmp_path / "base.dxf", ellipse("0:ellipse:1"))
+        target = _build(tmp_path / "target.dxf", ellipse("0:ellipse:1"))
+        assert compute_diff(str(base), str(target)) == {
+            "added": [], "removed": [], "changed": []}
+
     def test_same_key_different_type_reports_type_change(self, tmp_path):
         base = _build(tmp_path / "base.dxf", _line("0:x:1"))
         target = _build(tmp_path / "target.dxf", _circle("0:x:1"))

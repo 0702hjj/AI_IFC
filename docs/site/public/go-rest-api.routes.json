@@ -249,6 +249,12 @@
       "path": "/v1/models/{id}/model.xkt",
       "handler": "h.serveModelFile(\"model.xkt\")",
       "file": "server/internal/api/api.go"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models/{id}/render.json",
+      "handler": "h.serveModelFile(\"render.json\")",
+      "file": "server/internal/api/api.go"
     }
   ]
 }

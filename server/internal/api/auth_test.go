@@ -26,7 +26,7 @@ func setupSecure(t *testing.T, token string, origins []string) (*httptest.Server
 	t.Cleanup(cancel)
 	q := convert.NewQueue(st, okRunner{}, 1)
 	q.Start(ctx)
-	h := NewHandlerWithCORS(st, q, issue.NewFileStore(st.DataDir), change.NewFileStore(st.DataDir), override.NewFileStore(st.DataDir), nil, 1<<20, origins)
+	h := NewHandlerWithCORS(st, q, issue.NewFileStore(st.DataDir), change.NewFileStore(st.DataDir), override.NewFileStore(st.DataDir), nil, nil, 1<<20, origins)
 	srv := httptest.NewServer(TokenAuth(token)(h))
 	t.Cleanup(srv.Close)
 	return srv, st
@@ -135,9 +135,10 @@ func TestAuthRejectsQueryTokenOnNonSSEPath(t *testing.T) {
 	}
 }
 
-// 豁免白名单 guard（W-0010）：当前豁免路由仅以下三条——
+// 豁免白名单 guard（W-0010）：当前豁免路由仅以下四条——
 //   GET /v1/models/{id}/model.xkt
 //   GET /v1/models/{id}/metadata.json
+//   GET /v1/models/{id}/render.json（W-0040，cad 预览 payload）
 //   GET /v1/models/{id}/issues/{file}
 // 其余 /v1/models/ 下的 GET 一律 401。未来新增 /v1/models/ 路由默认受保护；
 // 若确需匿名豁免，必须显式扩充白名单并同步更新本测试清单。
@@ -151,6 +152,7 @@ func TestAuthExemptWhitelistGuard(t *testing.T) {
 		"/v1/models/" + m.ID + "/evil.bin",
 		"/v1/models/" + m.ID + "/issues",
 		"/v1/models/" + m.ID + "/model.xkt.bak",
+		"/v1/models/" + m.ID + "/render.json.bak",
 		"/v1/models/" + m.ID,
 		"/v1/models/",
 	} {
@@ -161,8 +163,9 @@ func TestAuthExemptWhitelistGuard(t *testing.T) {
 	}
 }
 
-// 豁免清单：GET /v1/models/{id}/model.xkt|metadata.json、GET /v1/models/{id}/issues/{file}
-// 为前端 xeokit/img 标签匿名可读（无法携带 Authorization 头）。
+// 豁免清单：GET /v1/models/{id}/model.xkt|metadata.json|render.json、
+// GET /v1/models/{id}/issues/{file} 为前端 xeokit/img 标签匿名可读
+//（无法携带 Authorization 头）。
 func TestAuthExemptsReadOnlyModelFiles(t *testing.T) {
 	srv, st := setupSecure(t, "s3cret", nil)
 	m, err := st.Create("a.ifc", 4, strings.NewReader("fake"))
@@ -172,6 +175,7 @@ func TestAuthExemptsReadOnlyModelFiles(t *testing.T) {
 	for _, p := range []string{
 		"/v1/models/" + m.ID + "/model.xkt",
 		"/v1/models/" + m.ID + "/metadata.json",
+		"/v1/models/" + m.ID + "/render.json",
 		"/v1/models/" + m.ID + "/issues/i_0123456789ab.png",
 	} {
 		resp := do(t, "GET", srv.URL+p, "", "")
@@ -187,6 +191,24 @@ func TestAuthProtectsModelList(t *testing.T) {
 	resp := do(t, "GET", srv.URL+"/api/v1/models", "", "")
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("模型列表应受保护: %d", resp.StatusCode)
+	}
+}
+
+// cad 代理写端点（script run）不在豁免白名单：无 token → 401 envelope（W-0040）。
+func TestAuthProtectsScriptMutatingEndpoints(t *testing.T) {
+	srv, st := setupSecure(t, "s3cret", nil)
+	m, err := st.Create("a.ifc", 4, strings.NewReader("fake"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp := do(t, "POST", srv.URL+"/api/v1/models/"+m.ID+"/script/run", "", "")
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("script run 无 token 应 401: %d", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	var e env
+	if err := json.Unmarshal(body, &e); err != nil || e.Code != codeUnauthorized {
+		t.Fatalf("401 应为 envelope 码 %d: %+v", codeUnauthorized, e)
 	}
 }
 

@@ -304,3 +304,30 @@ func TestEnqueueIfStaleEqualMtime(t *testing.T) {
 		t.Fatalf("runs = %d, want 0", n)
 	}
 }
+
+// TestEnqueueIfStaleSkipsDXFKind dxf kind 无 XKT 产物：即使 model.xkt 缺失
+// （ifc 侧属保守重转场景）也短路跳过——状态保持 ready、不入队（W-0040）。
+func TestEnqueueIfStaleSkipsDXFKind(t *testing.T) {
+	st := store.NewStore(t.TempDir())
+	m, err := st.CreateWithKind("a.dxf", 1, strings.NewReader("x"), store.KindDXF)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	cr := &countingRunner{}
+	q := NewQueue(st, cr, 1)
+	q.Start(ctx)
+
+	if q.EnqueueIfStale(m.ID) {
+		t.Fatal("dxf kind：期望短路跳过（false）")
+	}
+	if n := cr.count(); n != 0 {
+		t.Fatalf("runs = %d, want 0（dxf 不入队）", n)
+	}
+	got, err := st.Get(m.ID)
+	if err != nil || got.Status != "ready" {
+		t.Fatalf("status = %q, want ready（不应被置 converting）", got.Status)
+	}
+}
