@@ -88,6 +88,8 @@ export function retryModel(id: string) { return request<ModelInfo>(`/api/v1/mode
 export function deleteModel(id: string) { return request<null>(`/api/v1/models/${id}`, { method: "DELETE" }); }
 export const downloadUrl = (id: string) => `/api/v1/models/${id}/download`;
 export const modelAssetUrl = (id: string, file: "model.xkt" | "metadata.json") => `/v1/models/${id}/${file}`;
+// dxf 模型的实体级渲染载荷（Go 直挂只读，非 envelope）
+export const renderJsonUrl = (id: string) => `/v1/models/${id}/render.json`;
 
 export function listIssues(modelId: string) {
   return request<Issue[]>(`/api/v1/models/${modelId}/issues`);

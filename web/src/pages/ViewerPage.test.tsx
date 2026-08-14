@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { cleanup, render, act } from "@testing-library/react";
+import { cleanup, render, act, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
 
@@ -25,6 +25,9 @@ vi.mock("@/viewer/IssuePanel", () => ({ IssuePanel: () => null }));
 vi.mock("@/viewer/DiffPanel", () => ({ DiffPanel: () => null }));
 vi.mock("@/viewer/DesignPanel", () => ({ DesignPanel: () => null }));
 vi.mock("@/viewer/ChatSidebar", () => ({ ChatSidebar: () => null }));
+vi.mock("@/dxfviewer/DxfViewer", () => ({
+  default: ({ modelId }: { modelId: string }) => <div data-testid="dxf-viewer">{modelId}</div>,
+}));
 
 const api = vi.hoisted(() => ({
   fetchModel: vi.fn(),
@@ -35,13 +38,14 @@ vi.mock("@/api/client", () => api);
 
 import ViewerPage from "./ViewerPage";
 
-const model = (status: string) => ({
+const model = (status: string, kind?: string) => ({
   id: "m_1",
   name: "m",
   size: 1,
   status,
   createdAt: "2026-07-29T00:00:00Z",
   error: "",
+  ...(kind !== undefined ? { kind } : {}),
 });
 
 function renderPage() {
@@ -109,5 +113,42 @@ describe("ViewerPage auto reload", () => {
       vi.advanceTimersByTime(2000);
     });
     expect(mounts.count).toBe(2);
+  });
+});
+
+describe("ViewerPage kind routing", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mounts.count = 0;
+    vi.clearAllMocks();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  it("routes kind=dxf models to the DXF canvas viewer (no XKT provider)", async () => {
+    api.fetchModel.mockResolvedValue(model("ready", "dxf"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("dxf-viewer")).toBeTruthy();
+    expect(screen.queryByTestId("viewer-provider")).toBeNull();
+    expect(mounts.count).toBe(0);
+  });
+
+  it("routes kind-less models to the XKT viewer (legacy default ifc)", async () => {
+    api.fetchModel.mockResolvedValue(model("ready"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("viewer-provider")).toBeTruthy();
+    expect(screen.queryByTestId("dxf-viewer")).toBeNull();
+  });
+
+  it("routes kind=ifc models to the XKT viewer", async () => {
+    api.fetchModel.mockResolvedValue(model("ready", "ifc"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("viewer-provider")).toBeTruthy();
+    expect(screen.queryByTestId("dxf-viewer")).toBeNull();
   });
 });

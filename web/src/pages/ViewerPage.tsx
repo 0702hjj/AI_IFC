@@ -14,12 +14,14 @@ import { DiffPanel } from "@/viewer/DiffPanel";
 import { DesignPanel } from "@/viewer/DesignPanel";
 import { ChatSidebar } from "@/viewer/ChatSidebar";
 import { useViewerStore } from "@/viewer/store";
+import DxfViewer from "@/dxfviewer/DxfViewer";
 import "./ViewerPage.css";
 
 export default function ViewerPage() {
   const { id } = useParams<{ id: string }>();
   const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState<ModelInfo["status"] | null>(null);
+  const [kind, setKind] = useState<ModelInfo["kind"] | null>(null);
   const prevStatus = useRef<ModelInfo["status"] | null>(null);
   const [session, setSession] = useState<ChatSession | null>(null);
   const setChatOpen = useViewerStore((s) => s.setChatOpen);
@@ -33,7 +35,10 @@ export default function ViewerPage() {
     const check = () =>
       fetchModel(id)
         .then((m) => {
-          if (!cancelled) setStatus(m.status);
+          if (!cancelled) {
+            setStatus(m.status);
+            setKind(m.kind ?? "ifc");
+          }
         })
         .catch(() => {});
     check();
@@ -91,14 +96,18 @@ export default function ViewerPage() {
 
   return (
     <div className="viewer-page">
-      <ViewerProvider key={reloadKey} modelId={id}>
-        <Toolbar id={id} />
-        <ModelTreePanel />
-        <PropertyPanel modelId={id} />
-        <IssuePanel modelId={id} />
-        <DiffPanel modelId={id} />
-        <DesignPanel modelId={id} />
-      </ViewerProvider>
+      {kind === null ? null : kind === "dxf" ? (
+        <DxfViewer key={reloadKey} modelId={id} />
+      ) : (
+        <ViewerProvider key={reloadKey} modelId={id}>
+          <Toolbar id={id} />
+          <ModelTreePanel />
+          <PropertyPanel modelId={id} />
+          <IssuePanel modelId={id} />
+          <DiffPanel modelId={id} />
+          <DesignPanel modelId={id} />
+        </ViewerProvider>
+      )}
       {session && <ChatSidebar session={session} />}
     </div>
   );

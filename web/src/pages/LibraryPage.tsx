@@ -180,6 +180,7 @@ export default function LibraryPage() {
         <thead>
           <tr>
             <th>名称</th>
+            <th>类型</th>
             <th>大小</th>
             <th>状态</th>
             <th>上传时间</th>
@@ -189,7 +190,7 @@ export default function LibraryPage() {
         <tbody>
           {models.length === 0 && (
             <tr>
-              <td colSpan={5} className="empty">
+              <td colSpan={6} className="empty">
                 暂无模型
               </td>
             </tr>
@@ -197,6 +198,11 @@ export default function LibraryPage() {
           {models.map((m) => (
             <tr key={m.id}>
               <td>{m.name}</td>
+              <td>
+                <span className={`kind-badge kind-${m.kind ?? "ifc"}`}>
+                  {(m.kind ?? "ifc").toUpperCase()}
+                </span>
+              </td>
               <td>{formatSize(m.size)}</td>
               <td>
                 <span className={`status status-${m.status}`}>
