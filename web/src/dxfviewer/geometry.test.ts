@@ -117,6 +117,22 @@ describe("arcToPathD", () => {
     expect(arcToPathD(5, 5, 2, 0, 90)).toBe("M 7 -5 A 2 2 0 0 1 5 -7");
   });
 
+  it("treats INSERT-rotated native ARC angles (start shifted below 0) as CCW", () => {
+    // 原生 ARC {10,50} + rotation -60 → payload {-50,-10}；真值 CCW 40°
+    // start -50 ≡ 310：canvas start point = pointAt(310°), end = pointAt(350°)
+    expect(arcToPathD(0, 0, 10, -50, -10)).toBe(
+      "M 6.427876 7.660444 A 10 10 0 0 1 9.848078 1.736482"
+    );
+  });
+
+  it("treats INSERT-rotated bulge CW angles (start shifted above 360) as CW", () => {
+    // bulge CW 段 start=300 sweep=-120 + rotation +90 → payload {390,270}；真值 CW 120°
+    // 平移后 {30,-90}：sweep=-120 → sweep-flag 0
+    expect(arcToPathD(0, 0, 10, 390, 270)).toBe(
+      "M 8.660254 -5 A 10 10 0 0 0 0 10"
+    );
+  });
+
   it("emits a degenerate move-only path for zero sweep", () => {
     expect(arcToPathD(0, 0, 10, 45, 45)).toBe("M 7.071068 -7.071068");
   });

@@ -80,15 +80,20 @@ function normalizeDeg(a: number): number {
 // 角度制约定（对齐 render.py）：原生 ARC 恒 CCW，end < start 表跨 0°；
 // bulge 展开段 end = start + 有向 sweep（未归一化），end < 0 或 ≥ 360 时按有向
 // sweep 解读。end ∈ [0,360) 且 < start 的歧义情形按原生跨零（CCW）处理。
+// INSERT 旋转会把 start/end 同步平移出 [0,360)（render.py `_transform` 只加
+// rotation 不归一），故裁决前先把两者同步平移回 start ∈ [0,360)，保住
+// "sweep = end − start" 契约。
 function arcSweep(startDeg: number, endDeg: number): number {
-  const start = normalizeDeg(startDeg);
+  const k = Math.floor(startDeg / 360) * 360;
+  const start = startDeg - k;
+  const end = endDeg - k;
   let sweep: number;
-  if (endDeg < 0 || endDeg >= 360) {
-    sweep = endDeg - start;
-  } else if (endDeg < start) {
-    sweep = endDeg - start + 360;
+  if (end < 0 || end >= 360) {
+    sweep = end - start;
+  } else if (end < start) {
+    sweep = end - start + 360;
   } else {
-    sweep = endDeg - start;
+    sweep = end - start;
   }
   if (sweep > 360) return 360;
   if (sweep < -360) return -360;
