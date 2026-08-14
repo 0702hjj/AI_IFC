@@ -1,18 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
-// fabric.Canvas 生命周期 hook（DXF 只读查看器）：挂载/销毁、wheel zoom、
-// drag pan、hover、选中回调。组织模式参考 gaia_web useCanvasEngine：
-// canvasEl 驱动 effect、回调经 ref 保鲜、事件 disposer 统一回收。
+// fabric.Canvas 生命周期 hook（DXF 只读查看器）：挂载/销毁、尺寸适配
+// （setDimensions + ResizeObserver re-fit）、wheel zoom、drag pan、hover、
+// 选中回调。组织模式参考 gaia_web useCanvasEngine：canvasEl 驱动 effect、
+// 回调经 ref 保鲜、事件 disposer 统一回收。
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "fabric";
 import type { FabricObject } from "fabric";
+import { fitZoomPan } from "./fit";
+import type { Bounds } from "./types";
 
-/** wheel 缩放基准：zoom *= WHEEL_ZOOM_BASE ** deltaY（向下滚缩小）。 */
+/** wheel 缩放基准：zoom *= WHEEL_ZOOM_BASE ** deltaY（向下滚放大）。 */
 export const WHEEL_ZOOM_BASE = 0.999;
 export const DXF_ZOOM_MIN = 0.01;
 export const DXF_ZOOM_MAX = 1000;
+/** 父容器尺寸读不到（jsdom / 布局未就绪）时的画布兜底尺寸。 */
+export const CANVAS_FALLBACK_W = 800;
+export const CANVAS_FALLBACK_H = 600;
 
 export interface DxfSelectionInfo {
   key: string | null;
@@ -36,6 +42,8 @@ export interface UseDxfCanvasEngineOptions {
 export interface UseDxfCanvasEngineReturn {
   canvas: Canvas | null;
   isReady: boolean;
+  /** 应用 fit 并记录 bounds；容器尺寸变化时引擎按记录的 bounds 自动 re-fit。 */
+  fitTo: (bounds: Bounds) => void;
 }
 
 interface ObjData {
@@ -107,10 +115,23 @@ export function useDxfCanvasEngine(
 
   const onObjectSelectedRef = useRef(options.onObjectSelected);
   const onHoverRef = useRef(options.onHover);
-  onObjectSelectedRef.current = options.onObjectSelected;
-  onHoverRef.current = options.onHover;
+  // React 19：回调 ref 保鲜放进 effect，不在 render 期赋值。
+  useEffect(() => {
+    onObjectSelectedRef.current = options.onObjectSelected;
+    onHoverRef.current = options.onHover;
+  });
 
+  const canvasRef = useRef<Canvas | null>(null);
+  const fitBoundsRef = useRef<Bounds | null>(null);
   const [canvas, setCanvas] = useState<Canvas | null>(null);
+
+  const fitTo = useCallback((bounds: Bounds) => {
+    fitBoundsRef.current = bounds;
+    const c = canvasRef.current;
+    if (!c) return;
+    const fit = fitZoomPan(bounds, c.getWidth(), c.getHeight());
+    c.setViewportTransform([fit.zoom, 0, 0, fit.zoom, fit.panX, fit.panY]);
+  }, []);
 
   useEffect(() => {
     if (!canvasEl) return;
@@ -119,6 +140,29 @@ export function useDxfCanvasEngine(
       selection: false, // 只读查看器：禁橡皮筋多选，保留点选
       preserveObjectStacking: true,
     });
+
+    // 尺寸适配：fabric 默认 300x150，必须显式同步父容器尺寸。
+    const wrapEl = canvasEl.parentElement;
+    const measure = () => ({
+      width: wrapEl?.clientWidth || CANVAS_FALLBACK_W,
+      height: wrapEl?.clientHeight || CANVAS_FALLBACK_H,
+    });
+    c.setDimensions(measure());
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined" && wrapEl) {
+      const wrap = wrapEl;
+      resizeObserver = new ResizeObserver(() => {
+        c.setDimensions(measure());
+        const bounds = fitBoundsRef.current;
+        if (bounds) {
+          const fit = fitZoomPan(bounds, c.getWidth(), c.getHeight());
+          c.setViewportTransform([fit.zoom, 0, 0, fit.zoom, fit.panX, fit.panY]);
+        }
+        c.requestRenderAll();
+      });
+      resizeObserver.observe(wrap);
+    }
 
     let dragging = false;
     let lastX = 0;
@@ -168,6 +212,7 @@ export function useDxfCanvasEngine(
     });
     const offUp = c.on("mouse:up", () => {
       dragging = false;
+      lastSubTargets = [];
     });
     const offSelectionCreated = c.on("selection:created", (e) => {
       onObjectSelectedRef.current?.(resolveSelection(e.selected?.[0], lastSubTargets));
@@ -179,9 +224,11 @@ export function useDxfCanvasEngine(
       onObjectSelectedRef.current?.(null);
     });
 
+    canvasRef.current = c;
     setCanvas(c);
 
     return () => {
+      resizeObserver?.disconnect();
       offWheel();
       offDown();
       offMove();
@@ -190,9 +237,11 @@ export function useDxfCanvasEngine(
       offSelectionUpdated();
       offSelectionCleared();
       c.dispose();
+      canvasRef.current = null;
+      fitBoundsRef.current = null;
       setCanvas(null);
     };
   }, [canvasEl]);
 
-  return { canvas, isReady: canvas != null };
+  return { canvas, isReady: canvas != null, fitTo };
 }

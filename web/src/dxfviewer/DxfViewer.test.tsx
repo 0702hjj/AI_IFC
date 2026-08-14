@@ -64,6 +64,8 @@ const fabricFake = vi.hoisted(() => {
     disposed = false;
     el: unknown;
     options: Record<string, unknown>;
+    dims = { width: 800, height: 600 };
+    setDimensionsCalls: { width: number; height: number }[] = [];
     constructor(el: unknown, options: Record<string, unknown>) {
       this.el = el;
       this.options = options;
@@ -78,11 +80,15 @@ const fabricFake = vi.hoisted(() => {
     setViewportTransform(vpt: number[]) {
       this.viewportTransform = vpt;
     }
+    setDimensions(dims: { width: number; height: number }) {
+      this.dims = dims;
+      this.setDimensionsCalls.push(dims);
+    }
     getWidth() {
-      return 800;
+      return this.dims.width;
     }
     getHeight() {
-      return 600;
+      return this.dims.height;
     }
     requestRenderAll() {
       this.renderCount += 1;
@@ -120,7 +126,7 @@ vi.mock("fabric", () => ({
 import DxfViewer from "./DxfViewer";
 import { fitZoomPan } from "./fit";
 import { GROUP_MERGE_THRESHOLD } from "./useDxfRender";
-import { DXF_ZOOM_MIN } from "./useDxfCanvasEngine";
+import { CANVAS_FALLBACK_H, CANVAS_FALLBACK_W, DXF_ZOOM_MIN } from "./useDxfCanvasEngine";
 import { useViewerStore } from "@/viewer/store";
 import type { LineEntity, RenderPayload } from "./types";
 
@@ -265,6 +271,100 @@ describe("DxfViewer entity rendering", () => {
   });
 });
 
+// jsdom 无 ResizeObserver；可编程桩：fire() 手动触发回调。
+function stubResizeObserver() {
+  const instances: { cb: ResizeObserverCallback; observed: unknown[]; disconnected: boolean }[] = [];
+  class FakeResizeObserver {
+    cb: ResizeObserverCallback;
+    observed: unknown[] = [];
+    disconnected = false;
+    constructor(cb: ResizeObserverCallback) {
+      this.cb = cb;
+      instances.push(this as never);
+    }
+    observe(el: unknown) {
+      this.observed.push(el);
+    }
+    unobserve() {}
+    disconnect() {
+      this.disconnected = true;
+    }
+  }
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  return {
+    instances,
+    fire: () => instances.forEach((i) => i.cb([] as never, {} as never)),
+  };
+}
+
+describe("DxfViewer canvas sizing", () => {
+  let wrapW = 1024;
+  let wrapH = 640;
+  let origW: PropertyDescriptor | undefined;
+  let origH: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    wrapW = 1024;
+    wrapH = 640;
+    origW = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+    origH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", {
+      configurable: true,
+      get: () => wrapW,
+    });
+    Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+      configurable: true,
+      get: () => wrapH,
+    });
+  });
+  afterEach(() => {
+    if (origW) Object.defineProperty(HTMLElement.prototype, "clientWidth", origW);
+    if (origH) Object.defineProperty(HTMLElement.prototype, "clientHeight", origH);
+  });
+
+  it("calls setDimensions with the wrap container size on mount", async () => {
+    const { canvas } = await renderViewer(makePayload());
+    expect(canvas.setDimensionsCalls.length).toBeGreaterThan(0);
+    expect(canvas.dims).toEqual({ width: 1024, height: 640 });
+  });
+
+  it("fits using the wrap size rather than the fabric default 300x150", async () => {
+    const payload = makePayload();
+    const { canvas } = await renderViewer(payload);
+    const fit = fitZoomPan(payload.bounds!, 1024, 640);
+    expect(canvas.viewportTransform[0]!).toBeCloseTo(fit.zoom, 6);
+  });
+
+  it("falls back to default size when the wrap reports zero", async () => {
+    wrapW = 0;
+    wrapH = 0;
+    const { canvas } = await renderViewer(makePayload());
+    expect(canvas.dims).toEqual({ width: CANVAS_FALLBACK_W, height: CANVAS_FALLBACK_H });
+  });
+
+  it("re-dimensions and re-fits when the wrap resizes", async () => {
+    const ro = stubResizeObserver();
+    const payload = makePayload();
+    const { canvas } = await renderViewer(payload);
+    wrapW = 500;
+    wrapH = 400;
+    act(() => ro.fire());
+    expect(canvas.dims).toEqual({ width: 500, height: 400 });
+    const fit = fitZoomPan(payload.bounds!, 500, 400);
+    expect(canvas.viewportTransform[0]!).toBeCloseTo(fit.zoom, 6);
+    expect(canvas.viewportTransform[4]!).toBeCloseTo(fit.panX, 6);
+    expect(canvas.viewportTransform[5]!).toBeCloseTo(fit.panY, 6);
+  });
+
+  it("disconnects the ResizeObserver on unmount", async () => {
+    const ro = stubResizeObserver();
+    const { unmount } = await renderViewer(makePayload());
+    expect(ro.instances.length).toBeGreaterThan(0);
+    unmount();
+    expect(ro.instances.every((i) => i.disconnected)).toBe(true);
+  });
+});
+
 describe("DxfViewer interactions", () => {
   it("clamps wheel zoom at the minimum", async () => {
     const { canvas } = await renderViewer(makePayload());
@@ -380,6 +480,18 @@ describe("DxfViewer group merge path", () => {
     act(() => canvas.fire("mouse:down", { e: { clientX: 0, clientY: 0 }, target: group }));
     act(() => canvas.fire("selection:created", { selected: [group] }));
     act(() => canvas.fire("mouse:up", { e: { clientX: 0, clientY: 0 } }));
+    expect(useViewerStore.getState().selectedId).toBeNull();
+    const panel = screen.getByTestId("dxf-selected-panel");
+    expect(within(panel).getByText(group.data!["layer"] as string)).toBeTruthy();
+  });
+
+  it("clears subTargets on mouse:up so a stale child is not resolved later", async () => {
+    const { canvas } = await renderMergedViewer(GROUP_MERGE_THRESHOLD + 1);
+    const group = canvas.getObjects()[0] as InstanceType<typeof fabricFake.FakeGroup>;
+    const child = group.objects.find((o) => o.data?.["key"] != null)!;
+    act(() => canvas.fire("mouse:down", { e: { clientX: 0, clientY: 0 }, target: group, subTargets: [child] }));
+    act(() => canvas.fire("mouse:up", { e: { clientX: 0, clientY: 0 } }));
+    act(() => canvas.fire("selection:created", { selected: [group] }));
     expect(useViewerStore.getState().selectedId).toBeNull();
     const panel = screen.getByTestId("dxf-selected-panel");
     expect(within(panel).getByText(group.data!["layer"] as string)).toBeTruthy();

@@ -10,8 +10,7 @@ import type { Canvas, FabricObject } from "fabric";
 import { renderJsonUrl } from "@/api/client";
 import { payloadToObjectSpecs } from "./geometry";
 import type { FabricObjectSpec } from "./geometry";
-import { fitZoomPan } from "./fit";
-import type { LayerInfo, RenderPayload } from "./types";
+import type { Bounds, LayerInfo, RenderPayload } from "./types";
 
 /** 实体数超过阈值按图层合并 Group：数千独立对象的选中/渲染路径会明显退化。 */
 export const GROUP_MERGE_THRESHOLD = 2000;
@@ -96,7 +95,11 @@ function dataOfLayer(obj: FabricObject): string {
   return (obj as FabricObject & WithData).data?.layer ?? "";
 }
 
-export function useDxfRender(modelId: string, canvas: Canvas | null): DxfRenderState {
+export function useDxfRender(
+  modelId: string,
+  canvas: Canvas | null,
+  fitTo: (bounds: Bounds) => void
+): DxfRenderState {
   const [payload, setPayload] = useState<RenderPayload | null>(null);
   const [hiddenLayers, setHiddenLayers] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -120,10 +123,7 @@ export function useDxfRender(modelId: string, canvas: Canvas | null): DxfRenderS
         } else if (objects.length > 0) {
           canvas.add(...objects);
         }
-        if (data.bounds) {
-          const fit = fitZoomPan(data.bounds, canvas.getWidth(), canvas.getHeight());
-          canvas.setViewportTransform([fit.zoom, 0, 0, fit.zoom, fit.panX, fit.panY]);
-        }
+        if (data.bounds) fitTo(data.bounds);
         canvas.requestRenderAll();
       })
       .catch((e: unknown) => {
@@ -132,7 +132,7 @@ export function useDxfRender(modelId: string, canvas: Canvas | null): DxfRenderS
     return () => {
       cancelled = true;
     };
-  }, [modelId, canvas]);
+  }, [modelId, canvas, fitTo]);
 
   const toggleLayer = useCallback(
     (name: string) => {

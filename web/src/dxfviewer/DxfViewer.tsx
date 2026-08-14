@@ -26,8 +26,8 @@ export default function DxfViewer({ modelId }: { modelId: string }) {
     [setSelectedStore]
   );
 
-  const { canvas } = useDxfCanvasEngine({ canvasEl, onObjectSelected, onHover: setHover });
-  const render = useDxfRender(modelId, canvas);
+  const { canvas, fitTo } = useDxfCanvasEngine({ canvasEl, onObjectSelected, onHover: setHover });
+  const render = useDxfRender(modelId, canvas, fitTo);
 
   const isEmpty =
     render.payload != null &&
