@@ -8,7 +8,7 @@
 自托管、开源（Apache-2.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
 - **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
-- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B+C 服务端已交付（骨架/沙箱/REST + diff/locate/edit-call + render.json + Go 代理），web 查看器待续）——`skills/aidxfv/`（v1/v2，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。
+- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B+C 服务端已交付（骨架/沙箱/REST + diff/locate/edit-call + render.json + Go 代理 + web DXF Canvas 查看器（只读）已交付，IFC web-ifc 查看器与编辑待续）——`skills/aidxfv/`（v1/v2，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。
 - **推荐项：Agent 工作流控制**（可选，做不好可删）——主 Agent 编排提示词包 `skills/aibim-orchestrator` + 事件总线（已交付，地基保留）；代码级 orchestrator 不再追求，原设计见 `2026-08-11-orchestrator-design.md`。
 
 两逻辑共享运行时骨架：`web`（可选前端）/ `server`（Go 网关 :8090）/ `converter`（Node 转换）/ `services/ifc`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
@@ -26,7 +26,7 @@ AI agent ──► REST 编辑 API ────┘
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + zustand) | `web` | `npm test`（vitest，194 用例 / 20 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| web (React 19 + xeokit + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，254 用例 / 24 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
 | server (Go 1.26，stdlib + pgx/v5) | `server` | `go test ./...`（159 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
 | edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（243 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |

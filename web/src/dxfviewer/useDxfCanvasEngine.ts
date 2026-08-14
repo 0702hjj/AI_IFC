@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { Canvas } from "fabric";
 import type { FabricObject } from "fabric";
 
-/** wheel 缩放基准：zoom *= WHEEL_ZOOM_BASE ** deltaY（向下滚放大）。 */
+/** wheel 缩放基准：zoom *= WHEEL_ZOOM_BASE ** deltaY（向下滚缩小）。 */
 export const WHEEL_ZOOM_BASE = 0.999;
 export const DXF_ZOOM_MIN = 0.01;
 export const DXF_ZOOM_MAX = 1000;
