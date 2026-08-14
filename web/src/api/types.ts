@@ -8,6 +8,8 @@ export interface ModelInfo {
   status: "converting" | "ready" | "failed";
   createdAt: string;
   error: string;
+  /** 模型种类；缺省视为 ifc（后端迁移前存量记录无此字段）。 */
+  kind?: "ifc" | "dxf";
 }
 
 export interface IssueCamera {

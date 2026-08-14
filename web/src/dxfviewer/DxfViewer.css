@@ -1,0 +1,105 @@
+/* SPDX-License-Identifier: Apache-2.0
+   Copyright (C) 2026 0702hjj */
+
+.dxf-viewer {
+  display: flex;
+  flex: 1;
+  order: 1;
+  min-width: 0;
+}
+
+.dxf-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  background: #ffffff;
+}
+
+.dxf-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.dxf-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+}
+
+.dxf-error {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  color: #b00020;
+  background: #fff1f0;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.dxf-unsupported-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: #fffbe6;
+  color: #d48806;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.dxf-hover-tip {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  background: rgba(17, 24, 39, 0.8);
+  color: #f9fafb;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  pointer-events: none;
+}
+
+.dxf-side {
+  width: 220px;
+  border-left: 1px solid #e5e7eb;
+  background: #fafafa;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.dxf-side h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.dxf-layer-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dxf-selected-panel {
+  margin-top: 16px;
+}
+
+.dxf-selected-panel dl {
+  margin: 0;
+  font-size: 13px;
+}
+
+.dxf-selected-panel dt {
+  color: #6b7280;
+}
+
+.dxf-selected-panel dd {
+  margin: 0 0 6px;
+  word-break: break-all;
+}

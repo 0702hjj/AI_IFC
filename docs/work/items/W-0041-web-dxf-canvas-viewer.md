@@ -1,10 +1,11 @@
 # W-0041: web DXF Canvas 查看器（只读，ViewerPage 按 kind 分流 + 七类实体绘制 + 图层/选中交互）
 
-- **状态：** in-progress
+- **状态：** done
 - **优先级：** P1
 - **Milestone：** v0.6（services/cad script-as-source，chunk D）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §二「实现路径：前端显示」2 + 「工作项建议」6
 - **执行者/分支：** opencode / feat/v0.8-dxf-viewer
+- **关闭于：** 本迭代分支 feat/v0.8-dxf-viewer（PR 待提）
 
 ## 背景
 

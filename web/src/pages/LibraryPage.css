@@ -55,6 +55,22 @@ td {
   font-size: 13px;
 }
 
+.kind-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.kind-ifc {
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.kind-dxf {
+  background: #e6f4ff;
+  color: #0958d9;
+}
+
 .status-ready {
   background: #f6ffed;
   color: #389e0d;

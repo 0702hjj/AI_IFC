@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, locateScript, createChatProject, chatEventsUrl } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, renderJsonUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, locateScript, createChatProject, chatEventsUrl } from "./client";
 import { setToken, clearToken, onUnauthorized } from "./auth";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
@@ -31,6 +31,9 @@ describe("api client", () => {
   });
   it("downloadUrl format", () => {
     expect(downloadUrl("m_abc")).toBe("/api/v1/models/m_abc/download");
+  });
+  it("renderJsonUrl format", () => {
+    expect(renderJsonUrl("m_x")).toBe("/v1/models/m_x/render.json");
   });
   it("deleteModel uses DELETE", async () => {
     const spy = vi.fn(async () => new Response(JSON.stringify(envelope(null)), { status: 200 }));
