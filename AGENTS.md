@@ -26,7 +26,7 @@ AI agent ──► REST 编辑 API ────┘
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，254 用例 / 24 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| web (React 19 + xeokit + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，260 用例 / 24 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
 | server (Go 1.26，stdlib + pgx/v5) | `server` | `go test ./...`（159 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
 | edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（243 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
