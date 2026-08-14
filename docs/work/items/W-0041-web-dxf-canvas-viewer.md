@@ -5,7 +5,7 @@
 - **Milestone：** v0.6（services/cad script-as-source，chunk D）
 - **来源：** spec 2026-08-12-services-cad-script-as-source-design.md §二「实现路径：前端显示」2 + 「工作项建议」6
 - **执行者/分支：** opencode / feat/v0.8-dxf-viewer
-- **关闭于：** 本迭代分支 feat/v0.8-dxf-viewer（PR 待提）
+- **关闭于：** 本迭代分支 feat/v0.8-dxf-viewer（PR #37）
 
 ## 背景
 

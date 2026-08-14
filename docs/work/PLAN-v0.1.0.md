@@ -21,7 +21,7 @@
 | v0.6 | services/cad script-as-source chunk A ✅（2026-08-12，分支 feat/v0.5-portability-reuse 累积，PR #31）| W-0032, W-0033 | cad_script_lib 契约+XDATA 身份测试绿；services/cad 骨架端点与沙箱全测试绿 |
 | v0.6 | services/cad script-as-source chunk B ✅（2026-08-13，分支 feat/v0.6-cad-diff，PR #34）| W-0034, W-0035 | diff 引擎与 locate/edit-call 测试绿 |
 | v0.6 | services/cad script-as-source chunk C ✅（2026-08-13，分支 feat/v0.7-cad-render，PR #36）| W-0039, W-0040 | render.json 实体带 key + unsupported 明面化；Go kind 分流 + cad 端点代理（edit-call 除外）契约测试绿 |
-| v0.6 | services/cad script-as-source chunk D ✅（2026-08-14，分支 feat/v0.8-dxf-viewer，PR 待提）| W-0041 | kind=dxf 模型 ViewerPage 分流 Canvas 只读查看器（七类实体/pan-zoom/图层/选中属性/unsupported 明面化）测试绿；编辑 UI 另立 chunk 且开工需用户确认 |
+| v0.6 | services/cad script-as-source chunk D ✅（2026-08-14，分支 feat/v0.8-dxf-viewer，PR #37）| W-0041 | kind=dxf 模型 ViewerPage 分流 Canvas 只读查看器（七类实体/pan-zoom/图层/选中属性/unsupported 明面化）测试绿；编辑 UI 另立 chunk 且开工需用户确认 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 
