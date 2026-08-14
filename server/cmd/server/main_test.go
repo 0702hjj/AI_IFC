@@ -78,6 +78,41 @@ func TestLoadConfigAuthFromJSON(t *testing.T) {
 	}
 }
 
+// TestLoadConfigLLMFromJSONAndEnv：LLM 三参从 server_config.json 读取，VIEWER_LLM_* env 覆盖。
+func TestLoadConfigLLMFromJSONAndEnv(t *testing.T) {
+	path := writeConfig(t, `{"llmAPIKey":"k-json","llmBaseURL":"https://llm.example/v1","llmModel":"m-json"}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.LLMAPIKey != "k-json" || cfg.LLMBaseURL != "https://llm.example/v1" || cfg.LLMModel != "m-json" {
+		t.Fatalf("json LLM 配置未读到: %+v", cfg)
+	}
+
+	t.Setenv("VIEWER_LLM_API_KEY", "k-env")
+	t.Setenv("VIEWER_LLM_BASE_URL", "https://env.example/v1")
+	t.Setenv("VIEWER_LLM_MODEL", "m-env")
+	cfg, err = loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.LLMAPIKey != "k-env" || cfg.LLMBaseURL != "https://env.example/v1" || cfg.LLMModel != "m-env" {
+		t.Fatalf("env 应覆盖 json: %+v", cfg)
+	}
+}
+
+// TestLoadConfigLLMDefaultsEmpty：缺省三参为空（agent 回退 scriptedModel，离线 demo 模式）。
+func TestLoadConfigLLMDefaultsEmpty(t *testing.T) {
+	path := writeConfig(t, `{}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.LLMAPIKey != "" || cfg.LLMBaseURL != "" || cfg.LLMModel != "" {
+		t.Fatalf("LLM 缺省应为空（scriptedModel 回退）: %+v", cfg)
+	}
+}
+
 func TestLoadConfigEnvOverridesAuth(t *testing.T) {
 	t.Setenv("VIEWER_API_TOKEN", "env-tok")
 	t.Setenv("VIEWER_CORS_ORIGINS", "https://env.example")

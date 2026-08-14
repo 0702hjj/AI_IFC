@@ -72,6 +72,46 @@ func TestEventStoreAppendLoadRoundTrip(t *testing.T) {
 	}
 }
 
+// TestEventStoreLoadSkipsCorruptLines：单行损坏不应拖垮整个会话——
+// Load 跳过坏行（计数返回），好行照常读出。
+func TestEventStoreLoadSkipsCorruptLines(t *testing.T) {
+	dir := t.TempDir()
+	st := NewEventStore(dir)
+	good := Event{Type: EventTurnStart, Turn: 1, Payload: payloadOf(t, map[string]any{"user": "hi"}), Ts: fixedTs()}
+	if err := st.Append("sess-corrupt", good); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	// 手动写入两行坏行（截断 JSON / 非 JSON）
+	path := filepath.Join(dir, "chat", "sess-corrupt.jsonl")
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("{not-json\n{\"type\":\"turn/end\",\"turn\":1\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if err := st.Append("sess-corrupt", Event{Type: EventTurnEnd, Turn: 1, Ts: fixedTs()}); err != nil {
+		t.Fatalf("Append after corrupt: %v", err)
+	}
+
+	evs, skipped, err := st.LoadReport("sess-corrupt")
+	if err != nil {
+		t.Fatalf("LoadReport 不应因坏行失败: %v", err)
+	}
+	if skipped != 2 {
+		t.Fatalf("skipped = %d, want 2", skipped)
+	}
+	if len(evs) != 2 || evs[0].Type != EventTurnStart || evs[1].Type != EventTurnEnd {
+		t.Fatalf("好行应完整读出: %v", eventTypes(evs))
+	}
+	// Load 委托 LoadReport，坏行同样跳过
+	evs2, err := st.Load("sess-corrupt")
+	if err != nil || len(evs2) != 2 {
+		t.Fatalf("Load 应跳过坏行: evs=%d err=%v", len(evs2), err)
+	}
+}
+
 func TestEventStoreLoadMissing(t *testing.T) {
 	st := NewEventStore(t.TempDir())
 	evs, err := st.Load("nope")

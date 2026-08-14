@@ -96,32 +96,39 @@ func (s *EventStore) Append(sessionID string, ev Event) error {
 	return err
 }
 
+// Load 读出会话全部事件；坏行（截断/非 JSON）跳过，不拖垮整个会话。
 func (s *EventStore) Load(sessionID string) ([]Event, error) {
+	evs, _, err := s.LoadReport(sessionID)
+	return evs, err
+}
+
+// LoadReport 同 Load，另返回跳过的坏行数（观测日志腐败程度）。
+func (s *EventStore) LoadReport(sessionID string) (evs []Event, skipped int, err error) {
 	if err := validateSessionID(sessionID); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	raw, err := os.ReadFile(s.path(sessionID))
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, nil
+		return nil, 0, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	var evs []Event
 	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
 		if line == "" {
 			continue
 		}
 		var ev Event
 		if err := json.Unmarshal([]byte(line), &ev); err != nil {
-			return nil, fmt.Errorf("decode event line: %w", err)
+			skipped++
+			continue
 		}
 		if ev.Type == "header" {
 			continue
 		}
 		evs = append(evs, ev)
 	}
-	return evs, nil
+	return evs, skipped, nil
 }
 
 // Project 把事件流折叠为 openai 风格的消息列表（role/content/tool_calls/tool_call_id），

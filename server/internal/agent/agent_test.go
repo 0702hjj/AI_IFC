@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -90,13 +92,14 @@ func TestRunToolCallRoundTrip(t *testing.T) {
 
 	wantTypes := []string{
 		EventTurnStart,
-		EventStepStart,         // model step 1
-		EventAssistantMessage,  // tool_calls message
-		EventToolCall,          // echo(call-1)
-		EventStepStart,         // tool step 2
-		EventToolResult,        // echo -> "hello"
-		EventStepStart,         // model step 3
-		EventAssistantMessage,  // final "done"
+		EventStepStart,        // model step 1
+		EventAssistantMessage, // tool_calls message
+		EventToolCall,         // echo(call-1)
+		EventStepStart,        // tool step 2
+		EventToolResult,       // echo -> "hello"
+		EventStepStart,        // model step 3
+		EventAssistantChunk,   // 流式分片 "done"
+		EventAssistantMessage, // final "done"
 		EventTurnEnd,
 	}
 	got := eventTypes(evs)
@@ -118,10 +121,10 @@ func TestRunToolCallRoundTrip(t *testing.T) {
 	if s := payloadString(t, evs[5], "content"); s != "hello" {
 		t.Errorf("tool/result content = %q, want hello", s)
 	}
-	if s := payloadString(t, evs[7], "content"); s != "done" {
+	if s := payloadString(t, evs[8], "content"); s != "done" {
 		t.Errorf("final assistant/message content = %q, want done", s)
 	}
-	if s := payloadString(t, evs[8], "message"); s != "done" {
+	if s := payloadString(t, evs[9], "message"); s != "done" {
 		t.Errorf("turn/end message = %q, want done", s)
 	}
 
@@ -195,6 +198,93 @@ func TestRunMaxStepTruncation(t *testing.T) {
 	}
 	if resultCount > 3 {
 		t.Errorf("tool executed %d times with MaxStep=3, want <=3", resultCount)
+	}
+}
+
+// TestRunEmitsAssistantChunks：Stream 路径——文本分片以 assistant/chunk 事件流出，
+// 供 chat 层翻译为 message.part.delta；turn/end 携带拼接后的完整答复。
+func TestRunEmitsAssistantChunks(t *testing.T) {
+	a := newScriptedAgent(t, Script{Steps: []ScriptStep{
+		{Chunks: []string{"你好", "，世界"}},
+	}}, NewEventStore(t.TempDir()), 10)
+	ch, err := a.Run(context.Background(), "sess-chunks", "打招呼")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	evs := collect(t, ch)
+	var deltas []string
+	for _, ev := range evs {
+		if ev.Type == EventAssistantChunk {
+			deltas = append(deltas, payloadString(t, ev, "content"))
+		}
+	}
+	if len(deltas) != 2 || deltas[0] != "你好" || deltas[1] != "，世界" {
+		t.Fatalf("chunk deltas = %v, want [你好 ，世界]", deltas)
+	}
+	last := evs[len(evs)-1]
+	if last.Type != EventTurnEnd {
+		t.Fatalf("末事件 = %s, want turn/end", last.Type)
+	}
+	if msg := payloadString(t, last, "message"); msg != "你好，世界" {
+		t.Fatalf("turn/end message = %q, want 拼接后的完整答复", msg)
+	}
+}
+
+// TestRunAppendFailureEmitsErrorEvent：事件日志写盘失败不得静默——
+// 失败必须作为 error 事件浮出水面（通道上可见），且不中断后续事件流。
+func TestRunAppendFailureEmitsErrorEvent(t *testing.T) {
+	dir := t.TempDir()
+	// chat/ 目录只读 → Load（文件不存在）正常返回空，Append 写文件必失败
+	if err := os.Mkdir(filepath.Join(dir, "chat"), 0o555); err != nil {
+		t.Fatal(err)
+	}
+	a := newScriptedAgent(t, Script{Steps: []ScriptStep{{Chunks: []string{"x"}}}},
+		NewEventStore(dir), 10)
+	ch, err := a.Run(context.Background(), "sess-storefail", "go")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	evs := collect(t, ch)
+	var sawStoreErr bool
+	for _, ev := range evs {
+		if ev.Type != EventError {
+			continue
+		}
+		if msg := payloadString(t, ev, "error"); strings.Contains(msg, "event store") {
+			sawStoreErr = true
+		}
+	}
+	if !sawStoreErr {
+		t.Fatalf("Append 失败未浮出 error 事件; types=%v", eventTypes(evs))
+	}
+	// 流程不被写盘失败打断：turn/end 仍收尾
+	if evs[len(evs)-1].Type != EventTurnEnd {
+		t.Fatalf("末事件 = %s, want turn/end（写盘失败不应中断循环）", evs[len(evs)-1].Type)
+	}
+}
+
+// TestRunCancelledNoErrorEvent：主动中止（abort 路径）是正常控制流——
+// ctx 取消只收尾 turn/end，不再刷一条 context canceled 的 error 事件污染聊天窗。
+func TestRunCancelledNoErrorEvent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	a := newScriptedAgent(t, Script{Steps: []ScriptStep{{Chunks: []string{"x"}}}},
+		NewEventStore(t.TempDir()), 10)
+	ch, err := a.Run(ctx, "sess-cancel", "go")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	cancel()
+	var evs []Event
+	for ev := range ch {
+		evs = append(evs, ev)
+	}
+	for _, ev := range evs {
+		if ev.Type == EventError {
+			t.Fatalf("取消不应产生 error 事件: %s %s", ev.Type, ev.Payload)
+		}
+	}
+	if len(evs) == 0 || evs[len(evs)-1].Type != EventTurnEnd {
+		t.Fatalf("取消后仍应 turn/end 收尾: %v", eventTypes(evs))
 	}
 }
 

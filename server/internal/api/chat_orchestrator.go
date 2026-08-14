@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
-// chat_orchestrator.go：三连触发（file.edited/session.idle → notify）、制品归档、
+// chat_orchestrator.go：turn 结束触发 notify、制品归档、
 // 骨架 IFC 模板与 GlobalId 生成、空白项目创建。
 package api
 
@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"ifcviewer/server/internal/editsvc"
-	"ifcviewer/server/internal/opencode"
 )
 
 // --- 空白项目：点击「新建」即完成初始化（骨架模型 + modelId），agent 只是后续的修改者 ---
@@ -91,58 +90,30 @@ func (h *ChatHandler) createProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, m)
 }
 
-// onEvent 是 P2 三连触发器：file.edited 命中工作区 → 置 dirty；
-// session.idle + dirty + bound → 异步执行 notify（Core+Shell 闭环落盘）。
-func (h *ChatHandler) onEvent(ev opencode.Event) {
-	switch ev.Type {
-	case "file.edited":
-		var p struct {
-			File string `json:"file"`
-		}
-		if err := json.Unmarshal(ev.Properties, &p); err != nil {
-			return
-		}
-		mid := modelIDFromEditedFile(p.File)
-		if mid == "" {
-			return
-		}
-		h.mu.Lock()
-		for _, cs := range h.sessions {
-			if cs.ModelID == mid {
-				cs.dirty = true
-			}
-		}
-		h.mu.Unlock()
-	case "session.idle":
-		ocSID := ev.SessionID()
-		if ocSID == "" {
-			return
-		}
-		h.mu.Lock()
-		cid, ok := h.byOC[ocSID]
-		cs := h.sessions[cid]
-		if !ok || cs == nil || cs.ModelID == "" {
-			h.mu.Unlock()
-			return
-		}
-		// 变更检测：file.edited 已置 dirty（write/edit 工具路径）；
-		// 否则兜底查工作区 mtime（agent 用 bash 跑脚本改文件时 opencode 不发 file.edited）。
-		dirtyNow := cs.dirty
-		if !dirtyNow {
-			if fi, err := os.Stat(filepath.Join(h.deps.DataDir, "uploads", cs.ModelID+".ifc")); err == nil && fi.ModTime().After(cs.lastCheck) {
-				dirtyNow = true
-			}
-		}
-		if !dirtyNow {
-			h.mu.Unlock()
-			return
-		}
-		cs.dirty = false // 同一 turn 只触发一次
-		cs.lastCheck = time.Now()
-		h.mu.Unlock()
-		log.Printf("chat: session %s idle with modified model %s → notify", ocSID, cs.ModelID)
-		go h.notify(cs)
+// notifyIfDirty 是 agent loop 结束（turn/end，事件流关闭）后的变更检测 + 触发点：
+// 会话绑定模型且工作区 IFC 被改（mtime 晚于 lastCheck）→ 异步执行 notify
+// （Core+Shell 闭环落盘，顺序契约不变）。
+func (h *ChatHandler) notifyIfDirty(cs *chatSession) {
+	if cs.ModelID == "" {
+		return
 	}
+	h.mu.Lock()
+	// 变更检测：查工作区 mtime（agent 工具/bash 改文件即新于 lastCheck）。
+	dirtyNow := cs.dirty
+	if !dirtyNow {
+		if fi, err := os.Stat(filepath.Join(h.deps.DataDir, "uploads", cs.ModelID+".ifc")); err == nil && fi.ModTime().After(cs.lastCheck) {
+			dirtyNow = true
+		}
+	}
+	if !dirtyNow {
+		h.mu.Unlock()
+		return
+	}
+	cs.dirty = false // 同一 turn 只触发一次
+	cs.lastCheck = time.Now()
+	h.mu.Unlock()
+	log.Printf("chat: session %s turn end with modified model %s → notify", cs.AgentID, cs.ModelID)
+	go h.notify(cs)
 }
 
 // modelIDFromEditedFile 从 file.edited 的路径提取 modelId（命中 {dataDir}/uploads/{id}.ifc）。

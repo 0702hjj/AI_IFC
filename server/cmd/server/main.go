@@ -18,6 +18,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ifcviewer/server/internal/agent"
 	"ifcviewer/server/internal/api"
 	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
@@ -40,6 +41,9 @@ type config struct {
 	EditServiceURL  string `json:"editServiceURL"`
 	CadServiceURL   string `json:"cadServiceURL"`
 	OpenCodeURL     string `json:"openCodeURL"`
+	LLMAPIKey       string `json:"llmAPIKey"`
+	LLMBaseURL      string `json:"llmBaseURL"`
+	LLMModel        string `json:"llmModel"`
 	APIToken        string `json:"apiToken"`
 	CORSOriginsRaw  string `json:"corsOrigins"`
 	CORSOrigins     []string
@@ -77,6 +81,15 @@ func loadConfig(path string) (*config, error) {
 	}
 	if cfg.OpenCodeURL == "" {
 		cfg.OpenCodeURL = "http://127.0.0.1:4096"
+	}
+	if k := os.Getenv("VIEWER_LLM_API_KEY"); k != "" {
+		cfg.LLMAPIKey = k
+	}
+	if u := os.Getenv("VIEWER_LLM_BASE_URL"); u != "" {
+		cfg.LLMBaseURL = u
+	}
+	if m := os.Getenv("VIEWER_LLM_MODEL"); m != "" {
+		cfg.LLMModel = m
 	}
 	if t := os.Getenv("VIEWER_API_TOKEN"); t != "" {
 		cfg.APIToken = t
@@ -147,10 +160,22 @@ func main() {
 	cad := editsvc.New(cfg.CadServiceURL)
 	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
-	// 注意：chat 固定注入 ifc edit-service（Ed: ed）——dxf 项目经 chat 会打到 :8100，
-	// kind 感知（dxf→cad :8200）待后续 chat/Eino chunk。
-	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
-		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Q: q, DataDir: cfg.DataDir,
+	// 对话由内置 Eino agent 驱动（API key 空时回退确定性 scriptedModel，离线 demo 可用）；
+	// opencode 接线保留（Task 6 拆除）。chat 固定注入 ifc edit-service（Ed: ed）——
+	// dxf 项目经 chat 会打到 :8100，kind 感知（dxf→cad :8200）待后续 chunk。
+	evStore := agent.NewEventStore(cfg.DataDir)
+	chatAgent, err := agent.New(agent.LLMConfig{
+		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
+	}, agent.WithStore(evStore))
+	if err != nil {
+		log.Fatalf("create chat agent: %v", err)
+	}
+	if cfg.LLMAPIKey == "" {
+		log.Printf("chat: VIEWER_LLM_API_KEY 未配置，回退 scriptedModel（离线 demo 模式）")
+	}
+	chatHandler := api.NewChatHandler(api.ChatDeps{
+		OC: opencode.New(cfg.OpenCodeURL), Ag: chatAgent, Ev: evStore,
+		Ed: ed, St: st, Q: q, DataDir: cfg.DataDir,
 	})
 	root := http.NewServeMux()
 	root.Handle("/api/v1/chat/", chatHandler)

@@ -20,7 +20,7 @@ import (
 )
 
 // newNotifyTestHandler 构造带 edit 客户端 + store + 队列的 chat handler
-//（notify 依赖 Ed/St/Q/DataDir；不启动 dispatchLoop）。
+// （notify 依赖 Ed/St/Q/DataDir；不启动 dispatchLoop）。
 func newNotifyTestHandler(t *testing.T, pyURL string) (*ChatHandler, *store.Store, chan string) {
 	t.Helper()
 	dataDir := t.TempDir()
@@ -38,7 +38,8 @@ func newNotifyTestHandler(t *testing.T, pyURL string) (*ChatHandler, *store.Stor
 		deps:     ChatDeps{Ed: ed, St: st, Q: q, DataDir: dataDir},
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
-		byOC:     map[string]string{},
+		byAgent:  map[string]string{},
+		runs:     map[string]context.CancelFunc{},
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}
@@ -209,7 +210,7 @@ func TestNotifyNoScriptReloadOnly(t *testing.T) {
 }
 
 // TestNotifyReconvertSkippedWhenNotStale 断言无脚本手术式路径 + IFC 未变
-//（mtime 不新于 XKT）时 notify 跳过重转：不发 converting、不入队，保持 ready——
+// （mtime 不新于 XKT）时 notify 跳过重转：不发 converting、不入队，保持 ready——
 // 这是重转去重的核心收益（多次 idle 重放同源不再全量重转）。
 func TestNotifyReconvertSkippedWhenNotStale(t *testing.T) {
 	py, pyURL := newFakePy(t)
@@ -245,7 +246,7 @@ func TestNotifyReconvertSkippedWhenNotStale(t *testing.T) {
 }
 
 // TestNotifySaveVersionUnresolvableFails 断言 save 成功但版本不可解析
-//（响应未带 version，且兜底 GetVersions 失败 / 读到空 current）→ 显式
+// （响应未带 version，且兜底 GetVersions 失败 / 读到空 current）→ 显式
 // viewer.notify_failed(save_version)、不排重转、不推 committed、staging 脚本保留
 // ——防止空版本被静默吞掉导致 archive 跳过 → 下次 idle 重复 save。
 func TestNotifySaveVersionUnresolvableFails(t *testing.T) {

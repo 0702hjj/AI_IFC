@@ -1,19 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
-// chat_sse.go：SSE 事件流分发（opencode /event 订阅循环、订阅管理、帧推送）。
+// chat_sse.go：SSE 事件流分发（订阅管理、帧推送、Last-Event-ID 重同步）。
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
-	"time"
-
-	"ifcviewer/server/internal/opencode"
 )
 
 // sseReplayBufferSize 是每会话重同步缓冲容量（最近 N 条事件）。
@@ -83,35 +78,6 @@ func (h *ChatHandler) events(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// dispatchLoop 全局订阅 opencode /event，断线退避重连；每条事件先过触发器（onEvent）再透传（forward）。
-func (h *ChatHandler) dispatchLoop(ctx context.Context) {
-	backoff := time.Second
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-		ch, err := h.deps.OC.Subscribe(ctx)
-		if err != nil {
-			log.Printf("chat: subscribe opencode events: %v (retry in %s)", err, backoff)
-		} else {
-			backoff = time.Second
-			for ev := range ch {
-				h.onEvent(ev)
-				h.forward(ev)
-			}
-			log.Printf("chat: opencode event stream closed (retry in %s)", backoff)
-		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(backoff):
-		}
-		if backoff < 30*time.Second {
-			backoff *= 2
-		}
-	}
-}
-
 // pushSystem 向指定会话的浏览器订阅者推送 chat 模块自定义 SSE 事件。
 func (h *ChatHandler) pushSystem(cid, eventType string, data map[string]any) {
 	raw, err := json.Marshal(data)
@@ -122,23 +88,6 @@ func (h *ChatHandler) pushSystem(cid, eventType string, data map[string]any) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.pushLocked(cid, frame)
-}
-
-// forward 把一条 opencode 事件封装为 SSE 帧，定向（或广播）推给浏览器订阅者。
-func (h *ChatHandler) forward(ev opencode.Event) {
-	frame := []byte("event: " + ev.Type + "\ndata: " + string(ev.Properties) + "\n\n")
-	ocSID := ev.SessionID()
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if ocSID != "" {
-		if cid, ok := h.byOC[ocSID]; ok {
-			h.pushLocked(cid, frame)
-			return
-		}
-	}
-	for cid := range h.subs { // 广播（server.connected / file.edited 等无 sessionID 事件）
-		h.pushLocked(cid, frame)
-	}
 }
 
 // pushLocked 给帧分配会话内递增 id（SSE `id:` 行）、入重同步环形缓冲（无在线订阅者也入，

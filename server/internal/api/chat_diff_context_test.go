@@ -3,22 +3,26 @@ package api
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/schema"
+
+	"ifcviewer/server/internal/agent"
 	"ifcviewer/server/internal/editsvc"
 )
 
 // --- W-0016：会话消息注入「与上一大版本的脚本 diff」上下文 ---
 
 // newChatTestHandlerWithEd 构造带 edit-service 客户端的 chat 测试 handler。
-func newChatTestHandlerWithEd(t *testing.T, ocURL, edURL string) *ChatHandler {
+func newChatTestHandlerWithEd(t *testing.T, edURL string) *ChatHandler {
 	t.Helper()
-	h := newChatTestHandler(t, ocURL)
+	h := newChatTestHandler(t)
 	if edURL != "" {
 		h.deps.Ed = editsvc.New(edURL)
 	}
@@ -68,10 +72,8 @@ func smallDiff() map[string]any {
 
 // TestScriptDiffContextTwoVersions：≥2 个大版本时注入最近两个大版本的 diff + PARAMS 摘要 + 纪律提示。
 func TestScriptDiffContextTwoVersions(t *testing.T) {
-	var createCount int32
-	oc := fakeOC(t, &createCount)
 	ed := fakeEditSvc(t, twoScripts(), smallDiff())
-	h := newChatTestHandlerWithEd(t, oc.URL, ed.URL)
+	h := newChatTestHandlerWithEd(t, ed.URL)
 
 	got := h.scriptDiffContext(context.Background(), "m_aaaaaaaaaaaaaaaa")
 	if got == "" {
@@ -91,14 +93,12 @@ func TestScriptDiffContextTwoVersions(t *testing.T) {
 
 // TestScriptDiffContextTruncated：text_diff 超 4KB 时只给 stats + params_changes 摘要，不含全量文本。
 func TestScriptDiffContextTruncated(t *testing.T) {
-	var createCount int32
-	oc := fakeOC(t, &createCount)
 	big := strings.Repeat("+line_of_code_x\n", 400) // 7200 字节 > 4KB
 	diff := smallDiff()
 	diff["text_diff"] = big
 	diff["stats"] = map[string]any{"added": 400, "removed": 0}
 	ed := fakeEditSvc(t, twoScripts(), diff)
-	h := newChatTestHandlerWithEd(t, oc.URL, ed.URL)
+	h := newChatTestHandlerWithEd(t, ed.URL)
 
 	got := h.scriptDiffContext(context.Background(), "m_aaaaaaaaaaaaaaaa")
 	if got == "" {
@@ -123,88 +123,114 @@ func TestScriptDiffContextTruncated(t *testing.T) {
 
 // TestScriptDiffContextFallback：无脚本/单版本/不可达/无 Ed 客户端 → 返回 ""（不注入、不报错）。
 func TestScriptDiffContextFallback(t *testing.T) {
-	var createCount int32
-	oc := fakeOC(t, &createCount)
-
 	// 单大版本 → ""
 	ed1 := fakeEditSvc(t, twoScripts()[:1], smallDiff())
-	h := newChatTestHandlerWithEd(t, oc.URL, ed1.URL)
+	h := newChatTestHandlerWithEd(t, ed1.URL)
 	if got := h.scriptDiffContext(context.Background(), "m_aaaaaaaaaaaaaaaa"); got != "" {
 		t.Errorf("单大版本不应注入 diff, got %q", got)
 	}
 
 	// 无脚本（legacy IFC 模型）→ ""
 	ed0 := fakeEditSvc(t, []map[string]any{}, smallDiff())
-	h = newChatTestHandlerWithEd(t, oc.URL, ed0.URL)
+	h = newChatTestHandlerWithEd(t, ed0.URL)
 	if got := h.scriptDiffContext(context.Background(), "m_aaaaaaaaaaaaaaaa"); got != "" {
 		t.Errorf("无脚本模型不应注入 diff, got %q", got)
 	}
 
 	// edit-service 不可达（连接被拒，快速失败）→ ""
-	h = newChatTestHandlerWithEd(t, oc.URL, "http://127.0.0.1:1")
+	h = newChatTestHandlerWithEd(t, "http://127.0.0.1:1")
 	if got := h.scriptDiffContext(context.Background(), "m_aaaaaaaaaaaaaaaa"); got != "" {
 		t.Errorf("edit-service 不可达应降级为空, got %q", got)
 	}
 
 	// Ed 为 nil（chat 测试 handler 默认形态）→ ""
-	h = newChatTestHandler(t, oc.URL)
+	h = newChatTestHandler(t)
 	if got := h.scriptDiffContext(context.Background(), "m_aaaaaaaaaaaaaaaa"); got != "" {
 		t.Errorf("无 Ed 客户端应返回空, got %q", got)
 	}
 
 	// diff 端点本身报错（scripts 列表正常）→ ""
 	edBad := fakeEditSvc(t, twoScripts(), nil)
-	h = newChatTestHandlerWithEd(t, oc.URL, edBad.URL)
+	h = newChatTestHandlerWithEd(t, edBad.URL)
 	if got := h.scriptDiffContext(context.Background(), "m_aaaaaaaaaaaaaaaa"); got != "" {
 		t.Errorf("diff 拉取失败应降级为空, got %q", got)
 	}
 }
 
-// promptCapture 假 opencode：记录 prompt_async 下发的 text。
-func promptCapture(t *testing.T) (*httptest.Server, *sync.Map) {
-	t.Helper()
-	var prompts sync.Map // sessionID → text
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/session" {
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprint(w, `{"id":"oc_1","title":"t"}`)
-			return
-		}
-		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/prompt_async") {
-			var body struct {
-				Parts []struct {
-					Type string `json:"type"`
-					Text string `json:"text"`
-				} `json:"parts"`
-			}
-			_ = json.NewDecoder(r.Body).Decode(&body)
-			if len(body.Parts) > 0 {
-				prompts.Store(r.URL.Path, body.Parts[0].Text)
-			}
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	t.Cleanup(srv.Close)
-	return srv, &prompts
+// spyModel 捕获 agent 收到的用户文本（postMessage 注入系统上下文后的完整 prompt）。
+type spyModel struct {
+	mu   sync.Mutex
+	last string
 }
 
-func capturedPrompt(t *testing.T, prompts *sync.Map) string {
-	t.Helper()
-	var out string
-	prompts.Range(func(_, v any) bool { out = v.(string); return false })
-	if out == "" {
-		t.Fatal("opencode 未收到 prompt_async")
+func (m *spyModel) WithTools(tools []*schema.ToolInfo) (model.ToolCallingChatModel, error) {
+	return m, nil
+}
+
+func (m *spyModel) record(input []*schema.Message) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for _, msg := range input {
+		if msg.Role == schema.User {
+			m.last = msg.Content
+		}
 	}
-	return out
+}
+
+func (m *spyModel) Generate(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.Message, error) {
+	m.record(input)
+	return &schema.Message{Role: schema.Assistant, Content: "收到"}, nil
+}
+
+func (m *spyModel) Stream(ctx context.Context, input []*schema.Message, opts ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	m.record(input)
+	return schema.StreamReaderFromArray([]*schema.Message{{Role: schema.Assistant, Content: "收到"}}), nil
+}
+
+func (m *spyModel) captured() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.last
+}
+
+// newSpyChatHandler 构造 agent 为 spyModel 的 chat 测试 handler（Ed 可选）。
+func newSpyChatHandler(t *testing.T, spy *spyModel, edURL string) *ChatHandler {
+	t.Helper()
+	dataDir := t.TempDir()
+	st := agent.NewEventStore(dataDir)
+	ag, err := agent.New(agent.LLMConfig{}, agent.WithModel(spy), agent.WithStore(st))
+	if err != nil {
+		t.Fatalf("agent.New: %v", err)
+	}
+	h := newChatTestHandler(t)
+	h.deps.DataDir = dataDir
+	h.deps.Ag = ag
+	h.deps.Ev = st
+	if edURL != "" {
+		h.deps.Ed = editsvc.New(edURL)
+	}
+	return h
+}
+
+// capturedPrompt 条件等待 spyModel 收到 prompt（postMessage 的 agent 运行是异步的），超时即失败。
+func capturedPrompt(t *testing.T, spy *spyModel) string {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		if s := spy.captured(); s != "" {
+			return s
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("agent 未收到 prompt")
+	return ""
 }
 
 // TestPostMessageInjectsScriptDiff：端到端——绑定有两个大版本的模型，下发消息含 diff 上下文。
 func TestPostMessageInjectsScriptDiff(t *testing.T) {
-	oc, prompts := promptCapture(t)
+	spy := &spyModel{}
 	ed := fakeEditSvc(t, twoScripts(), smallDiff())
-	h := newChatTestHandlerWithEd(t, oc.URL, ed.URL)
+	h := newSpyChatHandler(t, spy, ed.URL)
 	cs, err := doChatCreate(h, `{"title":"t","modelId":"m_aaaaaaaaaaaaaaaa"}`)
 	if err != nil {
 		t.Fatal(err)
@@ -215,7 +241,7 @@ func TestPostMessageInjectsScriptDiff(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
-	got := capturedPrompt(t, prompts)
+	got := capturedPrompt(t, spy)
 	for _, want := range []string{
 		"[系统上下文]", "data/uploads/m_aaaaaaaaaaaaaaaa.ifc",
 		`+PARAMS = {"width": 5}`, "增量修改", "[用户需求] 把宽度改成 6",
@@ -228,9 +254,9 @@ func TestPostMessageInjectsScriptDiff(t *testing.T) {
 
 // TestPostMessageNoScriptKeepsLegacyContext：无脚本模型保持现行为（只注入模型路径，无 diff/纪律段）。
 func TestPostMessageNoScriptKeepsLegacyContext(t *testing.T) {
-	oc, prompts := promptCapture(t)
+	spy := &spyModel{}
 	ed := fakeEditSvc(t, []map[string]any{}, smallDiff())
-	h := newChatTestHandlerWithEd(t, oc.URL, ed.URL)
+	h := newSpyChatHandler(t, spy, ed.URL)
 	cs, err := doChatCreate(h, `{"title":"t","modelId":"m_bbbbbbbbbbbbbbbb"}`)
 	if err != nil {
 		t.Fatal(err)
@@ -241,7 +267,7 @@ func TestPostMessageNoScriptKeepsLegacyContext(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
 	}
-	got := capturedPrompt(t, prompts)
+	got := capturedPrompt(t, spy)
 	if !strings.Contains(got, "data/uploads/m_bbbbbbbbbbbbbbbb.ifc") || !strings.Contains(got, "[用户需求] hi") {
 		t.Errorf("应保留现有系统上下文格式:\n%s", got)
 	}
@@ -252,8 +278,8 @@ func TestPostMessageNoScriptKeepsLegacyContext(t *testing.T) {
 
 // TestPostMessageEditSvcDownStillSends：edit-service 不可达时消息照常下发（降级不阻塞）。
 func TestPostMessageEditSvcDownStillSends(t *testing.T) {
-	oc, prompts := promptCapture(t)
-	h := newChatTestHandlerWithEd(t, oc.URL, "http://127.0.0.1:1")
+	spy := &spyModel{}
+	h := newSpyChatHandler(t, spy, "http://127.0.0.1:1")
 	cs, err := doChatCreate(h, `{"title":"t","modelId":"m_cccccccccccccccc"}`)
 	if err != nil {
 		t.Fatal(err)
@@ -264,7 +290,7 @@ func TestPostMessageEditSvcDownStillSends(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("edit-service 不可达不应阻塞消息: status = %d body = %s", rec.Code, rec.Body)
 	}
-	got := capturedPrompt(t, prompts)
+	got := capturedPrompt(t, spy)
 	if !strings.Contains(got, "[用户需求] hi") {
 		t.Errorf("消息应照常下发:\n%s", got)
 	}
