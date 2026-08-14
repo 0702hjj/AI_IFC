@@ -1,6 +1,6 @@
 # W-0043: Eino 替换 opencode + 主子编排（进程内 agent loop，SSE/REST 契约不变）
 
-- **状态：** open
+- **状态：** in-progress
 - **优先级：** P1
 - **Milestone：** v0.6（chunk E：Eino 替换 opencode + 主子编排 + web-ifc 查看器）
 - **来源：** plan 2026-08-14-chunk-e-eino-webifc.md（用户裁决 2026-08-14：领域收敛工具面；主子编排一起做；本 chunk 与 web-ifc 合并为一个 PR）
