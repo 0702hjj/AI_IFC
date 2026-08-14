@@ -136,13 +136,15 @@ export function useDxfCanvasEngine(
   useEffect(() => {
     if (!canvasEl) return;
 
+    // 尺寸适配：fabric 默认 300x150，必须显式同步父容器尺寸。
+    // wrap 必须在 new Canvas 之前捕获——fabric 构造时会把 canvasEl 移入
+    // 自建 .canvas-container，之后 parentElement 读到的是 fabric 容器而非 wrap。
+    const wrapEl = canvasEl.parentElement;
     const c = new Canvas(canvasEl, {
       selection: false, // 只读查看器：禁橡皮筋多选，保留点选
       preserveObjectStacking: true,
     });
 
-    // 尺寸适配：fabric 默认 300x150，必须显式同步父容器尺寸。
-    const wrapEl = canvasEl.parentElement;
     const measure = () => ({
       width: wrapEl?.clientWidth || CANVAS_FALLBACK_W,
       height: wrapEl?.clientHeight || CANVAS_FALLBACK_H,

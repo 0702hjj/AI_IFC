@@ -69,6 +69,14 @@ const fabricFake = vi.hoisted(() => {
     constructor(el: unknown, options: Record<string, unknown>) {
       this.el = el;
       this.options = options;
+      // 模仿真 fabric：构造时把 canvasEl 移入自建 .canvas-container，
+      // 之后 parentElement 读到的不再是 .dxf-canvas-wrap。
+      if (el instanceof HTMLCanvasElement && el.parentElement) {
+        const container = document.createElement("div");
+        container.className = "canvas-container";
+        el.parentElement.insertBefore(container, el);
+        container.appendChild(el);
+      }
       FakeCanvas.instances.push(this);
     }
     add(...objs: FakeFabricObject[]) {
@@ -308,13 +316,19 @@ describe("DxfViewer canvas sizing", () => {
     wrapH = 640;
     origW = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
     origH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientHeight");
+    // 只有 .dxf-canvas-wrap 报注入尺寸；其余元素（含 fabric 自建 container）报 0，
+    // 这样 engine 若在 fabric 接管后才读 parentElement 就会暴露（读到 0 → 回落）。
     Object.defineProperty(HTMLElement.prototype, "clientWidth", {
       configurable: true,
-      get: () => wrapW,
+      get(this: HTMLElement) {
+        return this.classList?.contains("dxf-canvas-wrap") ? wrapW : 0;
+      },
     });
     Object.defineProperty(HTMLElement.prototype, "clientHeight", {
       configurable: true,
-      get: () => wrapH,
+      get(this: HTMLElement) {
+        return this.classList?.contains("dxf-canvas-wrap") ? wrapH : 0;
+      },
     });
   });
   afterEach(() => {
