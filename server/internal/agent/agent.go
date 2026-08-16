@@ -30,6 +30,9 @@ IFC 与 DXF 模型走同一套工具（后端按 kind 自动路由），每一�
 
 const defaultMaxStep = 20
 
+// DefaultMaxStep 是子 agent run 的默认步数上限（SubagentConfig.MaxStep 缺省值）。
+const DefaultMaxStep = defaultMaxStep
+
 type Option func(*agentOptions)
 
 type agentOptions struct {
@@ -117,7 +120,9 @@ func (a *Agent) Run(ctx context.Context, sessionID, userText string) (<-chan Eve
 			return nil, fmt.Errorf("load session %s: %w", sessionID, err)
 		}
 		for _, ev := range prev {
-			if ev.Type == EventTurnStart {
+			// 子 agent 事件（含其 turn/start）不打扰父 turn 计数——子内容经
+			// dispatch 工具结果回流，父模型上下文不含子 turn 边界。
+			if ev.Type == EventTurnStart && ev.SubagentID == "" {
 				turn++
 			}
 		}
@@ -125,24 +130,31 @@ func (a *Agent) Run(ctx context.Context, sessionID, userText string) (<-chan Eve
 
 	out := make(chan Event, 256)
 	em := &runEmitter{turn: turn, pending: map[string][]string{}}
-	send := func(force bool, evType string, step int, payload map[string]any) {
+	// sendRaw 是唯一发送路径：落盘（EventStore）+ 扇出通道；closed 守卫挡迟到事件。
+	sendRaw := func(force bool, ev Event) {
 		em.mu.RLock()
 		defer em.mu.RUnlock()
-		if em.closed && !force { // 主 goroutine 已收尾：迟到的 callback/合流事件丢弃（不得 send on closed）
+		if em.closed && !force { // 主 goroutine 已收尾：迟到的 callback/合流/子事件丢弃（不得 send on closed）
 			return
 		}
-		ev := Event{Type: evType, Turn: turn, Step: step, Payload: jsonPayload(payload), Ts: time.Now()}
 		if a.store != nil {
-			if err := a.store.Append(sessionID, ev); err != nil && evType != EventError {
-				out <- Event{Type: EventError, Turn: turn, Step: step, Ts: time.Now(),
+			if err := a.store.Append(sessionID, ev); err != nil && ev.Type != EventError {
+				out <- Event{Type: EventError, Turn: turn, Step: ev.Step, Ts: time.Now(),
 					Payload: jsonPayload(map[string]any{"error": "event store append: " + err.Error()})}
 			}
 		}
 		out <- ev
 	}
+	send := func(force bool, evType string, step int, payload map[string]any) {
+		sendRaw(force, Event{Type: evType, Turn: turn, Step: step, Payload: jsonPayload(payload), Ts: time.Now()})
+	}
 	em.emit = func(evType string, step int, payload map[string]any) {
 		send(false, evType, step, payload)
 	}
+	// subagent 派发转发器：子 run 事件原样（含标签）走 sendRaw——同一通道、
+	// 同一落盘、同一 closed 守卫；h.ctx 携带父会话绑定供子工具 kind 路由。
+	hub := &subagentHub{emit: func(ev Event) { sendRaw(false, ev) }, parent: sessionID, turn: turn, ctx: ctx}
+	ctx = withSubagentHub(ctx, hub)
 	// forceEmit 收尾专用：closed 置位后仍发（仅主 goroutine 的 error/turn/end 兜底帧）。
 	forceEmit := func(evType string, payload map[string]any) {
 		send(true, evType, 0, payload)

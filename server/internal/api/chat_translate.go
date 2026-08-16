@@ -86,8 +86,25 @@ func toolKey(turn, step int, p map[string]any) string {
 }
 
 // translate 把一条 agent 事件翻译为 0..n 条 SSE 帧（顺序即推送顺序）。
+// 子 agent 事件（SubagentID 非空）的 part 级帧 data 附加 subagentId 字段
+// （前端据此分流右侧边栏）；主会话帧不带——旧形状不变（附加字段仅单向）。
 func (tr *eventTranslator) translate(ev agent.Event) []translatedFrame {
 	p := payloadMap(ev)
+	// subagent/status → subagent.status（独立事件名，data 五字段）
+	if ev.Type == agent.EventSubagentStatus {
+		return []translatedFrame{{event: "subagent.status", data: map[string]any{
+			"subagentId":      strOf(p, "subagentId"),
+			"parentSessionId": strOf(p, "parentSessionId"),
+			"persona":         strOf(p, "persona"),
+			"status":          strOf(p, "status"),
+			"task":            strOf(p, "task"),
+		}}}
+	}
+	// 子事件统一打标翻译；其余事件类型（turn/step 边界）不产帧——
+	// 子内容只经 part 帧进边栏，不污染主消息流。
+	if ev.SubagentID != "" {
+		return tr.translateChild(ev, p)
+	}
 	switch ev.Type {
 	case agent.EventTurnStart:
 		return []translatedFrame{
@@ -173,6 +190,114 @@ func (tr *eventTranslator) translate(ev agent.Event) []translatedFrame {
 	return nil
 }
 
+// translateChild 翻译子 agent 的 part 级事件：帧 data 附加 subagentId（前端分流
+// 右侧边栏）；part id 前缀子 id 防与主会话碰撞。子 turn/step 边界事件不产帧。
+func (tr *eventTranslator) translateChild(ev agent.Event, p map[string]any) []translatedFrame {
+	tag := func(m map[string]any) map[string]any {
+		m["subagentId"] = ev.SubagentID
+		return m
+	}
+	subMsgID := "sub_" + ev.SubagentID + "_" + chatMsgID(ev.Turn, ev.Step)
+	subPartID := func(kind string) string {
+		return fmt.Sprintf("sp_%s_%d_%d_%s", ev.SubagentID, ev.Turn, ev.Step, kind)
+	}
+	switch ev.Type {
+	case agent.EventAssistantChunk:
+		if delta := strOf(p, "content"); delta != "" {
+			var frames []translatedFrame
+			pid := subPartID("text")
+			if !tr.partStarted[pid] {
+				tr.partStarted[pid] = true
+				frames = append(frames, translatedFrame{event: "message.part.updated", data: tag(map[string]any{
+					"part": map[string]any{
+						"id": pid, "type": "text", "messageID": subMsgID,
+						"sessionID": tr.sessionID, "text": "",
+					},
+				})})
+			}
+			frames = append(frames, translatedFrame{event: "message.part.delta", data: tag(map[string]any{
+				"sessionID": tr.sessionID, "messageID": subMsgID, "partID": pid,
+				"field": "text", "delta": delta,
+			})})
+			return frames
+		}
+		if delta := strOf(p, "reasoning"); delta != "" {
+			var frames []translatedFrame
+			pid := subPartID("reasoning")
+			if !tr.partStarted[pid] {
+				tr.partStarted[pid] = true
+				frames = append(frames, translatedFrame{event: "message.part.updated", data: tag(map[string]any{
+					"part": map[string]any{
+						"id": pid, "type": "reasoning", "messageID": subMsgID,
+						"sessionID": tr.sessionID, "text": "",
+					},
+				})})
+			}
+			frames = append(frames, translatedFrame{event: "message.part.delta", data: tag(map[string]any{
+				"sessionID": tr.sessionID, "messageID": subMsgID, "partID": pid,
+				"field": "text", "delta": delta,
+			})})
+			return frames
+		}
+		return nil
+	case agent.EventAssistantMessage:
+		content := strOf(p, "content")
+		pid := subPartID("text")
+		if content == "" || tr.partStarted[pid] {
+			return nil // 分片已建行（delta 累加），或空正文（纯 tool_calls 消息）
+		}
+		tr.partStarted[pid] = true
+		return []translatedFrame{{event: "message.part.updated", data: tag(map[string]any{
+			"part": map[string]any{
+				"id": pid, "type": "text", "messageID": subMsgID,
+				"sessionID": tr.sessionID, "text": content,
+			},
+		})}}
+	case agent.EventToolCall:
+		name := strOf(p, "name")
+		pid := subPartID("tool_" + strOf(p, "id"))
+		key := "sub_" + ev.SubagentID + "_" + toolKey(ev.Turn, ev.Step, p)
+		tr.tools[key] = &toolState{
+			partID:    pid,
+			messageID: subMsgID,
+			name:      name,
+			input:     strOf(p, "arguments"),
+		}
+		return []translatedFrame{{event: "message.part.updated", data: tag(map[string]any{
+			"part": map[string]any{
+				"id": pid, "type": "tool", "messageID": subMsgID,
+				"sessionID": tr.sessionID, "tool": name,
+				"state": map[string]any{"status": "running", "title": name, "input": strOf(p, "arguments")},
+			},
+		})}}
+	case agent.EventToolResult:
+		key := "sub_" + ev.SubagentID + "_" + toolKey(ev.Turn, ev.Step, p)
+		ts := tr.tools[key]
+		if ts == nil { // 结果先于调用到达（日志截断等）：兜底建卡
+			ts = &toolState{
+				partID:    subPartID("tool_" + strOf(p, "id")),
+				messageID: subMsgID,
+				name:      strOf(p, "name"),
+			}
+		}
+		state := map[string]any{"title": ts.name, "input": ts.input}
+		if errText := strOf(p, "error"); errText != "" {
+			state["status"] = "error"
+			state["error"] = errText
+		} else {
+			state["status"] = "completed"
+			state["output"] = strOf(p, "content")
+		}
+		return []translatedFrame{{event: "message.part.updated", data: tag(map[string]any{
+			"part": map[string]any{
+				"id": ts.partID, "type": "tool", "messageID": ts.messageID,
+				"sessionID": tr.sessionID, "tool": ts.name, "state": state,
+			},
+		})}}
+	}
+	return nil
+}
+
 // chunkFrames 首个分片先建 part 行（空文本，增量走 delta），再发 delta；后续分片只发 delta。
 func (tr *eventTranslator) chunkFrames(ev agent.Event, partID, partType, delta string) []translatedFrame {
 	msgID := chatMsgID(ev.Turn, ev.Step)
@@ -218,6 +343,9 @@ func projectChatHistory(evs []agent.Event, sessionID string) []chatHistoryMsg {
 	key := func(turn, step int) string { return fmt.Sprintf("%d/%d", turn, step) }
 
 	for _, ev := range evs {
+		if ev.SubagentID != "" {
+			continue // 子 agent 事件不进主会话历史（右侧边栏按 subagentId 分组承载）
+		}
 		p := payloadMap(ev)
 		switch ev.Type {
 		case agent.EventTurnStart:

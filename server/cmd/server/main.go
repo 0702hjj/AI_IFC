@@ -170,9 +170,14 @@ func main() {
 		OC: opencode.New(cfg.OpenCodeURL), Ev: evStore,
 		Ed: ed, Cad: cad, St: st, Q: q, DataDir: cfg.DataDir,
 	})
-	chatAgent, err := agent.New(agent.LLMConfig{
+	llmCfg := agent.LLMConfig{
 		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
-	}, agent.WithStore(evStore), agent.WithTools(chatHandler.DomainTools()))
+	}
+	chatAgent, err := agent.New(llmCfg,
+		agent.WithStore(evStore),
+		agent.WithTools(chatHandler.SubagentAgentTools(llmCfg, nil)),
+		agent.WithPersona(agent.OrchestratorPersona),
+	)
 	if err != nil {
 		log.Fatalf("create chat agent: %v", err)
 	}

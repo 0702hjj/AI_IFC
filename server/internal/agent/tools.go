@@ -62,6 +62,9 @@ func (d ToolDeps) resolve(ctx context.Context, modelID string) (*store.Model, *e
 	if modelID == "" {
 		return nil, nil, "未指定 modelId，且当前会话未绑定模型——请先 create_project 或在绑定模型的会话中重试"
 	}
+	if d.St == nil {
+		return nil, nil, "调用失败：store 未配置（模型工具不可用）"
+	}
 	m, err := d.St.Get(modelID)
 	if err != nil {
 		return nil, nil, truncateToolResult(fmt.Sprintf("模型 %q 不可用：%v", modelID, err))
@@ -153,6 +156,9 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 	return []tool.InvokableTool{
 		mustTool("list_models", "列出平台全部模型（id/名称/kind(ifc|dxf)/状态/创建时间）",
 			func(ctx context.Context, _ emptyReq) (string, error) {
+				if deps.St == nil {
+					return "调用失败：store 未配置（list_models 不可用）", nil
+				}
 				ms, err := deps.St.List()
 				if err != nil {
 					return toolErr(err), nil
