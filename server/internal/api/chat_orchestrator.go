@@ -103,6 +103,11 @@ func (h *ChatHandler) notifyIfDirty(cs *chatSession) {
 	}
 	h.mu.Lock()
 	// 变更检测：查工作区 mtime（agent 工具/bash 改文件即新于 lastCheck）。
+	// 已知死路（有意保留）：兜底只 stat {id}.ifc——dxf 模型的源文件是 {id}.dxf，
+	// 永远 stat 不到，mtime 兜底对 dxf 不生效；dxf 会话的变更检测只靠工具面
+	// markSessionDirty 的精确信号（write/edit 类工具成功即置 dirty）。当前 agent
+	// 工具集不发 bash/裸文件写，主链路无回归；若未来放开 dxf 的自由文件工具，
+	// 兜底需按 kind 改 stat 源文件（SourcePath）。
 	dirtyNow := cs.dirty
 	if !dirtyNow {
 		if fi, err := os.Stat(filepath.Join(h.deps.DataDir, "uploads", cs.ModelID+".ifc")); err == nil && fi.ModTime().After(cs.lastCheck) {
@@ -152,6 +157,9 @@ func (h *ChatHandler) notify(cs *chatSession) {
 	}
 	cl := h.deps.editClientForKind(m)
 	st := NotifyState{Dirty: true, Bound: true}
+	if m != nil {
+		st.ModelKind = m.Kind // dxf → Core 短路 reconvert（XKT 是 ifc 专属产物）
+	}
 	scriptPath := filepath.Join(h.deps.DataDir, "staging", modelID+".py")
 	// 先读 staging 再删 pending（discard 在 runShell 首轮）：read_staging_script 失败时
 	// pending 保留，行为更保守（与旧实现相反，有意为之——读不出脚本宁可中止也不丢变更）。

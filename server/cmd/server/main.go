@@ -24,7 +24,6 @@ import (
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/editsvc"
 	"ifcviewer/server/internal/issue"
-	"ifcviewer/server/internal/opencode"
 	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
 )
@@ -40,7 +39,6 @@ type config struct {
 	PgDSN           string `json:"pgDSN"`
 	EditServiceURL  string `json:"editServiceURL"`
 	CadServiceURL   string `json:"cadServiceURL"`
-	OpenCodeURL     string `json:"openCodeURL"`
 	LLMAPIKey       string `json:"llmAPIKey"`
 	LLMBaseURL      string `json:"llmBaseURL"`
 	LLMModel        string `json:"llmModel"`
@@ -75,12 +73,6 @@ func loadConfig(path string) (*config, error) {
 	}
 	if cfg.CadServiceURL == "" {
 		cfg.CadServiceURL = "http://127.0.0.1:8200"
-	}
-	if u := os.Getenv("VIEWER_OPENCODE_URL"); u != "" {
-		cfg.OpenCodeURL = u
-	}
-	if cfg.OpenCodeURL == "" {
-		cfg.OpenCodeURL = "http://127.0.0.1:4096"
 	}
 	if k := os.Getenv("VIEWER_LLM_API_KEY"); k != "" {
 		cfg.LLMAPIKey = k
@@ -161,13 +153,12 @@ func main() {
 	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
 	// 对话由内置 Eino agent 驱动（API key 空时回退确定性 scriptedModel，离线 demo 可用）；
-	// 领域工具集按模型 kind 路由（ifc→ed :8100 / dxf→cad :8200，agent.DomainTools）；
-	// opencode 接线保留（Task 6 拆除）。
+	// 领域工具集按模型 kind 路由（ifc→ed :8100 / dxf→cad :8200，agent.DomainTools）。
 	// 装配顺序：先建 ChatHandler（工具 deps 需要 handler 的会话表回调），再建 agent
 	//（注入领域工具），最后回填 Ag——handler 与 agent 互相引用只能这样破环。
 	evStore := agent.NewEventStore(cfg.DataDir)
 	chatHandler := api.NewChatHandler(api.ChatDeps{
-		OC: opencode.New(cfg.OpenCodeURL), Ev: evStore,
+		Ev: evStore,
 		Ed: ed, Cad: cad, St: st, Q: q, DataDir: cfg.DataDir,
 	})
 	llmCfg := agent.LLMConfig{

@@ -13,21 +13,17 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 
 	"ifcviewer/server/internal/agent"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/editsvc"
-	"ifcviewer/server/internal/opencode"
 	"ifcviewer/server/internal/store"
 )
 
 // ChatDeps 是 chat 模块的依赖包（agent 运行 + 事件日志 + notify 落盘 + 重转 + 脚本管线）。
-// OC 保留（opencode 接线在 Task 6 才拆除），当前实现不再调用。
 type ChatDeps struct {
-	OC      *opencode.Client
 	Ag      *agent.Agent
 	Ev      *agent.EventStore
 	Ed      *editsvc.Client // ifc kind 后端（services/ifc :8100）
@@ -92,11 +88,8 @@ func (h *ChatHandler) registerRoutes() {
 
 func (h *ChatHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
 
-// writeChatErr 把 opencode 客户端错误映射为 envelope（不可达/异常 → 502）。
+// writeChatErr 把 chat 运行错误映射为 envelope（agent 未装配/运行失败 → 502）。
+// opencode 客户端已退役（Eino 进程内接管），上游错误只剩 agent/edit-service 一类。
 func writeChatErr(w http.ResponseWriter, err error) {
-	if oe, ok := err.(*opencode.Error); ok {
-		writeErr(w, http.StatusBadGateway, codeBadGateway, fmt.Sprintf("opencode %d: %s", oe.Status, oe.Body))
-		return
-	}
 	writeErr(w, http.StatusBadGateway, codeBadGateway, err.Error())
 }

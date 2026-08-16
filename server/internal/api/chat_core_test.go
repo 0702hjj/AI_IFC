@@ -161,6 +161,50 @@ func TestNotifyPayloadHelpers(t *testing.T) {
 	}
 }
 
+// TestPlanNotifyDXFKindSkipsReconvert dxf kind 显式短路：XKT 是 ifc 专属产物，
+// reconvert 对 dxf 是死路——Core 不产 reconvert Action（saved 轮只留 archive+notify，
+// discard 无脚本轮只留 notify），ifc kind 照旧（回归护栏）。
+func TestPlanNotifyDXFKindSkipsReconvert(t *testing.T) {
+	saved := Event{
+		URI:     "aiifc://model/m_daaaaaaaaaaaaaa/script/saved",
+		ModelID: "m_daaaaaaaaaaaaaa",
+		Payload: json.RawMessage(`{"version":"v2"}`),
+	}
+	got := planNotify(saved, NotifyState{ModelKind: "dxf"})
+	want := []Action{
+		{Type: ActionArchiveArtifact, Step: "archive", Version: "v2"},
+		{Type: ActionNotify, Step: "notify", Version: "v2"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("planNotify(saved, dxf) = %+v, want %+v（不含 reconvert）", got, want)
+	}
+
+	discarded := Event{
+		URI:     "aiifc://model/m_daaaaaaaaaaaaaa/pending/discarded",
+		ModelID: "m_daaaaaaaaaaaaaa",
+		Payload: json.RawMessage(`{"discarded":0}`),
+	}
+	got = planNotify(discarded, NotifyState{ModelKind: "dxf"})
+	want = []Action{{Type: ActionNotify, Step: "notify"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("planNotify(discarded, dxf) = %+v, want %+v（不含 reconvert）", got, want)
+	}
+
+	// ifc（含空 kind 视同 ifc）照旧产 reconvert
+	for _, kind := range []string{"ifc", ""} {
+		acts := planNotify(saved, NotifyState{ModelKind: kind})
+		var hasReconvert bool
+		for _, a := range acts {
+			if a.Type == ActionReconvert {
+				hasReconvert = true
+			}
+		}
+		if !hasReconvert {
+			t.Fatalf("planNotify(saved, kind=%q) 应含 reconvert: %+v", kind, acts)
+		}
+	}
+}
+
 // TestPlanNotifyPureZeroIO 自证 Core 零 IO：给定相同输入两次调用结果一致（幂等、无隐藏状态）。
 func TestPlanNotifyPureZeroIO(t *testing.T) {
 	st := NotifyState{Dirty: true, Bound: true, HasStagingScript: true, Script: "print(1)"}

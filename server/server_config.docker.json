@@ -7,5 +7,7 @@
   "maxUploadMB": 200,
   "pgDSN": "",
   "editServiceURL": "http://edit-service:8100",
-  "openCodeURL": "http://127.0.0.1:4096"
+  "llmAPIKey": "",
+  "llmBaseURL": "",
+  "llmModel": ""
 }

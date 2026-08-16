@@ -95,6 +95,35 @@ func frameID(frame string) string {
 	return ""
 }
 
+// TestPostMessageAgentNotConfigured502：handler 未装配 agent（Ag=nil）时 postMessage
+// 走 writeChatErr → 502 envelope（code 50200）。opencode.Error 分支已随 opencode
+// 客户端退役删除，此处钉住仅存的错误翻译路径。
+func TestPostMessageAgentNotConfigured502(t *testing.T) {
+	h := newEinoTestHandler(t, defaultTestScript)
+	h.deps.Ag = nil // 模拟装配缺失
+	cs, err := doChatCreate(h, `{"title":"t"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := `{"text":"hi"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/sessions/"+cs.ID+"/messages", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502", rec.Code)
+	}
+	var e env
+	if err := json.Unmarshal(rec.Body.Bytes(), &e); err != nil {
+		t.Fatalf("envelope decode: %v body=%s", err, rec.Body)
+	}
+	if e.Code != 50200 {
+		t.Fatalf("envelope code = %d, want 50200", e.Code)
+	}
+	if !strings.Contains(e.Message, "chat agent not configured") {
+		t.Fatalf("envelope message = %q, want 含哨兵错误文本", e.Message)
+	}
+}
+
 // TestPostMessageStreamsContractFrames：端到端——post 一条消息，浏览器应收到与
 // opencode 时代完全一致的 SSE 序列：busy → message.updated(user) → message.updated(assistant)
 // → part.updated(text) → part.delta×2 → session.status idle → session.idle，且帧 id 递增。
