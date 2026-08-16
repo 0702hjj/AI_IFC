@@ -25,7 +25,8 @@ const notifyTimeout = 180 * time.Second
 // runShell 执行 Core 返回的 Action 批次并回填闭环：逐条按序执行（顺序即契约）；
 // 每步成功结果归一为新 Event → 再调 planNotify 驱动下一轮；任一步失败 → fail-fast
 // 归一 script/failed 事件 → Core 决策出 notify_failed → 推送后终止。
-func (h *ChatHandler) runShell(ctx context.Context, cs *chatSession, ev Event, st NotifyState) {
+// cl 是本会话模型的编辑后端（notify 处按 kind 解析；dxf→cad :8200）。
+func (h *ChatHandler) runShell(ctx context.Context, cs *chatSession, ev Event, st NotifyState, cl *editsvc.Client) {
 	for {
 		acts := planNotify(ev, st)
 		if len(acts) == 0 {
@@ -33,14 +34,14 @@ func (h *ChatHandler) runShell(ctx context.Context, cs *chatSession, ev Event, s
 		}
 		ev = Event{}
 		for _, a := range acts {
-			newEv, err := h.execAction(ctx, cs, a)
+			newEv, err := h.execAction(ctx, cs, a, cl)
 			if err != nil {
 				step := a.Step
 				var se *stepError
 				if errors.As(err, &se) {
 					step = se.step
 				}
-				h.runFailed(ctx, cs, step, err)
+				h.runFailed(ctx, cs, step, err, cl)
 				return
 			}
 			if newEv.URI != "" {
@@ -52,34 +53,34 @@ func (h *ChatHandler) runShell(ctx context.Context, cs *chatSession, ev Event, s
 
 // execAction 执行单条 Action，返回成功后的新 Event（终态 Action 无回填 → URI 空）。
 // 失败返回错误；save 的版本不可解析用 stepError 细分 step（save_script / save_version）。
-func (h *ChatHandler) execAction(ctx context.Context, cs *chatSession, a Action) (Event, error) {
+func (h *ChatHandler) execAction(ctx context.Context, cs *chatSession, a Action, cl *editsvc.Client) (Event, error) {
 	modelID := cs.ModelID
 	switch a.Type {
 	case ActionDiscardPending:
-		if _, err := h.deps.Ed.DeletePending(ctx, modelID); err != nil {
+		if _, err := cl.DeletePending(ctx, modelID); err != nil {
 			return Event{}, err
 		}
 		return newEvent("aiifc://model/"+modelID+"/pending/discarded", modelID, cs.ID, map[string]any{"discarded": 0}), nil
 
 	case ActionStageScript:
 		stageBody, _ := json.Marshal(map[string]any{"script": a.Script})
-		if _, err := h.deps.Ed.Do(ctx, http.MethodPut, "/models/"+modelID+"/script", stageBody); err != nil {
+		if _, err := cl.Do(ctx, http.MethodPut, "/models/"+modelID+"/script", stageBody); err != nil {
 			return Event{}, err
 		}
 		return newEvent("aiifc://model/"+modelID+"/script/staged", modelID, cs.ID, map[string]any{"staged": 1}), nil
 
 	case ActionRunScript:
-		if _, err := h.deps.Ed.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/run", nil); err != nil {
+		if _, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/run", nil); err != nil {
 			return Event{}, err
 		}
 		return newEvent("aiifc://model/"+modelID+"/script/run", modelID, cs.ID, map[string]any{"ok": true}), nil
 
 	case ActionSaveScript:
-		saveRaw, err := h.deps.Ed.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/save", nil)
+		saveRaw, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/save", nil)
 		if err != nil {
 			return Event{}, failStep("save_script", err)
 		}
-		version, cause := resolveVersion(ctx, h.deps.Ed, modelID, saveRaw)
+		version, cause := resolveVersion(ctx, cl, modelID, saveRaw)
 		if cause != nil {
 			return Event{}, failStep("save_version", cause)
 		}
@@ -121,12 +122,12 @@ func (h *ChatHandler) execAction(ctx context.Context, cs *chatSession, a Action)
 }
 
 // runFailed 把一步失败归一为 script/failed 事件 → Core 决策 → 执行 notify_failed 推送。
-func (h *ChatHandler) runFailed(ctx context.Context, cs *chatSession, step string, err error) {
+func (h *ChatHandler) runFailed(ctx context.Context, cs *chatSession, step string, err error, cl *editsvc.Client) {
 	log.Printf("chat: notify %s step %s failed: %v", cs.ModelID, step, err)
 	failEv := newEvent("aiifc://model/"+cs.ModelID+"/script/failed", cs.ModelID, cs.ID,
 		map[string]any{"step": step, "reason": err.Error()})
 	for _, a := range planNotify(failEv, NotifyState{}) {
-		if _, aerr := h.execAction(ctx, cs, a); aerr != nil {
+		if _, aerr := h.execAction(ctx, cs, a, cl); aerr != nil {
 			log.Printf("chat: notify %s: execute %s: %v", cs.ModelID, a.Step, aerr)
 		}
 	}

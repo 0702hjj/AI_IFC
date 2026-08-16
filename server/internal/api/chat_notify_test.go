@@ -39,7 +39,7 @@ func newNotifyTestHandler(t *testing.T, pyURL string) (*ChatHandler, *store.Stor
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
 		byAgent:  map[string]string{},
-		runs:     map[string]context.CancelFunc{},
+		runs:     map[string]*chatRun{},
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}

@@ -19,6 +19,14 @@ import (
 // errAgentNotConfigured 是 handler 装配缺 agent 时的哨兵错误（502 翻译）。
 var errAgentNotConfigured = errors.New("chat agent not configured")
 
+// chatRun 是一次进行中 turn 的登记项：cancel 取消运行；identity 供 consumeRun
+// 收尾时条件删除——同一会话新 turn 已覆盖表项时，旧 run 不得误删新 run 的登记
+//（防御路径竞态：post→abort→快速再 post 的窗口）。
+type chatRun struct {
+	cancel   context.CancelFunc
+	identity *chatSession // 每次 postMessage 新建（指针即 run 身份）
+}
+
 // postMessage 下发用户消息：拼系统上下文（格式与旧版逐字一致）后启动一轮
 // agent ReAct 循环，事件流经翻译层推给 SSE 订阅者；循环结束触发 notify 判定。
 func (h *ChatHandler) postMessage(w http.ResponseWriter, r *http.Request) {
@@ -54,23 +62,26 @@ func (h *ChatHandler) postMessage(w http.ResponseWriter, r *http.Request) {
 		writeChatErr(w, err)
 		return
 	}
+	run := &chatRun{cancel: cancel, identity: &chatSession{}}
 	h.mu.Lock()
 	if h.runs == nil { // 兼容测试手工构造的 handler
-		h.runs = map[string]context.CancelFunc{}
+		h.runs = map[string]*chatRun{}
 	}
 	prev := h.runs[cs.ID]
-	h.runs[cs.ID] = cancel
+	h.runs[cs.ID] = run
 	h.mu.Unlock()
 	if prev != nil { // 同会话串发：取消上一跑（防御，正常前端 busy 期不会再发）
-		prev()
+		prev.cancel()
 	}
-	go h.consumeRun(cs, events)
+	go h.consumeRun(cs, run, events)
 	writeJSON(w, map[string]bool{"accepted": true})
 }
 
 // consumeRun 消费一轮 agent 事件流：翻译为 opencode 形状 SSE 帧推送；
 // 流关闭（turn/end 已发）后做 notify 判定（dirty staging → planNotify 管线）。
-func (h *ChatHandler) consumeRun(cs *chatSession, events <-chan agent.Event) {
+// runs 表条件删除：表项仍是本 run 时才删（identity 指针比对）——迟收尾的旧 run
+// 不得删掉后发新 run 的登记（否则 abort 502 失效窗口）。
+func (h *ChatHandler) consumeRun(cs *chatSession, run *chatRun, events <-chan agent.Event) {
 	tr := newEventTranslator(cs.AgentID)
 	for ev := range events {
 		for _, f := range tr.translate(ev) {
@@ -78,7 +89,9 @@ func (h *ChatHandler) consumeRun(cs *chatSession, events <-chan agent.Event) {
 		}
 	}
 	h.mu.Lock()
-	delete(h.runs, cs.ID)
+	if cur, ok := h.runs[cs.ID]; ok && cur.identity == run.identity {
+		delete(h.runs, cs.ID)
+	}
 	h.mu.Unlock()
 	h.notifyIfDirty(cs)
 }
@@ -116,10 +129,10 @@ func (h *ChatHandler) abortSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.mu.RLock()
-	cancel := h.runs[cs.ID]
+	run := h.runs[cs.ID]
 	h.mu.RUnlock()
-	if cancel != nil {
-		cancel()
+	if run != nil {
+		run.cancel()
 	}
 	writeJSON(w, map[string]bool{"aborted": true})
 }

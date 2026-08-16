@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,7 +21,12 @@ import (
 )
 
 const defaultPersona = `你是 AI_IFC 平台的内置智能体，帮助设计师通过对话完成 IFC/CAD 模型的生成与修改。
-工作方式：理解用户意图后调用领域工具（脚本暂存/沙箱执行/版本保存等）推进任务，每一步说明依据。`
+
+编辑纪律（script-as-source：脚本是模型的唯一事实源，改模型 = 改脚本）：
+- 先 get_script 读当前脚本，在既有脚本上做增量修改，禁止整体重写。
+- 变更走 stage_script → run_script（沙箱验证）→ save_script（落大版本）三段式；run 失败先读错误改脚本再重试。
+- 保持 PARAMS 的 key 稳定：只改值或新增 key，不改既有 key 名；设计意图优先用 PARAMS 参数化表达。
+IFC 与 DXF 模型走同一套工具（后端按 kind 自动路由），每一步说明依据。`
 
 const defaultMaxStep = 20
 
@@ -103,6 +109,7 @@ func (a *Agent) Run(ctx context.Context, sessionID, userText string) (<-chan Eve
 	if err := validateSessionID(sessionID); err != nil {
 		return nil, err
 	}
+	ctx = WithSessionID(ctx, sessionID) // 工具经 SessionIDFromContext 解析会话绑定模型
 	turn := 1
 	if a.store != nil {
 		prev, err := a.store.Load(sessionID)
@@ -188,7 +195,10 @@ func (e *runEmitter) finishRun(out chan Event) {
 func (e *runEmitter) abortRun(ctx context.Context, out chan Event, forceEmit func(string, map[string]any), err error) {
 	e.mu.Lock()
 	e.closed = true
-	seen := e.lastErr == err.Error()
+	// 包裹去重：eino 把组件错误再包一层（[NodeRunError] … [LocalFunc] … node path），
+	// 精确相等匹配不到已上报的错误——改包含判定，工具/模型级已上报（工具错误走
+	// tool/result 单卡映射）的错误不再重复刷 session 级 error 事件。
+	seen := e.lastErr != "" && strings.Contains(err.Error(), e.lastErr)
 	e.mu.Unlock()
 	if ctx.Err() == nil && !errors.Is(err, context.Canceled) {
 		if !seen {
@@ -434,11 +444,24 @@ func (e *runEmitter) onError(ctx context.Context, info *callbacks.RunInfo, err e
 	step := e.step
 	if kind == "model" && e.prevModel != nil {
 		e.prevModel.close() // 模型未产出流式输出即失败：释放等待方
-		e.lastErr = err.Error()
+	}
+	e.lastErr = err.Error() // 去重：abortRun 不再为同一错误补 session 级 error 事件
+	toolID := ""
+	if kind == "tool" { // 配对待回卡片的 tool_call id（同 onToolEnd）
+		if q := e.pending[info.Name]; len(q) > 0 {
+			toolID = q[0]
+			e.pending[info.Name] = q[1:]
+		}
 	}
 	e.mu.Unlock()
 	if ctx.Err() != nil || errors.Is(err, context.Canceled) {
 		return ctx // 主动取消不刷 error 事件（abort 是正常控制流）
+	}
+	if kind == "tool" {
+		// 工具执行失败 → 带 error 载荷的 tool/result：前端渲染该工具卡片的错误态
+		// （input/error 字段），而不是只有整轮失败的 session.error 横幅。
+		e.emit(EventToolResult, step, map[string]any{"id": toolID, "name": info.Name, "error": err.Error()})
+		return ctx
 	}
 	e.emit(EventError, step, map[string]any{"error": err.Error(), "name": info.Name})
 	return ctx

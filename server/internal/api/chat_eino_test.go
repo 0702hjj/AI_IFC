@@ -34,7 +34,7 @@ func newEinoTestHandler(t *testing.T, script agent.Script) *ChatHandler {
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
 		byAgent:  map[string]string{},
-		runs:     map[string]context.CancelFunc{},
+		runs:     map[string]*chatRun{},
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}
@@ -217,7 +217,7 @@ func TestPostMessageTurnEndTriggersNotify(t *testing.T) {
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
 		byAgent:  map[string]string{},
-		runs:     map[string]context.CancelFunc{},
+		runs:     map[string]*chatRun{},
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}
@@ -303,7 +303,7 @@ func TestAbortCancelsRun(t *testing.T) {
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
 		byAgent:  map[string]string{},
-		runs:     map[string]context.CancelFunc{},
+		runs:     map[string]*chatRun{},
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}

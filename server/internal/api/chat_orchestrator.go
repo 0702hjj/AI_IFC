@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"ifcviewer/server/internal/editsvc"
+	"ifcviewer/server/internal/store"
 )
 
 // --- 空白项目：点击「新建」即完成初始化（骨架模型 + modelId），agent 只是后续的修改者 ---
@@ -70,23 +71,26 @@ END-ISO-10303-21;
 // ifcStringEscape 转义 IFC STEP 字符串（单引号双写）。
 func ifcStringEscape(s string) string { return strings.ReplaceAll(s, "'", "''") }
 
+// skeletonProjectIFC 渲染骨架 IFC 内容（复用方：createProject REST 路由 +
+// agent create_project 工具——同一生成逻辑，单一事实源）。
+func skeletonProjectIFC(globalID, escapedTitle string) string {
+	return fmt.Sprintf(skeletonIFC, globalID, escapedTitle)
+}
+
 // createProject 创建空白项目：写入骨架 IFC 并注册为模型（modelId 即刻就位），
 // 入队转换。之后 AI 从零构建走的是与改模型完全相同的主链路。
+// 核心三步（骨架内容 + St.Create + 入队）抽为 createProjectForAgent 共用
+//（agent create_project 工具复用，chat_tools.go）。
 func (h *ChatHandler) createProject(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title string `json:"title"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body) // title 可空
-	if body.Title == "" {
-		body.Title = "AI 项目"
-	}
-	content := fmt.Sprintf(skeletonIFC, newGlobalID(), ifcStringEscape(body.Title))
-	m, err := h.deps.St.Create(body.Title+".ifc", int64(len(content)), strings.NewReader(content))
+	m, err := h.createProjectForAgent(r.Context(), body.Title)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
 		return
 	}
-	h.deps.Q.Enqueue(m.ID)
 	writeJSON(w, m)
 }
 
@@ -137,10 +141,16 @@ var modelIDRe = regexp.MustCompile(`^m_[0-9a-f]{16}$`)
 // 第一轮 idle+dirty+bound → DELETE pending（坏文件自检）→ 有脚本则 PUT /script →
 // run → save；saved 事件驱动第二轮 archive + 重转 + viewer.committed；无脚本路径
 // discard 后即重转 + viewer.committed（空版本）；任一步失败 → viewer.notify_failed。
+// kind 感知：dxf 会话整条管线走 cad 后端（:8200），staging 读 {id}.py 同形。
 func (h *ChatHandler) notify(cs *chatSession) {
 	ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
 	defer cancel()
 	modelID := cs.ModelID
+	var m *store.Model
+	if h.deps.St != nil {
+		m, _ = h.deps.St.Get(modelID) // 未知模型：m=nil → editClientForKind 回退 Ed（现状行为）
+	}
+	cl := h.deps.editClientForKind(m)
 	st := NotifyState{Dirty: true, Bound: true}
 	scriptPath := filepath.Join(h.deps.DataDir, "staging", modelID+".py")
 	// 先读 staging 再删 pending（discard 在 runShell 首轮）：read_staging_script 失败时
@@ -148,14 +158,14 @@ func (h *ChatHandler) notify(cs *chatSession) {
 	if fileExists(scriptPath) {
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
-			h.runFailed(ctx, cs, "read_staging_script", err)
+			h.runFailed(ctx, cs, "read_staging_script", err, cl)
 			return
 		}
 		st.HasStagingScript = true
 		st.Script = string(content)
 	}
 	ev := newEvent("aiifc://chat/"+cs.ID+"/idle", modelID, cs.ID, map[string]any{})
-	h.runShell(ctx, cs, ev, st)
+	h.runShell(ctx, cs, ev, st, cl)
 }
 
 func fileExists(path string) bool {
@@ -210,11 +220,17 @@ const scriptDiffContextMaxBytes = 4096
 // scriptDiffContext 拉取模型最近两个大版本的脚本 diff，渲染为系统上下文片段。
 // 不足两个大版本（含无脚本的 legacy 模型）、edit-service 不可达、diff 拉取失败：
 // 均返回 ""——调用方保持现行为（只注入模型路径），不阻塞消息下发。
+// kind 感知：dxf 模型走 cad 后端（editClientForKind）。
 func (h *ChatHandler) scriptDiffContext(ctx context.Context, modelID string) string {
-	if h.deps.Ed == nil {
+	var m *store.Model
+	if h.deps.St != nil {
+		m, _ = h.deps.St.Get(modelID)
+	}
+	ed := h.deps.editClientForKind(m)
+	if ed == nil {
 		return ""
 	}
-	vers, err := h.deps.Ed.GetScriptVersions(ctx, modelID)
+	vers, err := ed.GetScriptVersions(ctx, modelID)
 	if err != nil {
 		log.Printf("chat: script versions %s: %v（降级不注入 diff）", modelID, err)
 		return ""
@@ -224,7 +240,7 @@ func (h *ChatHandler) scriptDiffContext(ctx context.Context, modelID string) str
 	}
 	base := vers.Scripts[len(vers.Scripts)-2].Version
 	target := vers.Scripts[len(vers.Scripts)-1].Version
-	d, err := h.deps.Ed.PostScriptDiff(ctx, modelID, base, target)
+	d, err := ed.PostScriptDiff(ctx, modelID, base, target)
 	if err != nil {
 		log.Printf("chat: script diff %s %s→%s: %v（降级不注入 diff）", modelID, base, target, err)
 		return ""

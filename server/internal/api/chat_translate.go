@@ -147,11 +147,18 @@ func (tr *eventTranslator) translate(ev agent.Event) []translatedFrame {
 				name:      strOf(p, "name"),
 			}
 		}
+		// 工具执行失败（error 载荷）→ 单卡错误态（status:"error" + error 字段），
+		// ChatSidebar 渲染该工具卡片的 ✗ 状态（opencode 行为）；content 缺省为空。
+		state := map[string]any{"title": ts.name, "input": ts.input}
+		if errText := strOf(p, "error"); errText != "" {
+			state["status"] = "error"
+			state["error"] = errText
+		} else {
+			state["status"] = "completed"
+			state["output"] = strOf(p, "content")
+		}
 		return []translatedFrame{{event: "message.part.updated", data: map[string]any{
-			"part": tr.toolPart(ts, map[string]any{
-				"status": "completed", "title": ts.name, "input": ts.input,
-				"output": strOf(p, "content"),
-			}),
+			"part": tr.toolPart(ts, state),
 		}}}
 	case agent.EventError:
 		return []translatedFrame{{event: "session.error", data: map[string]any{
@@ -266,13 +273,18 @@ func projectChatHistory(evs []agent.Event, sessionID string) []chatHistoryMsg {
 			if !ok {
 				continue
 			}
-			part := msgs[loc[0]].Parts[loc[1]]
-			st, _ := part["state"].(map[string]any)
-			if st == nil {
-				continue
-			}
+		part := msgs[loc[0]].Parts[loc[1]]
+		st, _ := part["state"].(map[string]any)
+		if st == nil {
+			continue
+		}
+		if errText := strOf(p, "error"); errText != "" {
+			st["status"] = "error"
+			st["error"] = errText
+		} else {
 			st["status"] = "completed"
 			st["output"] = strOf(p, "content")
+		}
 		}
 	}
 	return msgs

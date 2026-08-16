@@ -140,7 +140,7 @@ func TestRunFailedEventNormalization(t *testing.T) {
 	cs := newNotifySession(t, h)
 	ch := h.subscribe(cs.ID)
 
-	h.runFailed(context.Background(), cs, "save_version", errors.New("version parse boom"))
+	h.runFailed(context.Background(), cs, "save_version", errors.New("version parse boom"), h.deps.Ed)
 
 	frame := waitChatEvent(t, ch, "viewer.notify_failed")
 	if !strings.Contains(string(frame), `"step":"save_version"`) {

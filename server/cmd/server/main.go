@@ -161,22 +161,25 @@ func main() {
 	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
 	// 对话由内置 Eino agent 驱动（API key 空时回退确定性 scriptedModel，离线 demo 可用）；
-	// opencode 接线保留（Task 6 拆除）。chat 固定注入 ifc edit-service（Ed: ed）——
-	// dxf 项目经 chat 会打到 :8100，kind 感知（dxf→cad :8200）待后续 chunk。
+	// 领域工具集按模型 kind 路由（ifc→ed :8100 / dxf→cad :8200，agent.DomainTools）；
+	// opencode 接线保留（Task 6 拆除）。
+	// 装配顺序：先建 ChatHandler（工具 deps 需要 handler 的会话表回调），再建 agent
+	//（注入领域工具），最后回填 Ag——handler 与 agent 互相引用只能这样破环。
 	evStore := agent.NewEventStore(cfg.DataDir)
+	chatHandler := api.NewChatHandler(api.ChatDeps{
+		OC: opencode.New(cfg.OpenCodeURL), Ev: evStore,
+		Ed: ed, Cad: cad, St: st, Q: q, DataDir: cfg.DataDir,
+	})
 	chatAgent, err := agent.New(agent.LLMConfig{
 		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
-	}, agent.WithStore(evStore))
+	}, agent.WithStore(evStore), agent.WithTools(chatHandler.DomainTools()))
 	if err != nil {
 		log.Fatalf("create chat agent: %v", err)
 	}
+	chatHandler.SetAgent(chatAgent)
 	if cfg.LLMAPIKey == "" {
 		log.Printf("chat: VIEWER_LLM_API_KEY 未配置，回退 scriptedModel（离线 demo 模式）")
 	}
-	chatHandler := api.NewChatHandler(api.ChatDeps{
-		OC: opencode.New(cfg.OpenCodeURL), Ag: chatAgent, Ev: evStore,
-		Ed: ed, St: st, Q: q, DataDir: cfg.DataDir,
-	})
 	root := http.NewServeMux()
 	root.Handle("/api/v1/chat/", chatHandler)
 	root.Handle("/", handler)

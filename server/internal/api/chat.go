@@ -13,7 +13,6 @@
 package api
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -28,13 +27,23 @@ import (
 // ChatDeps 是 chat 模块的依赖包（agent 运行 + 事件日志 + notify 落盘 + 重转 + 脚本管线）。
 // OC 保留（opencode 接线在 Task 6 才拆除），当前实现不再调用。
 type ChatDeps struct {
-	OC      *opencode.Client
-	Ag      *agent.Agent
-	Ev      *agent.EventStore
-	Ed      *editsvc.Client
-	St      *store.Store
-	Q       *convert.Queue
+	OC  *opencode.Client
+	Ag  *agent.Agent
+	Ev  *agent.EventStore
+	Ed  *editsvc.Client // ifc kind 后端（services/ifc :8100）
+	Cad *editsvc.Client // dxf kind 后端（services/cad :8200）；nil 时 dxf 会话 notify 报错文本
+	St  *store.Store
+	Q   *convert.Queue
 	DataDir string
+}
+
+// editClientForKind 按模型 kind 选编辑后端（dxf→Cad，ifc/未知→Ed）。
+// 未知模型/未配置后端返回 nil——调用方错误文本化（工具面）或降级（notify 面）。
+func (d ChatDeps) editClientForKind(m *store.Model) *editsvc.Client {
+	if m != nil && m.Kind == store.KindDXF {
+		return d.Cad
+	}
+	return d.Ed
 }
 
 // ChatHandler 是 chat 模块的 HTTP handler（内部小 mux + 会话 map + 事件分发 + notify 触发）。
@@ -45,7 +54,7 @@ type ChatHandler struct {
 	mu       sync.RWMutex
 	sessions map[string]*chatSession             // chatSessionId → session
 	byAgent  map[string]string                   // agentSessionId → chatSessionId
-	runs     map[string]context.CancelFunc       // chatSessionId → 进行中 turn 的取消函数（abort）
+	runs     map[string]*chatRun                 // chatSessionId → 进行中 turn 的登记项（abort + 条件删除）
 	subs     map[string]map[chan []byte]struct{} // chatSessionId → 浏览器 SSE 订阅者集合
 	seq      map[string]uint64                   // chatSessionId → 已分配的最大 SSE 事件 id
 	evLog    map[string][]sseEvent               // chatSessionId → 重同步环形缓冲（id 升序，≤ sseReplayBufferSize）
@@ -61,7 +70,7 @@ func NewChatHandler(d ChatDeps) *ChatHandler {
 	h := &ChatHandler{
 		deps: d, mux: http.NewServeMux(),
 		sessions: map[string]*chatSession{}, byAgent: map[string]string{},
-		runs: map[string]context.CancelFunc{},
+		runs: map[string]*chatRun{},
 		subs: map[string]map[chan []byte]struct{}{}, creating: map[string]*sync.Mutex{},
 		seq: map[string]uint64{}, evLog: map[string][]sseEvent{},
 	}
