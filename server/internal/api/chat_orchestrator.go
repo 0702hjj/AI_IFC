@@ -80,7 +80,7 @@ func skeletonProjectIFC(globalID, escapedTitle string) string {
 // createProject 创建空白项目：写入骨架 IFC 并注册为模型（modelId 即刻就位），
 // 入队转换。之后 AI 从零构建走的是与改模型完全相同的主链路。
 // 核心三步（骨架内容 + St.Create + 入队）抽为 createProjectForAgent 共用
-//（agent create_project 工具复用，chat_tools.go）。
+// （agent create_project 工具复用，chat_tools.go）。
 func (h *ChatHandler) createProject(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title string `json:"title"`

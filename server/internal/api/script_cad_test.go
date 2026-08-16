@@ -394,4 +394,3 @@ func TestRenderJSONServed(t *testing.T) {
 		t.Fatalf("unknown model: status = %d, want 404", rec.Code)
 	}
 }
-

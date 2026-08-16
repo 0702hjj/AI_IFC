@@ -134,7 +134,7 @@ func (h *ChatHandler) runFailed(ctx context.Context, cs *chatSession, step strin
 }
 
 // resolveVersion 从 save 响应解析版本号；响应未带 version 时兜底查 versions current
-//（save 已落盘，GetVersions 必可读到新版本）。仍不可解析 → 返回 cause（显式 fail：
+// （save 已落盘，GetVersions 必可读到新版本）。仍不可解析 → 返回 cause（显式 fail：
 // 防空版本被静默吞掉导致 archive 跳过、staging 滞留、下次 idle 重复 save）。
 func resolveVersion(ctx context.Context, ed *editsvc.Client, modelID string, saveRaw []byte) (string, error) {
 	var saveResp struct {

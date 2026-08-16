@@ -291,7 +291,10 @@ func TestGetDiffPostsBaseTarget(t *testing.T) {
 	}
 }
 
-func TestCreateProjectInvokesDepAndMarksDirty(t *testing.T) {
+// TestCreateProjectInvokesDepNoDirty：create_project 调 CreateProject 返回新模型，
+// 但不置会话 dirty——新模型 B ≠ 会话绑定模型 A，置位会让 notify 对未变更的 A
+// 跑完整管线（错绑，评审修复 round 1）。
+func TestCreateProjectInvokesDepNoDirty(t *testing.T) {
 	deps, _, _, _ := newToolFixture(t)
 	var gotTitle string
 	var dirty bool
@@ -307,8 +310,8 @@ func TestCreateProjectInvokesDepAndMarksDirty(t *testing.T) {
 	if !strings.Contains(out, "m_1111111111111111") {
 		t.Fatalf("create_project 输出应带新模型 id: %s", out)
 	}
-	if !dirty {
-		t.Fatal("create_project 成功后应标记会话 dirty")
+	if dirty {
+		t.Fatal("create_project 不应标记会话 dirty（防 notify 对绑定模型错跑管线）")
 	}
 }
 

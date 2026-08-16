@@ -39,7 +39,8 @@ type ToolDeps struct {
 
 	// SessionModel 从 ctx 解析当前会话绑定的模型 id（无绑定返回 ""）；可空。
 	SessionModel func(ctx context.Context) string
-	// MarkDirty 在变更类工具成功后标记会话 dirty（notify 精确信号，不再只靠 mtime）；可空。
+	// MarkDirty 在变更类工具成功后标记会话 dirty（notify 精确信号，不再只靠 mtime）；
+	// create_project 不置位（新模型与绑定模型是两个对象，置位会让 notify 错绑管线）；可空。
 	MarkDirty func(ctx context.Context)
 	// CreateProject 创建骨架项目（复用 chat 骨架 IFC 生成 + 注册 + 入队转换）；可空。
 	CreateProject func(ctx context.Context, title string) (any, error)
@@ -63,16 +64,22 @@ func (d ToolDeps) resolve(ctx context.Context, modelID string) (*store.Model, *e
 	}
 	m, err := d.St.Get(modelID)
 	if err != nil {
-		return nil, nil, fmt.Sprintf("模型 %q 不可用：%v", modelID, err)
+		return nil, nil, truncateToolResult(fmt.Sprintf("模型 %q 不可用：%v", modelID, err))
 	}
 	cl := d.IFC
 	if m.Kind == store.KindDXF {
 		cl = d.CAD
 	}
 	if cl == nil {
-		return nil, nil, fmt.Sprintf("模型 %s 的后端未配置（kind=%s）", modelID, m.Kind)
+		return nil, nil, truncateToolResult(fmt.Sprintf("模型 %s 的后端未配置（kind=%s）", modelID, m.Kind))
 	}
 	return m, cl, ""
+}
+
+// toolErr 把后端/依赖错误格式化为截断后的工具输出（错误文本化统一入口——
+// 错误串同样受 64KB 上限约束，防爆模型上下文）。
+func toolErr(err error) string {
+	return truncateToolResult(fmt.Sprintf("调用失败：%v", err))
 }
 
 func truncateToolResult(s string) string {
@@ -148,7 +155,7 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 			func(ctx context.Context, _ emptyReq) (string, error) {
 				ms, err := deps.St.List()
 				if err != nil {
-					return fmt.Sprintf("调用失败：%v", err), nil
+					return toolErr(err), nil
 				}
 				return toolJSON(ms), nil
 			}),
@@ -180,7 +187,7 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				body, _ := json.Marshal(map[string]string{"script": in.Script, "note": in.Note})
 				out, err := cl.Do(ctx, http.MethodPut, "/models/"+m.ID+"/script", body)
 				if err != nil {
-					return fmt.Sprintf("调用失败：%v", err), nil
+					return toolErr(err), nil
 				}
 				deps.markDirty(ctx)
 				return toolRaw(out, nil)
@@ -194,7 +201,7 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				}
 				out, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/run", nil)
 				if err != nil {
-					return fmt.Sprintf("调用失败：%v", err), nil
+					return toolErr(err), nil
 				}
 				deps.markDirty(ctx)
 				return toolRaw(out, nil)
@@ -209,7 +216,7 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				body, _ := json.Marshal(map[string]string{"note": in.Note})
 				out, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/save", body)
 				if err != nil {
-					return fmt.Sprintf("调用失败：%v", err), nil
+					return toolErr(err), nil
 				}
 				deps.markDirty(ctx)
 				return toolRaw(out, nil)
@@ -241,9 +248,12 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				}
 				v, err := deps.CreateProject(ctx, in.Title)
 				if err != nil {
-					return fmt.Sprintf("调用失败：%v", err), nil
+					return toolErr(err), nil
 				}
-				deps.markDirty(ctx)
+				// 不 markDirty：新模型 B 与会话绑定的模型 A 是两个对象——置 dirty 会让
+				// turn 结束的 notifyIfDirty 对未变更的 A 跑完整管线（stale staging 时
+				// save 出无意图版本）。新模型的转换由 CreateProject 内部 Enqueue 直接触发，
+				// 不依赖 notify；后续对 B 的 stage/run/save 才会置 dirty。
 				return toolJSON(v), nil
 			}),
 	}

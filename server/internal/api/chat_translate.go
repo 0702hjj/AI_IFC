@@ -273,18 +273,18 @@ func projectChatHistory(evs []agent.Event, sessionID string) []chatHistoryMsg {
 			if !ok {
 				continue
 			}
-		part := msgs[loc[0]].Parts[loc[1]]
-		st, _ := part["state"].(map[string]any)
-		if st == nil {
-			continue
-		}
-		if errText := strOf(p, "error"); errText != "" {
-			st["status"] = "error"
-			st["error"] = errText
-		} else {
-			st["status"] = "completed"
-			st["output"] = strOf(p, "content")
-		}
+			part := msgs[loc[0]].Parts[loc[1]]
+			st, _ := part["state"].(map[string]any)
+			if st == nil {
+				continue
+			}
+			if errText := strOf(p, "error"); errText != "" {
+				st["status"] = "error"
+				st["error"] = errText
+			} else {
+				st["status"] = "completed"
+				st["output"] = strOf(p, "content")
+			}
 		}
 	}
 	return msgs

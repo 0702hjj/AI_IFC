@@ -21,7 +21,7 @@ var errAgentNotConfigured = errors.New("chat agent not configured")
 
 // chatRun 是一次进行中 turn 的登记项：cancel 取消运行；identity 供 consumeRun
 // 收尾时条件删除——同一会话新 turn 已覆盖表项时，旧 run 不得误删新 run 的登记
-//（防御路径竞态：post→abort→快速再 post 的窗口）。
+// （防御路径竞态：post→abort→快速再 post 的窗口）。
 type chatRun struct {
 	cancel   context.CancelFunc
 	identity *chatSession // 每次 postMessage 新建（指针即 run 身份）

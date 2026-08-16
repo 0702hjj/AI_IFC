@@ -52,7 +52,7 @@ func (h *ChatHandler) sessionBoundModel(ctx context.Context) string {
 }
 
 // createProjectForAgent 是 create_project 工具的后端：复用 chat 的骨架 IFC 生成
-//（createProject handler 的核心三步——骨架内容、St.Create、入队转换），抽出供
+// （createProject handler 的核心三步——骨架内容、St.Create、入队转换），抽出供
 // REST 路由与 agent 工具共用；返回可直接 JSON 化的 *store.Model。
 func (h *ChatHandler) createProjectForAgent(ctx context.Context, title string) (any, error) {
 	if h.deps.St == nil || h.deps.Q == nil {

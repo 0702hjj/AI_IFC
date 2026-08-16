@@ -136,10 +136,12 @@ func TestAuthRejectsQueryTokenOnNonSSEPath(t *testing.T) {
 }
 
 // 豁免白名单 guard（W-0010）：当前豁免路由仅以下四条——
-//   GET /v1/models/{id}/model.xkt
-//   GET /v1/models/{id}/metadata.json
-//   GET /v1/models/{id}/render.json（W-0040，cad 预览 payload）
-//   GET /v1/models/{id}/issues/{file}
+//
+//	GET /v1/models/{id}/model.xkt
+//	GET /v1/models/{id}/metadata.json
+//	GET /v1/models/{id}/render.json（W-0040，cad 预览 payload）
+//	GET /v1/models/{id}/issues/{file}
+//
 // 其余 /v1/models/ 下的 GET 一律 401。未来新增 /v1/models/ 路由默认受保护；
 // 若确需匿名豁免，必须显式扩充白名单并同步更新本测试清单。
 func TestAuthExemptWhitelistGuard(t *testing.T) {
@@ -165,7 +167,7 @@ func TestAuthExemptWhitelistGuard(t *testing.T) {
 
 // 豁免清单：GET /v1/models/{id}/model.xkt|metadata.json|render.json、
 // GET /v1/models/{id}/issues/{file} 为前端 xeokit/img 标签匿名可读
-//（无法携带 Authorization 头）。
+// （无法携带 Authorization 头）。
 func TestAuthExemptsReadOnlyModelFiles(t *testing.T) {
 	srv, st := setupSecure(t, "s3cret", nil)
 	m, err := st.Create("a.ifc", 4, strings.NewReader("fake"))

@@ -27,13 +27,13 @@ import (
 // ChatDeps 是 chat 模块的依赖包（agent 运行 + 事件日志 + notify 落盘 + 重转 + 脚本管线）。
 // OC 保留（opencode 接线在 Task 6 才拆除），当前实现不再调用。
 type ChatDeps struct {
-	OC  *opencode.Client
-	Ag  *agent.Agent
-	Ev  *agent.EventStore
-	Ed  *editsvc.Client // ifc kind 后端（services/ifc :8100）
-	Cad *editsvc.Client // dxf kind 后端（services/cad :8200）；nil 时 dxf 会话 notify 报错文本
-	St  *store.Store
-	Q   *convert.Queue
+	OC      *opencode.Client
+	Ag      *agent.Agent
+	Ev      *agent.EventStore
+	Ed      *editsvc.Client // ifc kind 后端（services/ifc :8100）
+	Cad     *editsvc.Client // dxf kind 后端（services/cad :8200）；nil 时 dxf 会话 notify 报错文本
+	St      *store.Store
+	Q       *convert.Queue
 	DataDir string
 }
 
