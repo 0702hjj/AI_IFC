@@ -219,11 +219,35 @@ func TestCreateProjectToolEndToEnd(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("骨架模型未入队转换")
 	}
-	// 排空到 session.idle：turn 收尾（notify 判定与事件日志落盘在 consumeRun 内
-	// 同步完成）结束后测试才返回——否则 t.TempDir() 清理与异步写盘竞态（CI 慢速
-	// 环境复现：unlinkat ... directory not empty，2026-08-17 PR #38 server job）。
-	ch := h.subscribe(cs.ID)
-	collectUntil(t, ch, "session.idle")
+	// 等会话事件日志出现 idle 帧（evLog 环形缓冲不丢帧，是 turn 收尾的权威信号）：
+	// consumeRun 先推 session.idle 再做 notify 判定，idle 入日志即代表事件流排空、
+	// 异步写盘只剩 notify 管线（同步完成后测试才返回）——否则 t.TempDir() 清理与
+	// 异步写盘竞态（CI 慢速环境复现：unlinkat ... directory not empty，PR #38）。
+	// 不用 collectUntil+subscribe：订阅 channel 缓冲 16 会丢帧，慢读时收不到 idle。
+	waitSessionIdleLogged(t, h, cs.ID)
+}
+
+// waitSessionIdleLogged 条件等待会话事件日志中出现 session.idle 帧（轮询 evLog）。
+func waitSessionIdleLogged(t *testing.T, h *ChatHandler, cid string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		h.mu.Lock()
+		logged := h.evLog[cid]
+		found := false
+		for _, ev := range logged {
+			if strings.Contains(string(ev.frame), "event: session.idle\n") {
+				found = true
+				break
+			}
+		}
+		h.mu.Unlock()
+		if found {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("超时未在事件日志中等到 session.idle（会话 %s）", cid)
 }
 
 // --- kind 路由：工具面 + notify 面（双 fake 零交叉） ---

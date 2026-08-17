@@ -148,9 +148,9 @@ function renderViewer(modelId = "m_abcd0000abcd0001") {
 }
 
 async function ready() {
-  await waitFor(() => {
-    expect(screen.getByTestId("ifc-tree")).toBeTruthy();
-  });
+  // 树渲染是异步链（下载→open→几何→树 setState），用 findBy 等出现而非立即断言
+  await screen.findByTestId("ifc-tree");
+  await screen.findByText("IFCBUILDINGSTOREY #2");
 }
 
 describe("IfcLiteViewer 加载编排", () => {
