@@ -18,12 +18,12 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"ifcviewer/server/internal/agent"
 	"ifcviewer/server/internal/api"
 	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/editsvc"
 	"ifcviewer/server/internal/issue"
-	"ifcviewer/server/internal/opencode"
 	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
 )
@@ -39,7 +39,9 @@ type config struct {
 	PgDSN           string `json:"pgDSN"`
 	EditServiceURL  string `json:"editServiceURL"`
 	CadServiceURL   string `json:"cadServiceURL"`
-	OpenCodeURL     string `json:"openCodeURL"`
+	LLMAPIKey       string `json:"llmAPIKey"`
+	LLMBaseURL      string `json:"llmBaseURL"`
+	LLMModel        string `json:"llmModel"`
 	APIToken        string `json:"apiToken"`
 	CORSOriginsRaw  string `json:"corsOrigins"`
 	CORSOrigins     []string
@@ -72,11 +74,14 @@ func loadConfig(path string) (*config, error) {
 	if cfg.CadServiceURL == "" {
 		cfg.CadServiceURL = "http://127.0.0.1:8200"
 	}
-	if u := os.Getenv("VIEWER_OPENCODE_URL"); u != "" {
-		cfg.OpenCodeURL = u
+	if k := os.Getenv("VIEWER_LLM_API_KEY"); k != "" {
+		cfg.LLMAPIKey = k
 	}
-	if cfg.OpenCodeURL == "" {
-		cfg.OpenCodeURL = "http://127.0.0.1:4096"
+	if u := os.Getenv("VIEWER_LLM_BASE_URL"); u != "" {
+		cfg.LLMBaseURL = u
+	}
+	if m := os.Getenv("VIEWER_LLM_MODEL"); m != "" {
+		cfg.LLMModel = m
 	}
 	if t := os.Getenv("VIEWER_API_TOKEN"); t != "" {
 		cfg.APIToken = t
@@ -147,11 +152,30 @@ func main() {
 	cad := editsvc.New(cfg.CadServiceURL)
 	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
-	// 注意：chat 固定注入 ifc edit-service（Ed: ed）——dxf 项目经 chat 会打到 :8100，
-	// kind 感知（dxf→cad :8200）待后续 chat/Eino chunk。
-	chatHandler := api.NewChatHandler(ctx, api.ChatDeps{
-		OC: opencode.New(cfg.OpenCodeURL), Ed: ed, St: st, Q: q, DataDir: cfg.DataDir,
+	// 对话由内置 Eino agent 驱动（API key 空时回退确定性 scriptedModel，离线 demo 可用）；
+	// 领域工具集按模型 kind 路由（ifc→ed :8100 / dxf→cad :8200，agent.DomainTools）。
+	// 装配顺序：先建 ChatHandler（工具 deps 需要 handler 的会话表回调），再建 agent
+	//（注入领域工具），最后回填 Ag——handler 与 agent 互相引用只能这样破环。
+	evStore := agent.NewEventStore(cfg.DataDir)
+	chatHandler := api.NewChatHandler(api.ChatDeps{
+		Ev: evStore,
+		Ed: ed, Cad: cad, St: st, Q: q, DataDir: cfg.DataDir,
 	})
+	llmCfg := agent.LLMConfig{
+		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
+	}
+	chatAgent, err := agent.New(llmCfg,
+		agent.WithStore(evStore),
+		agent.WithTools(chatHandler.SubagentAgentTools(llmCfg, nil)),
+		agent.WithPersona(agent.OrchestratorPersona),
+	)
+	if err != nil {
+		log.Fatalf("create chat agent: %v", err)
+	}
+	chatHandler.SetAgent(chatAgent)
+	if cfg.LLMAPIKey == "" {
+		log.Printf("chat: VIEWER_LLM_API_KEY 未配置，回退 scriptedModel（离线 demo 模式）")
+	}
 	root := http.NewServeMux()
 	root.Handle("/api/v1/chat/", chatHandler)
 	root.Handle("/", handler)

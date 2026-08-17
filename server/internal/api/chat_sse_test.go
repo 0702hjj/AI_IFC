@@ -68,16 +68,16 @@ func readSSEFrames(t *testing.T, r *bufio.Reader, n int) []sseFrame {
 	return frames
 }
 
-// newSSETestHandler 构造带一条已绑定会话的 chat handler（不依赖 opencode）。
+// newSSETestHandler 构造带一条已绑定会话的 chat handler（scripted agent，不走真模型）。
 func newSSETestHandler(t *testing.T) (*ChatHandler, *httptest.Server, string) {
 	t.Helper()
-	h := newChatTestHandler(t, "http://127.0.0.1:0") // OC 不可达，本组测试不走 opencode
+	h := newChatTestHandler(t)
 	cs := &chatSession{
-		ID: "c_sse", OpencodeID: "oc_sse", ModelID: "m_eeeeeeeeeeeeeeee",
+		ID: "c_sse", AgentID: "s_sse", ModelID: "m_eeeeeeeeeeeeeeee",
 		Title: "t", CreatedAt: time.Now().UTC().Format(time.RFC3339), lastCheck: time.Now(),
 	}
 	h.sessions[cs.ID] = cs
-	h.byOC[cs.OpencodeID] = cs.ID
+	h.byAgent[cs.AgentID] = cs.ID
 	srv := httptest.NewServer(h.mux)
 	t.Cleanup(srv.Close)
 	return h, srv, cs.ID

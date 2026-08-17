@@ -9,6 +9,8 @@ package api
 import (
 	"encoding/json"
 	"strings"
+
+	"ifcviewer/server/internal/store"
 )
 
 // Event 是总线最小契约（Shell 适配器归一后的统一形态；本任务由 onEvent/notify 组装）。
@@ -49,6 +51,17 @@ type NotifyState struct {
 	HasStagingScript bool   // staging/{modelId}.py 存在
 	Script           string // staging/{modelId}.py 全文（Shell 注入）
 	Bound            bool   // 会话已绑定 modelId
+	ModelKind        string // 模型 kind（ifc/dxf；dxf 显式短路 reconvert，空视同 ifc）
+}
+
+// reconvertAction 按模型 kind 决定是否产出 reconvert Action。
+// XKT 是 ifc 专属产物（converter 只做 IFC→XKT；dxf 的 render.json 直挂 web 查看器），
+// dxf 无转换可排——reconvert 是死路，Core 在此显式短路（决策在 Core，Shell 不判 kind）。
+func reconvertAction(kind string) []Action {
+	if kind == store.KindDXF {
+		return nil
+	}
+	return []Action{{Type: ActionReconvert, Step: "reconvert"}}
 }
 
 // planNotify 是 notify 流程的 Core：Event + State → Action 列表。
@@ -74,17 +87,15 @@ func planNotify(ev Event, st NotifyState) []Action {
 		return acts
 
 	case ev.URI == "aiifc://model/"+ev.ModelID+"/script/saved":
-		return []Action{
+		acts := []Action{
 			{Type: ActionArchiveArtifact, Step: "archive", Version: payloadVersion(ev)},
-			{Type: ActionReconvert, Step: "reconvert"},
-			{Type: ActionNotify, Step: "notify", Version: payloadVersion(ev)},
 		}
+		acts = append(acts, reconvertAction(st.ModelKind)...)
+		return append(acts, Action{Type: ActionNotify, Step: "notify", Version: payloadVersion(ev)})
 
 	case ev.URI == "aiifc://model/"+ev.ModelID+"/pending/discarded" && !st.HasStagingScript:
-		return []Action{
-			{Type: ActionReconvert, Step: "reconvert"},
-			{Type: ActionNotify, Step: "notify"}, // Version 空 → viewer.committed 无版本
-		}
+		acts := reconvertAction(st.ModelKind)
+		return append(acts, Action{Type: ActionNotify, Step: "notify"}) // Version 空 → viewer.committed 无版本
 
 	case isFailure(ev): // URI == "…/script/failed"（含取消归一）
 		return []Action{{Type: ActionNotifyFailed, Step: stepOf(ev), Reason: reasonOf(ev)}}

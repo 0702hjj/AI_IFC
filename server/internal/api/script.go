@@ -60,7 +60,7 @@ func (h *handler) scriptPost(action string) func(http.ResponseWriter, *http.Requ
 // scriptMutatingPost 用于会重写上传源文件的动作（run/save/rollback）：ifc kind
 // 成功后排 XKT 重转（EnqueueIfStale 去重），否则前端 3D 不刷新（M5 集成缺口）；
 // dxf kind 无 XKT 产物，成功后直接返回（W-0040）。沙箱执行最长 60s
-//（RUN_TIMEOUT_S），必须走 slow client（M5 终审 C2）。
+// （RUN_TIMEOUT_S），必须走 slow client（M5 终审 C2）。
 func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		body := readBody(w, r)
@@ -87,7 +87,8 @@ func (h *handler) scriptMutatingPost(action string) func(http.ResponseWriter, *h
 	}
 }
 
-func (h *handler) scriptList(w http.ResponseWriter, r *http.Request) {	h.scriptProxy(w, r, http.MethodGet, "/models/"+r.PathValue("id")+"/scripts", nil)
+func (h *handler) scriptList(w http.ResponseWriter, r *http.Request) {
+	h.scriptProxy(w, r, http.MethodGet, "/models/"+r.PathValue("id")+"/scripts", nil)
 }
 
 // scriptStagingDiff 小版本 diff（暂存链步间）：query（from/to）原样透传。

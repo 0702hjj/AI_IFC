@@ -33,6 +33,21 @@ interface ChatMsg {
   tool?: ToolInfo;
 }
 
+// 子 agent 边栏分组：一个 subagentId 一组（persona 徽章 + 运行状态 + part 流）。
+interface SubagentPart {
+  id: string;
+  kind: "text" | "tool";
+  text?: string;
+  tool?: ToolInfo;
+}
+interface SubagentGroup {
+  id: string;
+  persona: string;
+  task?: string;
+  status: "running" | "finished";
+  parts: SubagentPart[];
+}
+
 const WELCOME = "已绑定当前项目，告诉 AI 要修改什么、或从零建造什么吧。";
 
 function mapStatus(s?: string): ToolStatus {
@@ -75,6 +90,7 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
   const setChatOpen = useViewerStore((s) => s.setChatOpen);
   const flagPendingModelReload = useViewerStore((s) => s.flagPendingModelReload);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [subagents, setSubagents] = useState<SubagentGroup[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [connLost, setConnLost] = useState(false);
@@ -93,8 +109,25 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
       return [...prev, msg];
     });
 
+  // upsertSubPart：把带 subagentId 的 part 并入对应子 agent 分组（无则忽略）。
+  const upsertSubPart = (subID: string, part: SubagentPart) =>
+    setSubagents((prev) =>
+      prev.map((g) => {
+        if (g.id !== subID) return g;
+        const idx = g.parts.findIndex((p) => p.id === part.id);
+        if (idx >= 0) {
+          const parts = [...g.parts];
+          parts[idx] = { ...parts[idx], ...part };
+          return { ...g, parts };
+        }
+        return { ...g, parts: [...g.parts, part] };
+      }),
+    );
+
   useEffect(() => {
-    // 会话连续：重新打开时回填历史消息（text/reasoning/tool 三种 part 都还原）
+    // 会话连续：重新打开时回填历史消息（text/reasoning/tool 三种 part 都还原）。
+    // 切会话时子 agent 边栏整组清空——分组属会话态，跨会话残留会错挂到新会话头上。
+    setSubagents([]);
     fetchChatMessages(session.chatSessionId)
       .then((msgs) => {
         const history: ChatMsg[] = [];
@@ -155,11 +188,32 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
     // message.part.updated：建立 part 行 / 更新 tool state。
     // 真实结构：d.part = {type, text, messageID, id, ...tool 有 state}（无 delta 字段）。
     // 文本增量在独立的 message.part.delta 事件，故此处 text/reasoning 只"建行不覆盖"。
+    // 带 subagentId 字段的帧是子 agent 事件 → 分流右侧边栏，不进主消息流。
     es.addEventListener("message.part.updated", (e) => {
       const d = parseEventData(e);
       if (!d) return;
       const part = d.part;
       if (!part) return;
+      if (d.subagentId) {
+        if (part.type === "text") {
+          upsertSubPart(d.subagentId, { id: part.id, kind: "text", text: part.text || "" });
+        } else if (part.type === "tool") {
+          const st = part.state || {};
+          upsertSubPart(d.subagentId, {
+            id: part.id,
+            kind: "tool",
+            tool: {
+              name: part.tool || "tool",
+              title: st.title,
+              status: mapStatus(st.status),
+              input: fmtInput(st.input),
+              output: st.output,
+              error: st.error,
+            },
+          });
+        }
+        return;
+      }
       if (part.type === "text") {
         if (rolesRef.current.get(part.messageID) === "user") return; // 用户输入已本地乐观插入
         setMessages((prev) =>
@@ -193,9 +247,23 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
 
     // message.part.delta：真正的流式文本增量（text/reasoning 都累加到 m.text）。
     // 结构：d = {sessionID, messageID, partID, field:"text", delta:"xxx"}。
+    // 带 subagentId 的增量并入边栏分组的 part 文本。
     es.addEventListener("message.part.delta", (e) => {
       const d = parseEventData(e);
       if (!d || d.field !== "text" || !d.delta) return;
+      if (d.subagentId) {
+        setSubagents((prev) =>
+          prev.map((g) => {
+            if (g.id !== d.subagentId) return g;
+            const idx = g.parts.findIndex((p) => p.id === d.partID);
+            if (idx < 0) return g; // part 行还没建，等 part.updated
+            const parts = [...g.parts];
+            parts[idx] = { ...parts[idx], text: (parts[idx].text || "") + d.delta };
+            return { ...g, parts };
+          }),
+        );
+        return;
+      }
       setMessages((prev) => {
         const idx = prev.findIndex((m) => m.id === d.partID);
         if (idx < 0) return prev; // part 行还没建，等 part.updated
@@ -203,6 +271,23 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
         next[idx] = { ...next[idx], text: (next[idx].text || "") + d.delta };
         return next;
       });
+    });
+
+    // subagent.status：子 agent 生命周期（started → 建组；finished → 组状态置完成）
+    es.addEventListener("subagent.status", (e) => {
+      const d = parseEventData(e);
+      if (!d?.subagentId) return;
+      if (d.status === "started") {
+        setSubagents((prev) =>
+          prev.some((g) => g.id === d.subagentId)
+            ? prev
+            : [...prev, { id: d.subagentId, persona: d.persona || "agent", task: d.task, status: "running", parts: [] }],
+        );
+      } else if (d.status === "finished") {
+        setSubagents((prev) =>
+          prev.map((g) => (g.id === d.subagentId ? { ...g, status: "finished" } : g)),
+        );
+      }
     });
 
     // part 被移除（消息重写 / abort 中止进行中的 part）→ 同步删行，避免残留
@@ -287,6 +372,7 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
       </header>
       <div className="chat-resizer" onMouseDown={startResize} title="拖拽调整宽度" />
       {connLost && <div className="chat-conn-lost">⚠ 连接中断，正在重连…</div>}
+      {subagents.length > 0 && <SubagentPanel groups={subagents} />}
       <div className="chat-messages">
         {messages.map((m) => {
           if (m.kind === "tool" && m.tool) return <ToolCard key={m.id} tool={m.tool} />;
@@ -343,6 +429,41 @@ function ToolCard({ tool }: { tool: ToolInfo }) {
           {tool.error && <pre className="chat-tool-block chat-tool-error">{tool.error}</pre>}
         </div>
       )}
+    </div>
+  );
+}
+
+// --- 可折叠的子 agent 边栏：按 subagentId 分组展示子 agent 的 text/tool 片段 ---
+// 生成过程中自动出现（subagent.status started），主会话消息流不受影响。
+function SubagentPanel({ groups }: { groups: SubagentGroup[] }) {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="chat-subagents" data-testid="subagent-panel">
+      <div className="chat-subagents-head" onClick={() => setOpen((v) => !v)} role="button">
+        <span>🤖 子 Agent（{groups.length}）</span>
+        <span className="chat-tool-chevron">{open ? "▾" : "▸"}</span>
+      </div>
+      {open &&
+        groups.map((g) => (
+          <div key={g.id} className="chat-subagent-group" data-subagent-id={g.id}>
+            <div className="chat-subagent-title">
+              <span className="chat-subagent-badge">{g.persona}</span>
+              <span className={`chat-subagent-status chat-subagent-${g.status}`}>
+                {g.status === "finished" ? "✓" : "⟳"}
+              </span>
+            </div>
+            {g.task && <div className="chat-subagent-task">{g.task}</div>}
+            <div className="chat-subagent-parts">
+              {g.parts.map((p) =>
+                p.kind === "tool" && p.tool ? (
+                  <ToolCard key={p.id} tool={p.tool} />
+                ) : (
+                  <div key={p.id} className="chat-subagent-text">{p.text}</div>
+                ),
+              )}
+            </div>
+          </div>
+        ))}
     </div>
   );
 }

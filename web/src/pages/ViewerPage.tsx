@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { fetchModel, createChatSession, type ChatSession } from "@/api/client";
 import type { ModelInfo } from "@/api/types";
@@ -16,6 +16,18 @@ import { ChatSidebar } from "@/viewer/ChatSidebar";
 import { useViewerStore } from "@/viewer/store";
 import DxfViewer from "@/dxfviewer/DxfViewer";
 import "./ViewerPage.css";
+
+// web-ifc+three 体积大且默认引擎是 xeokit——动态分包，仅切换到 webifc 时加载
+const IfcLiteViewer = lazy(() => import("@/ifcviewer/IfcLiteViewer"));
+
+// IFC 渲染引擎开关（用户级偏好，默认 xeokit）：webifc 为 web-ifc+three 并存
+// 渐进路线（W-0044）。dxf 不参与切换。
+type ViewerEngine = "xeokit" | "webifc";
+const ENGINE_KEY = "viewerEngine";
+
+function readEngine(): ViewerEngine {
+  return localStorage.getItem(ENGINE_KEY) === "webifc" ? "webifc" : "xeokit";
+}
 
 export default function ViewerPage() {
   const { id } = useParams<{ id: string }>();
@@ -83,6 +95,13 @@ export default function ViewerPage() {
     if (session) setChatOpen(true);
   }, [session?.chatSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // IFC 引擎切换（key 变化触发查看器整树重挂载，与 reloadKey 同机制）
+  const [engine, setEngine] = useState<ViewerEngine>(readEngine);
+  const switchEngine = (next: ViewerEngine) => {
+    localStorage.setItem(ENGINE_KEY, next);
+    setEngine(next);
+  };
+
   if (!id) {
     return (
       <div className="viewer-page">
@@ -98,8 +117,28 @@ export default function ViewerPage() {
     <div className="viewer-page">
       {kind === null ? null : kind === "dxf" ? (
         <DxfViewer key={reloadKey} modelId={id} />
+      ) : engine === "webifc" ? (
+        <>
+          <button
+            type="button"
+            className="engine-switch-btn"
+            onClick={() => switchEngine("xeokit")}
+          >
+            xeokit 引擎
+          </button>
+          <Suspense fallback={<div className="viewer-status">引擎加载中…</div>}>
+            <IfcLiteViewer key={`${reloadKey}-webifc`} modelId={id} />
+          </Suspense>
+        </>
       ) : (
-        <ViewerProvider key={reloadKey} modelId={id}>
+        <ViewerProvider key={`${reloadKey}-xeokit`} modelId={id}>
+          <button
+            type="button"
+            className="engine-switch-btn"
+            onClick={() => switchEngine("webifc")}
+          >
+            web-ifc 引擎
+          </button>
           <Toolbar id={id} />
           <ModelTreePanel />
           <PropertyPanel modelId={id} />

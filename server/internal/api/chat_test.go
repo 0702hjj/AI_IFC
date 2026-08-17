@@ -9,12 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
+	"ifcviewer/server/internal/agent"
 	"ifcviewer/server/internal/convert"
-	"ifcviewer/server/internal/opencode"
 	"ifcviewer/server/internal/store"
 )
 
@@ -48,9 +47,9 @@ func TestModelIDFromEditedFile(t *testing.T) {
 		{"/data/uploads/m_cd21fae2ad2ae764.ifc", "m_cd21fae2ad2ae764"},
 		{"/home/x/data/uploads/m_0517c9fce8b1827a.ifc", "m_0517c9fce8b1827a"},
 		{"data/uploads/m_cd21fae2ad2ae764.ifc.new", ""}, // 临时文件不命中
-		{"/data/staging/c_abc.ifc", ""},                        // 非 uploads 目录
-		{"/data/uploads/not-a-model-id.ifc", ""},               // id 格式不符
-		{"/data/uploads/m_CD21FAE2AD2AE764.ifc", ""},           // 大写不符
+		{"/data/staging/c_abc.ifc", ""},                 // 非 uploads 目录
+		{"/data/uploads/not-a-model-id.ifc", ""},        // id 格式不符
+		{"/data/uploads/m_CD21FAE2AD2AE764.ifc", ""},    // 大写不符
 	}
 	for _, c := range cases {
 		if got := modelIDFromEditedFile(c.file); got != c.want {
@@ -61,46 +60,38 @@ func TestModelIDFromEditedFile(t *testing.T) {
 
 // --- createSession 幂等与并发（会话连续性） ---
 
-// newChatTestHandler 手动构造 ChatHandler（不启动 dispatchLoop），用于隔离测试 createSession/abort。
-func newChatTestHandler(t *testing.T, ocURL string) *ChatHandler {
+// newChatTestAgent 构造确定性 scripted agent + 事件日志（测试默认答复 "收到"）。
+func newChatTestAgent(t *testing.T, dataDir string, script agent.Script) (*agent.Agent, *agent.EventStore) {
 	t.Helper()
+	st := agent.NewEventStore(dataDir)
+	ag, err := agent.New(agent.LLMConfig{},
+		agent.WithModel(agent.NewScriptedModel(script)),
+		agent.WithStore(st),
+	)
+	if err != nil {
+		t.Fatalf("agent.New: %v", err)
+	}
+	return ag, st
+}
+
+var defaultTestScript = agent.Script{Steps: []agent.ScriptStep{{Chunks: []string{"收到"}}}}
+
+// newChatTestHandler 手动构造 ChatHandler（scripted agent），用于隔离测试 createSession/abort。
+func newChatTestHandler(t *testing.T) *ChatHandler {
+	t.Helper()
+	dataDir := t.TempDir()
+	ag, st := newChatTestAgent(t, dataDir, defaultTestScript)
 	h := &ChatHandler{
-		deps:     ChatDeps{OC: opencode.New(ocURL), DataDir: t.TempDir()},
+		deps:     ChatDeps{Ag: ag, Ev: st, DataDir: dataDir},
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
-		byOC:     map[string]string{},
+		byAgent:  map[string]string{},
+		runs:     map[string]*chatRun{},
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}
 	h.registerRoutes()
 	return h
-}
-
-// fakeOC 起一个记录 POST /session 调用次数的假 opencode serve。
-// abortCnt（非 nil 时）记录 POST /session/{id}/abort 次数，用于测中止转发。
-func fakeOC(t *testing.T, createCount *int32) *httptest.Server {
-	t.Helper()
-	return fakeOCWithAbort(t, createCount, nil)
-}
-
-func fakeOCWithAbort(t *testing.T, createCount *int32, abortCnt *int32) *httptest.Server {
-	t.Helper()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && r.URL.Path == "/session" {
-			n := atomic.AddInt32(createCount, 1)
-			w.Header().Set("Content-Type", "application/json")
-			fmt.Fprintf(w, `{"id":"oc_%d","title":"t"}`, n)
-			return
-		}
-		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/abort") && abortCnt != nil {
-			atomic.AddInt32(abortCnt, 1)
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	t.Cleanup(srv.Close)
-	return srv
 }
 
 // doChatCreate 直接调 createSession 并解 envelope，返回 session 或错误（goroutine 安全）。
@@ -124,13 +115,11 @@ func doChatCreate(h *ChatHandler, body string) (*chatSession, error) {
 
 // TestLoadSessionsDedup 验证：同 modelId 多条 chatSession（竞态残留）加载时去重为最早一条，并写回文件。
 func TestLoadSessionsDedup(t *testing.T) {
-	var createCount int32
-	srv := fakeOC(t, &createCount)
-	h := newChatTestHandler(t, srv.URL)
+	h := newChatTestHandler(t)
 	list := []*chatSession{
-		{ID: "c_a", OpencodeID: "oc_a", ModelID: "m_xxxxxxxxxxxxxxxx", Title: "t", CreatedAt: "2026-01-02T00:00:00Z"},
-		{ID: "c_b", OpencodeID: "oc_b", ModelID: "m_xxxxxxxxxxxxxxxx", Title: "t", CreatedAt: "2026-01-01T00:00:00Z"}, // 更早，应保留
-		{ID: "c_c", OpencodeID: "oc_c", ModelID: "m_yyyyyyyyyyyyyyyy", Title: "t", CreatedAt: "2026-01-03T00:00:00Z"},
+		{ID: "c_a", AgentID: "s_a", ModelID: "m_xxxxxxxxxxxxxxxx", Title: "t", CreatedAt: "2026-01-02T00:00:00Z"},
+		{ID: "c_b", AgentID: "s_b", ModelID: "m_xxxxxxxxxxxxxxxx", Title: "t", CreatedAt: "2026-01-01T00:00:00Z"}, // 更早，应保留
+		{ID: "c_c", AgentID: "s_c", ModelID: "m_yyyyyyyyyyyyyyyy", Title: "t", CreatedAt: "2026-01-03T00:00:00Z"},
 	}
 	data, _ := json.Marshal(list)
 	if err := os.WriteFile(h.sessionsPath(), data, 0o644); err != nil {
@@ -147,8 +136,8 @@ func TestLoadSessionsDedup(t *testing.T) {
 	if _, ok := h.sessions["c_b"]; !ok {
 		t.Error("c_b（最早）应保留")
 	}
-	if _, ok := h.byOC["oc_b"]; !ok {
-		t.Error("byOC 应含保留的 oc_b")
+	if _, ok := h.byAgent["s_b"]; !ok {
+		t.Error("byAgent 应含保留的 s_b")
 	}
 
 	// 文件应被写回去重
@@ -164,12 +153,11 @@ func TestLoadSessionsDedup(t *testing.T) {
 		t.Fatalf("文件未写回去重: %d 条, want 2", len(after))
 	}
 }
-// 只产生一条会话（只调一次 opencode CreateSession，所有请求拿到同一 chatSessionId）。
-// 复现场景：React StrictMode 下 ViewerPage effect 连发两次 createChatSession。
+
+// TestCreateSessionConcurrentIdempotent：同 modelId 并发 createSession（StrictMode dev 双发 /
+// 用户连点）只产生一条会话——所有请求拿到同一 chatSessionId，映射表与持久化文件都只有一条。
 func TestCreateSessionConcurrentIdempotent(t *testing.T) {
-	var createCount int32
-	srv := fakeOC(t, &createCount)
-	h := newChatTestHandler(t, srv.URL)
+	h := newChatTestHandler(t)
 	modelID := "m_aaaaaaaaaaaaaaaa"
 
 	const N = 8
@@ -196,13 +184,13 @@ func TestCreateSessionConcurrentIdempotent(t *testing.T) {
 			t.Fatalf("goroutine[%d] error: %v", i, err)
 		}
 	}
-	if createCount != 1 {
-		t.Fatalf("opencode CreateSession called %d times, want 1（竞态未根治：StrictMode 双发会建多条会话）", createCount)
-	}
 	first := results[0].ID
 	for i, cs := range results {
 		if cs.ID != first {
 			t.Fatalf("result[%d].ID = %q, want %q（同 modelId 会话连续性被破坏）", i, cs.ID, first)
+		}
+		if cs.AgentID == "" {
+			t.Fatalf("result[%d].AgentID 为空（agent 会话 id 未分配）", i)
 		}
 	}
 	h.mu.RLock()
@@ -211,13 +199,23 @@ func TestCreateSessionConcurrentIdempotent(t *testing.T) {
 	if got != 1 {
 		t.Fatalf("sessions map size = %d, want 1", got)
 	}
+	// 持久化文件同样只有一条
+	var persisted []*chatSession
+	data, err := os.ReadFile(h.sessionsPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &persisted); err != nil {
+		t.Fatal(err)
+	}
+	if len(persisted) != 1 {
+		t.Fatalf("chat-sessions.json = %d 条, want 1（竞态未根治）", len(persisted))
+	}
 }
 
 // TestArchiveStagingArtifact 验证构建脚本随版本归档到 models/{id}/scripts/，且 staging 源被清。
 func TestArchiveStagingArtifact(t *testing.T) {
-	var createCount int32
-	srv := fakeOC(t, &createCount)
-	h := newChatTestHandler(t, srv.URL)
+	h := newChatTestHandler(t)
 	mid := "m_dddddddddddddddd"
 	version := "v3"
 
@@ -240,32 +238,10 @@ func TestArchiveStagingArtifact(t *testing.T) {
 	// 不存在的 staging 文件 → 跳过
 	h.archiveStagingArtifact(mid, version, mid+".absent", "absent", "x")
 }
-func TestAbortSessionForwards(t *testing.T) {
-	var createCount, abortCnt int32
-	srv := fakeOCWithAbort(t, &createCount, &abortCnt)
-	h := newChatTestHandler(t, srv.URL)
-	// 建一条会话拿到 chatSessionId
-	cs, err := doChatCreate(h, `{"title":"t","modelId":"m_cccccccccccccccc"}`)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// 经 mux 打 abort（走真实路由 + path value）
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/sessions/"+cs.ID+"/abort", nil)
-	rec := httptest.NewRecorder()
-	h.mux.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
-	}
-	if abortCnt != 1 {
-		t.Fatalf("opencode abort called %d times, want 1", abortCnt)
-	}
-}
 
 // TestAbortSessionNotFound 测不存在的 cid → 404。
 func TestAbortSessionNotFound(t *testing.T) {
-	var createCount int32
-	srv := fakeOC(t, &createCount)
-	h := newChatTestHandler(t, srv.URL)
+	h := newChatTestHandler(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/sessions/c_nope/abort", nil)
 	rec := httptest.NewRecorder()
 	h.mux.ServeHTTP(rec, req)
@@ -286,7 +262,8 @@ func newChatProjectTestHandler(t *testing.T) *ChatHandler {
 		deps:     ChatDeps{St: st, Q: q, DataDir: dataDir},
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
-		byOC:     map[string]string{},
+		byAgent:  map[string]string{},
+		runs:     map[string]*chatRun{},
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}
@@ -364,9 +341,7 @@ func TestCreateProjectOldPathGone(t *testing.T) {
 
 // TestCreateSessionSerialReuse 验证串行幂等：先建一次，再用同 modelId 建第二次直接复用第一条。
 func TestCreateSessionSerialReuse(t *testing.T) {
-	var createCount int32
-	srv := fakeOC(t, &createCount)
-	h := newChatTestHandler(t, srv.URL)
+	h := newChatTestHandler(t)
 	modelID := "m_bbbbbbbbbbbbbbbb"
 
 	cs1, err := doChatCreate(h, `{"title":"t","modelId":"`+modelID+`"}`)
@@ -377,10 +352,7 @@ func TestCreateSessionSerialReuse(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cs1.ID != cs2.ID || cs1.OpencodeID != cs2.OpencodeID {
-		t.Fatalf("serial reuse: cs1=%+v cs2=%+v, want same id+opencodeId", cs1, cs2)
-	}
-	if createCount != 1 {
-		t.Fatalf("CreateSession called %d times, want 1", createCount)
+	if cs1.ID != cs2.ID || cs1.AgentID != cs2.AgentID {
+		t.Fatalf("serial reuse: cs1=%+v cs2=%+v, want same id+agentId", cs1, cs2)
 	}
 }

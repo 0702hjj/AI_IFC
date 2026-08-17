@@ -1,0 +1,275 @@
+package agent
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/components/tool/utils"
+
+	"ifcviewer/server/internal/editsvc"
+	"ifcviewer/server/internal/store"
+)
+
+// maxToolResult 是单条工具结果的上限（64KB）——防爆模型上下文（Token 节流）。
+const maxToolResult = 65536
+
+type ctxKeySessionID struct{}
+
+// WithSessionID 把会话 id 注入 ctx（Run 在启动 ReAct 循环前调用；
+// 测试/装配侧可用它手工构造带会话上下文的 ctx）。
+func WithSessionID(ctx context.Context, sessionID string) context.Context {
+	return context.WithValue(ctx, ctxKeySessionID{}, sessionID)
+}
+
+// SessionIDFromContext 取出 Run 注入的会话 id（工具经它解析会话绑定模型）。
+func SessionIDFromContext(ctx context.Context) string {
+	s, _ := ctx.Value(ctxKeySessionID{}).(string)
+	return s
+}
+
+// ToolDeps 是领域工具集的依赖包。工具面领域收敛：不持有 bash/任意文件写能力，
+// 全部变更经 edit-service（ifc）/ cad-service（dxf）REST，按模型 kind 路由。
+type ToolDeps struct {
+	IFC *editsvc.Client // ifc kind 后端（services/ifc :8100）
+	CAD *editsvc.Client // dxf kind 后端（services/cad :8200）；nil 时 dxf 工具报错文本
+	St  *store.Store    // kind 路由 + list/get model info
+
+	// SessionModel 从 ctx 解析当前会话绑定的模型 id（无绑定返回 ""）；可空。
+	SessionModel func(ctx context.Context) string
+	// MarkDirty 在变更类工具成功后标记会话 dirty（notify 精确信号，不再只靠 mtime）；
+	// create_project 不置位（新模型与绑定模型是两个对象，置位会让 notify 错绑管线）；可空。
+	MarkDirty func(ctx context.Context)
+	// CreateProject 创建骨架项目（复用 chat 骨架 IFC 生成 + 注册 + 入队转换）；可空。
+	CreateProject func(ctx context.Context, title string) (any, error)
+}
+
+func (d ToolDeps) markDirty(ctx context.Context) {
+	if d.MarkDirty != nil {
+		d.MarkDirty(ctx)
+	}
+}
+
+// resolve 归一 modelId（参数缺省回退会话绑定模型）并做 kind 路由。
+// 失败返回非空 errText——工具把错误以文本返回供 LLM 观测自愈（sec-agent 模式），
+// 非法/未知 modelId 在此拦截，不会触达任何后端（守卫）。
+func (d ToolDeps) resolve(ctx context.Context, modelID string) (*store.Model, *editsvc.Client, string) {
+	if modelID == "" && d.SessionModel != nil {
+		modelID = d.SessionModel(ctx)
+	}
+	if modelID == "" {
+		return nil, nil, "未指定 modelId，且当前会话未绑定模型——请先 create_project 或在绑定模型的会话中重试"
+	}
+	if d.St == nil {
+		return nil, nil, "调用失败：store 未配置（模型工具不可用）"
+	}
+	m, err := d.St.Get(modelID)
+	if err != nil {
+		return nil, nil, truncateToolResult(fmt.Sprintf("模型 %q 不可用：%v", modelID, err))
+	}
+	cl := d.IFC
+	if m.Kind == store.KindDXF {
+		cl = d.CAD
+	}
+	if cl == nil {
+		return nil, nil, truncateToolResult(fmt.Sprintf("模型 %s 的后端未配置（kind=%s）", modelID, m.Kind))
+	}
+	return m, cl, ""
+}
+
+// toolErr 把后端/依赖错误格式化为截断后的工具输出（错误文本化统一入口——
+// 错误串同样受 64KB 上限约束，防爆模型上下文）。
+func toolErr(err error) string {
+	return truncateToolResult(fmt.Sprintf("调用失败：%v", err))
+}
+
+func truncateToolResult(s string) string {
+	if len(s) > maxToolResult {
+		return s[:maxToolResult] + "...(truncated)"
+	}
+	return s
+}
+
+func toolJSON(v any) string {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf(`{"error":%q}`, err.Error())
+	}
+	return truncateToolResult(string(raw))
+}
+
+// toolRaw 把后端原始响应转为工具输出；错误文本化（不抛 Go error 中断 ReAct 循环）。
+func toolRaw(raw json.RawMessage, err error) (string, error) {
+	if err != nil {
+		return fmt.Sprintf("调用失败：%v", err), nil
+	}
+	return truncateToolResult(string(raw)), nil
+}
+
+// --- 工具参数 schema（jsonschema tag 即模型可见的参数说明） ---
+
+type emptyReq struct{}
+
+type modelRefReq struct {
+	ModelID string `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
+}
+
+type stageScriptReq struct {
+	Script  string `json:"script" jsonschema:"required,description=完整构建脚本全文（在 get_script 读出的既有脚本上增量修改；禁止整体重写风格）"`
+	Note    string `json:"note,omitempty" jsonschema:"description=本次变更说明"`
+	ModelID string `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
+}
+
+type saveScriptReq struct {
+	Note    string `json:"note,omitempty" jsonschema:"description=大版本说明"`
+	ModelID string `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
+}
+
+type diffReq struct {
+	Base    string `json:"base" jsonschema:"required,description=基线大版本号（如 v1）"`
+	Target  string `json:"target" jsonschema:"required,description=目标大版本号（如 v2）"`
+	ModelID string `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
+}
+
+type createProjectReq struct {
+	Title string `json:"title" jsonschema:"required,description=项目名（人类可读）"`
+}
+
+// mustTool 构造 InferTool；schema 是静态的，构造失败即程序员错误，启动期直接 panic
+// （同 http.ServeMux 冲突 panic 语义），不拖错误签名污染 DomainTools 契约。
+func mustTool[T, R any](name, desc string, fn func(context.Context, T) (R, error)) tool.InvokableTool {
+	tl, err := utils.InferTool(name, desc, fn)
+	if err != nil {
+		panic(fmt.Sprintf("domain tool %s: %v", name, err))
+	}
+	return tl
+}
+
+// DomainTools 装配 chat agent 的领域工具集（9 个）：
+// list_models / get_model_info / get_script / stage_script / run_script /
+// save_script / get_versions / get_diff / create_project。
+// 语义镜像 services/ifc（:8100）与 services/cad（:8200）的 REST 端点；
+// run/save/diff 走 slow client（沙箱执行最长 60s，fast 10s 会三方状态分叉）。
+func DomainTools(deps ToolDeps) []tool.InvokableTool {
+	return []tool.InvokableTool{
+		mustTool("list_models", "列出平台全部模型（id/名称/kind(ifc|dxf)/状态/创建时间）",
+			func(ctx context.Context, _ emptyReq) (string, error) {
+				if deps.St == nil {
+					return "调用失败：store 未配置（list_models 不可用）", nil
+				}
+				ms, err := deps.St.List()
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(ms), nil
+			}),
+
+		mustTool("get_model_info", "获取单个模型信息（id/名称/kind/状态/大小/创建时间）",
+			func(ctx context.Context, in modelRefReq) (string, error) {
+				m, _, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				return toolJSON(m), nil
+			}),
+
+		mustTool("get_script", "读取模型当前构建脚本（有暂存读暂存，否则读最近大版本基线）",
+			func(ctx context.Context, in modelRefReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				return toolRaw(cl.Do(ctx, http.MethodGet, "/models/"+m.ID+"/script", nil))
+			}),
+
+		mustTool("stage_script", "暂存构建脚本（全量替换；不执行）。之后必须 run_script 沙箱验证，再 save_script 落大版本",
+			func(ctx context.Context, in stageScriptReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				body, _ := json.Marshal(map[string]string{"script": in.Script, "note": in.Note})
+				out, err := cl.Do(ctx, http.MethodPut, "/models/"+m.ID+"/script", body)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				deps.markDirty(ctx)
+				return toolRaw(out, nil)
+			}),
+
+		mustTool("run_script", "沙箱执行当前暂存脚本（验证可构建并重写工作区模型文件；不落版本）",
+			func(ctx context.Context, in modelRefReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				out, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/run", nil)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				deps.markDirty(ctx)
+				return toolRaw(out, nil)
+			}),
+
+		mustTool("save_script", "沙箱执行并落大版本（scripts/v{n}.py + 版本快照，原子）；save 前确保已 stage_script",
+			func(ctx context.Context, in saveScriptReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				body, _ := json.Marshal(map[string]string{"note": in.Note})
+				out, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/save", body)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				deps.markDirty(ctx)
+				return toolRaw(out, nil)
+			}),
+
+		mustTool("get_versions", "列出模型的脚本大版本（version/createdAt/note）",
+			func(ctx context.Context, in modelRefReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				return toolRaw(cl.Do(ctx, http.MethodGet, "/models/"+m.ID+"/scripts", nil))
+			}),
+
+		mustTool("get_diff", "拉两个大版本的脚本 diff（text_diff + PARAMS 变化 + 统计）",
+			func(ctx context.Context, in diffReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				body, _ := json.Marshal(map[string]string{"base": in.Base, "target": in.Target})
+				return toolRaw(cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/diff", body))
+			}),
+
+		mustTool("create_project", "创建空白项目（骨架 IFC + 注册模型 + 入队转换），返回新模型（含 modelId，后续编辑用它）",
+			func(ctx context.Context, in createProjectReq) (string, error) {
+				if deps.CreateProject == nil {
+					return "create_project 未配置（装配缺失）", nil
+				}
+				v, err := deps.CreateProject(ctx, in.Title)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				// 不 markDirty：新模型 B 与会话绑定的模型 A 是两个对象——置 dirty 会让
+				// turn 结束的 notifyIfDirty 对未变更的 A 跑完整管线（stale staging 时
+				// save 出无意图版本）。新模型的转换由 CreateProject 内部 Enqueue 直接触发，
+				// 不依赖 notify；后续对 B 的 stage/run/save 才会置 dirty。
+				return toolJSON(v), nil
+			}),
+	}
+}
+
+// AsBaseTools 把 DomainTools 产出转为 WithTools 的入参形状。
+func AsBaseTools(ts []tool.InvokableTool) []tool.BaseTool {
+	out := make([]tool.BaseTool, len(ts))
+	for i, t := range ts {
+		out[i] = t
+	}
+	return out
+}

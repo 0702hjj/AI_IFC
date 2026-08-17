@@ -1,5 +1,7 @@
 # Demo 接入契约：聊天页 ↔ Go server（融入 chat 模块）↔ opencode / viewer
 
+> **⚠️ 历史存档（2026-08-17）**：opencode serve 已退役（b6b5d0b，W-0043），chat 链路由进程内 Eino agent 接管（`server/internal/agent/`）。本文档的 opencode 契约细节（serve OpenAPI / SDK 形状）不再生效，仅作演进史参考；现行架构见 `docs/superpowers/plans/2026-08-14-chunk-e-eino-webifc.md` 与公开文档站 AI 接入页。
+
 > 日期：2026-08-01（重写：聊天桥接**融入 Go server**，取消独立 demo-bridge）。本文档定义「用户聊天提需求 → opencode agent 改/生成 IFC → Go 内固定代码自动报备落盘 → 前端看到新模型」demo 的接入契约。
 > 契约来源：opencode serve OpenAPI（`http://<host>:4096/doc`）与 `@opencode-ai/sdk` types.gen.ts、opencode 官网 Server/SDK/Web 文档（2026-08-01 调研）；viewer 侧以 `server/internal/`、`services/ifc/app/` 实现逐一核对为准。
 

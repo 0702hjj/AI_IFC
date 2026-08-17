@@ -140,7 +140,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body []byte) (json
 }
 
 // DoSlow 与 Do 同形但走 slow client：script run/save/rollback 触发沙箱执行
-//（edit-service script_runner.RUN_TIMEOUT_S=60s），fast 的 10s 会先于 edit-service
+// （edit-service script_runner.RUN_TIMEOUT_S=60s），fast 的 10s 会先于 edit-service
 // 超时，造成 Go 报错而 edit-service 已跑完落盘的三方状态分叉（M5 终审 C2）。
 func (c *Client) DoSlow(ctx context.Context, method, path string, body []byte) (json.RawMessage, error) {
 	data, err := c.do(ctx, c.slow, method, path, body)

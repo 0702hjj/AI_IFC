@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -18,13 +17,15 @@ import (
 )
 
 type chatSession struct {
-	ID         string    `json:"chatSessionId"`
-	OpencodeID string    `json:"opencodeSessionId"`
-	ModelID    string    `json:"modelId"`
-	Title      string    `json:"title"`
-	CreatedAt  string    `json:"createdAt"`
-	dirty      bool      `json:"-"` // write/edit 工具改过 uploads/{modelId}.ifc（file.edited 捕获）
-	lastCheck  time.Time `json:"-"` // 上次变更检测时刻；idle 时 mtime 晚于它即视为被改（兜底 bash/脚本改文件场景）
+	ID string `json:"chatSessionId"`
+	// AgentID 是内置 agent 的会话 id（事件日志 {DataDir}/chat/{AgentID}.jsonl）。
+	// JSON 字段名保留 opencodeSessionId——web client.ts 的 ChatSession 契约不动。
+	AgentID   string    `json:"opencodeSessionId"`
+	ModelID   string    `json:"modelId"`
+	Title     string    `json:"title"`
+	CreatedAt string    `json:"createdAt"`
+	dirty     bool      `json:"-"` // write/edit 工具改过 uploads/{modelId}.ifc（file.edited 捕获）
+	lastCheck time.Time `json:"-"` // 上次变更检测时刻；idle 时 mtime 晚于它即视为被改（兜底 bash/脚本改文件场景）
 }
 
 func (h *ChatHandler) sessionsPath() string {
@@ -63,7 +64,7 @@ func (h *ChatHandler) loadSessions() {
 		cs.dirty = false
 		cs.lastCheck = time.Now() // 防重启后 mtime 误判
 		h.sessions[cs.ID] = cs
-		h.byOC[cs.OpencodeID] = cs.ID
+		h.byAgent[cs.AgentID] = cs.ID
 	}
 	if len(deduped) != len(list) {
 		log.Printf("chat: dedup sessions %d → %d (清理同 modelId 竞态残留)", len(list), len(deduped))
@@ -99,6 +100,13 @@ func newChatID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return "c_" + hex.EncodeToString(b)
+}
+
+// newAgentSessionID 生成内置 agent 的会话 id（EventStore 文件名，须过 validateSessionID）。
+func newAgentSessionID() string {
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	return "s_" + hex.EncodeToString(b)
 }
 
 // findSession 按 modelId 查已绑定会话（空 modelId 永远不命中——不幂等）。
@@ -155,50 +163,17 @@ func (h *ChatHandler) createSession(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, existing)
 		return
 	}
-	s, err := h.deps.OC.CreateSession(r.Context(), body.Title)
-	if err != nil {
-		writeChatErr(w, err)
-		return
-	}
 	cs := &chatSession{
-		ID: newChatID(), OpencodeID: s.ID, ModelID: body.ModelID,
+		ID: newChatID(), AgentID: newAgentSessionID(), ModelID: body.ModelID,
 		Title: body.Title, CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		lastCheck: time.Now(),
 	}
 	h.mu.Lock()
 	h.sessions[cs.ID] = cs
-	h.byOC[cs.OpencodeID] = cs.ID
+	h.byAgent[cs.AgentID] = cs.ID
 	h.mu.Unlock()
 	h.saveSessions()
 	writeJSON(w, cs)
-}
-
-// getMessages 透传 opencode 会话历史（重新打开时回填聊天内容）。
-func (h *ChatHandler) getMessages(w http.ResponseWriter, r *http.Request) {
-	cs := h.sessionOrErr(w, r.PathValue("cid"))
-	if cs == nil {
-		return
-	}
-	msgs, err := h.deps.OC.GetMessages(r.Context(), cs.OpencodeID)
-	if err != nil {
-		writeChatErr(w, err)
-		return
-	}
-	writeJSON(w, msgs)
-}
-
-// abortSession 中止 AI 当前 turn（透传 opencode POST /session/{ocId}/abort）。
-// 前端在 busy 时把"发送"钮变"停止"调此端点；opencode 随后发 session.idle + 进行中 part 的 removed。
-func (h *ChatHandler) abortSession(w http.ResponseWriter, r *http.Request) {
-	cs := h.sessionOrErr(w, r.PathValue("cid"))
-	if cs == nil {
-		return
-	}
-	if err := h.deps.OC.Abort(r.Context(), cs.OpencodeID); err != nil {
-		writeChatErr(w, err)
-		return
-	}
-	writeJSON(w, map[string]bool{"aborted": true})
 }
 
 func (h *ChatHandler) listSessions(w http.ResponseWriter, r *http.Request) {
@@ -209,35 +184,6 @@ func (h *ChatHandler) listSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	h.mu.RUnlock()
 	writeJSON(w, out)
-}
-
-func (h *ChatHandler) postMessage(w http.ResponseWriter, r *http.Request) {
-	cs := h.sessionOrErr(w, r.PathValue("cid"))
-	if cs == nil {
-		return
-	}
-	var body struct {
-		Text string `json:"text"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Text == "" {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "text required")
-		return
-	}
-	text := body.Text
-	if cs.ModelID != "" {
-		sys := fmt.Sprintf("当前会话绑定模型文件 data/uploads/%s.ifc（改它即改该模型；若是从零构建需求，该文件初始为骨架，直接在其上建造）。本会话 chatSessionId：%s。",
-			cs.ModelID, cs.ID)
-		// W-0016：≥2 个脚本大版本时追加「与上一大版本的脚本 diff」上下文（拉取失败自动降级）。
-		if dc := h.scriptDiffContext(r.Context(), cs.ModelID); dc != "" {
-			sys += "\n" + dc
-		}
-		text = "[系统上下文] " + sys + "\n\n[用户需求] " + body.Text
-	}
-	if err := h.deps.OC.PromptAsync(r.Context(), cs.OpencodeID, text, h.agent); err != nil {
-		writeChatErr(w, err)
-		return
-	}
-	writeJSON(w, map[string]bool{"accepted": true})
 }
 
 func (h *ChatHandler) sessionOrErr(w http.ResponseWriter, cid string) *chatSession {

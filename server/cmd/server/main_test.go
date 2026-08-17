@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -75,6 +76,84 @@ func TestLoadConfigAuthFromJSON(t *testing.T) {
 	want := []string{"https://a.example", "https://b.example"}
 	if strings.Join(cfg.CORSOrigins, ",") != strings.Join(want, ",") {
 		t.Fatalf("expected CORS %v, got %v", want, cfg.CORSOrigins)
+	}
+}
+
+// TestLoadConfigLLMFromJSONAndEnv：LLM 三参从 server_config.json 读取，VIEWER_LLM_* env 覆盖。
+func TestLoadConfigLLMFromJSONAndEnv(t *testing.T) {
+	path := writeConfig(t, `{"llmAPIKey":"k-json","llmBaseURL":"https://llm.example/v1","llmModel":"m-json"}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.LLMAPIKey != "k-json" || cfg.LLMBaseURL != "https://llm.example/v1" || cfg.LLMModel != "m-json" {
+		t.Fatalf("json LLM 配置未读到: %+v", cfg)
+	}
+
+	t.Setenv("VIEWER_LLM_API_KEY", "k-env")
+	t.Setenv("VIEWER_LLM_BASE_URL", "https://env.example/v1")
+	t.Setenv("VIEWER_LLM_MODEL", "m-env")
+	cfg, err = loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.LLMAPIKey != "k-env" || cfg.LLMBaseURL != "https://env.example/v1" || cfg.LLMModel != "m-env" {
+		t.Fatalf("env 应覆盖 json: %+v", cfg)
+	}
+}
+
+// TestLoadConfigLLMDefaultsEmpty：缺省三参为空（agent 回退 scriptedModel，离线 demo 模式）。
+func TestLoadConfigLLMDefaultsEmpty(t *testing.T) {
+	path := writeConfig(t, `{}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.LLMAPIKey != "" || cfg.LLMBaseURL != "" || cfg.LLMModel != "" {
+		t.Fatalf("LLM 缺省应为空（scriptedModel 回退）: %+v", cfg)
+	}
+}
+
+// TestLoadConfigRetiredOpenCodeURLEnvironmentIgnored：VIEWER_OPENCODE_URL 已随
+// opencode serve 退役（chunk E，Eino 进程内接管）——环境变量残留不再被读取，
+// 配置结构中亦无该字段（openCodeURL 键被静默忽略，不报错）。
+func TestLoadConfigRetiredOpenCodeURLEnvironmentIgnored(t *testing.T) {
+	t.Setenv("VIEWER_OPENCODE_URL", "http://127.0.0.1:4096")
+	path := writeConfig(t, `{"openCodeURL":"http://127.0.0.1:4096","port":8090,"dataDir":"../data"}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("退役键残留不应报错: %v", err)
+	}
+	_ = cfg // OpenCodeURL 字段已删除——编译期保证不可再引用
+}
+
+// TestShippedConfigsContainNoOpenCodeURL：随仓发布的两份 server_config*.json
+// 不得再含退役键 openCodeURL，且 llm 三参（空缺省）在位。
+func TestShippedConfigsContainNoOpenCodeURL(t *testing.T) {
+	for _, name := range []string{"server_config.json", "server_config.docker.json"} {
+		raw, err := os.ReadFile(filepath.Join("..", "..", name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		if strings.Contains(string(raw), "openCodeURL") || strings.Contains(string(raw), "opencode") {
+			t.Fatalf("%s 仍含退役键 openCodeURL/opencode", name)
+		}
+		for _, key := range []string{"llmAPIKey", "llmBaseURL", "llmModel"} {
+			if !strings.Contains(string(raw), `"`+key+`"`) {
+				t.Fatalf("%s 缺 llm 配置键 %q", name, key)
+			}
+		}
+		var cfg struct {
+			LLMAPIKey  string `json:"llmAPIKey"`
+			LLMBaseURL string `json:"llmBaseURL"`
+			LLMModel   string `json:"llmModel"`
+		}
+		if err := json.Unmarshal(raw, &cfg); err != nil {
+			t.Fatalf("decode %s: %v", name, err)
+		}
+		if cfg.LLMAPIKey != "" || cfg.LLMBaseURL != "" || cfg.LLMModel != "" {
+			t.Fatalf("%s llm 三参缺省应为空（scriptedModel 离线 demo 回退）: %+v", name, cfg)
+		}
 	}
 }
 

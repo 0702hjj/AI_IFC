@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
-// chat_orchestrator.go：三连触发（file.edited/session.idle → notify）、制品归档、
+// chat_orchestrator.go：turn 结束触发 notify、制品归档、
 // 骨架 IFC 模板与 GlobalId 生成、空白项目创建。
 package api
 
@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"ifcviewer/server/internal/editsvc"
-	"ifcviewer/server/internal/opencode"
+	"ifcviewer/server/internal/store"
 )
 
 // --- 空白项目：点击「新建」即完成初始化（骨架模型 + modelId），agent 只是后续的修改者 ---
@@ -71,78 +71,58 @@ END-ISO-10303-21;
 // ifcStringEscape 转义 IFC STEP 字符串（单引号双写）。
 func ifcStringEscape(s string) string { return strings.ReplaceAll(s, "'", "''") }
 
+// skeletonProjectIFC 渲染骨架 IFC 内容（复用方：createProject REST 路由 +
+// agent create_project 工具——同一生成逻辑，单一事实源）。
+func skeletonProjectIFC(globalID, escapedTitle string) string {
+	return fmt.Sprintf(skeletonIFC, globalID, escapedTitle)
+}
+
 // createProject 创建空白项目：写入骨架 IFC 并注册为模型（modelId 即刻就位），
 // 入队转换。之后 AI 从零构建走的是与改模型完全相同的主链路。
+// 核心三步（骨架内容 + St.Create + 入队）抽为 createProjectForAgent 共用
+// （agent create_project 工具复用，chat_tools.go）。
 func (h *ChatHandler) createProject(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title string `json:"title"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body) // title 可空
-	if body.Title == "" {
-		body.Title = "AI 项目"
-	}
-	content := fmt.Sprintf(skeletonIFC, newGlobalID(), ifcStringEscape(body.Title))
-	m, err := h.deps.St.Create(body.Title+".ifc", int64(len(content)), strings.NewReader(content))
+	m, err := h.createProjectForAgent(r.Context(), body.Title)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
 		return
 	}
-	h.deps.Q.Enqueue(m.ID)
 	writeJSON(w, m)
 }
 
-// onEvent 是 P2 三连触发器：file.edited 命中工作区 → 置 dirty；
-// session.idle + dirty + bound → 异步执行 notify（Core+Shell 闭环落盘）。
-func (h *ChatHandler) onEvent(ev opencode.Event) {
-	switch ev.Type {
-	case "file.edited":
-		var p struct {
-			File string `json:"file"`
-		}
-		if err := json.Unmarshal(ev.Properties, &p); err != nil {
-			return
-		}
-		mid := modelIDFromEditedFile(p.File)
-		if mid == "" {
-			return
-		}
-		h.mu.Lock()
-		for _, cs := range h.sessions {
-			if cs.ModelID == mid {
-				cs.dirty = true
-			}
-		}
-		h.mu.Unlock()
-	case "session.idle":
-		ocSID := ev.SessionID()
-		if ocSID == "" {
-			return
-		}
-		h.mu.Lock()
-		cid, ok := h.byOC[ocSID]
-		cs := h.sessions[cid]
-		if !ok || cs == nil || cs.ModelID == "" {
-			h.mu.Unlock()
-			return
-		}
-		// 变更检测：file.edited 已置 dirty（write/edit 工具路径）；
-		// 否则兜底查工作区 mtime（agent 用 bash 跑脚本改文件时 opencode 不发 file.edited）。
-		dirtyNow := cs.dirty
-		if !dirtyNow {
-			if fi, err := os.Stat(filepath.Join(h.deps.DataDir, "uploads", cs.ModelID+".ifc")); err == nil && fi.ModTime().After(cs.lastCheck) {
-				dirtyNow = true
-			}
-		}
-		if !dirtyNow {
-			h.mu.Unlock()
-			return
-		}
-		cs.dirty = false // 同一 turn 只触发一次
-		cs.lastCheck = time.Now()
-		h.mu.Unlock()
-		log.Printf("chat: session %s idle with modified model %s → notify", ocSID, cs.ModelID)
-		go h.notify(cs)
+// notifyIfDirty 是 agent loop 结束（turn/end，事件流关闭）后的变更检测 + 触发点：
+// 会话绑定模型且工作区 IFC 被改（mtime 晚于 lastCheck）→ 异步执行 notify
+// （Core+Shell 闭环落盘，顺序契约不变）。
+func (h *ChatHandler) notifyIfDirty(cs *chatSession) {
+	if cs.ModelID == "" {
+		return
 	}
+	h.mu.Lock()
+	// 变更检测：查工作区 mtime（agent 工具/bash 改文件即新于 lastCheck）。
+	// 已知死路（有意保留）：兜底只 stat {id}.ifc——dxf 模型的源文件是 {id}.dxf，
+	// 永远 stat 不到，mtime 兜底对 dxf 不生效；dxf 会话的变更检测只靠工具面
+	// markSessionDirty 的精确信号（write/edit 类工具成功即置 dirty）。当前 agent
+	// 工具集不发 bash/裸文件写，主链路无回归；若未来放开 dxf 的自由文件工具，
+	// 兜底需按 kind 改 stat 源文件（SourcePath）。
+	dirtyNow := cs.dirty
+	if !dirtyNow {
+		if fi, err := os.Stat(filepath.Join(h.deps.DataDir, "uploads", cs.ModelID+".ifc")); err == nil && fi.ModTime().After(cs.lastCheck) {
+			dirtyNow = true
+		}
+	}
+	if !dirtyNow {
+		h.mu.Unlock()
+		return
+	}
+	cs.dirty = false // 同一 turn 只触发一次
+	cs.lastCheck = time.Now()
+	h.mu.Unlock()
+	log.Printf("chat: session %s turn end with modified model %s → notify", cs.AgentID, cs.ModelID)
+	go h.notify(cs)
 }
 
 // modelIDFromEditedFile 从 file.edited 的路径提取 modelId（命中 {dataDir}/uploads/{id}.ifc）。
@@ -166,25 +146,34 @@ var modelIDRe = regexp.MustCompile(`^m_[0-9a-f]{16}$`)
 // 第一轮 idle+dirty+bound → DELETE pending（坏文件自检）→ 有脚本则 PUT /script →
 // run → save；saved 事件驱动第二轮 archive + 重转 + viewer.committed；无脚本路径
 // discard 后即重转 + viewer.committed（空版本）；任一步失败 → viewer.notify_failed。
+// kind 感知：dxf 会话整条管线走 cad 后端（:8200），staging 读 {id}.py 同形。
 func (h *ChatHandler) notify(cs *chatSession) {
 	ctx, cancel := context.WithTimeout(context.Background(), notifyTimeout)
 	defer cancel()
 	modelID := cs.ModelID
+	var m *store.Model
+	if h.deps.St != nil {
+		m, _ = h.deps.St.Get(modelID) // 未知模型：m=nil → editClientForKind 回退 Ed（现状行为）
+	}
+	cl := h.deps.editClientForKind(m)
 	st := NotifyState{Dirty: true, Bound: true}
+	if m != nil {
+		st.ModelKind = m.Kind // dxf → Core 短路 reconvert（XKT 是 ifc 专属产物）
+	}
 	scriptPath := filepath.Join(h.deps.DataDir, "staging", modelID+".py")
 	// 先读 staging 再删 pending（discard 在 runShell 首轮）：read_staging_script 失败时
 	// pending 保留，行为更保守（与旧实现相反，有意为之——读不出脚本宁可中止也不丢变更）。
 	if fileExists(scriptPath) {
 		content, err := os.ReadFile(scriptPath)
 		if err != nil {
-			h.runFailed(ctx, cs, "read_staging_script", err)
+			h.runFailed(ctx, cs, "read_staging_script", err, cl)
 			return
 		}
 		st.HasStagingScript = true
 		st.Script = string(content)
 	}
 	ev := newEvent("aiifc://chat/"+cs.ID+"/idle", modelID, cs.ID, map[string]any{})
-	h.runShell(ctx, cs, ev, st)
+	h.runShell(ctx, cs, ev, st, cl)
 }
 
 func fileExists(path string) bool {
@@ -239,11 +228,17 @@ const scriptDiffContextMaxBytes = 4096
 // scriptDiffContext 拉取模型最近两个大版本的脚本 diff，渲染为系统上下文片段。
 // 不足两个大版本（含无脚本的 legacy 模型）、edit-service 不可达、diff 拉取失败：
 // 均返回 ""——调用方保持现行为（只注入模型路径），不阻塞消息下发。
+// kind 感知：dxf 模型走 cad 后端（editClientForKind）。
 func (h *ChatHandler) scriptDiffContext(ctx context.Context, modelID string) string {
-	if h.deps.Ed == nil {
+	var m *store.Model
+	if h.deps.St != nil {
+		m, _ = h.deps.St.Get(modelID)
+	}
+	ed := h.deps.editClientForKind(m)
+	if ed == nil {
 		return ""
 	}
-	vers, err := h.deps.Ed.GetScriptVersions(ctx, modelID)
+	vers, err := ed.GetScriptVersions(ctx, modelID)
 	if err != nil {
 		log.Printf("chat: script versions %s: %v（降级不注入 diff）", modelID, err)
 		return ""
@@ -253,7 +248,7 @@ func (h *ChatHandler) scriptDiffContext(ctx context.Context, modelID string) str
 	}
 	base := vers.Scripts[len(vers.Scripts)-2].Version
 	target := vers.Scripts[len(vers.Scripts)-1].Version
-	d, err := h.deps.Ed.PostScriptDiff(ctx, modelID, base, target)
+	d, err := ed.PostScriptDiff(ctx, modelID, base, target)
 	if err != nil {
 		log.Printf("chat: script diff %s %s→%s: %v（降级不注入 diff）", modelID, base, target, err)
 		return ""

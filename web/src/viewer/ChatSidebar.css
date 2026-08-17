@@ -80,3 +80,26 @@
 .chat-primary:disabled { background: #374151; cursor: not-allowed; }
 .chat-stop { background: #b91c1c; color: #fff; border: none; border-radius: 8px; padding: 0 14px; font-size: 13.5px; cursor: pointer; }
 .chat-stop:hover { background: #dc2626; }
+
+/* 子 agent 边栏：subagent.status started 自动出现，按 subagentId 分组 */
+.chat-subagents {
+  max-height: 40%; overflow-y: auto; border-bottom: 1px solid #2a2f3a;
+  background: #12151c; display: flex; flex-direction: column; gap: 6px; padding: 6px 10px;
+}
+.chat-subagents-head {
+  display: flex; align-items: center; justify-content: space-between; cursor: pointer;
+  color: #9ca3af; font-size: 12px; user-select: none; padding: 2px 4px;
+}
+.chat-subagents-head:hover { color: #c7cdd8; }
+.chat-subagent-group { background: #1a1f2b; border: 1px solid #2a2f3a; border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+.chat-subagent-title { display: flex; align-items: center; gap: 6px; }
+.chat-subagent-badge {
+  background: #233053; color: #93c5fd; border-radius: 5px; padding: 1px 7px;
+  font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.chat-subagent-status { font-size: 12px; font-weight: 700; }
+.chat-subagent-running { color: #fbbf24; }
+.chat-subagent-finished { color: #34d399; }
+.chat-subagent-task { color: #6b7280; font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
+.chat-subagent-parts { display: flex; flex-direction: column; gap: 5px; }
+.chat-subagent-text { color: #c9d1d9; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
