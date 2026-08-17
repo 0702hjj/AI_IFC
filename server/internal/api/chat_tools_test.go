@@ -219,6 +219,11 @@ func TestCreateProjectToolEndToEnd(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("骨架模型未入队转换")
 	}
+	// 排空到 session.idle：turn 收尾（notify 判定与事件日志落盘在 consumeRun 内
+	// 同步完成）结束后测试才返回——否则 t.TempDir() 清理与异步写盘竞态（CI 慢速
+	// 环境复现：unlinkat ... directory not empty，2026-08-17 PR #38 server job）。
+	ch := h.subscribe(cs.ID)
+	collectUntil(t, ch, "session.idle")
 }
 
 // --- kind 路由：工具面 + notify 面（双 fake 零交叉） ---
