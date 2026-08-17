@@ -173,6 +173,19 @@ func TestAgentToolDepsAdapters(t *testing.T) {
 	if !fileExists(fmt.Sprintf("%s/uploads/%s.ifc", h.deps.DataDir, m.ID)) {
 		t.Fatal("骨架 IFC 未落盘")
 	}
+	// 条件等待转换收尾（SetStatus ready，即 models.json 写盘完成）再返回——
+	// CreateProject 入队异步，不等会让 t.TempDir() 清理与 worker 写盘竞态
+	// （CI 慢速环境 unlinkat ... directory not empty，同 TestCreateProjectToolEndToEnd）。
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if mm, err := h.deps.St.Get(m.ID); err == nil && mm.Status == "ready" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if mm, _ := h.deps.St.Get(m.ID); mm == nil || mm.Status != "ready" {
+		t.Fatalf("骨架模型未转 ready（status=%v）", mm)
+	}
 	// 无会话上下文 / 未知会话：不 panic、不置位
 	deps.MarkDirty(context.Background())
 	if got := deps.SessionModel(context.Background()); got != "" {
