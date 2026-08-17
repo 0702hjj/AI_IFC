@@ -28,6 +28,9 @@ vi.mock("@/viewer/ChatSidebar", () => ({ ChatSidebar: () => null }));
 vi.mock("@/dxfviewer/DxfViewer", () => ({
   default: ({ modelId }: { modelId: string }) => <div data-testid="dxf-viewer">{modelId}</div>,
 }));
+vi.mock("@/ifcviewer/IfcLiteViewer", () => ({
+  default: ({ modelId }: { modelId: string }) => <div data-testid="ifc-lite-viewer">{modelId}</div>,
+}));
 
 const api = vi.hoisted(() => ({
   fetchModel: vi.fn(),
@@ -150,5 +153,80 @@ describe("ViewerPage kind routing", () => {
     await act(async () => {});
     expect(screen.queryByTestId("viewer-provider")).toBeTruthy();
     expect(screen.queryByTestId("dxf-viewer")).toBeNull();
+  });
+});
+
+describe("ViewerPage engine switch (ifc)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mounts.count = 0;
+    vi.clearAllMocks();
+    localStorage.clear();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    localStorage.clear();
+  });
+
+  it("defaults to the xeokit engine when viewerEngine is unset", async () => {
+    api.fetchModel.mockResolvedValue(model("ready", "ifc"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("viewer-provider")).toBeTruthy();
+    expect(screen.queryByTestId("ifc-lite-viewer")).toBeNull();
+  });
+
+  it("falls back to xeokit when viewerEngine holds an invalid value", async () => {
+    localStorage.setItem("viewerEngine", "garbage");
+    api.fetchModel.mockResolvedValue(model("ready", "ifc"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("viewer-provider")).toBeTruthy();
+    expect(screen.queryByTestId("ifc-lite-viewer")).toBeNull();
+  });
+
+  it("renders the web-ifc viewer when viewerEngine=webifc", async () => {
+    localStorage.setItem("viewerEngine", "webifc");
+    api.fetchModel.mockResolvedValue(model("ready", "ifc"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("ifc-lite-viewer")).toBeTruthy();
+    expect(screen.queryByTestId("viewer-provider")).toBeNull();
+    expect(screen.queryByTestId("dxf-viewer")).toBeNull();
+  });
+
+  it("switch button toggles the engine, persists it and remounts the viewer", async () => {
+    api.fetchModel.mockResolvedValue(model("ready", "ifc"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("viewer-provider")).toBeTruthy();
+
+    const btn = screen.getByRole("button", { name: "web-ifc 引擎" });
+    await act(async () => {
+      btn.click();
+    });
+    expect(localStorage.getItem("viewerEngine")).toBe("webifc");
+    expect(screen.queryByTestId("ifc-lite-viewer")).toBeTruthy();
+    expect(screen.queryByTestId("viewer-provider")).toBeNull();
+
+    // 再切回 xeokit
+    const back = screen.getByRole("button", { name: "xeokit 引擎" });
+    await act(async () => {
+      back.click();
+    });
+    expect(localStorage.getItem("viewerEngine")).toBe("xeokit");
+    expect(screen.queryByTestId("viewer-provider")).toBeTruthy();
+    expect(screen.queryByTestId("ifc-lite-viewer")).toBeNull();
+  });
+
+  it("dxf models ignore the engine switch (dxf viewer always)", async () => {
+    localStorage.setItem("viewerEngine", "webifc");
+    api.fetchModel.mockResolvedValue(model("ready", "dxf"));
+    renderPage();
+    await act(async () => {});
+    expect(screen.queryByTestId("dxf-viewer")).toBeTruthy();
+    expect(screen.queryByTestId("ifc-lite-viewer")).toBeNull();
+    expect(screen.queryByTestId("viewer-provider")).toBeNull();
   });
 });

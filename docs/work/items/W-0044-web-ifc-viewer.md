@@ -1,10 +1,11 @@
 # W-0044: web-ifc IFC 查看器（并存渐进，web-ifc+three 最小 loader + 引擎开关默认 xeokit）
 
-- **状态：** open
+- **状态：** done
 - **优先级：** P1
 - **Milestone：** v0.6（chunk E：Eino 替换 opencode + 主子编排 + web-ifc 查看器）
 - **来源：** plan 2026-08-14-chunk-e-eino-webifc.md（Task 7；用户裁决 2026-08-14：本 chunk 与 Eino 合并为一个 PR）
 - **执行者/分支：** opencode / feat/v0.9-eino-webifc
+- **关闭 commit：** add70a3（依赖地基）+ 本 commit（组件实现，见下方验收记录）
 
 ## 背景
 
@@ -44,3 +45,11 @@
 - 既有 ViewerPage/xeokit 用例不回归。
 - 新增测试量 ≥ 新增实现量（仓内 ≥1:1 硬规则）。
 - 节奏：本项与 W-0043 同属 chunk E，整 chunk 单 PR 收口（分支 feat/v0.9-eino-webifc 累积，当天收工一次 PR）。
+
+## 验收记录（2026-08-17）
+
+- 分层落地：`ifcLoader.ts`（纯提取，IfcApiLike 窄接口注入可 mock）→ `ifcScene.ts`（裸 three 挂载层 + IfcSceneHandle，移植 gaia R3F 友好）→ `IfcLiteViewer.tsx`（React 桥接 + 文案集中常量）。
+- 几何提取走 `StreamAllMeshes`（官方示例模式）；wasm 路径经 `import.meta.env.BASE_URL` 拼接（勘误：原方案写死 `/AI_IFC/`，与 vite base `/` 及 nginx `/wasm/` 实况不符，改为自适应）。
+- IfcLiteViewer 经 `React.lazy` 动态分包：three+web-ifc 独立 chunk（3.9M），默认 xeokit 主路径不加载。
+- 测试：web 288 通过（基线 264 + 新增 24——loader 13 + 组件 6 + 引擎开关 5）；lint 0 error（2 存量警告非本项）；build 绿。
+- store.selectedId 语义对齐 xeokit/Dxf 查看器（expressID 字符串），选中联动与属性面板共用同一管路。

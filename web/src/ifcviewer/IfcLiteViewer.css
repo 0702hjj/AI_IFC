@@ -1,0 +1,105 @@
+/* SPDX-License-Identifier: Apache-2.0
+   Copyright (C) 2026 0702hjj */
+
+/* 对齐 DxfViewer 布局：左侧 canvas 弹性伸展，右侧 220px 属性/树侧栏 */
+
+.ifc-lite-viewer {
+  display: flex;
+  flex: 1;
+  order: 1;
+  min-width: 0;
+}
+
+.ifc-lite-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  background: #f0f2f5;
+}
+
+.ifc-lite-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ifc-lite-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #555;
+  background: rgba(240, 242, 245, 0.85);
+}
+
+.ifc-lite-error {
+  color: #b00020;
+}
+
+.ifc-lite-back {
+  color: #2563eb;
+}
+
+.ifc-lite-side {
+  width: 240px;
+  border-left: 1px solid #e5e7eb;
+  background: #fafafa;
+  padding: 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ifc-lite-side h3 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.ifc-lite-tree-list {
+  list-style: none;
+  margin: 0;
+  padding-left: 12px;
+}
+
+.ifc-lite-tree-list:first-child {
+  padding-left: 0;
+}
+
+.ifc-lite-tree-node {
+  border: none;
+  background: none;
+  padding: 2px 0;
+  font-size: 13px;
+  color: #374151;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ifc-lite-tree-node:hover {
+  color: #2563eb;
+}
+
+.ifc-lite-props dl {
+  margin: 0;
+  font-size: 13px;
+}
+
+.ifc-lite-prop-row dt {
+  color: #6b7280;
+}
+
+.ifc-lite-prop-row dd {
+  margin: 0 0 6px;
+  word-break: break-all;
+}
+
+.ifc-lite-props-empty {
+  margin: 0;
+  font-size: 13px;
+  color: #9ca3af;
+}
