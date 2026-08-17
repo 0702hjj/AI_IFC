@@ -10,7 +10,7 @@
 // 拾取/树点击的选中联动（store.setSelected + 场景 setSelection）。
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { act, cleanup, render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { act, cleanup, render, screen, fireEvent } from "@testing-library/react";
 
 // three 挂载层 fake：IfcLiteViewer 不直接 import three，mock 后测试进程不加载真 three
 const mountLayer = vi.hoisted(() => {
