@@ -157,3 +157,28 @@
 - 类型一致：`Agent.Run` 事件流（Task 2）→ 翻译层（Task 3）→ subagent 标签（Task 5）一条链签名一致；`DomainTools` deps（Task 4）与装配（Task 3/6）一致。
 - 风险：react 包 API 版本差异（v0.9.13 以 sec-agent 编译产物为准）；SSE 仿真与 opencode 原生形状的边角（reasoning/tool 态）靠对拍测试钉；web-ifc wasm 在 jsdom 不可执行必须 mock（测试价值集中在提取逻辑）。
 - 明确不做：MAS 四级表持久化（gaia 模式，过度设计）；subagent 深度>1；bash/通用文件工具；opencode 兼容层。
+
+---
+
+## 移交状态（2026-08-14 会话中断，新会话从此接手）
+
+**分支**：`feat/v0.9-eino-webifc`（未提 PR，按用户节奏整 chunk 单 PR）。SDD ledger：`.superpowers/sdd/2026-08-14-chunk-e-eino-webifc/progress.md`。
+
+| Task | 状态 | 说明 |
+|---|---|---|
+| 1 立项 | ✅ 90c1aa1 | W-0043/W-0044 open→后续按实勾 |
+| 2 agent 包骨架 | ✅ e763b17 | react loop + scriptedModel + JSONL 事件日志 |
+| 3 chat 接线 | ✅ 7873964 | SSE 契约仿真 + REST + notify 复用（227 用例） |
+| 4 领域工具集 | ✅ 274a147 | 9 工具 + kind 路由 + 单卡错误/dirty/runs 竞态（fix round 1 过） |
+| 5 subagent 编排 | ✅ afa9230 | subagent-as-tool + 事件标签 + 右侧边栏（server 232 + web 264） |
+| 6 opencode 移除 | ✅ b6b5d0b | 包/env/config/根 json 全删；dxf reconvert Core 短路（238 用例） |
+| 7 web-ifc 查看器 | ⏸ 起步 add70a3 | 仅依赖地基（three/web-ifc deps + wasm 资产 + nginx MIME）。**组件未写**，从 Step 1（ifcLoader 失败测试）开始，brief 在 .superpowers/.../task-7-brief.md |
+| 8 文档还债 + 收口 | ⬜ 未开始 | 含 Task 6 移交：go-openapi-schema.mjs chat 措辞+gen:api、内部文档 opencode 清理、queue.go dxf 三层短路合并评估；Task 5 minor：切会话边栏残留（ChatSidebar 切会话 setSubagents([])）、子 part.removed 不同步边栏；W-0043 措辞更新（子工具面=全量+prompt 约束，已裁决） |
+
+**新会话执行顺序**：完成 Task 7（按 brief）→ Task 8（含上述移交项 + VitePress 还债：ai.md/architecture/configuration 三页 Eino/LLM 三参/scriptedModel/工具表/主子编排 + AGENTS.md 组件表 opencode→agent 包 + 测试计数 + PLAN chunk E ✅ + W-0043/W-0044 done 回填）→ 全分支终审 → 单 PR。
+
+**契约红线重申**（Task 7/8 不可破坏）：ChatSidebar SSE 事件形状、7 路由 envelope、Last-Event-ID 重同步、系统上下文注入格式。server 238 / web 264 为当前绿基线。
+
+**已知 flake**：TestScriptProxyEnvelope 全量跑偶发（base commit 复现，非本 chunk 引入；若终审复现按 W-0036 模式排查）。
+
+**后续立项建议**（终审时定）：子 agent 事件历史投影端点（刷新后边栏空）；W-0042（ARC 归一，P2 已立项）；W-0038（DiffBody 校验+物化加固，P2）。
