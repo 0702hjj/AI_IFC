@@ -1,10 +1,11 @@
 # W-0043: Eino 替换 opencode + 主子编排（进程内 agent loop，SSE/REST 契约不变）
 
-- **状态：** in-progress
+- **状态：** done
 - **优先级：** P1
 - **Milestone：** v0.6（chunk E：Eino 替换 opencode + 主子编排 + web-ifc 查看器）
 - **来源：** plan 2026-08-14-chunk-e-eino-webifc.md（用户裁决 2026-08-14：领域收敛工具面；主子编排一起做；本 chunk 与 web-ifc 合并为一个 PR）
 - **执行者/分支：** opencode / feat/v0.9-eino-webifc
+- **关闭 commit：** e763b17..b6b5d0b（Task 2-6，opencode 移除收口）；文档回填见 chunk E 收口 commit
 
 ## 背景
 
@@ -25,7 +26,7 @@
 3. **配置**：`VIEWER_LLM_API_KEY` / `VIEWER_LLM_BASE_URL` / `VIEWER_LLM_MODEL`（server_config.json 同名字段）；`VIEWER_OPENCODE_URL` 退役（config 删除 + 文档标注）。
 4. **工具面（领域收敛，禁止 bash/任意文件写）**：`list_models / get_model_info / get_script / stage_script / run_script / save_script / get_versions / get_diff / get_render_entities(可选) / create_project`；文件访问只读 data 目录白名单；edit-service/cad 调用经既有 client；错误文本化供 LLM 自愈；工具结果 64KB 截断。
 5. **kind 感知**：chat 绑定 dxf 模型时工具路由到 cad 服务。
-6. **主子编排**：`subagent` 工具（ifc-agent/cad-agent persona，取自 `skills/aibim-orchestrator`）；子=独立 agent run + parentSessionId + 深度预算 1；子 agent 复用主工具集按 persona 过滤；子事件 SSE data 带 `subagentId`（主会话事件不带，旧形状不变），新增 `subagent.status` 事件；前端右侧边栏分组展示；子 agent staging 改动同样走 notify 管线。
+6. **主子编排**：`subagent` 工具（ifc-agent/cad-agent persona，取自 `skills/aibim-orchestrator`）；子=独立 agent run + parentSessionId + 深度预算 1；子 agent 复用主工具集（Task 5 裁决：**全量工具 + prompt 约束**，不做 persona 硬过滤——工具面本身已领域收敛，硬过滤收益低于维护成本）；子事件 SSE data 带 `subagentId`（主会话事件不带，旧形状不变），新增 `subagent.status` 事件；前端右侧边栏分组展示；子 agent staging 改动同样走 notify 管线。
 7. **会话持久化**：append-only JSONL 事件日志（dsh 模式）+ projection 派生消息史；`chat-sessions.json` 映射表保留兼容。
 8. **opencode 移除**：Task 6 清零 `grep -rn opencode server/ --include="*.go"` 非测试引用。
 9. **VitePress 文档更新**：Eino 架构、LLM 三参、scriptedModel 离线模式、领域工具表、主子编排（Task 8）。

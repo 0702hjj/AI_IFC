@@ -75,9 +75,16 @@ function lastES(): MockEventSource {
 
 // 渲染并等历史回填完成（空历史 → 欢迎语），再开始派 SSE 事件，避免与初始 fetch 竞态
 async function renderSidebar() {
-  render(<ChatSidebar session={session} />);
+  const view = render(<ChatSidebar session={session} />);
   await screen.findByText(/已绑定当前项目/);
+  rerenderSidebarRef.current = view.rerender;
   return lastES();
+}
+
+// renderSidebar 暴露的 rerender（切会话用例：同实例换 session prop）
+const rerenderSidebarRef: { current: ((ui: React.ReactElement) => void) | null } = { current: null };
+function rerenderSidebar(next: ChatSession) {
+  rerenderSidebarRef.current?.(<ChatSidebar session={next} />);
 }
 
 beforeEach(() => {
@@ -456,5 +463,26 @@ describe("ChatSidebar 子 agent 边栏（subagent 面板）", () => {
     expect(await screen.findByText("纯主回复")).toBeTruthy();
     // 边栏不应被创建（无 subagent 组头）
     expect(screen.queryByText(/子 Agent/)).toBeNull();
+  });
+
+  it("切会话（session prop 变化）后子 agent 边栏清空，不残留上一会话分组", async () => {
+    const es = await renderSidebar();
+    emit(es, "subagent.status", {
+      subagentId: "sa_1_1", parentSessionId: "s_1", persona: "ifc-agent", status: "started", task: "旧会话任务",
+    });
+    emit(es, "message.part.updated", {
+      part: { id: "sp_old", type: "text", messageID: "sub_old", text: "旧会话子输出" },
+      subagentId: "sa_1_1",
+    });
+    expect(await screen.findByText("旧会话子输出")).toBeTruthy();
+
+    // 同组件实例换 session prop（不卸载重挂，模拟同页切模型场景）
+    const session2: ChatSession = { ...session, chatSessionId: "c2", opencodeSessionId: "oc2" };
+    rerenderSidebar(session2);
+    // 新会话的欢迎语出现（历史已回填）
+    await screen.findByText(/已绑定当前项目/);
+    // 旧会话的子 agent 分组已清空
+    expect(screen.queryByText(/ifc-agent/)).toBeNull();
+    expect(screen.queryByText("旧会话子输出")).toBeNull();
   });
 });

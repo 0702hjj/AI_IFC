@@ -22,7 +22,7 @@
 | v0.6 | services/cad script-as-source chunk B ✅（2026-08-13，分支 feat/v0.6-cad-diff，PR #34）| W-0034, W-0035 | diff 引擎与 locate/edit-call 测试绿 |
 | v0.6 | services/cad script-as-source chunk C ✅（2026-08-13，分支 feat/v0.7-cad-render，PR #36）| W-0039, W-0040 | render.json 实体带 key + unsupported 明面化；Go kind 分流 + cad 端点代理（edit-call 除外）契约测试绿 |
 | v0.6 | services/cad script-as-source chunk D ✅（2026-08-14，分支 feat/v0.8-dxf-viewer，PR #37）| W-0041 | kind=dxf 模型 ViewerPage 分流 Canvas 只读查看器（七类实体/pan-zoom/图层/选中属性/unsupported 明面化）测试绿；编辑 UI 另立 chunk 且开工需用户确认 |
-| v0.6 | chunk E：Eino 替换 opencode + 主子编排 + web-ifc 查看器（2026-08-14 立项，分支 feat/v0.9-eino-webifc，**整 chunk 单 PR** 收口）| W-0043, W-0044 | 进程内 Eino agent loop 替换 opencode（SSE/REST 契约逐字段不变）+ subagent 主子编排 + web-ifc/three IFC 查看器（与 xeokit 并存，默认 xeokit） |
+| v0.6 | chunk E：Eino 替换 opencode + 主子编排 + web-ifc 查看器 ✅（2026-08-17 实现完毕，分支 feat/v0.9-eino-webifc，**整 chunk 单 PR** 收口）| W-0043, W-0044 | 进程内 Eino agent loop 替换 opencode（SSE/REST 契约逐字段不变）+ subagent 主子编排 + web-ifc/three IFC 查看器（与 xeokit 并存，默认 xeokit） |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 

@@ -152,7 +152,7 @@ export const schemas = {
     required: ['chatSessionId', 'opencodeSessionId', 'modelId', 'title', 'createdAt'],
     properties: {
       chatSessionId: { type: 'string', pattern: '^c_[0-9a-f]{16}$' },
-      opencodeSessionId: { type: 'string' },
+      opencodeSessionId: { type: 'string', description: '历史字段名（契约兼容保留）；Eino 接管后语义为 agent 会话 ID' },
       modelId: { type: 'string', pattern: '^m_[0-9a-f]{16}$', description: '空串 = 未绑定模型' },
       title: { type: 'string' },
       createdAt: { type: 'string', format: 'date-time' },
@@ -389,7 +389,7 @@ export const errorCodes = {
   40400: { status: 404, description: '模型/Issue/会话/资源不存在' },
   40900: { status: 409, description: '状态冲突（无脚本可执行/无可撤销/暂存步骤不足等）' },
   50000: { status: 500, description: '服务器内部错误' },
-  50200: { status: 502, description: '上游服务不可达或错误（edit-service / opencode）' },
+  50200: { status: 502, description: '上游服务不可达或错误（edit-service / cad-edit-service）' },
   50400: { status: 504, description: 'diff timed out' },
 }
 
@@ -439,7 +439,7 @@ export const endpoints = {
   },
   'POST /api/v1/chat/sessions': {
     summary: '创建会话（同 modelId 幂等）',
-    description: '创建 opencode 会话并绑定模型。同一 modelId 永远只有一个会话——退出再打开返回同一会话。modelId 可空（会话不绑定模型）。',
+    description: '创建 chat 会话并绑定模型（进程内 Eino agent）。同一 modelId 永远只有一个会话——退出再打开返回同一会话。modelId 可空（会话不绑定模型）。',
     tags: ['chat'],
     requestBody: {
       description: 'JSON body',
@@ -476,20 +476,20 @@ export const endpoints = {
   },
   'GET /api/v1/chat/sessions/{cid}/messages': {
     summary: '会话消息历史',
-    description: '透传 opencode 会话历史（重新打开会话时回填聊天内容）。data 形状由 opencode 定义。',
+    description: '回填会话历史（重新打开会话时）。data 形状与 opencode 历史形状对齐（Eino 事件日志投影）。',
     tags: ['chat'],
     parameters: [chatCidParam()],
     responses: {
       200: {
         description: 'ok',
-        data: { type: 'array', items: { type: 'object', additionalProperties: true }, description: 'opencode 消息数组' },
+        data: { type: 'array', items: { type: 'object', additionalProperties: true }, description: '消息数组（opencode 兼容形状）' },
       },
     },
     errors: ['40400', '50200'],
   },
   'POST /api/v1/chat/sessions/{cid}/messages': {
     summary: '发送消息给 AI',
-    description: '把用户消息（含绑定模型时的系统上下文）异步交给 opencode。返回 accepted=true 表示已受理，事件经 SSE 推送。',
+    description: '把用户消息（含绑定模型时的系统上下文）异步交给进程内 Eino agent。返回 accepted=true 表示已受理，事件经 SSE 推送。',
     tags: ['chat'],
     parameters: [chatCidParam()],
     requestBody: {

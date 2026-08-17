@@ -3,13 +3,14 @@
 ```mermaid
 graph LR
   subgraph 客户端层
-    UI[浏览器<br/>React 19 + xeokit<br/>web]
+    UI[浏览器<br/>React 19 + xeokit / web-ifc<br/>web]
     AI[AI Agent]
   end
 
   subgraph 服务层
-    GO[Go server :8090<br/>server<br/>编排 / REST / 存储抽象]
+    GO[Go server :8090<br/>server<br/>编排 / REST / 存储抽象<br/>Eino chat agent]
     PY[Python edit-service :8100<br/>services/ifc<br/>FastAPI + IfcOpenShell]
+    CAD[Python cad-edit-service :8200<br/>services/cad<br/>FastAPI + ezdxf]
     CV[Node converter<br/>converter<br/>IFC → XKT + metadata.json]
   end
 
@@ -18,25 +19,37 @@ graph LR
     FS[(文件系统<br/>uploads/*.ifc, models/{id}/)]
   end
 
-  UI -->|REST envelope| GO
+  UI -->|REST envelope + chat SSE| GO
   AI -->|同一套编辑 API| PY
   AI -->|或经 Go 代理| GO
   GO -->|/api/v1/models/{id}/script/* 代理 + 编排| PY
+  GO -->|dxf kind 分流| CAD
   GO -->|子进程 node convert.js| CV
   GO -->|pgx/v5，可选| PG
   GO --> FS
   PY -->|脚本沙箱执行 / 版本快照 / history| FS
+  CAD -->|DXF 脚本沙箱 / 版本 / render.json| FS
   CV -->|model.xkt + metadata.json| FS
 ```
+
+## chat agent（Eino，进程内）
+
+chat 侧 AI 对话由 `server/internal/agent/` 的 **Eino react agent loop** 驱动（cloudwego/eino + OpenAI 兼容组件），完全在 Go 进程内运行：
+
+- **事件流**：agent 事件经翻译层产出与前端 ChatSidebar 契约一致的 SSE 帧（message/part 事件族），会话持久化为 append-only JSONL 事件日志（投影派生消息历史）。原 opencode serve 外部进程已退役（W-0043），SSE/REST 契约不变。
+- **领域工具集**：LLM 不给 bash/任意文件工具，只给平台领域工具（`list_models` / `get_model_info` / `get_script` / `stage_script` / `run_script` / `save_script` / `get_versions` / `get_diff` / `create_project`），按模型 kind 路由到 edit-service 或 cad-edit-service；工具错误以文本返回供模型自愈，结果 64KB 截断。
+- **主子编排**：主 agent 经 `subagent` 工具派 `ifc-agent` / `cad-agent` 子 agent（独立 agent run，深度预算 1 防递归）；子 agent 事件带 `subagentId` 标签经同一 SSE 下发，前端右侧边栏分组展示。
+- **离线模式（scriptedModel）**：`llmAPIKey` 为空时回退确定性脚本模型——测试与离线 demo 不依赖真实 LLM。
 
 ## 组件职责
 
 | 组件 | 技术 | 职责 | 选型原因 |
 | --- | --- | --- | --- |
-| web | React 19 + TS + Vite + zustand + xeokit-sdk | 审查/编辑/Diff 的全部交互 | xeokit 的 XKT 二进制加载与 BIM 工具链 |
-| server | Go 1.26（stdlib net/http + pgx/v5） | 上传/转换队列、REST、编辑编排、存储抽象 | 静态编译、并发模型 |
+| web | React 19 + TS + Vite + zustand + xeokit-sdk + web-ifc/three（IFC 双引擎并存） | 审查/编辑/Diff 的全部交互 | xeokit 的 XKT 二进制加载与 BIM 工具链；web-ifc 直读 IFC（不经转换，并存渐进） |
+| server | Go 1.26（stdlib net/http + pgx/v5 + cloudwego/eino） | 上传/转换队列、REST、编辑编排、存储抽象、进程内 chat agent | 静态编译、并发模型 |
 | converter | Node CLI（web-ifc + xeokit-convert） | IFC → XKT 几何 + 语义提取 | xeokit-convert 只有 npm 形态 |
 | edit-service | Python 3.10 + FastAPI + ifcopenshell + ifcdiff | 脚本沙箱执行、版本快照（script-as-source）、ScriptMap 定位、语义 diff | IfcOpenShell 是 IFC 编辑的事实标准 |
+| cad-edit-service | Python 3.10 + FastAPI + ezdxf | DXF 脚本沙箱、版本、diff、render.json 直挂 | ezdxf 是 DXF 编辑的事实标准 |
 | PostgreSQL | 可选 | issues / changes / overrides 三表 | 不配置 `pgDSN` 时全部落文件，零依赖可跑 |
 
 ## 核心数据流
@@ -51,6 +64,15 @@ graph LR
 ```
 
 关键不变量：**XKT 构件 id = metadata metaObject id = IFC GlobalId**——选中、着色、diff 结果全靠这条链对齐。
+
+### IFC 查看双引擎（并存渐进）
+
+IFC 模型渲染有两条独立链路，用户级开关切换（localStorage `viewerEngine`，默认 xeokit）：
+
+- **xeokit（默认）**：上传/编辑后经 converter 预转 XKT，加载 `model.xkt + metadata.json`；选中/diff/issue 定位等全套 BIM 工具链在此链路。
+- **web-ifc（W-0044）**：浏览器内 wasm 直读上传原件 IFC（`GET /v1/models/{id}/download` → web-ifc IfcAPI → three 场景），不经 converter、不依赖转换完成；提供几何渲染/轨道控制/空间树/属性面板/选中高亮的基本集。web-ifc + three 经动态 import 独立分包，默认 xeokit 路径不加载该 chunk。
+
+两链路选中语义对齐（构件 id 均为 IFC expressID/GlobalId 级），为后续 web-ifc 链路补齐编辑/Diff 交互预留同一套 store 联动。
 
 ### 编辑流（script-as-source）
 

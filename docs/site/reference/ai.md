@@ -4,6 +4,15 @@
 
 > **直改链路已退役**：原「改属性 → pending → commit」端点（`PUT /entities/{guid}`、`POST /commit` 等）返回 410 Gone。细粒度参数修改改用 `POST /script/edit-call`（libcst 标量改写）或 PARAMS 暂存。
 
+## 平台内置 chat agent（Eino）
+
+除 REST 直连外，平台自带一个**进程内 chat agent**（`server/internal/agent/`，cloudwego/eino react loop）：web 界面的「AI 对话」侧栏即由它驱动，经下方同一套领域工具读写平台，SSE 事件流与 REST 契约公开不变。
+
+- **LLM 配置**：`llmAPIKey` / `llmBaseURL` / `llmModel`（env `VIEWER_LLM_API_KEY` 等，OpenAI 兼容端点）；**key 为空时回退 scriptedModel**（确定性离线模式，不产生真实智能回复）。
+- **领域工具面**（agent 只见这些，无 bash/任意文件写）：`list_models`、`get_model_info`、`get_script`、`stage_script`、`run_script`、`save_script`、`get_versions`、`get_diff`、`create_project`、`dispatch_ifc_agent` / `dispatch_cad_agent`（主子编排入口）。按模型 kind 自动路由 ifc→edit-service(:8100) / dxf→cad-edit-service(:8200)；工具错误以文本返回供模型自愈，结果 64KB 截断。
+- **主子编排**：`dispatch_ifc_agent` / `dispatch_cad_agent` 派子 agent（独立 agent run + persona，深度预算 1 防递归）；子 agent 事件带 `subagentId` 标签经同一 SSE 下发，前端右侧边栏分组展示。
+- agent 的暂存/保存改动同样走 notify 管线：run/save 成功后自动排队重转、`viewer.committed` 事件驱动前端刷新。
+
 ## 双角色同一 API
 
 人（浏览器）与 AI agent 使用**同一套脚本编辑端点**，仅入口不同：

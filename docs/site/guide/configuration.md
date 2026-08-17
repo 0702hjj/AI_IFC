@@ -12,6 +12,10 @@
 | `maxUploadMB` | `200` | — | 上传上限 |
 | `pgDSN` | `""` | `VIEWER_PG_DSN` | 配置即启用 PostgreSQL（自动建表），空则文件存储 |
 | `editServiceURL` | `http://127.0.0.1:8100` | `VIEWER_EDIT_SERVICE_URL` | edit-service 地址 |
+| `cadServiceURL` | `http://127.0.0.1:8200` | `VIEWER_CAD_SERVICE_URL` | cad-edit-service 地址（DXF 模型按 kind 分流） |
+| `llmAPIKey` | `""` | `VIEWER_LLM_API_KEY` | chat agent 的 LLM API key；**空 = scriptedModel 离线模式**（确定性 mock，测试/离线 demo 不依赖真模型） |
+| `llmBaseURL` | `""` | `VIEWER_LLM_BASE_URL` | LLM OpenAI 兼容端点（如 `https://api.openai.com/v1`） |
+| `llmModel` | `""` | `VIEWER_LLM_MODEL` | 模型名（如 `gpt-4o`、`deepseek-chat`） |
 | `apiToken` | `""` | `VIEWER_API_TOKEN` | Bearer token 鉴权；**空 = 关闭**（单机零配置默认），设置后除豁免路径外全部端点要求 `Authorization: Bearer <token>` |
 | `corsOrigins` | `http://localhost:5173,http://localhost:8080` | `VIEWER_CORS_ORIGINS` | CORS 允许来源白名单，逗号分隔；不在白名单的 Origin 不反射 `Access-Control-Allow-Origin` |
 
@@ -36,6 +40,13 @@
 - docker compose 部署时在 `.env` 设 `VIEWER_API_TOKEN`（见 `.env.example`），compose 会透传给 server 容器。
 - edit-service（:8100）本身**无鉴权**，依赖网络隔离：务必保持绑定 `127.0.0.1`，不要对外暴露；AI agent 直连 :8100 会绕过 Go server 的 token 校验。
 - CORS 从通配 `*` 收敛为白名单（默认本地开发两个端口），新增部署来源用 `corsOrigins` / `VIEWER_CORS_ORIGINS` 追加。
+
+## chat agent（LLM）
+
+- chat 侧的 AI 对话由 **进程内 Eino agent**（`server/internal/agent/`，react loop）驱动，经领域工具集读写 edit-service / cad-edit-service，不再依赖外部 opencode serve。
+- 三参配置见上表（`llmAPIKey` / `llmBaseURL` / `llmModel`）；`llmAPIKey` 为空时自动回退 **scriptedModel**（确定性脚本模型）：离线 demo 与测试零依赖可跑，但不会产生真实智能回复。
+- 主子编排：主 agent 可派 `ifc-agent` / `cad-agent` 子 agent（深度预算 1），子 agent 事件经同一 SSE 流下发（`subagentId` 标签），前端右侧边栏分组展示。
+- 历史配置 `VIEWER_OPENCODE_URL` 已退役（W-0043）：opencode serve 退役，设置后无效果，可从部署环境删除。
 
 ## edit-service
 

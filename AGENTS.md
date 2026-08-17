@@ -8,14 +8,15 @@
 自托管、开源（Apache-2.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
 - **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
-- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B+C 服务端已交付（骨架/沙箱/REST + diff/locate/edit-call + render.json + Go 代理 + web DXF Canvas 查看器（只读）已交付，IFC web-ifc 查看器与编辑待续）——`skills/aidxfv/`（v1/v2，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。
-- **推荐项：Agent 工作流控制**（可选，做不好可删）——主 Agent 编排提示词包 `skills/aibim-orchestrator` + 事件总线（已交付，地基保留）；代码级 orchestrator 不再追求，原设计见 `2026-08-11-orchestrator-design.md`。
+- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B+C 服务端已交付（骨架/沙箱/REST + diff/locate/edit-call + render.json + Go 代理 + web DXF Canvas 查看器（只读）已交付；IFC 侧 web-ifc 查看器已交付（W-0044，与 xeokit 并存渐进），编辑待续）——`skills/aidxfv/`（v1/v2，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。
+- **推荐项：Agent 工作流控制**（已落地：Eino 进程内 chat agent + 主子编排 subagent-as-tool（W-0043），opencode serve 已退役）——提示词资产 `skills/aibim-orchestrator` + `.opencode/`（不再被 server 消费）；代码级 orchestrator 不再追求，原设计见 `2026-08-11-orchestrator-design.md`。
 
 两逻辑共享运行时骨架：`web`（可选前端）/ `server`（Go 网关 :8090）/ `converter`（Node 转换）/ `services/ifc`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
 
 ```
-浏览器 (React+xeokit) ──► Go server :8090 ──► services/ifc（edit-service :8100, FastAPI+IfcOpenShell）
+浏览器 (React+xeokit/web-ifc 双引擎) ──► Go server :8090 ──► services/ifc（edit-service :8100, FastAPI+IfcOpenShell）
                                │                  └─ 脚本沙箱执行 + 版本 + diff
+                               ├─► server/internal/agent（Eino chat agent 进程内：react loop + 领域工具 + 主子编排）
                                ├─► converter (Node, IFC→XKT)
                                ├─► services/cad（:8200, FastAPI+ezdxf——按 model kind 分流代理，render.json 直挂只读）
 AI agent ──► REST 编辑 API ────┘
@@ -26,8 +27,8 @@ AI agent ──► REST 编辑 API ────┘
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，260 用例 / 24 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
-| server (Go 1.26，stdlib + pgx/v5) | `server` | `go test ./...`（159 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
+| web (React 19 + xeokit + web-ifc 双引擎 IFC 查看器 + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，289 用例 / 26 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| server (Go 1.26，stdlib + pgx/v5 + cloudwego/eino) | `server` | `go test ./...`（238 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
 | edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（243 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
 | cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（209 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
@@ -93,4 +94,5 @@ AI agent ──► REST 编辑 API ────┘
 - edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `data` 绝对路径，配错会 404 或改错文件。
 - demo/flows 用 `services/ifc/.venv`（含 ifcopenshell/ifcquery；ezdxf 不在其中，DXF 依赖用 `services/cad/.venv`）；**根 `.venv` 没有这些包**。
 - AI agent 直连 edit-service :8100 时传 `provenance.source="AI"`。
+- chat agent LLM 三参 `VIEWER_LLM_API_KEY` / `VIEWER_LLM_BASE_URL` / `VIEWER_LLM_MODEL`（server_config.json 同名字段 `llmAPIKey`/`llmBaseURL`/`llmModel`）；**API key 为空时回退 scriptedModel 离线模式**（确定性 mock，不产生真实智能回复）；`VIEWER_OPENCODE_URL` 已退役无效果。
 - Go server 鉴权默认关闭（`apiToken`/`VIEWER_API_TOKEN` 为空）；设置后除 OPTIONS 与 `GET /v1/models/...` 只读文件外全部端点要 `Authorization: Bearer <token>`（401 envelope 码 `40100`）。CORS 为白名单制（`corsOrigins`/`VIEWER_CORS_ORIGINS`，默认 `http://localhost:5173,http://localhost:8080`）。edit-service :8100 与 cad-edit-service :8200（同约束）无鉴权，务必保持 127.0.0.1；AI agent 直连 :8100/:8200 绕过 token 校验。

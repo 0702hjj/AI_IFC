@@ -125,7 +125,9 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
     );
 
   useEffect(() => {
-    // 会话连续：重新打开时回填历史消息（text/reasoning/tool 三种 part 都还原）
+    // 会话连续：重新打开时回填历史消息（text/reasoning/tool 三种 part 都还原）。
+    // 切会话时子 agent 边栏整组清空——分组属会话态，跨会话残留会错挂到新会话头上。
+    setSubagents([]);
     fetchChatMessages(session.chatSessionId)
       .then((msgs) => {
         const history: ChatMsg[] = [];
