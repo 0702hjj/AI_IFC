@@ -39,6 +39,8 @@ export default function ViewerPage() {
   const setChatOpen = useViewerStore((s) => s.setChatOpen);
   const pendingModelReload = useViewerStore((s) => s.pendingModelReload);
   const clearPendingModelReload = useViewerStore((s) => s.clearPendingModelReload);
+  const stagedPreview = useViewerStore((s) => s.stagedPreview);
+  const [stagedBanner, setStagedBanner] = useState(false);
 
   // 模型状态轮询：converting→ready 自动重载查看器（AI commit 后走这条路刷新）
   useEffect(() => {
@@ -102,6 +104,20 @@ export default function ViewerPage() {
     setEngine(next);
   };
 
+  // AI 中间结果预览（viewer.staged → stagedPreview，nonce 保证连续事件都触发）：
+  // - dxf：render.json 直挂，快 → 自动 reloadKey+1
+  // - ifc + webifc：IfcLiteViewer 直读 downloads，快 → 自动重挂
+  // - ifc + xeokit：重转 XKT 慢且闪烁 → 画布角标，点击才 reload
+  useEffect(() => {
+    if (!stagedPreview || stagedPreview.modelId !== id) return;
+    if (stagedPreview.kind === "dxf" || engine === "webifc") {
+      setReloadKey((k) => k + 1);
+      setStagedBanner(false);
+    } else {
+      setStagedBanner(true);
+    }
+  }, [stagedPreview, id, engine]);
+
   if (!id) {
     return (
       <div className="viewer-page">
@@ -132,6 +148,18 @@ export default function ViewerPage() {
         </>
       ) : (
         <ViewerProvider key={`${reloadKey}-xeokit`} modelId={id}>
+          {stagedBanner && (
+            <button
+              type="button"
+              className="staged-preview-btn"
+              onClick={() => {
+                setReloadKey((k) => k + 1);
+                setStagedBanner(false);
+              }}
+            >
+              AI 中间结果 · 点击预览
+            </button>
+          )}
           <button
             type="button"
             className="engine-switch-btn"

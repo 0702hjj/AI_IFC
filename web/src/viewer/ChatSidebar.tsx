@@ -89,6 +89,7 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
   const chatOpen = useViewerStore((s) => s.chatOpen);
   const setChatOpen = useViewerStore((s) => s.setChatOpen);
   const flagPendingModelReload = useViewerStore((s) => s.flagPendingModelReload);
+  const flagStagedPreview = useViewerStore((s) => s.flagStagedPreview);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [subagents, setSubagents] = useState<SubagentGroup[]>([]);
   const [input, setInput] = useState("");
@@ -327,6 +328,15 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
     };
     es.addEventListener("viewer.committed", sys("viewer.committed"));
     es.addEventListener("viewer.notify_failed", sys("viewer.notify_failed"));
+
+    // viewer.staged：run_script 沙箱成功后的中间产物就绪（每次成功都推，一个 turn 可多次）。
+    // 只写 store（含 nonce），由 ViewerPage 按管线分流决定立即重载还是出角标；不进消息流。
+    es.addEventListener("viewer.staged", (e) => {
+      const d = parseEventData(e);
+      if (!d || typeof d.modelId !== "string" || !d.modelId) return;
+      if (d.kind !== "ifc" && d.kind !== "dxf") return;
+      flagStagedPreview({ modelId: d.modelId, kind: d.kind });
+    });
 
     return () => es.close();
   }, [session.chatSessionId]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -71,3 +71,22 @@
   border-color: #2563eb;
   color: #2563eb;
 }
+
+/* AI 中间结果角标（xeokit 分支：viewer.staged 后点击才重载，避免重转 XKT 闪烁） */
+.staged-preview-btn {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  z-index: 20;
+  padding: 6px 14px;
+  font-size: 13px;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  background: rgba(255, 251, 235, 0.95);
+  color: #b45309;
+  cursor: pointer;
+}
+.staged-preview-btn:hover {
+  border-color: #d97706;
+  color: #92400e;
+}
