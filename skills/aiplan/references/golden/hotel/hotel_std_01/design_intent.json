@@ -1,0 +1,46 @@
+{
+  "version": 2,
+  "project": "酒店标准层：双内廊+居中核心筒+南北客房排",
+  "zones": [
+    {
+      "id": "std",
+      "form": {
+        "path": {
+          "rings": [
+            {
+              "edges": {
+                "west": [[0, 0], [0, 31600]],
+                "north": [[0, 31600], [43000, 31600]],
+                "east": [[43000, 31600], [43000, 0]],
+                "south": [[43000, 0], [0, 0]]
+              },
+              "segments": [
+                {"type": "arc", "at_vertex": 0, "radius_m": 4.5, "note": "西南角圆角（source ARC r=4.5m sweep≈92°）"},
+                {"type": "arc", "at_vertex": 1, "radius_m": 4.5, "note": "西北角圆角"},
+                {"type": "arc", "at_vertex": 2, "radius_m": 4.5, "note": "东北角圆角"},
+                {"type": "arc", "at_vertex": 3, "radius_m": 4.5, "note": "东南角圆角"}
+              ]
+            }
+          ]
+        }
+      },
+      "typology": "双内廊酒店标准层（居中核心筒+南北客房排）",
+      "typology_reason": "outline 43.0×31.6m 矩形四角 arc r=4.5m（source 幕墙/窗 ARC sweep≈92°）；core 居中 19×10m",
+      "core": {
+        "path": {
+          "rings": [
+            {
+              "edges": {
+                "west": [[12000, 11000], [12000, 21000]],
+                "north": [[12000, 21000], [31000, 21000]],
+                "east": [[31000, 21000], [31000, 11000]],
+                "south": [[31000, 11000], [12000, 11000]]
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "design_rationale": "rings矩形 43.0×31.6m + 四角 arc r=4.5m（source ARC）→ plan.json ring.arcs；居中核心筒 19×10m"
+}

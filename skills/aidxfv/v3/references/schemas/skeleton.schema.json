@@ -1,0 +1,684 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aidxfv3.dev/schemas/skeleton.schema.json",
+  "title": "skeleton.json v1 —— 骨架 DSL 契约（S1 主 agent 产出）",
+  "description": "冻结于 2026-08-10（W0 T02，经 T06 DSL 走查裁决 G-01/G-02/G-03；2026-08-11 用户拍板：统一 path 表达——删 polygon，main_partitions=区域划分线（division）非墙实体、role 对齐类型包 cases.json 的 block 词表、path 相邻点可任意方向（非90度角斜切）、corridor form 收敛 ring/path；2026-08-13 用户拍板 D34：outline 线性继承 plan outline_mm——多块分区轮廓（真弧/孔洞，绝对坐标），骨架分区以此为界，normalize 解析 + check_skeleton_outline_containment 校验越界）。改则回 W0 重走正反例。frame 头部声明坐标系传透（T1~T5）；core 可选（G-01）；corridor 可选（G-02）form 二选 ring/path；on_edge/frontage 支持方位词或 edge/hole 引用（G-03）；main_partitions=划分线——role 取 building_types cases.json 的 block 词表（普适），path 轴网索引顶点（可 dx/dy 偏移），相邻点任意方向。",
+  "type": "object",
+  "required": [
+    "frame",
+    "zones"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "frame": {
+      "type": "object",
+      "required": [
+        "units",
+        "origin",
+        "north_deg",
+        "modulus"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "units": {
+          "const": "mm"
+        },
+        "origin": {
+          "const": "lot_southwest"
+        },
+        "north_deg": {
+          "type": "number"
+        },
+        "modulus": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "zones": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/zone"
+      }
+    }
+  },
+  "$defs": {
+    "zone": {
+      "type": "object",
+      "required": [
+        "zone",
+        "typology",
+        "typology_reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "zone": {
+          "type": "string",
+          "minLength": 1
+        },
+        "outline": {
+          "$ref": "#/$defs/outline_blocks"
+        },
+        "core": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/core"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/core"
+              },
+              "minItems": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "corridor": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/corridor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "main_partitions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "role",
+              "from",
+              "to"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "description": "切割线 id（cut:0/cut:1…，blocks between 引用）"
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1
+              },
+              "from": {
+                "$ref": "#/$defs/anchor_point"
+              },
+              "to": {
+                "$ref": "#/$defs/anchor_point"
+              }
+            }
+          }
+        },
+        "special_openings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "at",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "at": {
+                "$ref": "#/$defs/point_mm",
+                "description": "绝对坐标点（设备吊装孔位置）"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "typology": {
+          "type": "string",
+          "minLength": 1
+        },
+        "typology_reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note_responses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "note",
+              "response"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "note": {
+                "type": "string",
+                "minLength": 1
+              },
+              "response": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "deviations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "defaults_used": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "holes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ring"
+          }
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        }
+      }
+    },
+    "core": {
+      "type": "object",
+      "required": [
+        "anchor"
+      ],
+      "oneOf": [
+        {
+          "required": [
+            "path"
+          ]
+        },
+        {
+          "required": [
+            "vertices"
+          ]
+        }
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/point_mm"
+        },
+        "path": {
+          "$ref": "#/$defs/ring_edges",
+          "description": "分裂闭合分段 path（D39 ring_edges：edges 四边拼合+segments）"
+        },
+        "vertices": {
+          "$ref": "#/$defs/point_mm_array",
+          "description": "绝对坐标顶点环（D36：继承 plan core——凸字形等非矩形筒；≥3 点闭合）"
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "corridor": {
+      "type": "object",
+      "required": [
+        "form",
+        "width_mm",
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "form": {
+          "const": "path",
+          "description": "外缘闭合线（ring_edges 分段）——机器差集出走廊带"
+        },
+        "path": {
+          "$ref": "#/$defs/ring_edges",
+          "description": "外缘闭合环（多 core 环绕也走分段，机器 union 多核差集）"
+        },
+        "width_mm": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "point_mm": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "number"
+        }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "side": {
+      "enum": [
+        "N",
+        "S",
+        "E",
+        "W",
+        "NE",
+        "NW",
+        "SE",
+        "SW"
+      ]
+    },
+    "polygon": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "number"
+          }
+        ],
+        "minItems": 2,
+        "maxItems": 2
+      }
+    },
+    "ring": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/polygon"
+        },
+        {
+          "type": "object",
+          "required": [
+            "vertices"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "vertices": {
+              "$ref": "#/$defs/polygon"
+            },
+            "arcs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/plan_arcAnn"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "plan_arcAnn": {
+      "type": "object",
+      "required": [
+        "at",
+        "center",
+        "radius"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "center": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "a0": {
+          "type": "number"
+        },
+        "a1": {
+          "type": "number"
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "required": [
+        "role",
+        "between"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "between": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 4,
+          "description": "围成段的切割线 id 列表（cut:N）",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "side": {
+          "enum": [
+            "N",
+            "S",
+            "E",
+            "W",
+            "NE",
+            "NW",
+            "SE",
+            "SW"
+          ],
+          "description": "候选段方位消歧（质心相对走廊质心）"
+        }
+      }
+    },
+    "outline_blocks": {
+      "type": "array",
+      "minItems": 1,
+      "description": "外轮廓块（继承 plan outline_mm——多块分区轮廓，支持真弧/孔洞；线性继承：骨架分区以此为界）",
+      "items": {
+        "type": "object",
+        "required": [
+          "outer"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "outer": {
+            "$ref": "#/$defs/outline_ring"
+          },
+          "holes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/outline_ring"
+            }
+          },
+          "arcs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/arcAnn"
+            }
+          }
+        }
+      }
+    },
+    "outline_ring": {
+      "type": "object",
+      "required": [
+        "vertices"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "vertices": {
+          "$ref": "#/$defs/point_mm_array"
+        },
+        "arcs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arcAnn"
+          }
+        }
+      }
+    },
+    "point_mm_array": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "$ref": "#/$defs/point_mm"
+      },
+      "description": "绝对坐标顶点列表（[[x,y],...]，≥3 点闭合——金例迁移/继承分区几何用）"
+    },
+    "arcAnn": {
+      "type": "object",
+      "description": "绝对坐标弧标注（继承 plan arcAnn——真弧轮廓边）",
+      "required": [
+        "at",
+        "center",
+        "radius"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "center": {
+          "$ref": "#/$defs/point_mm"
+        },
+        "radius": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "a0": {
+          "type": "number"
+        },
+        "a1": {
+          "type": "number"
+        }
+      }
+    },
+    "polyline_mm": {
+      "type": "array",
+      "minItems": 2,
+      "description": "折线顶点序列（mm 坐标，≥2 点）。可含凹凸/斜线采样点",
+      "items": {
+        "$ref": "#/$defs/point_mm"
+      }
+    },
+    "segment": {
+      "type": "object",
+      "description": "path 分段封装：recess（凹进）/projection（凸出）/arc（圆角）。定位：at_edge（方位）+offset_m（沿边偏移，米）或 at_vertex（顶点下标）",
+      "required": [
+        "type"
+      ],
+      "oneOf": [
+        {
+          "description": "凹进（入口门廊/采光井）",
+          "properties": {
+            "type": {
+              "const": "recess"
+            },
+            "at_edge": {
+              "$ref": "#/$defs/side"
+            },
+            "offset_m": {
+              "type": "number",
+              "minimum": 0,
+              "description": "沿边偏移（从边起点，米）"
+            },
+            "width_m": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "凹进宽度（米）"
+            },
+            "depth_m": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "凹进深度（米）"
+            },
+            "note": {
+              "type": "string",
+              "description": "语义说明（如'入口门廊'）"
+            }
+          },
+          "required": [
+            "type",
+            "at_edge",
+            "offset_m",
+            "width_m",
+            "depth_m"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "凸出（凸窗/阳台挑出）",
+          "properties": {
+            "type": {
+              "const": "projection"
+            },
+            "at_edge": {
+              "$ref": "#/$defs/side"
+            },
+            "offset_m": {
+              "type": "number",
+              "minimum": 0
+            },
+            "width_m": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "depth_m": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "凸出深度（米）"
+            },
+            "note": {
+              "type": "string",
+              "description": "语义说明（如'南侧阳台'）"
+            }
+          },
+          "required": [
+            "type",
+            "at_edge",
+            "offset_m",
+            "width_m",
+            "depth_m"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "description": "顶点倒圆角",
+          "properties": {
+            "type": {
+              "const": "arc"
+            },
+            "at_vertex": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "顶点下标（该角倒圆角）"
+            },
+            "radius_m": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "圆角半径（米）"
+            },
+            "note": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "type",
+            "at_vertex",
+            "radius_m"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ring_edges": {
+      "type": "object",
+      "description": "分段折线封闭环：四条边各自折线，角点共享拼合形成闭合轮廓。角点约定（逆时针）：west[0]=south[-1]（西南角）、west[-1]=north[0]（西北角）、north[-1]=east[0]（东北角）、east[-1]=south[0]（东南角）",
+      "required": [
+        "edges"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "type": "object",
+          "required": [
+            "north",
+            "south",
+            "east",
+            "west"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "north": {
+              "$ref": "#/$defs/polyline_mm",
+              "description": "北边折线（西北角→东北角）"
+            },
+            "south": {
+              "$ref": "#/$defs/polyline_mm",
+              "description": "南边折线（东南角→西南角）"
+            },
+            "east": {
+              "$ref": "#/$defs/polyline_mm",
+              "description": "东边折线（东北角→东南角）"
+            },
+            "west": {
+              "$ref": "#/$defs/polyline_mm",
+              "description": "西边折线（西南角→西北角）"
+            }
+          }
+        },
+        "segments": {
+          "type": "array",
+          "description": "在拼合轮廓边上按方位额外加凸出/凹入/弧角（recess/projection/arc）。边本身已含凹凸折线时可不填",
+          "items": {
+            "$ref": "#/$defs/segment"
+          }
+        },
+        "holes": {
+          "type": "array",
+          "description": "孔洞（庭院/采光井），同 ring_edges 格式",
+          "items": {
+            "$ref": "#/$defs/ring_edges"
+          }
+        }
+      }
+    },
+    "anchor_point": {
+      "type": "object",
+      "required": [
+        "ref"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "锚定目标：corridor:outer / corridor:inner / outline:edge:<N> / core:<id> / hole:<N>"
+        },
+        "at": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "沿边界长度比例位置（0-1，缺省 0.5 中点）"
+        },
+        "edge": {
+          "enum": [
+            "N",
+            "S",
+            "E",
+            "W"
+          ],
+          "description": "目标对象上的边方位（corridor:outer 等多边闭合线需指定；outline:edge:<N> 已隐含边，可省）"
+        }
+      }
+    }
+  }
+}

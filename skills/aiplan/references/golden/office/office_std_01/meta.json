@@ -1,0 +1,16 @@
+{
+  "case_id": "office_std_01",
+  "type": "office",
+  "implements": [],
+  "source": "data/gold/写字普通层.dxf",
+  "derive_facts": {},
+  " এক句话": "写字楼标准层（普通办公层）：核心筒居中 16.7×17.1m...",
+  "added": "2026-08-12",
+  "template_worthy": null,
+  "typology": "核心筒居中环廊",
+  "shape_tags": [
+    "近方形",
+    "核心筒居中",
+    "环廊"
+  ]
+}

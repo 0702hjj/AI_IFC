@@ -1,0 +1,320 @@
+{
+  "version": 3,
+  "project": "示例商住楼",
+  "site": {
+    "lot_polygon_mm": [
+      [
+        0,
+        0
+      ],
+      [
+        60000,
+        0
+      ],
+      [
+        60000,
+        40000
+      ],
+      [
+        0,
+        40000
+      ]
+    ],
+    "origin": "lot_southwest",
+    "setbacks_mm": {
+      "front": 6000,
+      "rear": 4000,
+      "left": 4000,
+      "right": 4000
+    },
+    "north_deg": 0
+  },
+  "zones": [
+    {
+      "id": "podium",
+      "function": "retail",
+      "floors": {
+        "from": 1,
+        "to": 2
+      },
+      "floor_height_mm": 4200,
+      "outline_mm": [
+        {
+          "outer": [
+            [
+              0,
+              0
+            ],
+            [
+              60000,
+              0
+            ],
+            [
+              60000,
+              40000
+            ],
+            [
+              0,
+              40000
+            ]
+          ],
+          "holes": [],
+          "arcs": []
+        }
+      ],
+      "typology_candidates": [
+        "沿街商业",
+        "中庭环绕"
+      ],
+      "program": [
+        {
+          "room": "anchor_store",
+          "count": 1,
+          "area_sqm": [
+            120,
+            180
+          ]
+        },
+        {
+          "room": "shop",
+          "count": [
+            4,
+            6
+          ],
+          "area_sqm": [
+            35,
+            55
+          ]
+        },
+        {
+          "room": "atrium",
+          "count": 1,
+          "area_sqm": [
+            40,
+            70
+          ]
+        },
+        {
+          "room": "corridor",
+          "min_width_mm": 3000
+        }
+      ],
+      "area_allocation": [
+        {
+          "block": "core",
+          "ratio": [
+            0.1,
+            0.14
+          ],
+          "area_sqm": [
+            2400,
+            3360
+          ],
+          "source": "standard"
+        },
+        {
+          "block": "corridor",
+          "ratio": [
+            0.1,
+            0.16
+          ],
+          "area_sqm": [
+            2400,
+            3840
+          ],
+          "source": "standard"
+        },
+        {
+          "block": "shop",
+          "ratio": [
+            0.6,
+            0.7
+          ],
+          "area_sqm": [
+            14400,
+            16800
+          ],
+          "source": "derived"
+        },
+        {
+          "block": "anchor",
+          "ratio": [
+            0.1,
+            0.15
+          ],
+          "area_sqm": [
+            2400,
+            3600
+          ],
+          "source": "user"
+        }
+      ],
+      "core_anchor_mm": [
+        28000,
+        12000
+      ],
+      "note": "底部商业裙房，含中庭采光"
+    },
+    {
+      "id": "tower",
+      "function": "residence",
+      "floors": {
+        "from": 3,
+        "to": 7
+      },
+      "floor_height_mm": 3000,
+      "outline_mm": [
+        {
+          "outer": [
+            [
+              18000,
+              22000
+            ],
+            [
+              42000,
+              22000
+            ],
+            [
+              42000,
+              40000
+            ],
+            [
+              18000,
+              40000
+            ]
+          ],
+          "holes": [],
+          "arcs": []
+        }
+      ],
+      "position": {
+        "on": "podium",
+        "align": "north_center"
+      },
+      "program": [
+        {
+          "room": "unit_2br",
+          "count": 2,
+          "area_sqm": [
+            62,
+            72
+          ],
+          "per_floor": true
+        },
+        {
+          "room": "unit_3br",
+          "count": 1,
+          "area_sqm": [
+            82,
+            92
+          ],
+          "per_floor": true
+        },
+        {
+          "room": "core",
+          "count": 1,
+          "area_sqm": [
+            25,
+            35
+          ],
+          "includes": [
+            "stair",
+            "elevator",
+            "shaft"
+          ]
+        }
+      ],
+      "area_allocation": [
+        {
+          "block": "core",
+          "ratio": [
+            0.08,
+            0.12
+          ],
+          "area_sqm": [
+            440,
+            660
+          ],
+          "source": "standard"
+        },
+        {
+          "block": "corridor",
+          "ratio": [
+            0.1,
+            0.15
+          ],
+          "area_sqm": [
+            550,
+            825
+          ],
+          "source": "standard"
+        },
+        {
+          "block": "units",
+          "ratio": [
+            0.65,
+            0.78
+          ],
+          "area_sqm": [
+            3575,
+            4290
+          ],
+          "source": "derived"
+        },
+        {
+          "block": "balcony",
+          "ratio": [
+            0.03,
+            0.05
+          ],
+          "area_sqm": [
+            165,
+            275
+          ],
+          "source": "user"
+        }
+      ],
+      "core_anchor_mm": [
+        30000,
+        30000
+      ],
+      "note": "塔楼 4 层起每层扭转 4.5°，6-7 层挑空大堂"
+    }
+  ],
+  "requirements": [
+    {
+      "subject": "bedroom",
+      "rule": "faces_south",
+      "strength": "must"
+    },
+    {
+      "subject": "bathroom",
+      "rule": "near_core",
+      "strength": "prefer"
+    }
+  ],
+  "vertical_relations": [
+    {
+      "type": "core_continuous",
+      "from": "tower",
+      "through": "podium",
+      "to_ground": true
+    }
+  ],
+  "standards": {
+    "packs": [
+      "retail",
+      "residence"
+    ],
+    "overrides": {
+      "corridor_min_width_mm": 2400,
+      "accessibility": true
+    },
+    "emphases": [
+      "核心筒紧凑点，占总面积 10% 左右",
+      "所有卧室尽量朝南",
+      "走廊别太宽，2.4 米内"
+    ]
+  },
+  "design_rationale": "aspect_ratio=1.0 且 deep_zone_ratio=0.57 → 裙房商业满铺占地+塔楼住宅上叠，核心筒居中吃暗区"
+}

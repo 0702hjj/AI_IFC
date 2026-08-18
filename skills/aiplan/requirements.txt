@@ -1,0 +1,6 @@
+# aiplan 自包含依赖（独立 venv，不借下游 skill 环境）
+# aiplan_tools 可编辑安装：console_scripts（aiplan-*）供 agent 运行期调用，源码只读
+--editable ./scripts/packages/aiplan_tools
+jsonschema
+shapely
+pytest

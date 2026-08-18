@@ -1,0 +1,8 @@
+{
+ "frame": {
+  "units": "mm",
+  "origin": "lot_southwest",
+  "north_deg": 0,
+  "modulus": 100
+ }
+}
