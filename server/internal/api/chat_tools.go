@@ -2,8 +2,8 @@
 // Copyright (C) 2026 0702hjj
 
 // chat_tools.go：agent 领域工具集在 chat 模块的装配——ToolDeps 适配（会话绑定
-// 模型解析 / dirty 精确信号 / create_project 骨架生成复用）。工具本体与路由守卫
-// 见 internal/agent/tools.go；本文件只做 deps 的胶水与锁纪律。
+// 模型解析 / dirty 精确信号 / staged 中途预览信号 / create_project 骨架生成复用）。
+// 工具本体与路由守卫见 internal/agent/tools.go；本文件只做 deps 的胶水与锁纪律。
 package api
 
 import (
@@ -31,6 +31,23 @@ func (h *ChatHandler) markSessionDirty(ctx context.Context) {
 			cs.dirty = true
 		}
 	}
+}
+
+// pushStaged 是 run_script 工具的中途预览信号适配器：会话解析同 markSessionDirty
+// （agentSessionId → chatSessionId），经 pushSystem 推 viewer.staged——载荷严格
+// {modelId, kind}，主会话事件（无 subagentId）。pushSystem 自持锁，此处只读解析。
+func (h *ChatHandler) pushStaged(ctx context.Context, modelID, kind string) {
+	sid := agent.SessionIDFromContext(ctx)
+	if sid == "" {
+		return
+	}
+	h.mu.RLock()
+	cid, ok := h.byAgent[sid]
+	h.mu.RUnlock()
+	if !ok {
+		return
+	}
+	h.pushSystem(cid, "viewer.staged", map[string]any{"modelId": modelID, "kind": kind})
 }
 
 // sessionBoundModel 解析 ctx 会话绑定的 modelId（agentSessionId → chatSession →
@@ -79,6 +96,7 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		St:            h.deps.St,
 		SessionModel:  h.sessionBoundModel,
 		MarkDirty:     h.markSessionDirty,
+		PushStaged:    h.pushStaged,
 		CreateProject: h.createProjectForAgent,
 	}
 }

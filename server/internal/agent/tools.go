@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
@@ -42,6 +43,9 @@ type ToolDeps struct {
 	// MarkDirty 在变更类工具成功后标记会话 dirty（notify 精确信号，不再只靠 mtime）；
 	// create_project 不置位（新模型与绑定模型是两个对象，置位会让 notify 错绑管线）；可空。
 	MarkDirty func(ctx context.Context)
+	// PushStaged 在 run_script 成功后推送 viewer.staged 中途预览信号
+	// （{modelId, kind} 载荷，走 pushSystem 管线；同 MarkDirty 的可空适配器模式）；可空。
+	PushStaged func(ctx context.Context, modelID, kind string)
 	// CreateProject 创建骨架项目（复用 chat 骨架 IFC 生成 + 注册 + 入队转换）；可空。
 	CreateProject func(ctx context.Context, title string) (any, error)
 }
@@ -49,6 +53,12 @@ type ToolDeps struct {
 func (d ToolDeps) markDirty(ctx context.Context) {
 	if d.MarkDirty != nil {
 		d.MarkDirty(ctx)
+	}
+}
+
+func (d ToolDeps) pushStaged(ctx context.Context, m *store.Model) {
+	if d.PushStaged != nil {
+		d.PushStaged(ctx, m.ID, m.Kind)
 	}
 }
 
@@ -98,6 +108,38 @@ func toolJSON(v any) string {
 		return fmt.Sprintf(`{"error":%q}`, err.Error())
 	}
 	return truncateToolResult(string(raw))
+}
+
+// stagingDiffSummary 拉 staging 最近两步的轻量脚本 diff（GET /script/staging/diff）
+// 并折叠为一行摘要：行级 added/removed 计数 + PARAMS 变化行——追加进 run_script
+// 工具结果，tool 卡片零改动即可显示，AI 也能观测自纠。
+// diff 不可用（少于两个暂存步 409、后端错误、响应畸形）返回空串降级——
+// 摘要是观测增强，绝不拖垮已成功的 run 结果。
+func stagingDiffSummary(ctx context.Context, cl *editsvc.Client, modelID string) string {
+	raw, err := cl.Do(ctx, http.MethodGet, "/models/"+modelID+"/script/staging/diff", nil)
+	if err != nil {
+		return ""
+	}
+	var d struct {
+		Stats         editsvc.ScriptDiffStats     `json:"stats"`
+		ParamsChanges []editsvc.ScriptParamChange `json:"params_changes"`
+	}
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "[staging diff] added=%d removed=%d", d.Stats.Added, d.Stats.Removed)
+	for _, c := range d.ParamsChanges {
+		switch c.Action {
+		case "added":
+			fmt.Fprintf(&b, "\nPARAMS + %s = %v", c.Key, c.New)
+		case "removed":
+			fmt.Fprintf(&b, "\nPARAMS - %s (旧值 %v)", c.Key, c.Old)
+		default: // modified
+			fmt.Fprintf(&b, "\nPARAMS ~ %s: %v -> %v", c.Key, c.Old, c.New)
+		}
+	}
+	return b.String()
 }
 
 // toolRaw 把后端原始响应转为工具输出；错误文本化（不抛 Go error 中断 ReAct 循环）。
@@ -210,7 +252,12 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 					return toolErr(err), nil
 				}
 				deps.markDirty(ctx)
-				return toolRaw(out, nil)
+				deps.pushStaged(ctx, m)
+				text := truncateToolResult(string(out))
+				if s := stagingDiffSummary(ctx, cl, m.ID); s != "" {
+					text += "\n" + s
+				}
+				return truncateToolResult(text), nil
 			}),
 
 		mustTool("save_script", "沙箱执行并落大版本（scripts/v{n}.py + 版本快照，原子）；save 前确保已 stage_script",
