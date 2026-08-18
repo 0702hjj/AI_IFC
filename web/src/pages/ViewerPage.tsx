@@ -132,9 +132,15 @@ export default function ViewerPage() {
   return (
     <div className="viewer-page">
       {kind === null ? null : kind === "dxf" ? (
-        <DxfViewer key={reloadKey} modelId={id} />
+        // DesignPanel 纯 REST+store（无 viewer context 依赖），直接挂侧栏即可
+        <div className="viewer-split">
+          <DxfViewer key={reloadKey} modelId={id} />
+          <aside className="design-side">
+            <DesignPanel modelId={id} />
+          </aside>
+        </div>
       ) : engine === "webifc" ? (
-        <>
+        <div className="viewer-split">
           <button
             type="button"
             className="engine-switch-btn"
@@ -145,7 +151,10 @@ export default function ViewerPage() {
           <Suspense fallback={<div className="viewer-status">引擎加载中…</div>}>
             <IfcLiteViewer key={`${reloadKey}-webifc`} modelId={id} />
           </Suspense>
-        </>
+          <aside className="design-side">
+            <DesignPanel modelId={id} />
+          </aside>
+        </div>
       ) : (
         <ViewerProvider key={`${reloadKey}-xeokit`} modelId={id}>
           {stagedBanner && (

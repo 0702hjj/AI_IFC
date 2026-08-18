@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, renderJsonUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, locateScript, createChatProject, chatEventsUrl } from "./client";
+import { listModels, fetchModel, uploadModel, deleteModel, downloadUrl, renderJsonUrl, listIssues, createIssue, updateIssue, deleteIssue, fetchEditVersions, postEditDiff, fetchScript, fetchScriptParams, stageScript, stageScriptParams, scriptUndo, scriptRedo, discardScript, runScript, saveScript, rollbackScript, fetchScriptVersions, postScriptDiff, fetchStagingDiff, locateScript, locateScriptByKey, createChatProject, chatEventsUrl } from "./client";
 import { setToken, clearToken, onUnauthorized } from "./auth";
 
 const envelope = (data: unknown) => ({ code: 0, message: "ok", data });
@@ -109,6 +109,28 @@ describe("script locate api", () => {
       new Response(JSON.stringify(envelope({ found: false })), { status: 200 })));
     const res = await locateScript("m_1", "g1");
     expect(res.found).toBe(false);
+  });
+
+  it("locateScriptByKey GETs locate endpoint with key query (dxf XDATA key)", async () => {
+    const located = {
+      found: true, key: "0:line:1", line: 7, col: 2,
+      snippet: "line(...)", origin: "traced",
+    };
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope(located)), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    const res = await locateScriptByKey("m_1", "0:line:1");
+    expect((spy.mock.calls[0] as unknown as [string])[0]).toBe(
+      "/api/v1/models/m_1/script/locate?key=0%3Aline%3A1"
+    );
+    expect(res).toEqual(located);
+  });
+
+  it("locateScriptByKey stale degrade returns found=false without throwing", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      new Response(JSON.stringify(envelope({ found: false, key: "k", stale: true })), { status: 200 })));
+    const res = await locateScriptByKey("m_1", "k");
+    expect(res.found).toBe(false);
+    expect(res.stale).toBe(true);
   });
 });
 

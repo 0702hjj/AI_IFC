@@ -90,3 +90,19 @@
   border-color: #d97706;
   color: #92400e;
 }
+
+/* dxf / webifc 分支布局：查看器弹性伸展 + 右侧 DesignPanel 侧栏（暗色，对齐
+   DesignPanel 既有配色；DesignPanel 纯 REST+store，无需 ViewerProvider） */
+.viewer-split {
+  display: flex;
+  flex: 1;
+  order: 1;
+  min-width: 0;
+}
+
+.design-side {
+  width: 300px;
+  border-left: 1px solid #30363d;
+  background: #0d1117;
+  overflow-y: auto;
+}

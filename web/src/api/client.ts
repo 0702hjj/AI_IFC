@@ -214,3 +214,9 @@ export function locateScript(modelId: string, guid: string) {
     `/api/v1/models/${modelId}/script/locate?guid=${encodeURIComponent(guid)}`
   );
 }
+// dxf 侧同构端点：XDATA key → 脚本调用点（cad edit-service 按 key 定位，query 透传）
+export function locateScriptByKey(modelId: string, key: string) {
+  return request<ScriptLocateResult>(
+    `/api/v1/models/${modelId}/script/locate?key=${encodeURIComponent(key)}`
+  );
+}
