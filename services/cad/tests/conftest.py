@@ -13,14 +13,7 @@ import ezdxf
 import pytest
 from fastapi.testclient import TestClient
 
-FLOWS_DIR = (
-    Path(__file__).resolve().parents[3]
-    / "skills"
-    / "aidxfv"
-    / "v1"
-    / "scripts"
-    / "flows"
-)
+FLOWS_DIR = Path(__file__).resolve().parents[1] / "flows"
 sys.path.insert(0, str(FLOWS_DIR))
 
 import cad_script_lib  # noqa: E402

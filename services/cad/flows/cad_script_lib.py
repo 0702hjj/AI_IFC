@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """cad_script_lib.py — DXF 构建脚本公共 helper(services/cad script-as-source 契约层)。
 
-契约(见 skills/aidxfv/v1/SKILL.md「services/cad 脚本契约」节, 镜像 aiifc script_lib):
+契约(镜像 aiifc script_lib; 本文件原属 skills/aidxfv/v1 flows, 2026-08-18 随 v1 删除迁入本目录):
 - 脚本头部有 `PARAMS = {...}` 顶层字面量 dict(JSON-compatible, 所有可调参数集中于此)
 - 实体稳定身份 = XDATA 确定性 key(APPID ``AIDXF``); DXF handle 由 CAD 软件分配、
   重存全变, 不能当身份用; key 格式 `{layer}:{kind}:{n}`(kind 小写, n 从 1 起),

@@ -11,7 +11,8 @@
 - **坐标**：保留原始 DXF 坐标系，不做 screen 归一化（v1 的归一化是 CLI
   预览遗留，v2 交给前端变换）；数字一律 round 6。
 - **LWPOLYLINE 炸开**：直线段 → LINE 条目，bulge 段 → ARC 条目（bulge→arc
-  数学移植自 ``skills/aidxfv/v1/scripts/dxf/render_payload.py``），同 key
+  数学移植自 aidxfv v1 的 ``scripts/dxf/render_payload.py``——该文件已随
+  v1 遗留版本退役删除），同 key
   多条目。ARC 角度制：``start_angle`` 归一化到 [0,360)，``end_angle`` =
   start + sweep（不归一化，sweep 可负/超 360）。
 - **INSERT 展开一层**（范围裁决）：仅应用 translate + rotate + **等比正

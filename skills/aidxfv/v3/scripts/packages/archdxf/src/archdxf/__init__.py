@@ -1,6 +1,6 @@
 """archdxf: architectural DXF drafting primitives (self-written, ezdxf-based).
 
-Drawing-construction layer for aidxfv1 gen_dxf() sources: wall frames,
+Drawing-construction layer for aidxfv3 gen_dxf() sources: wall frames,
 opening subtraction, door/window symbols, fixtures, annotation chains.
 Design decisions (where walls are, what openings exist) stay with the
 caller; this library only expands declarations into standard drafting.

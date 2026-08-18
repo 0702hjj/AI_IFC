@@ -58,6 +58,27 @@ describe("script jump", () => {
   });
 });
 
+describe("staged preview (viewer.staged)", () => {
+  beforeEach(() => {
+    useViewerStore.setState({ stagedPreview: null, pendingModelReload: false });
+  });
+
+  it("flagStagedPreview 记录 modelId/kind，同一 model 重复事件 nonce 递增", () => {
+    useViewerStore.getState().flagStagedPreview({ modelId: "m_1", kind: "dxf" });
+    const first = useViewerStore.getState().stagedPreview;
+    expect(first).toMatchObject({ modelId: "m_1", kind: "dxf" });
+    useViewerStore.getState().flagStagedPreview({ modelId: "m_1", kind: "dxf" });
+    const second = useViewerStore.getState().stagedPreview;
+    expect(second).toMatchObject({ modelId: "m_1", kind: "dxf" });
+    expect(second!.nonce).not.toBe(first!.nonce);
+  });
+
+  it("flagStagedPreview 不触碰 pendingModelReload 既有语义", () => {
+    useViewerStore.getState().flagStagedPreview({ modelId: "m_1", kind: "ifc" });
+    expect(useViewerStore.getState().pendingModelReload).toBe(false);
+  });
+});
+
 describe("visibility", () => {
   beforeEach(() => {
     useViewerStore.getState().resetVisibility();

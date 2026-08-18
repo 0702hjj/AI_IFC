@@ -42,6 +42,7 @@ const storeState = vi.hoisted(() => ({
   chatOpen: true,
   setChatOpen: vi.fn(),
   flagPendingModelReload: vi.fn(),
+  flagStagedPreview: vi.fn(),
 }));
 vi.mock("@/viewer/store", () => ({
   useViewerStore: (sel: any) => sel(storeState),
@@ -272,6 +273,23 @@ describe("ChatSidebar SSE 流式渲染", () => {
     const es = await renderSidebar();
     emit(es, "viewer.notify_failed", { step: "commit", reason: "磁盘满" });
     expect(await screen.findByText("⚠️ 落盘失败（commit）：磁盘满")).toBeTruthy();
+  });
+
+  it("viewer.staged 事件写入 stagedPreview（modelId/kind 透传）", async () => {
+    const es = await renderSidebar();
+    emit(es, "viewer.staged", { modelId: "m_0123456789abcdef", kind: "dxf" });
+    expect(storeState.flagStagedPreview).toHaveBeenCalledWith({
+      modelId: "m_0123456789abcdef",
+      kind: "dxf",
+    });
+  });
+
+  it("viewer.staged 非法载荷（缺 modelId / 未知 kind / 非 JSON）被忽略", async () => {
+    const es = await renderSidebar();
+    emit(es, "viewer.staged", { kind: "dxf" });
+    emit(es, "viewer.staged", { modelId: "m_1", kind: "pdf" });
+    emit(es, "viewer.staged", "not-json{{{");
+    expect(storeState.flagStagedPreview).not.toHaveBeenCalled();
   });
 
   it("session.status busy 显示打字指示，idle 后消失", async () => {
