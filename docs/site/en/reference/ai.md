@@ -90,6 +90,16 @@ curl -X POST "$BASE/models/$MID/diff" \
 
 > Direct run/save calls do **not** trigger Go-side XKT reconversion. For frontend-visible refreshes use the Go proxy: `http://127.0.0.1:8090/api/v1/models/$MID/script/...`.
 
+## Mid-run live preview
+
+When the built-in chat agent's `run_script` sandbox run succeeds, the server pushes an SSE event `event: viewer.staged` (`data: {"modelId","kind":"ifc"|"dxf"}`, exactly two fields, same push pipeline as `viewer.committed`) so humans can see intermediate results **before a big version is saved**:
+
+- **dxf pipeline**: render.json is mounted directly — the canvas refreshes automatically.
+- **ifc + webifc engine**: web-ifc reads IFC directly — the viewer remounts automatically.
+- **ifc + xeokit engine**: XKT reconversion is slow and flickery, so no auto-refresh — a badge "AI 中间结果 · 点击预览" appears at the top-left of the canvas and reloads only on click.
+
+The `run_script` tool result also ends with a staging diff summary (`[staging diff] added=N removed=M` plus `PARAMS +/-/~ key ...` lines, reusing `GET /script/staging/diff`; degrades to an empty string when the diff is unavailable) so the AI can self-correct against expectations. On run failure no event is pushed and no summary is appended.
+
 ## Contract highlights
 
 - **Script contract** (aiifc skill MUST #25-31): top-level literal `PARAMS` dict; elements created via the `script_lib.create_entity` factory (deterministic GlobalId + `Pset_AIIFC.designKey` + callsite recording, C-locate #30); web-editable parameters are scalar literals or PARAMS references (C-scalar #31); `build(params, out_path)` entry; output passes `ifcopenshell.validate`.

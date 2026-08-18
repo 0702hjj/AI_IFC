@@ -8,7 +8,7 @@
 自托管、开源（Apache-2.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
 - **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
-- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B+C 服务端已交付（骨架/沙箱/REST + diff/locate/edit-call + render.json + Go 代理 + web DXF Canvas 查看器（只读）已交付；IFC 侧 web-ifc 查看器已交付（W-0044，与 xeokit 并存渐进），编辑待续）——`skills/aiplan/`（plan 阶段，管线入口）+ `skills/aidxfv/`（**v3 正式版已上线，唯一迭代基线**；v1/v2 遗留版已于 2026-08-18 删除，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。plan→cad 管线 I/O：aiplan（输入无特殊要求；输出 `plan.json` + `bim_supplement.json`，schema 见 `skills/aiplan/references/schemas/`）→ aidxfv v3（输入 plan.json 只读 + 用户额外描述；输出 `building.json` + 各层 DXF）——契约与说明文档见 `docs/site/reference/ai-skill.md`（公开站），安装/打包见 `docs/site/guide/skills.md`。
+- **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B+C 服务端已交付（骨架/沙箱/REST + diff/locate/edit-call + render.json + Go 代理 + web DXF Canvas 查看器已交付（W-0041），IFC 侧 web-ifc 查看器已交付（W-0044，与 xeokit 并存渐进）；dxf/webifc 编辑面（DesignPanel 全套 + dxf 选中定位脚本）与 viewer.staged 中途预览已交付（W-0045））——`skills/aiplan/`（plan 阶段，管线入口）+ `skills/aidxfv/`（**v3 正式版已上线，唯一迭代基线**；v1/v2 遗留版已于 2026-08-18 删除，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。plan→cad 管线 I/O：aiplan（输入无特殊要求；输出 `plan.json` + `bim_supplement.json`，schema 见 `skills/aiplan/references/schemas/`）→ aidxfv v3（输入 plan.json 只读 + 用户额外描述；输出 `building.json` + 各层 DXF）——契约与说明文档见 `docs/site/reference/ai-skill.md`（公开站），安装/打包见 `docs/site/guide/skills.md`。
 - **推荐项：Agent 工作流控制**（已落地：Eino 进程内 chat agent + 主子编排 subagent-as-tool（W-0043），opencode serve 已退役）——提示词资产 `skills/aibim-orchestrator` + `.opencode/`（不再被 server 消费）；代码级 orchestrator 不再追求，原设计见 `2026-08-11-orchestrator-design.md`。
 
 两逻辑共享运行时骨架：`web`（可选前端）/ `server`（Go 网关 :8090）/ `converter`（Node 转换）/ `services/ifc`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
@@ -27,11 +27,11 @@ AI agent ──► REST 编辑 API ────┘
 
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
-| web (React 19 + xeokit + web-ifc 双引擎 IFC 查看器 + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，289 用例 / 26 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
-| server (Go 1.26，stdlib + pgx/v5 + cloudwego/eino) | `server` | `go test ./...`（238 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
+| web (React 19 + xeokit + web-ifc 双引擎 IFC 查看器 + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，312 用例 / 27 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
+| server (Go 1.26，stdlib + pgx/v5 + cloudwego/eino) | `server` | `go test ./...`（245 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
 | edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（243 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
-| cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（209 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
+| cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（210 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
 | mcp-server (Python + mcp 2.x MCPServer，stdio) | `mcp` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
 | skill 打包 | `tools/skill_pack.py`（泛化打包器：`--skill <name>` 默认 aiifc，`--skill-dir <path>` 任意 skill） | `python -m pytest tests/skill/ -q`（143 测试，CI 用独立 .ci-venv） | `python tools/skill_pack.py --archive`（默认 aiifc；`--skill-dir skills/aidxfv/v3 --archive` 打 CAD v3；`--skill-dir skills/aiplan --archive` 打 plan） |
 | 端到端 | `scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
