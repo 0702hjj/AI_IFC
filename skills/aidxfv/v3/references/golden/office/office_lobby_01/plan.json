@@ -1,0 +1,104 @@
+{
+ "version": 3,
+ "project": "写字楼首层（大堂层）",
+ "site": {
+  "lot_polygon_mm": [
+   [
+    0.0,
+    0.0
+   ],
+   [
+    49005.0,
+    0.0
+   ],
+   [
+    49005.0,
+    48700.0
+   ],
+   [
+    0.0,
+    48700.0
+   ]
+  ],
+  "origin": "lot_southwest",
+  "north_deg": 0,
+  "setbacks_mm": {
+   "front": 0,
+   "rear": 0,
+   "left": 0,
+   "right": 0
+  }
+ },
+ "zones": [
+  {
+   "id": "lobby",
+   "function": "office",
+   "floors": {
+    "from": 1,
+    "to": 1
+   },
+   "floor_height_mm": 3000,
+   "outline_mm": [
+    {
+     "outer": {
+      "vertices": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        49005.0,
+        0.0
+       ],
+       [
+        49005.0,
+        48700.0
+       ],
+       [
+        0.0,
+        48700.0
+       ]
+      ],
+      "arcs": []
+     },
+     "holes": [],
+     "arcs": []
+    }
+   ],
+   "program": [
+    {
+     "room": "unspecified"
+    }
+   ],
+   "core": {
+    "vertices": [
+     [
+      16900.0,
+      15600.0
+     ],
+     [
+      33520.0,
+      15600.0
+     ],
+     [
+      33520.0,
+      32700.0
+     ],
+     [
+      16900.0,
+      32700.0
+     ]
+    ],
+    "arcs": []
+   },
+   "core_anchor_mm": [
+    25210,
+    24150
+   ],
+   "typology_candidates": [
+    "核心筒居中环廊（首层大堂变体）"
+   ]
+  }
+ ],
+ "design_rationale": "rings四边矩形 49.0×48.7m（axis_grid）+ 居中核心筒 16.6×17.1m rings（与标准层同位）"
+}

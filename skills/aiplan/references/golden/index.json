@@ -1,0 +1,147 @@
+{
+ "_meta": {
+  "description": "aiplan golden 案例索引。每条含 case_id/type/source/implements/template_worthy。plan_only=True 的案例无 cad 端对应。",
+  "updated": "2026-08-13",
+  "双端对齐": "case_id 集合与 aidxfv3/references/index.json 一致（plan_only 案例除外）"
+ },
+ "cases": [
+  {
+   "case_id": "demo_commercial_residential",
+   "type": "mixed",
+   "path": "demo/",
+   "implements": [
+    "podium_tower"
+   ],
+   "template_worthy": true,
+   "source": "aiplan 金样（design_intent_demo.json 迁移）",
+   "plan_only": true,
+   "cad_status": "done",
+   "一句话": "裙房满铺+塔楼上叠"
+  },
+  {
+   "case_id": "hotel_std_01",
+   "type": "hotel",
+   "path": "hotel/hotel_std_01/",
+   "implements": [
+    "arc_fillet_corners"
+   ],
+   "template_worthy": null,
+   "source": "data/gold/单_酒店平面图.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "矩形+四角arc+居中核"
+  },
+  {
+   "case_id": "office_lobby_01",
+   "type": "office",
+   "path": "office/office_lobby_01/",
+   "implements": [
+    "core_stack_alignment"
+   ],
+   "template_worthy": null,
+   "source": "data/gold/写字一楼.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "核心筒居中环廊（首层大堂变体）"
+  },
+  {
+   "case_id": "office_std_01",
+   "type": "office",
+   "path": "office/office_std_01/",
+   "implements": [],
+   "template_worthy": null,
+   "source": "data/gold/写字普通层.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "核心筒居中环廊"
+  },
+  {
+   "case_id": "res_2s4u_std",
+   "type": "residence",
+   "path": "residence/res_2s4u_std/",
+   "implements": [
+    "irregular_edge_polyline",
+    "multi_core_rings"
+   ],
+   "template_worthy": true,
+   "source": "data/gold/住宅楼.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "并排多单元板式（一梯两户×2单元）"
+  },
+  {
+   "case_id": "res_3c6u_std",
+   "type": "residence",
+   "path": "residence/res_3c6u_std/",
+   "implements": [
+    "projection_on_edge",
+    "multi_core_rings",
+    "convex_core_path"
+   ],
+   "template_worthy": null,
+   "source": "data/gold/四至十八层平面图.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "规则凸出+三凸字核"
+  },
+  {
+   "case_id": "retail_mall_01",
+   "type": "retail",
+   "path": "retail/retail_mall_01/",
+   "implements": [
+    "irregular_edge_polyline",
+    "arc_fillet_corners",
+    "holes_courtyard",
+    "multi_core_rings"
+   ],
+   "template_worthy": null,
+   "source": "data/gold/商场.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "异形+四角arc+中庭+双核"
+  },
+  {
+   "case_id": "retail_wanda_cinema",
+   "type": "retail",
+   "path": "retail/retail_wanda_cinema/",
+   "implements": [
+    "irregular_edge_polyline",
+    "multi_core_rings"
+   ],
+   "template_worthy": null,
+   "source": "data/gold/万达顶层.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "十顶点异形+双核"
+  },
+  {
+   "case_id": "retail_wanda_std",
+   "type": "retail",
+   "path": "retail/retail_wanda_std/",
+   "implements": [
+    "irregular_edge_polyline",
+    "holes_courtyard",
+    "multi_core_rings"
+   ],
+   "template_worthy": null,
+   "source": "data/gold/万达普通层.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "九顶点异形+双中庭+三核"
+  },
+  {
+   "case_id": "floorplan_structure",
+   "type": "single_family",
+   "path": "single_family/floorplan_structure/",
+   "implements": [
+    "irregular_edge_polyline",
+    "multi_rings_same_zone"
+   ],
+   "template_worthy": true,
+   "source": "data/floorplan_结构.dxf",
+   "plan_only": false,
+   "cad_status": "done",
+   "一句话": "L形主屋+露台双ring"
+  }
+ ]
+}

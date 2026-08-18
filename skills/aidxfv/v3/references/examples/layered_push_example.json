@@ -1,0 +1,431 @@
+{
+ "案例说明": "30×30m 环带办公层——形态族 A：core 居中 → corridor 外缘分段（机器差集出走廊带）→ 大区 = outline − corridor（机器差集）→ 2 条径向切割线锚定 → blocks between 认领东西两块 → rooms 在东块画分墙",
+ "skeleton_DSL": {
+  "frame": {
+   "units": "mm",
+   "origin": "lot_southwest",
+   "north_deg": 0,
+   "modulus": 100
+  },
+  "zones": [
+   {
+    "zone": "tower",
+    "outline": [
+     {
+      "outer": {
+       "vertices": [
+        [
+         0,
+         0
+        ],
+        [
+         30000,
+         0
+        ],
+        [
+         30000,
+         30000
+        ],
+        [
+         0,
+         30000
+        ]
+       ]
+      }
+     }
+    ],
+    "core": {
+     "anchor": [
+      15000,
+      15000
+     ],
+     "vertices": [
+      [
+       10000,
+       10000
+      ],
+      [
+       20000,
+       10000
+      ],
+      [
+       20000,
+       20000
+      ],
+      [
+       10000,
+       20000
+      ]
+     ]
+    },
+    "corridor": {
+     "form": "path",
+     "width_mm": 5000,
+     "path": {
+      "edges": {
+       "west": [
+        [
+         5000,
+         5000
+        ],
+        [
+         5000,
+         25000
+        ]
+       ],
+       "north": [
+        [
+         5000,
+         25000
+        ],
+        [
+         25000,
+         25000
+        ]
+       ],
+       "east": [
+        [
+         25000,
+         25000
+        ],
+        [
+         25000,
+         5000
+        ]
+       ],
+       "south": [
+        [
+         25000,
+         5000
+        ],
+        [
+         5000,
+         5000
+        ]
+       ]
+      }
+     }
+    },
+    "main_partitions": [
+     {
+      "id": "cut:0",
+      "role": "radial",
+      "from": {
+       "ref": "corridor:outer",
+       "edge": "N",
+       "at": 0.5
+      },
+      "to": {
+       "ref": "outline:edge:2",
+       "at": 0.5
+      }
+     },
+     {
+      "id": "cut:1",
+      "role": "radial",
+      "from": {
+       "ref": "corridor:outer",
+       "edge": "S",
+       "at": 0.5
+      },
+      "to": {
+       "ref": "outline:edge:0",
+       "at": 0.5
+      }
+     }
+    ],
+    "blocks": [
+     {
+      "id": "b_east",
+      "role": "open_office",
+      "between": [
+       "cut:0",
+       "cut:1"
+      ],
+      "side": "E"
+     },
+     {
+      "id": "b_west",
+      "role": "units",
+      "between": [
+       "cut:0",
+       "cut:1"
+      ],
+      "side": "W"
+     }
+    ],
+    "typology": "环带办公",
+    "typology_reason": "core 居中，corridor 环绕",
+    "note_responses": [],
+    "deviations": [],
+    "defaults_used": []
+   }
+  ]
+ },
+ "机器分区产物": {
+  "corridor_zone_area_sqm": 300.0,
+  "big_zones_area_sqm": [
+   500.0
+  ],
+  "cuts_line_mm": [
+   {
+    "id": "cut:0",
+    "line_mm": [
+     [
+      15000.0,
+      25000.0
+     ],
+     [
+      15000.0,
+      30000.0
+     ]
+    ]
+   },
+   {
+    "id": "cut:1",
+    "line_mm": [
+     [
+      15000.0,
+      5000.0
+     ],
+     [
+      15000.0,
+      0.0
+     ]
+    ]
+   }
+  ],
+  "blocks": [
+   {
+    "id": "b_east",
+    "role": "open_office",
+    "area_sqm": 250.0
+   },
+   {
+    "id": "b_west",
+    "role": "units",
+    "area_sqm": 250.0
+   }
+  ],
+  "axis_grid_derived": {
+   "x": [
+    0.0,
+    5000.0,
+    10000.0,
+    15000.0,
+    20000.0,
+    25000.0,
+    30000.0
+   ],
+   "y": [
+    0.0,
+    5000.0,
+    10000.0,
+    20000.0,
+    25000.0,
+    30000.0
+   ]
+  },
+  "partition_labels": [
+   {
+    "block": "b_east",
+    "tag": "BLOCK_b_east",
+    "at_mm": [
+     24500.0,
+     15000.0
+    ]
+   },
+   {
+    "block": "b_west",
+    "tag": "BLOCK_b_west",
+    "at_mm": [
+     5500.0,
+     15000.0
+    ]
+   }
+  ]
+ },
+ "rooms_DSL": {
+  "floor": "tower_std",
+  "zone_ref": "skeleton.json#zones[tower]",
+  "partitions": {
+   "office_east": "block:b_east"
+  },
+  "walls": [
+   {
+    "key": "1F:int:0",
+    "kind": "int",
+    "t_mm": 120,
+    "axis": [
+     [
+      21000,
+      5000
+     ],
+     [
+      21000,
+      25000
+     ]
+    ]
+   },
+   {
+    "key": "1F:int:1",
+    "kind": "int",
+    "t_mm": 120,
+    "axis": [
+     [
+      26000,
+      5000
+     ],
+     [
+      26000,
+      25000
+     ]
+    ]
+   }
+  ],
+  "labels": [
+   {
+    "room": "office_01",
+    "type": "office",
+    "area_sqm": 80,
+    "frontage": "E",
+    "at": [
+     23500,
+     15000
+    ]
+   },
+   {
+    "room": "meeting_01",
+    "type": "meeting",
+    "area_sqm": 250,
+    "at": [
+     23500,
+     27000
+    ]
+   }
+  ],
+  "requirements_trace": [],
+  "deviations": [],
+  "defaults_used": []
+ },
+ "机器房间产物": {
+  "walls": [
+   {
+    "key": "1F:int:0",
+    "line_mm": [
+     [
+      21000.0,
+      5000.0
+     ],
+     [
+      21000.0,
+      25000.0
+     ]
+    ]
+   },
+   {
+    "key": "1F:int:1",
+    "line_mm": [
+     [
+      26000.0,
+      5000.0
+     ],
+     [
+      26000.0,
+      25000.0
+     ]
+    ]
+   }
+  ],
+  "rooms": [
+   {
+    "room": "office_01",
+    "area_sqm": 80.0,
+    "polygon_mm": {
+     "vertices": [
+      [
+       21000.0,
+       5000.0
+      ],
+      [
+       21000.0,
+       25000.0
+      ],
+      [
+       25000.0,
+       25000.0
+      ],
+      [
+       25000.0,
+       5000.0
+      ]
+     ],
+     "area_sqm": 80.0,
+     "centroid_mm": [
+      23000.0,
+      15000.0
+     ]
+    },
+    "neighbors": [
+     "meeting_01"
+    ]
+   },
+   {
+    "room": "meeting_01",
+    "area_sqm": 250.0,
+    "polygon_mm": {
+     "vertices": [
+      [
+       15000.0,
+       30000.0
+      ],
+      [
+       30000.0,
+       30000.0
+      ],
+      [
+       30000.0,
+       0.0
+      ],
+      [
+       15000.0,
+       0.0
+      ],
+      [
+       15000.0,
+       5000.0
+      ],
+      [
+       21000.0,
+       5000.0
+      ],
+      [
+       25000.0,
+       5000.0
+      ],
+      [
+       25000.0,
+       25000.0
+      ],
+      [
+       21000.0,
+       25000.0
+      ],
+      [
+       15000.0,
+       25000.0
+      ]
+     ],
+     "area_sqm": 250.0,
+     "centroid_mm": [
+      24500.0,
+      15000.0
+     ]
+    },
+    "neighbors": [
+      "office_01"
+     ]
+    }
+   ]
+  }
+}

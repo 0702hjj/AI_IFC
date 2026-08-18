@@ -1,0 +1,14 @@
+{
+  "case_id": "hotel_std_01",
+  "type": "hotel",
+  "source": "data/gold/单_酒店平面图.dxf",
+  "added": "2026-08-13",
+  "implements": [],
+  "template_worthy": null,
+  "derive_facts": {
+    "aspect_ratio": 1.41,
+    "n_guest_rooms": 10,
+    "layout": "double_loading"
+  },
+  "一句话": "酒店标准层：双内廊+居中核心筒+南北客房排"
+}

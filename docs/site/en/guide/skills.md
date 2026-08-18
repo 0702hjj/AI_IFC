@@ -7,12 +7,14 @@
 | Skill | Purpose | License |
 | --- | --- | --- |
 | `aiifc` | IFC authoring/editing (IfcOpenShell reference bundle) | LGPL-3.0 |
+| `aiplan` | Plan-stage skill (external material → plan.json + bim_supplement.json; feeds both cad and bim; no special input requirements) | MIT |
 | `aidxfv1` | General CAD/DXF generation (forked from earthtojake/text-to-cad, self-contained vendored runtime) | MIT |
 | `aidxfv2` | Architectural floor-plan pipeline (plan.json alignment → draft → per-floor DXF) | MIT |
+| `aidxfv3` | plan→cad floor-plan pipeline, official version (aiplan's plan.json → building.json + per-floor DXF; the iteration baseline going forward) | MIT |
 | `aiblueprint-mcp` | MCP server for interactive DXF inspection/editing/measure/preview | MIT |
 | `aibim-orchestrator` | Main-agent orchestration prompt pack (intent routing + sub-agent contracts + plan→cad→ifc relay data contract) | Apache-2.0 |
 
-Each skill's history lives in its bundled `CHANGELOG.md`; current versions are all `0.1.0`.
+Detailed input/output contracts for each skill live in [AI Skill (aiifc / aiplan / aidxfv)](/en/reference/ai-skill); each skill's history lives in its bundled `CHANGELOG.md` (existing skills are all at `0.1.0`).
 
 ## Download
 
@@ -38,6 +40,8 @@ Once installed, the runtime indexes `name`/`description` from `SKILL.md` automat
 
 - **aiifc**: Python with `ifcopenshell` / `ifcquery` / `numpy` (see the bundled `requirements.txt`); for pairing with the `services/ifc` edit service see [services/ifc Standalone](/en/guide/services-ifc).
 - **aidxfv1 / aidxfv2**: Python with `ezdxf` etc. (see the bundled `requirements.txt`).
+- **aidxfv3**: Python with `ezdxf` + `shapely` (see the bundled `requirements.txt`).
+- **aiplan**: only `jsonschema` (see the bundled `requirements.txt`).
 - **aiblueprint-mcp**: MCP-server form; dependencies in its bundled `requirements.txt`, wire it up via the bundled README / opencode.json.
 
 ## Relationship to the platform

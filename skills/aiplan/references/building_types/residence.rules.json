@@ -1,0 +1,50 @@
+{
+  "pack": "residence",
+  "version": 2,
+  "grid_mm": 250,
+  "room_attrs": {
+    "living":   {"privacy": "public",  "needs_exterior": true,  "wet": false, "hub": true},
+    "bedroom":  {"privacy": "private", "needs_exterior": true,  "wet": false},
+    "kitchen":  {"privacy": "shared",  "needs_exterior": false, "wet": true},
+    "bathroom": {"privacy": "private", "needs_exterior": false, "wet": true},
+    "corridor": {"privacy": "public",  "needs_exterior": false, "wet": false},
+    "balcony":  {"privacy": "shared",  "needs_exterior": true,  "wet": false},
+    "stair":    {"privacy": "public",  "needs_exterior": false, "wet": false, "prelocked": true},
+    "shaft":    {"privacy": "public",  "needs_exterior": false, "wet": true,  "prelocked": true},
+    "core":     {"privacy": "public",  "needs_exterior": false, "wet": false, "prelocked": true}
+  },
+  "rules": [
+    {"predicate": "hub_connect", "args": {"hub": "living", "members": ["bedroom.*", "kitchen", "bathroom.*"]}, "strength": "must", "source": "U-B2"},
+    {"predicate": "not_through", "args": {"a": "*", "b": "@private"}, "strength": "must", "source": "U-B2"},
+    {"predicate": "faces", "args": {"room": "bedroom.*", "dir": "s"}, "strength": "must", "source": "U-C5"},
+    {"predicate": "faces", "args": {"room": "living", "dir": "s"}, "strength": "prefer", "source": "U-C5"},
+    {"predicate": "near", "args": {"a": "bathroom.*", "b": "shaft"}, "strength": "prefer", "source": "U-C3"},
+    {"predicate": "near", "args": {"a": "kitchen", "b": "@wet"}, "strength": "prefer", "source": "U-C3"},
+    {"predicate": "no_opening", "args": {"a": "bathroom.*", "b": "kitchen"}, "strength": "must", "source": "U-C1"},
+    {"predicate": "far", "args": {"a": "bedroom.*", "b": "stair"}, "strength": "prefer", "source": "U-C4"},
+    {"predicate": "align_vertical", "args": {"room": "shaft"}, "strength": "must", "source": "U-D2"},
+    {"predicate": "align_vertical", "args": {"room": "stair"}, "strength": "must", "source": "U-D2"}
+  ],
+  "prelocks": [
+    {"types": ["stair", "shaft"], "source": "vertical_relations",
+     "note": "多层对齐:各层预锁格坐标必须一致(align_vertical 编译目标)"},
+    {"types": ["core"], "source": "vertical_relations",
+     "note": "塔楼核心筒贯穿裙房落位时整体预锁"}
+  ],
+  "weights": {
+    "hub_centrality": 1.0,
+    "south_rooms": 1.0,
+    "exterior_utilization": 0.6,
+    "wet_cluster": 0.8,
+    "corridor_length": 0.4,
+    "display_frontage": 0.0,
+    "rectangularity": 0.3
+  },
+  "t4_values": {
+    "corridor_min_width_mm": 1200,
+    "door_min_width_mm": 800,
+    "wall_ext_mm": 200,
+    "wall_int_mm": 100,
+    "note": "经验默认;规范下限待法条引用补全"
+  }
+}

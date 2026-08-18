@@ -1,0 +1,40 @@
+{
+  "case_id": "demo_commercial_residential",
+  "type": "mixed",
+  "name": "示例商住楼（裙房商业 + 塔楼住宅）",
+  "implements": [
+    "podium_tower"
+  ],
+  "source": "aiplan 金样（design_intent_demo.json 迁移）",
+  "derive_facts": {
+    "aspect_ratio": 1.5,
+    "bounding_box_mm": {
+      "w": 60000,
+      "d": 40000,
+      "minx": 0,
+      "miny": 0,
+      "maxx": 60000,
+      "maxy": 40000
+    },
+    "lot_area_sqm": 2400.0,
+    "buildable_area_sqm": 2400.0,
+    "buildable_ratio": 1.0,
+    "exposure_m": {
+      "N": 60.0,
+      "S": 60.0,
+      "E": 40.0,
+      "W": 40.0
+    },
+    "deep_zone_ratio": 0.56,
+    "dominant_axes": "EW",
+    "concave_corners": 0
+  },
+  "verification": {
+    "validate_intent": "pass",
+    "normalize": "pass",
+    "geom_align": "pass（tower ⊆ podium，core 跨层）"
+  },
+  "updated": "2026-08-11",
+  "plan_only": true,
+  "template_worthy": true
+}

@@ -1,0 +1,9 @@
+{
+  "case_id": "retail_wanda_cinema",
+  "type": "retail",
+  "source": "data/gold/万达顶层.dxf",
+  "added": "2026-08-13",
+  "implements": [],
+  "template_worthy": null,
+  "一句话": "影院层变体"
+}

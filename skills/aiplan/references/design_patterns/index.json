@@ -1,0 +1,148 @@
+{
+ "_meta": {
+  "description": "design_patterns 检索索引。2d_outline 为 rings.edges+segments 现行协议（2026-08-13 按 golden 重写）。写 design_intent 前按适用条件取 pattern，DSL 对照 golden。",
+  "对齐": "design_intent.schema.json rings；golden/*",
+  "结构": "2d_outline/（轮廓/segment/hole/core）+ 3d_space/（竖向）",
+  "version": 4,
+  "updated": "2026-08-13"
+ },
+ "layers": {
+  "2d_outline": "2D 轮廓：四边折线 / 边内大折 / 多 ring / projection / arc / 中庭 / 多核",
+  "3d_space": "3D 竖向：裙房+塔楼 / 核心筒跨层对齐"
+ },
+ "patterns": [
+  {
+   "pattern_id": "edges_four_sides",
+   "layer": "2d_outline",
+   "file": "2d_outline/form_patterns.md",
+   "dsl_anchor": "## pattern: edges_four_sides（四边拼合）",
+   "适用条件": {},
+   "一句话": "东南西北折线拼合封闭环，角点共享",
+   "golden": [
+    "hotel/hotel_std_01"
+   ]
+  },
+  {
+   "pattern_id": "irregular_edge_polyline",
+   "layer": "2d_outline",
+   "file": "2d_outline/form_patterns.md",
+   "dsl_anchor": "## pattern: irregular_edge_polyline（边内大折）",
+   "适用条件": {
+    "irregular_outline": true
+   },
+   "一句话": "斜墙/切角/异形大折直接写在边多顶点上",
+   "golden": [
+    "residence/res_2s4u_std",
+    "retail/retail_wanda_std",
+    "retail/retail_wanda_cinema"
+   ]
+  },
+  {
+   "pattern_id": "multi_rings_same_zone",
+   "layer": "2d_outline",
+   "file": "2d_outline/form_patterns.md",
+   "dsl_anchor": "## pattern: multi_rings_same_zone（同 zone 多分区）",
+   "适用条件": {
+    "detached_volumes": true
+   },
+   "一句话": "同一 zone 多个独立 outline（主屋+露台）",
+   "golden": [
+    "single_family/floorplan_structure"
+   ]
+  },
+  {
+   "pattern_id": "projection_on_edge",
+   "layer": "2d_outline",
+   "file": "2d_outline/segment_patterns.md",
+   "dsl_anchor": "## pattern: projection_on_edge（规则凸出）",
+   "适用条件": {
+    "regular_projection": true
+   },
+   "一句话": "阳台/规则核筒外凸用 projection，勿与边内大折重复",
+   "golden": [
+    "residence/res_3c6u_std"
+   ]
+  },
+  {
+   "pattern_id": "arc_fillet_corners",
+   "layer": "2d_outline",
+   "file": "2d_outline/segment_patterns.md",
+   "dsl_anchor": "## pattern: arc_fillet_corners（角点真弧）",
+   "适用条件": {
+    "rounded_corners": true
+   },
+   "一句话": "幕墙圆角 arc+at_vertex+radius_m，半径跟 source ARC",
+   "golden": [
+    "hotel/hotel_std_01",
+    "retail/retail_mall_01"
+   ]
+  },
+  {
+   "pattern_id": "holes_courtyard",
+   "layer": "2d_outline",
+   "file": "2d_outline/hole_patterns.md",
+   "dsl_anchor": "## pattern: holes_courtyard（外环内孔洞）",
+   "适用条件": {
+    "has_atrium": true
+   },
+   "一句话": "中庭 holes 同 edges 格式，必须在外环内",
+   "golden": [
+    "retail/retail_mall_01",
+    "retail/retail_wanda_std"
+   ]
+  },
+  {
+   "pattern_id": "multi_core_rings",
+   "layer": "2d_outline",
+   "file": "2d_outline/core_patterns.md",
+   "dsl_anchor": "## pattern: multi_core_rings（多核数组）",
+   "适用条件": {
+    "core_count": {
+     "min": 2
+    }
+   },
+   "一句话": "多核写成 core 数组，每项 path.rings",
+   "golden": [
+    "residence/res_2s4u_std",
+    "residence/res_3c6u_std",
+    "retail/retail_mall_01"
+   ]
+  },
+  {
+   "pattern_id": "convex_core_path",
+   "layer": "2d_outline",
+   "file": "2d_outline/core_patterns.md",
+   "dsl_anchor": "## pattern: convex_core_path（非矩形核筒）",
+   "适用条件": {
+    "nonrect_core": true
+   },
+   "一句话": "凸字形核筒用边折线表达井道/前室组合",
+   "golden": [
+    "residence/res_3c6u_std"
+   ]
+  },
+  {
+   "pattern_id": "podium_tower",
+   "layer": "3d_space",
+   "file": "3d_space/vertical_patterns.md",
+   "dsl_anchor": "## pattern: podium_tower（裙房 + 塔楼竖向分区）",
+   "适用条件": {
+    "vertical_stack": true,
+    "buildable_area_sqm": {
+     "min": 1500
+    }
+   },
+   "一句话": "裙房满铺，塔楼收进上叠（同楼层多体量合并同 zone，异楼层分 zone + spatial_relations on）"
+  },
+  {
+   "pattern_id": "core_stack_alignment",
+   "layer": "3d_space",
+   "file": "3d_space/vertical_patterns.md",
+   "dsl_anchor": "## pattern: core_stack_alignment（核心筒跨层对齐）",
+   "适用条件": {
+    "multi_zone": true
+   },
+   "一句话": "核心筒跨层 shape 一致"
+  }
+ ]
+}

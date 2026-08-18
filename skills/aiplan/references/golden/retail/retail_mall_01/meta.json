@@ -1,0 +1,13 @@
+{
+  "case_id": "retail_mall_01",
+  "type": "retail",
+  "source": "data/gold/商场.dxf",
+  "added": "2026-08-13",
+  "implements": [],
+  "template_worthy": null,
+  "derive_facts": {
+    "aspect_ratio": 1.05,
+    "layout": "mall_with_atrium"
+  },
+  "一句话": "大型购物中心"
+}

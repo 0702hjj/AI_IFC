@@ -1,0 +1,220 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-ifc.local/aiplan/design_intent.schema.json",
+  "title": "design_intent.json v2 (plan 语义层，统一 path)",
+  "description": "设计过程的语义中间态——模型用统一 path 表达轮廓（多段 path 围成的闭合图形），normalize 展开为 plan.json 的 outline_mm。统一抽象：outline/hole/core 都是'多段 path 围成的闭合图形'（顶点 + 分段，mm 坐标）。方向归一化由 normalize 处理（外环 CCW、孔洞 CW），模型不用记方向。segment 封装细节（recess/projection/arc），语义定位（at_edge+offset_m/at_vertex/adjacent_to）机器解算位置。内存/临时态，不进 plan/ 落盘。对应 migration_to_v3_dsl.md §五。",
+  "type": "object",
+  "required": ["version", "project", "zones"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": 2},
+    "project": {"type": "string", "minLength": 1},
+    "zones": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "form"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "form": {
+            "type": "object",
+            "description": "轮廓 = path（多段 path 围成的闭合图形）",
+            "required": ["path"],
+            "additionalProperties": false,
+            "properties": {
+              "path": {"$ref": "#/$defs/path"}
+            }
+          },
+          "core": {
+            "description": "核心筒：单个（placement 或 path）或数组（多核心筒，每个带 id+path）",
+            "oneOf": [
+              {"type": "object", "required": ["placement"], "additionalProperties": false,
+               "properties": {"placement": {"$ref": "#/$defs/core_placement"}}},
+              {"type": "object", "required": ["path"], "additionalProperties": false,
+               "properties": {"path": {"$ref": "#/$defs/path"}}},
+              {"type": "array", "minItems": 1, "description": "多核心筒（如并排双核/三核）",
+               "items": {
+                 "type": "object", "required": ["id", "path"], "additionalProperties": false,
+                 "properties": {
+                   "id": {"type": "string", "minLength": 1},
+                   "path": {"$ref": "#/$defs/path"},
+                   "rationale": {"type": "string"}
+                 }
+               }}
+            ]
+          },
+          "typology": {"type": "string", "minLength": 1, "description": "形态策略名称（文字）"},
+          "typology_reason": {"type": "string", "minLength": 1, "description": "强制引用 derive 事实"}
+        }
+      }
+    },
+    "spatial_relations": {
+      "type": "array",
+      "description": "zone 间关系，normalize 翻译成 plan.json 的 position{on,align}",
+      "items": {
+        "type": "object",
+        "required": ["from", "rel", "to"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {"type": "string", "minLength": 1},
+          "rel": {"enum": ["on", "adjacent_to"]},
+          "to": {"type": "string", "minLength": 1},
+          "side": {"$ref": "#/$defs/direction"},
+          "align": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "design_rationale": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "direction": {
+      "enum": ["N", "S", "E", "W", "NE", "NW", "SE", "SW"],
+      "description": "8 方位封闭词表"
+    },
+    "path": {
+      "description": "封闭轮廓——与 plan.json outline_mm 能力对齐。两种格式二选一：rings（分段折线，推荐）或 outer（完整环，兼容）",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "分段折线格式：东南西北各一条折线拼合封闭轮廓 + segments（额外凸出/凹入/弧）+ holes。rings 数组支持多分区（同一 zone id 下多个独立 outline）",
+          "required": ["rings"],
+          "additionalProperties": false,
+          "properties": {
+            "rings": {
+              "type": "array",
+              "minItems": 1,
+              "description": "封闭环数组——多分区时每个 ring 相互独立（normalize 输出 plan.json outline_mm 数组）",
+              "items": {"$ref": "#/$defs/ring_edges"}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "description": "外环格式（兼容旧版）：outer（完整环顶点）+ holes",
+          "required": ["outer"],
+          "additionalProperties": false,
+          "properties": {
+            "outer": {"$ref": "#/$defs/ring_path"},
+            "holes": {
+              "type": "array",
+              "description": "孔洞（庭院/采光井），同 ring_path 结构（normalize 转 CW）",
+              "items": {"$ref": "#/$defs/ring_path"}
+            }
+          }
+        }
+      ]
+    },
+    "polyline": {
+      "type": "array",
+      "minItems": 2,
+      "description": "折线顶点序列（mm 坐标，≥2点）。可以含凹凸/斜线/曲线采样点——只要能与相邻边拼合形成封闭轮廓即可",
+      "items": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}], "minItems": 2, "maxItems": 2}
+    },
+    "ring_edges": {
+      "type": "object",
+      "description": "分段折线封闭环：四条边各自折线，角点共享拼合形成闭合轮廓。角点约定（逆时针）：west[0]=south[-1]（西南角）、west[-1]=north[0]（西北角）、north[-1]=east[0]（东北角）、east[-1]=south[0]（东南角）",
+      "required": ["edges"],
+      "additionalProperties": false,
+      "properties": {
+        "edges": {
+          "type": "object",
+          "required": ["north", "south", "east", "west"],
+          "additionalProperties": false,
+          "properties": {
+            "north": {"$ref": "#/$defs/polyline", "description": "北边折线（西北角→东北角）"},
+            "south": {"$ref": "#/$defs/polyline", "description": "南边折线（东南角→西南角）"},
+            "east":  {"$ref": "#/$defs/polyline", "description": "东边折线（东北角→东南角）"},
+            "west":  {"$ref": "#/$defs/polyline", "description": "西边折线（西南角→西北角）"}
+          }
+        },
+        "segments": {
+          "type": "array",
+          "description": "在拼合轮廓边上按方位额外加凸出/凹入/弧角（recess/projection/arc）。边本身已含凹凸折线时可不填",
+          "items": {"$ref": "#/$defs/segment"}
+        },
+        "holes": {
+          "type": "array",
+          "description": "孔洞（庭院/采光井），同 ring_edges 格式",
+          "items": {"$ref": "#/$defs/ring_edges"}
+        }
+      }
+    },
+    "ring_path": {
+      "type": "object",
+      "description": "一段闭合 path：基础顶点（base）+ 细节封装（segments）",
+      "required": ["base"],
+      "additionalProperties": false,
+      "properties": {
+        "base": {
+          "type": "array",
+          "description": "基础轮廓顶点序列（mm 坐标，≥3 点）。normalize 自动转 CCW（外环）/CW（孔洞）",
+          "minItems": 3,
+          "items": {"type": "array", "prefixItems": [{"type": "number"}, {"type": "number"}], "minItems": 2, "maxItems": 2}
+        },
+        "segments": {
+          "type": "array",
+          "description": "细节封装（在 base 上按位置加凹进/凸出/圆角，normalize 展开成顶点）",
+          "items": {"$ref": "#/$defs/segment"}
+        }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "description": "path 分段封装：recess（凹进）/projection（凸出）/arc（圆角）。定位：at_edge+offset_m（沿边偏移）或 at_vertex（顶点下标）",
+      "required": ["type"],
+      "oneOf": [
+        {
+          "description": "凹进（入口门廊/采光井）",
+          "properties": {
+            "type": {"const": "recess"},
+            "at_edge": {"$ref": "#/$defs/direction"},
+            "offset_m": {"type": "number", "minimum": 0, "description": "沿边偏移（从边起点，米）"},
+            "width_m": {"type": "number", "exclusiveMinimum": 0, "description": "凹进宽度（米）"},
+            "depth_m": {"type": "number", "exclusiveMinimum": 0, "description": "凹进深度（米）"},
+            "note": {"type": "string", "description": "语义说明（如'入口门廊'）"}
+          },
+          "required": ["type", "at_edge", "offset_m", "width_m", "depth_m"],
+          "additionalProperties": false
+        },
+        {
+          "description": "凸出（凸窗/阳台挑出）",
+          "properties": {
+            "type": {"const": "projection"},
+            "at_edge": {"$ref": "#/$defs/direction"},
+            "offset_m": {"type": "number", "minimum": 0},
+            "width_m": {"type": "number", "exclusiveMinimum": 0},
+            "depth_m": {"type": "number", "exclusiveMinimum": 0, "description": "凸出深度（米）"},
+            "note": {"type": "string", "description": "语义说明（如'南侧阳台'）"}
+          },
+          "required": ["type", "at_edge", "offset_m", "width_m", "depth_m"],
+          "additionalProperties": false
+        },
+        {
+          "description": "顶点倒圆角",
+          "properties": {
+            "type": {"const": "arc"},
+            "at_vertex": {"type": "integer", "minimum": 0, "description": "顶点下标（该角倒圆角）"},
+            "radius_m": {"type": "number", "exclusiveMinimum": 0, "description": "圆角半径（米）"},
+            "note": {"type": "string"}
+          },
+          "required": ["type", "at_vertex", "radius_m"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "core_placement": {
+      "type": "object",
+      "description": "核心筒语义定位（region + extent，机器算 path）",
+      "required": ["region"],
+      "additionalProperties": false,
+      "properties": {
+        "region": {"enum": ["center", "N", "S", "E", "W", "NE", "SE", "SW", "NW"]},
+        "extent_w_m": {"type": "number", "exclusiveMinimum": 0},
+        "extent_d_m": {"type": "number", "exclusiveMinimum": 0},
+        "rationale": {"type": "string", "minLength": 1, "description": "引用 derive 事实"}
+      }
+    }
+  }
+}
