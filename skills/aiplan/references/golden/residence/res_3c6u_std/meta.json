@@ -1,0 +1,16 @@
+{
+  "case_id": "res_3c6u_std",
+  "type": "residence",
+  "source": "data/gold/四至十八层平面图.dxf",
+  "added": "2026-08-13",
+  "implements": [],
+  "template_worthy": null,
+  "derive_facts": {
+    "aspect_ratio": 3.58,
+    "outline_verts": 9,
+    "n_units": 6,
+    "n_cores": 3,
+    "typology": "三核心筒六户板式"
+  },
+  "一句话": "高层住宅标准层：三核心筒六户板式（一梯两户×3），55.5×15.5m"
+}

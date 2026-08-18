@@ -6,6 +6,8 @@ CAD 逻辑的 skill 封装正式入口，物理内容由 `AI_CAD/skills/aidxfv*`
 |---|---|---|
 | `v1/` | 通用 DXF 生成/校验 | fork 自 earthtojake/text-to-cad（MIT），独立自包含运行时 |
 | `v2/` | 建筑平面管线（plan.json 对齐 → 草案 → 确认 → 逐层 DXF → building.json） | 同源演进，独立自包含运行时 |
+| `v3/` | **plan→cad 建筑平面管线正式版**（接 `aiplan` 落盘的 plan.json → 骨架/房间声明 → building.json + 各层 DXF）；后续迭代的正式框架 | 同源演进，独立自包含运行时 |
 
-- 入口指针见 `SKILL.md`，实际内容以 `v1/`、`v2/` 为准。
+- 入口指针见 `SKILL.md`，实际内容以 `v1/`、`v2/`、`v3/` 为准。
+- 上游输入契约（plan.json）由 `skills/aiplan/` 提供（`references/schemas/plan.schema.json`），本目录回读以 aiplan 为母本单向同步。
 - **MIT 归属保留在各子目录的 LICENSE 文件内，勿与主仓 Apache 文件混排。**

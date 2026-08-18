@@ -1,0 +1,133 @@
+{
+ "version": 2,
+ "project": "示例商住楼",
+ "zones": [
+  {
+   "id": "podium",
+   "form": {
+    "path": {
+     "rings": [
+      {
+       "edges": {
+        "west": [
+         [
+          0,
+          0
+         ],
+         [
+          0,
+          40000
+         ]
+        ],
+        "north": [
+         [
+          0,
+          40000
+         ],
+         [
+          60000,
+          40000
+         ]
+        ],
+        "east": [
+         [
+          60000,
+          40000
+         ],
+         [
+          60000,
+          0
+         ]
+        ],
+        "south": [
+         [
+          60000,
+          0
+         ],
+         [
+          0,
+          0
+         ]
+        ]
+       }
+      }
+     ]
+    }
+   },
+   "typology": "沿街商业裙房",
+   "typology_reason": "concave_corners=0 + exposure_m.S=60m → 满铺裙房最大化沿街面"
+  },
+  {
+   "id": "tower",
+   "form": {
+    "path": {
+     "rings": [
+      {
+       "edges": {
+        "west": [
+         [
+          18000,
+          22000
+         ],
+         [
+          18000,
+          40000
+         ]
+        ],
+        "north": [
+         [
+          18000,
+          40000
+         ],
+         [
+          42000,
+          40000
+         ]
+        ],
+        "east": [
+         [
+          42000,
+          40000
+         ],
+         [
+          42000,
+          22000
+         ]
+        ],
+        "south": [
+         [
+          42000,
+          22000
+         ],
+         [
+          18000,
+          22000
+         ]
+        ]
+       }
+      }
+     ]
+    }
+   },
+   "core": {
+    "placement": {
+     "region": "center",
+     "extent_w_m": 10,
+     "extent_d_m": 6,
+     "rationale": "deep_zone_ratio=0.45 → 核心筒居中吃暗区"
+    }
+   },
+   "typology": "塔楼住宅",
+   "typology_reason": "aspect_ratio=1.5 + deep_zone_ratio=0.45 → 板式塔楼核心筒居中"
+  }
+ ],
+ "spatial_relations": [
+  {
+   "from": "tower",
+   "rel": "on",
+   "to": "podium",
+   "align": "north_center"
+  }
+ ],
+ "design_rationale": "aspect_ratio=1.5 且 exposure_m.S=60m → 裙房满铺沿街 + 塔楼上叠北居中"
+}

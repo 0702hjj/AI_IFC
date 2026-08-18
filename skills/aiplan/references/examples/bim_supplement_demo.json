@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "project": "示例商住楼",
+  "source_plan_sha256": "b5531e1801c2423e1e2bc08fe7bb992ca6269a877176682ef71f7f56cc016790",
+  "roof": {
+    "type": "gable",
+    "slope_deg": 35,
+    "ridge_h_m": 2.5,
+    "overhang_m": 0.4
+  },
+  "special_structures": [
+    {
+      "type": "parapet",
+      "height_mm": 1500,
+      "coping": false
+    },
+    {
+      "type": "balcony",
+      "depth_m": 1.5,
+      "enclosure": "open",
+      "rail_h_m": 1.1
+    },
+    {
+      "type": "atrium",
+      "size_m": [
+        20,
+        12
+      ],
+      "skylight": "flat",
+      "full_height": true
+    },
+    {
+      "type": "massing_twist",
+      "twist_deg": 90,
+      "n_floors": 20
+    }
+  ],
+  "psets": {
+    "building": {
+      "fire_protection_class": "Class 1",
+      "occupancy_type": "residential",
+      "sprinkler_protection": true,
+      "number_of_storeys": 18
+    },
+    "walls": {
+      "fire_rating": "2h",
+      "thermal_transmittance": 0.35,
+      "load_bearing": true
+    },
+    "slabs_roof": {
+      "pitch_angle_deg": 35,
+      "thermal_transmittance": 0.25,
+      "fire_rating": "1h"
+    },
+    "circulation": {
+      "fire_exit": true,
+      "required_headroom_mm": 2100,
+      "handicap_accessible": true
+    }
+  },
+  "area_allocation": {
+    "total_area_sqm": 24000,
+    "blocks": [
+      {
+        "block": "core",
+        "ratio": [
+          0.1,
+          0.14
+        ],
+        "area_sqm": [
+          2400,
+          3360
+        ]
+      },
+      {
+        "block": "shop",
+        "ratio": [
+          0.6,
+          0.7
+        ],
+        "area_sqm": [
+          14400,
+          16800
+        ]
+      }
+    ]
+  },
+  "space_notes": [
+    {
+      "subject": "塔楼扭转",
+      "note": "塔楼从 4 层起每层逆时针扭转 4.5°，共 20 层转满 90°",
+      "floors": {
+        "from": 4,
+        "to": 23
+      },
+      "source": "user"
+    },
+    {
+      "subject": "夹层观景空间",
+      "note": "7-8 层之间夹层设独立中庭观景空间",
+      "floors": {
+        "from": 7,
+        "to": 8
+      },
+      "source": "user"
+    },
+    {
+      "subject": "过渡层亭子",
+      "note": "裙房与塔楼过渡层（4 层）平面中部设玻璃小亭子",
+      "floors": {
+        "from": 4,
+        "to": 4
+      },
+      "source": "user"
+    }
+  ]
+}

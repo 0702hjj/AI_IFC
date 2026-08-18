@@ -1,0 +1,152 @@
+{
+ "version": 3,
+ "project": "裙房商业满铺+塔楼住宅上叠",
+ "site": {
+  "lot_polygon_mm": [
+   [
+    0.0,
+    0.0
+   ],
+   [
+    60000.0,
+    0.0
+   ],
+   [
+    60000.0,
+    40000.0
+   ],
+   [
+    0.0,
+    40000.0
+   ]
+  ],
+  "origin": "lot_southwest",
+  "north_deg": 0,
+  "setbacks_mm": {
+   "front": 0,
+   "rear": 0,
+   "left": 0,
+   "right": 0
+  }
+ },
+ "zones": [
+  {
+   "id": "podium",
+   "function": "mixed",
+   "floors": {
+    "from": 1,
+    "to": 1
+   },
+   "floor_height_mm": 3000,
+   "outline_mm": [
+    {
+     "outer": {
+      "vertices": [
+       [
+        0.0,
+        0.0
+       ],
+       [
+        60000.0,
+        0.0
+       ],
+       [
+        60000.0,
+        40000.0
+       ],
+       [
+        0.0,
+        40000.0
+       ]
+      ],
+      "arcs": []
+     },
+     "holes": [],
+     "arcs": []
+    }
+   ],
+   "program": [
+    {
+     "room": "unspecified"
+    }
+   ],
+   "typology_candidates": [
+    "沿街商业裙房"
+   ]
+  },
+  {
+   "id": "tower",
+   "function": "mixed",
+   "floors": {
+    "from": 1,
+    "to": 1
+   },
+   "floor_height_mm": 3000,
+   "outline_mm": [
+    {
+     "outer": {
+      "vertices": [
+       [
+        18000.0,
+        22000.0
+       ],
+       [
+        42000.0,
+        22000.0
+       ],
+       [
+        42000.0,
+        40000.0
+       ],
+       [
+        18000.0,
+        40000.0
+       ]
+      ],
+      "arcs": []
+     },
+     "holes": [],
+     "arcs": []
+    }
+   ],
+   "program": [
+    {
+     "room": "unspecified"
+    }
+   ],
+   "core": {
+    "vertices": [
+     [
+      25000.0,
+      26000.0
+     ],
+     [
+      35000.0,
+      26000.0
+     ],
+     [
+      35000.0,
+      32000.0
+     ],
+     [
+      25000.0,
+      32000.0
+     ]
+    ],
+    "arcs": []
+   },
+   "core_anchor_mm": [
+    30000,
+    29000
+   ],
+   "typology_candidates": [
+    "塔楼住宅"
+   ],
+   "position": {
+    "on": "podium",
+    "align": "north_center"
+   }
+  }
+ ],
+ "design_rationale": "podium_tower：裙房满铺 60×40m + 塔楼收进 24×18m；core_stack 居中 10×6m"
+}

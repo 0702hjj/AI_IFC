@@ -1,0 +1,13 @@
+{
+ "floor": "F1",
+ "rooms": [
+  {
+   "id": "living_01",
+   "area_sqm": 24
+  },
+  {
+   "id": "kitchen_01",
+   "area_sqm": 10
+  }
+ ]
+}

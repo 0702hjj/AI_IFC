@@ -1,0 +1,17 @@
+{
+  "case_id": "office_lobby_01",
+  "type": "office",
+  "implements": [
+    "core_stack_alignment"
+  ],
+  "source": "data/gold/写字一楼.dxf",
+  "added": "2026-08-12",
+  "template_worthy": null,
+  "typology": "核心筒居中环廊（首层大堂变体）",
+  "shape_tags": [
+    "近方形",
+    "核心筒居中",
+    "首层大堂",
+    "幕墙"
+  ]
+}

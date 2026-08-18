@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiplan_tools"
+version = "0.1.0"
+description = "aiplan skill 的确定性工具包（plan 阶段脚手架封装）：plan/bim 门禁、canon、成对落盘、轮廓视图、面积配比、交互后台校验、中断路由。运行期 agent 只调 console_scripts，不改源码。"
+requires-python = ">=3.12"
+dependencies = ["jsonschema", "shapely"]
+
+[project.scripts]
+aiplan-validate-plan = "aiplan_tools.validate_plan:main"
+aiplan-validate-bim = "aiplan_tools.validate_bim_supplement:main"
+aiplan-land = "aiplan_tools.land_pair:main"
+aiplan-canon = "aiplan_tools.plan_canon:main"
+aiplan-area-breakdown = "aiplan_tools.area_breakdown:main"
+aiplan-pack-drift = "aiplan_tools.check_pack_drift:main"
+aiplan = "aiplan_tools.cli:main"
+aiplan-route = "aiplan_tools.route:main"
+aiplan-geom = "aiplan_tools.geom:main"
+aiplan-derive = "aiplan_tools.derive:main"
+aiplan-normalize = "aiplan_tools.normalize:main"
+aiplan-gate = "aiplan_tools.design_gate:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["aiplan_tools*"]
+
+[tool.setuptools.package-data]
+aiplan_tools = ["py.typed"]

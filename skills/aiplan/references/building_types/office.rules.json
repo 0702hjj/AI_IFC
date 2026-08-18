@@ -1,0 +1,45 @@
+{
+  "pack": "office",
+  "version": 2,
+  "grid_mm": 250,
+  "room_attrs": {
+    "office":     {"privacy": "private", "needs_exterior": true,  "wet": false},
+    "meeting":    {"privacy": "shared",  "needs_exterior": true,  "wet": false},
+    "corridor":   {"privacy": "public",  "needs_exterior": false, "wet": false, "hub": true},
+    "toilet":     {"privacy": "public",  "needs_exterior": false, "wet": true},
+    "lobby":      {"privacy": "public",  "needs_exterior": true,  "wet": false},
+    "stair_evac": {"privacy": "public",  "needs_exterior": false, "wet": false, "prelocked": true},
+    "elevator":   {"privacy": "public",  "needs_exterior": false, "wet": false, "prelocked": true},
+    "shaft":      {"privacy": "public",  "needs_exterior": false, "wet": true,  "prelocked": true},
+    "core":       {"privacy": "public",  "needs_exterior": false, "wet": false, "prelocked": true}
+  },
+  "rules": [
+    {"predicate": "hub_connect", "args": {"hub": "corridor", "members": ["meeting.*", "office.*", "toilet.*"]}, "strength": "must", "source": "U-B2"},
+    {"predicate": "public_placement", "args": {"room": "stair_evac.*", "not_inside": ["meeting.*", "office.*"]}, "strength": "must", "source": "U-B3"},
+    {"predicate": "not_through", "args": {"a": "*", "b": "@private"}, "strength": "must", "source": "U-B2"},
+    {"predicate": "near", "args": {"a": "toilet.*", "b": "core"}, "strength": "must", "source": "U-C3"},
+    {"predicate": "near", "args": {"a": "toilet.*", "b": "@wet"}, "strength": "prefer", "source": "U-C3"},
+    {"predicate": "align_vertical", "args": {"room": "core"}, "strength": "must", "source": "U-D2"},
+    {"predicate": "align_vertical", "args": {"room": "stair_evac"}, "strength": "must", "source": "U-D2"}
+  ],
+  "prelocks": [
+    {"types": ["core", "elevator", "stair_evac", "shaft"], "source": "vertical_relations",
+     "note": "核心筒整体预锁(电梯+双疏散楼梯+管井),位置由 plan.position + grid hint 定"}
+  ],
+  "weights": {
+    "hub_centrality": 0.8,
+    "south_rooms": 0.0,
+    "exterior_utilization": 1.0,
+    "wet_cluster": 0.8,
+    "corridor_length": 1.0,
+    "display_frontage": 0.0,
+    "rectangularity": 0.6
+  },
+  "t4_values": {
+    "corridor_min_width_mm": 1800,
+    "door_min_width_mm": 900,
+    "wall_ext_mm": 200,
+    "wall_int_mm": 100,
+    "note": "经验默认;疏散走廊净宽等规范下限待法条引用补全"
+  }
+}

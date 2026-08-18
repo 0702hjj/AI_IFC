@@ -1,0 +1,23 @@
+{
+  "case_id": "floorplan_structure",
+  "type": "single_family",
+  "name": "美式独栋住宅（多层凹凸真实户型：主体轮廓 + 车库/门廊附属体量）",
+  "implements": [],
+  "source": "data/floorplan_结构.dxf",
+  "lot_note": "轮廓单位按 DXF 原值（英寸/英尺），语义层表达的是形态（多层凹凸），非实际尺寸",
+  "derive_facts": {
+    "aspect_ratio": 1.812,
+    "concave_corners": 0,
+    "dominant_axes": "EW",
+    "note": "地块本身规整矩形（concave_corners=0），凹凸来自户型轮廓自身（车库凹口/门廊/凸窗）——单层平面细化，非地块异形"
+  },
+  "verification": {
+    "validate_intent": "pass",
+    "normalize": "pass（polygon 14 顶点，面积 235856 与 DXF 主轮廓一致，凸包比 0.94）"
+  },
+  "design_lesson": "多层凹凸真实户型的表达：规整地块（concave_corners=0）也可有多层凹凸轮廓——户型轮廓的凹凸（车库凹口/凸窗/门廊）是单层平面细化，用 polygon 索引顶点表达；配套附属体量（车库/门廊）用 annex_attach 外贴",
+  "updated": "2026-08-11",
+  "template_worthy": true,
+  "added": "2026-08-11",
+  "source_detail": "Bishop-Overland-08 真实项目，A-FOOTPRINT 主轮廓提取"
+}

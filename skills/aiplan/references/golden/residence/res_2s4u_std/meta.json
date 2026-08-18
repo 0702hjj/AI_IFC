@@ -1,0 +1,18 @@
+{
+  "case_id": "res_2s4u_std",
+  "type": "residence",
+  "implements": [],
+  "source": "data/gold/住宅楼.dxf",
+  "derive_facts": {},
+  " এক句话": "...",
+  "added": "2026-08-12",
+  "template_worthy": true,
+  "typology": "并排多单元板式（一梯两户×2单元）",
+  "shape_tags": [
+    "长板",
+    "双核心筒",
+    "一梯两户",
+    "四户",
+    "无电梯"
+  ]
+}

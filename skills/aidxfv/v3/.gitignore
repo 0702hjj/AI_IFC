@@ -1,0 +1,10 @@
+# 虚拟环境与缓存
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 派生物（可重建，不入库）
+golden.db
+*.db
+tests/golden/gold/index.json

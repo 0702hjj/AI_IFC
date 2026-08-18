@@ -6,7 +6,8 @@
 AI_IFC/
 ├── skills/                   # ① AI 生成 skill 封装（agent-agnostic，可分发）
 │   ├── aiifc/                #   IFC 生成/修改（ifcopenshell）
-│   ├── aidxfv/               #   CAD 生成/修改（v1 通用 DXF / v2 建筑平面管线）
+│   ├── aidxfv/               #   CAD 生成/修改（v1 通用 DXF / v2 建筑平面管线 / v3 plan→cad 正式版）
+│   ├── aiplan/               #   plan 阶段（外部资料 → plan.json + bim_supplement.json，对接 cad/bim）
 │   └── aiblueprint-mcp/      #   CAD 交互微调 MCP（MIT）
 ├── services/                 # ② 业务逻辑核心（diff + 面向前端修改的接口协议）
 │   ├── ifc/                  #   IFC 段（FastAPI + IfcOpenShell，:8100）
