@@ -2,7 +2,7 @@
 
 CAD 业务逻辑核心（FastAPI + ezdxf）：与 `services/ifc` 完全同构的 **script-as-source 编辑 API**（`PUT /script` 暂存 → `script/run` 沙箱试运行 → `script/save` 大版本）+ DXF 版本快照。可脱离 Go server / web / converter / PostgreSQL 独立部署与调用。
 
-与 services/ifc 的关系：逻辑二「AI 生成 CAD」的业务逻辑核心，路由/暂存/沙箱/版本语义与 ifc 一一镜像（模型对象由 IFC 换成 DXF，构建脚本走 `skills/aidxfv` 的 `cad_script_lib` 契约，实体身份靠 XDATA）；但无 ModelRegistry/PendingStore（无内存实体缓存、无 L1 直改遗产）。
+与 services/ifc 的关系：逻辑二「AI 生成 CAD」的业务逻辑核心，路由/暂存/沙箱/版本语义与 ifc 一一镜像（模型对象由 IFC 换成 DXF，构建脚本走本服务 `flows/` 目录的 `cad_script_lib` 契约，实体身份靠 XDATA）；但无 ModelRegistry/PendingStore（无内存实体缓存、无 L1 直改遗产）。
 
 **无鉴权，务必只绑 127.0.0.1**（与 edit-service 同一约束；对外经 Go server 代理——chunk C 已交付：Go 按 model kind 分流代理 cad 全端点（edit-call 除外），`GET /v1/models/{id}/render.json` 直挂只读）。
 
@@ -13,7 +13,7 @@ uv sync
 VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200
 ```
 
-配置（环境变量）：`CAD_SERVICE_PORT`（默认 8200）、`VIEWER_DATA_DIR`（默认 `../data`，建议绝对路径，须与 Go server 指向同一 `data`）、`AIDXF_FLOWS_DIR`（默认 `../../skills/aidxfv/v1/scripts/flows`，沙箱脚本契约校验依赖 aidxfv skill flows）、`CAD_SERVICE_MAX_MODELS`（默认 8）。
+配置（环境变量）：`CAD_SERVICE_PORT`（默认 8200）、`VIEWER_DATA_DIR`（默认 `../data`，建议绝对路径，须与 Go server 指向同一 `data`）、`AIDXF_FLOWS_DIR`（默认 `flows`，即本目录下 `services/cad/flows`，沙箱脚本契约校验的 `cad_script_lib` 契约层——公共面 `cad_script_lib.add_entity` / `cad_script_lib.write_and_validate` / `cad_script_lib.validate_script_contract`）、`CAD_SERVICE_MAX_MODELS`（默认 8）。
 
 ## 编辑 API（chunk A+B+C 已交付）
 

@@ -1,13 +1,16 @@
 # 主 Agent 接力手册：plan.json → DXF → IFC
 
 主 Agent 编排 plan→cad→ifc 全链路时的产物落盘格式索引与确认门禁。plan 范式是**可选**的：设计师带成熟方案（口述/草图/既有 DXF/既有脚本）时直接派生成子 Agent，本手册仅锚点 2/3 适用；仅「从模糊想法起步」才启用锚点 1 的 plan 范式。
-**字段名全部以真实 skill 源为准**：锚点 1/2 复制自 `skills/aidxfv/v2/references/plan_contract.md`（§1/§2/§3），锚点 3 复制自 `skills/aiifc/SKILL.md`（MUST #25-31）与 `skills/aiifc/workflows/PLAN_DXF_IFC.md`。本文件不重定义，只做接力视角的索引与门禁约定。
+
+> **2026-08-18**：aidxfv v1/v2 已删除（v3 为唯一迭代基线），锚点 1/2 原引用的 v2 `references/plan_contract.md` 随之删除。现行 schema 事实源为 `skills/aiplan/references/schemas/plan.schema.json`（plan.json v3）与 `skills/aidxfv/v3/references/schemas/building.schema.json`（building.json），cad 段步骤见 `skills/aidxfv/v3/steps/`。下文锚点 1/2 的 v2 契约细节（draft/confirmed 状态机、floors 形态 plan.json）为历史快照，待按 v3 重写。
+
+**字段名全部以真实 skill 源为准**：锚点 1/2 复制自 v2 `references/plan_contract.md`（§1/§2/§3，已随 v2 删除，见 git 历史），锚点 3 复制自 `skills/aiifc/SKILL.md`（MUST #25-31）与 `skills/aiifc/workflows/PLAN_DXF_IFC.md`。本文件不重定义，只做接力视角的索引与门禁约定。
 
 ## 锚点 1：plan.json（可选范式）
 
 **仅当设计师从模糊想法起步、主 Agent 提示并确认启用 plan 范式时存在。** plan.json 的对齐/草案/确认全部由 cad-agent 的 aidxfv v2 管线内部承载（step-00 ingest → step-04 deliver，状态机 draft/confirmed 在 v2 内部流转）；主 Agent 不另设 plan 确认门禁，只负责把 v2 的确认请求转述给设计师。
 
-**Schema 事实源：`skills/aidxfv/v2/references/plan_contract.md` §1**（本包正例 fixture `fixtures/plan.sample.json` 由该节复制简化）。
+**Schema 事实源（历史）：v2 `references/plan_contract.md` §1，已随 v2 删除；现行事实源为 `skills/aiplan/references/schemas/plan.schema.json`**（本包正例 fixture `fixtures/plan.sample.json` 由原 §1 复制简化，同为 v2 形态，待按 plan.json v3 更新）。
 
 ```json
 {
@@ -47,7 +50,7 @@
 
 ## 锚点 2：DXF（+ building.json）
 
-**Schema 事实源：`skills/aidxfv/v2/references/plan_contract.md` §2**；交付纪律见 v2 `steps/step-04-deliver.md`。
+**Schema 事实源（历史）：v2 `references/plan_contract.md` §2，已随 v2 删除；现行事实源为 `skills/aidxfv/v3/references/schemas/building.schema.json`**；交付纪律见 v3 `steps/step-04-deliver.md`。
 
 v2 管线交付物 = 逐层 DXF 集 + `building.json`（bim 段唯一输入）：
 

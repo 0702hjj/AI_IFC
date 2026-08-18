@@ -8,9 +8,7 @@
 | --- | --- | --- |
 | `aiifc` | IFC 生成/修改（IfcOpenShell 参考文档包） | LGPL-3.0 |
 | `aiplan` | plan 阶段 skill（外部资料 → plan.json + bim_supplement.json，对接 cad/bim 双下游；输入无特殊要求） | MIT |
-| `aidxfv1` | 通用 CAD/DXF 生成（fork 自 earthtojake/text-to-cad，运行时 vendored 自包含） | MIT |
-| `aidxfv2` | 建筑平面管线（plan.json 对齐 → 草案 → 逐层 DXF） | MIT |
-| `aidxfv3` | plan→cad 建筑平面管线正式版（接 aiplan 的 plan.json → building.json + 各层 DXF；后续迭代框架） | MIT |
+| `aidxfv3` | plan→cad 建筑平面管线正式版（接 aiplan 的 plan.json → building.json + 各层 DXF；唯一迭代基线，v1/v2 已退役删除） | MIT |
 | `aiblueprint-mcp` | DXF 交互微调 MCP server（检查/编辑/测量/预览） | MIT |
 | `aibim-orchestrator` | 主 Agent 编排提示词包（意图路由 + 子 Agent 分工契约 + plan→cad→ifc 接力数据契约） | Apache-2.0 |
 
@@ -22,7 +20,7 @@
 
 ```bash
 python tools/skill_pack.py --skill aiifc --archive
-python tools/skill_pack.py --skill aidxfv1 --skill-dir skills/aidxfv/v1 --archive
+python tools/skill_pack.py --skill aidxfv3 --skill-dir skills/aidxfv/v3 --archive
 ```
 
 产物在 `skills/dist/`。
@@ -39,7 +37,6 @@ python tools/skill_pack.py --skill aidxfv1 --skill-dir skills/aidxfv/v1 --archiv
 ## 运行依赖
 
 - **aiifc**：Python 环境装 `ifcopenshell` / `ifcquery` / `numpy`（见包内 `requirements.txt`）；与 `services/ifc` 编辑服务配对使用时见 [services/ifc 独立部署](/guide/services-ifc)。
-- **aidxfv1 / aidxfv2**：Python 环境装 `ezdxf` 等（见包内 `requirements.txt`）。
 - **aidxfv3**：Python 环境装 `ezdxf` + `shapely`（见包内 `requirements.txt`）。
 - **aiplan**：仅依赖 `jsonschema`（见包内 `requirements.txt`）。
 - **aiblueprint-mcp**：MCP server 形态，依赖见包内 `requirements.txt`，按包内 README / opencode.json 接入。

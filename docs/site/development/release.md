@@ -9,8 +9,8 @@
 
    ```bash
    python tools/skill_pack.py --skill <name> --archive
-   # aidxfv1 / aidxfv2 需要显式指定目录：
-   python tools/skill_pack.py --skill aidxfv1 --skill-dir skills/aidxfv/v1 --archive
+   # aidxfv3 / aiplan 需要显式指定目录：
+   python tools/skill_pack.py --skill aidxfv3 --skill-dir skills/aidxfv/v3 --archive
    ```
 
    产物在 `skills/dist/`。
