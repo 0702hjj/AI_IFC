@@ -5,7 +5,7 @@
 - **Milestone：** v0.10（中途预览 + DXF 编辑面）
 - **来源：** 用户裁决 2026-08-18：viewer.staged 中途预览 + DXF 编辑面补齐合并为单 PR（分支 feat/v0.10-live-preview-dxf-edit）；同分支前置清理：aidxfv v1/v2 遗留删除（flows 契约层已迁入 services/cad，v3 为唯一基线）
 - **执行者/分支：** kimi-code / feat/v0.10-live-preview-dxf-edit
-- **关闭 commit：** 0969532（skills 清理）+ 2db0f0f（server viewer.staged + diff 摘要）+ cac0482（web 分流刷新）+ 69385cf（DesignPanel 复用 + dxf 定位脚本）+ c665a2d（文档收口）（PR 待提）
+- **关闭 commit：** 0969532（skills 清理）+ 2db0f0f（server viewer.staged + diff 摘要）+ cac0482（web 分流刷新）+ 69385cf（DesignPanel 复用 + dxf 定位脚本）+ 55f3444（文档收口）（PR #40，merge commit cc04744）
 
 ## 背景
 
