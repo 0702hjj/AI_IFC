@@ -46,21 +46,28 @@ AI agent ──► REST editing API ────┘
 
 ## Quick start
 
-See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `web` (React + xeokit), `server` (Go), `converter` (Node), `services/ifc` (Python FastAPI + IfcOpenShell).
-
-One-command start (recommended, Docker only): `docker compose up --build` → open http://localhost:8080 (tunables in `.env.example`).
-
-Manual start:
+See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `web` (React + xeokit), `server` (Go), `converter` (Node), `services/ifc` (Python FastAPI + IfcOpenShell). Runs directly on the host, no Docker.
 
 ```bash
+# One-time dependency install
 cd converter && npm install
+cd ../web && npm install
 cd ../services/ifc && uv sync
-VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 &
-cd ../server && go run ./cmd/server &
-cd ../web && npm install && npm run dev
+
+# Terminal 1: edit-service (:8100)
+cd services/ifc
+VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
+
+# Terminal 2: Go server (:8090)
+cd server && go run ./cmd/server
+
+# Terminal 3: web dev server (:5173)
+cd web && npm run dev
 ```
 
 Open http://localhost:5173 and upload `converter/test/fixtures/wall-with-opening-and-window.ifc`.
+
+Production shape: after `cd web && npm run build`, the Go server serves `web/dist` itself (single port :8090, SPA fallback + long caching for fingerprinted assets) — no nginx needed.
 
 ## AI: two complementary routes
 

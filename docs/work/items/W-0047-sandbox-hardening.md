@@ -16,6 +16,8 @@ script-as-source 的 Python 构建脚本在沙箱执行（`services/ifc` 与 `se
 3. **降级静默放行**：bwrap 探测失败退到 rlimit 模式后网络不再被封（可直连 postgres/内网），仅一条 warning 日志。
 4. **容器 root + cad 无部署形态**：`services/ifc/Dockerfile` 无 USER；`services/cad` 无 Dockerfile、compose 无条目。
 
+**部署形态追加（2026-08-19 用户裁决）**：容器路线经实证放弃——为在非 root 容器里跑 bwrap，先后给镜像内 bwrap 补 setuid、给服务容器加 `apparmor=unconfined`（compose smoke 三次红：共享卷 uid 属主 → AppArmor 拦 userns），容器层对沙箱服务已名存实亡；bwrap 在宿主机原生可用（本机实测）。故部署形态改为**宿主直跑**：移除全部 Dockerfile / docker-compose.yml / .env.example / CI compose-smoke job，Go server 直接托管 `web/dist`（替代 nginx 容器），生产部署为 systemd 宿主进程。
+
 ## 涉及位置
 
 - `services/ifc/app/script_runner.py`、`services/cad/app/script_runner.py`（`_sandbox_cmd` / `_limits` / `run_script`，两份复制同步改）
@@ -36,8 +38,8 @@ script-as-source 的 Python 构建脚本在沙箱执行（`services/ifc` 与 `se
 - 脚本 `open('/data/...')` / 读 `/etc` 在 bwrap 下失败（测试断言）。
 - 并发 run 超过闸值返回 429/503；stdout 泛洪/超大产物被截断或拒绝。
 - 无 bwrap 且无 ALLOW_RLIMIT_FALLBACK 时 run 拒绝执行（503）；有开关时行为同旧。
-- compose up 后 cad 服务健康；两容器进程非 root。
-- CI 全绿（含 compose smoke）。
+- ~~compose up 后 cad 服务健康；两容器进程非 root。~~（部署形态改为宿主直跑，compose 已移除）
+- CI 全绿（e2e smoke 为宿主冒烟 `scripts/smoke.sh`；compose smoke 已随 Docker 形态移除）。
 
 ## 测试要求
 

@@ -66,10 +66,10 @@ Design 面板解析当前脚本的 `PARAMS` 块自动生成参数表单（ast �
 
 edit-service 以 subprocess + 进程组杀死（timeout 60s，`start_new_session` + `killpg`，fork 出的孙进程一并终止）+ rlimits（CPU/内存/NPROC=现有 task 数 +256 余量）+ 独立临时目录执行脚本；失败返回 422 + stderr 截尾 2KB。文件系统与网络隔离分两层：
 
-- **bwrap backend（首选）**：官方镜像已装 bubblewrap，脚本跑在只读 root bind + `--unshare-net` 的沙箱里——沙箱外写操作直接 EROFS，网络不可达。
-- **rlimit 降级**：bwrap 不可用时（如裸机开发环境未安装）自动降级，只剩 rlimits + 独立 cwd，沙箱外 FS 写与网络**不拦截**；启动日志会打印所用 backend（`script sandbox backend: ...`），部署时确认看到 `bwrap` 字样。
+- **bwrap backend（首选）**：宿主机安装 bubblewrap 包即可用，脚本跑在按需只读挂载 + `--unshare-net` 的沙箱里——沙箱外写操作直接 EROFS，网络不可达。
+- **rlimit 降级**：bwrap 不可用时默认 fail-closed（run/save 拒绝执行 503）；开发机显式 `ALLOW_RLIMIT_FALLBACK=1` 才降级为 rlimits + 独立 cwd，此时沙箱外 FS 写与网络**不拦截**；启动日志会打印所用 backend（`script sandbox backend: ...`），部署时确认看到 `bwrap` 字样。
 
-网络可达性取决于部署形态而非「天然无网」：compose 里 edit-service 与其他容器同处内网，脚本沙箱的网络隔离由 bwrap `--unshare-net` 提供；且 edit-service 自身无鉴权，compose 端口只绑 `127.0.0.1:8100`（loopback），不对宿主机外部发布，外部一律经 Go server 代理。
+网络可达性取决于部署形态而非「天然无网」：宿主直跑时 edit-service 与其他进程同处一机，脚本沙箱的网络隔离由 bwrap `--unshare-net` 提供；且 edit-service 自身无鉴权，务必只监听 `127.0.0.1:8100`（loopback），外部一律经 Go server 代理。
 
 ## API
 

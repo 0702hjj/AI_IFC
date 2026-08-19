@@ -14,7 +14,7 @@
 两逻辑共享运行时骨架：`web`（可选前端）/ `server`（Go 网关 :8090）/ `converter`（Node 转换）/ `services/ifc`（Python 业务服务 :8100）/ PostgreSQL（可选）。可复用原则：skill 两个、业务逻辑两个、前端可选、PG 可选、接口可直接调用或移植。
 
 ```
-浏览器 (React+xeokit/web-ifc 双引擎) ──► Go server :8090 ──► services/ifc（edit-service :8100, FastAPI+IfcOpenShell）
+浏览器 (React+xeokit/web-ifc 双引擎) ──► Go server :8090（托管 web/dist 静态产物，SPA fallback）──► services/ifc（edit-service :8100, FastAPI+IfcOpenShell）
                                │                  └─ 脚本沙箱执行 + 版本 + diff
                                ├─► server/internal/agent（Eino chat agent 进程内：react loop + 领域工具 + 主子编排）
                                ├─► converter (Node, IFC→XKT)
@@ -28,7 +28,7 @@ AI agent ──► REST 编辑 API ────┘
 | 组件 | 目录 | 测试 | 启动 |
 |---|---|---|---|
 | web (React 19 + xeokit + web-ifc 双引擎 IFC 查看器 + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，322 用例 / 27 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
-| server (Go 1.26，stdlib + pgx/v5 + cloudwego/eino) | `server` | `go test ./...`（248 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
+| server (Go 1.26，stdlib + pgx/v5 + cloudwego/eino) | `server` | `go test ./...`（255 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090；托管 `web/dist` 静态产物，配置 `webDist`/`VIEWER_WEB_DIST`，默认 `../web/dist`） |
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
 | edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（258 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
 | cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（225 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
@@ -68,13 +68,13 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 部署形态变更（硬规则）
 
-`Dockerfile*`、`docker-compose.yml`、`.github/workflows/` 的变更 = **部署形态变更**：本机直跑的测试套件对容器内环境（非 root、共享卷属主、宿主 AppArmor/seccomp、userns 可用性）零证明力。本机无 docker daemon 时：
+部署形态为**宿主直跑**（无 Docker，2026-08-19 起）：`scripts/`（smoke/安装/启动脚本）、`.github/workflows/`、server 静态托管（`web/dist`）链路的变更 = **部署形态变更**。本机测试套件对 CI 环境与目标宿主机环境（bwrap/userns 可用性、文件属主、端口占用）零证明力：
 
-1. PR 描述必须标注「部署形态未经本地验证，CI compose smoke 为唯一防线」；
-2. 合并前必须亲眼看 compose smoke 绿，禁止 `--auto` 合并后走人；
-3. compose smoke 失败先 `gh run view --job <id> --log` 拿容器日志（job 内有 `Dump logs on failure` 步骤）再改，禁止盲改重推。
+1. PR 描述必须标注部署形态的验证方式（本机实际跑过的命令与结果，或「未经本地验证，CI smoke 为唯一防线」）；
+2. 合并前必须亲眼看 CI 绿（含 e2e smoke job），禁止 `--auto` 合并后走人；
+3. smoke 失败先 `gh run view --job <id> --log` 拿日志再改，禁止盲改重推。
 
-教训：2026-08-19 W-0047 连续三次 compose smoke 红（共享卷 uid 属主 → bwrap 被宿主 AppArmor 拦），全部因本机无法验证容器形态。
+教训：2026-08-19 W-0047 容器形态连续三次 compose smoke 红（共享卷 uid 属主 → bwrap 被宿主 AppArmor 拦 userns）；为在非 root 容器里跑 bwrap 先后打了 setuid 与 apparmor=unconfined 两个洞，容器层对沙箱服务名存实亡，实证后部署形态改为宿主直跑（bwrap 原生可用）。
 
 ## API 契约
 
@@ -109,7 +109,8 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 环境注意
 
-- 沙箱后端：bwrap 优先，缺失时 rlimit 降级**默认 fail-closed**（run/save 拒绝执行 503）；本地开发机无 bwrap 时需显式 `ALLOW_RLIMIT_FALLBACK=1`（生产/compose 勿设，W-0047）。沙箱资源/并发限额 env：`SCRIPT_RUN_CONCURRENCY`、`SCRIPT_MAX_FSIZE_BYTES`、`SCRIPT_MAX_OUTPUT_BYTES`、`SCRIPT_MAX_PRODUCT_BYTES`（两服务同名同义）。
+- 沙箱后端：bwrap 优先，缺失时 rlimit 降级**默认 fail-closed**（run/save 拒绝执行 503）；本地开发机无 bwrap 时需显式 `ALLOW_RLIMIT_FALLBACK=1`（生产勿设，W-0047）。沙箱资源/并发限额 env：`SCRIPT_RUN_CONCURRENCY`、`SCRIPT_MAX_FSIZE_BYTES`、`SCRIPT_MAX_OUTPUT_BYTES`、`SCRIPT_MAX_PRODUCT_BYTES`（两服务同名同义）。
+- 部署形态：宿主直跑（无 Docker）。生产由 Go server 托管 `web/dist`（`webDist`/`VIEWER_WEB_DIST`），浏览器只访问 :8090；开发走 vite dev server :5173。
 - edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `data` 绝对路径，配错会 404 或改错文件。
 - demo/flows 用 `services/ifc/.venv`（含 ifcopenshell/ifcquery；ezdxf 不在其中，DXF 依赖用 `services/cad/.venv`）；**根 `.venv` 没有这些包**。
 - AI agent 直连 edit-service :8100 时传 `provenance.source="AI"`。

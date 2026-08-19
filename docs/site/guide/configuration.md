@@ -10,6 +10,7 @@
 | `dataDir` | `../data` | — | 数据目录（**与 edit-service 的 VIEWER_DATA_DIR 同目录**） |
 | `nodeBin` / `converterScript` | `node` / `../converter/convert.js` | — | 转换器调用 |
 | `maxUploadMB` | `200` | — | 上传上限 |
+| `webDist` | `../web/dist` | `VIEWER_WEB_DIST` | web 构建产物目录；存在即由 server 托管（SPA fallback + 指纹资源长缓存），缺失时静态路径 503、API 照常 |
 | `pgDSN` | `""` | `VIEWER_PG_DSN` | 配置即启用 PostgreSQL（自动建表），空则文件存储 |
 | `editServiceURL` | `http://127.0.0.1:8100` | `VIEWER_EDIT_SERVICE_URL` | edit-service 地址 |
 | `cadServiceURL` | `http://127.0.0.1:8200` | `VIEWER_CAD_SERVICE_URL` | cad-edit-service 地址（DXF 模型按 kind 分流） |
@@ -27,6 +28,7 @@
   "nodeBin": "node",
   "converterScript": "../converter/convert.js",
   "maxUploadMB": 200,
+  "webDist": "../web/dist",
   "pgDSN": "",
   "editServiceURL": "http://127.0.0.1:8100"
 }
@@ -37,7 +39,7 @@
 - 默认不开启鉴权（`apiToken` 为空），仅适用于本机单机开发。**生产/多用户环境必须设置 `apiToken`（或 env `VIEWER_API_TOKEN`）**——编辑 API 会在服务端沙箱执行构建脚本（脚本执行 = 代码执行），无鉴权对外开放等价于开放远程代码执行入口。
 - 开启后所有端点要求 `Authorization: Bearer <token>`（强制 Bearer scheme，裸 token 拒绝），仅豁免：OPTIONS 预检、`GET /v1/models/{id}/model.xkt`、`GET /v1/models/{id}/metadata.json`、`GET /v1/models/{id}/issues/{file}`（前端 xeokit 与 `<img>` 标签无法携带请求头，需匿名可读）。401 响应为统一 envelope，错误码 `40100`。
 - **浏览器 UI 使用**：web 端所有 API 请求自动带上 localStorage（键 `aiifc_token`）中的 token。未存 token 或 token 失效时，任一请求 401 会弹出 token 输入框，保存后自动重试原请求；chat 的 SSE 事件流（EventSource 无法携带自定义头）经 `?token=` query 传递（server 仅对 events 路径放行该回退）。
-- docker compose 部署时在 `.env` 设 `VIEWER_API_TOKEN`（见 `.env.example`），compose 会透传给 server 容器。
+- 生产部署通过环境变量传 `VIEWER_API_TOKEN` 给 server 进程（如 systemd unit 的 `Environment=`，见 [快速开始](/guide/quickstart)）。
 - edit-service（:8100）与 cad-edit-service（:8200）本身**无鉴权**，依赖网络隔离：务必保持绑定 `127.0.0.1`，不要对外暴露；AI agent 直连 :8100/:8200 会绕过 Go server 的 token 校验。
 - CORS 从通配 `*` 收敛为白名单（默认本地开发两个端口），新增部署来源用 `corsOrigins` / `VIEWER_CORS_ORIGINS` 追加。
 
@@ -63,7 +65,7 @@
 | `AIDXF_FLOWS_DIR` | `flows`（相对服务根） | DXF 沙箱契约层目录（`services/cad/flows`） |
 | `CAD_SERVICE_PORT` | `8200` | 监听端口 |
 
-docker compose 中对应服务名 `cad-edit-service`（server 经 `VIEWER_CAD_SERVICE_URL=http://cad-edit-service:8200` 访问，compose 已内置）。
+cad-edit-service 与 edit-service 同为宿主进程（默认绑 `127.0.0.1:8200`），server 经 `cadServiceURL` / `VIEWER_CAD_SERVICE_URL` 访问。
 
 ## PostgreSQL（可选）
 
