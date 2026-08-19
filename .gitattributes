@@ -1,5 +1,14 @@
 # GitHub 语言统计修正：文档镜像/调研 HTML 不算代码
 research/** linguist-documentation
-AI_CAD/research/** linguist-documentation
 docs/** linguist-documentation
 examples/models/** linguist-vendored
+
+# golden 参考物（replay 工具产出的 dxf/json/svg，单体几十万行，非手写代码）
+skills/*/references/golden/** linguist-generated
+skills/*/tests/golden/** linguist-generated
+
+# gen:api 自动生成物（只经 npm run gen:api 更新）
+docs/site/public/** linguist-generated
+
+# 上游 fork 资产（保留各自许可证，非本仓原创代码）
+skills/aiblueprint-mcp/** linguist-vendored
