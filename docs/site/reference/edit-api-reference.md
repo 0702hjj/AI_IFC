@@ -303,6 +303,8 @@ Rewrite one scalar argument at a located callsite, then sandbox-run.
 
 顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。
 origin=traced 的调用点不可自动改写 → 422。
+staging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）→ 409 fail-closed：
+map 行号只对生成它的那份脚本有效，放行会把改写落到错误的调用上。
 
 参数：
 
@@ -413,6 +415,10 @@ Restore a big version's script into staging and re-run it into uploads.
 Run Script Endpoint
 
 Sandbox-run the current staged script into uploads (preview; no version).
+
+响应附 ``semanticDiff``：旧 uploads 产物 vs 本次 run 产物的构件级
+{added, removed, changed} 计数（容错纪律同 ``_bootstrap_alignment``——
+diff 失败/无旧产物降级 None，绝不让已成功的 run 失败）。
 
 参数：
 

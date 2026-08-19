@@ -98,7 +98,7 @@ When the built-in chat agent's `run_script` sandbox run succeeds, the server pus
 - **ifc + webifc engine**: web-ifc reads IFC directly — the viewer remounts automatically.
 - **ifc + xeokit engine**: XKT reconversion is slow and flickery, so no auto-refresh — a badge "AI 中间结果 · 点击预览" appears at the top-left of the canvas and reloads only on click.
 
-The `run_script` tool result also ends with a staging diff summary (`[staging diff] added=N removed=M` plus `PARAMS +/-/~ key ...` lines, reusing `GET /script/staging/diff`; degrades to an empty string when the diff is unavailable) so the AI can self-correct against expectations. On run failure no event is pushed and no summary is appended.
+The `run_script` tool result also ends with a staging diff summary so the AI can self-correct against expectations: **element-level counts first** (`[staging diff] 构件 +N -M ~K`, taken from the run response's `semanticDiff` — a successful `script/run` carries element-level `{added, removed, changed}` counts of the old artifact vs the new one, `null` when the diff fails or there is no prior artifact); when element-level counts are unavailable it **falls back to the line-level summary** (`[staging diff] added=N removed=M` plus `PARAMS +/-/~ key ...` lines, reusing `GET /script/staging/diff`); when neither is available no summary is appended. On run failure no event is pushed and no summary is appended.
 
 ## Contract highlights
 
