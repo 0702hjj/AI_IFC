@@ -328,6 +328,9 @@ jobs:
           curl -sf http://127.0.0.1:8080/api/v1/models \
             | python3 -c 'import sys,json,os;ids=[m["id"] for m in json.load(sys.stdin)["data"]];assert os.environ["MODEL_ID"] in ids,("model lost after restart",ids)'
           echo "persistence OK"
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --tail=200 server edit-service cad-edit-service
       - name: Tear down file storage round (wipe volumes)
         if: always()
         run: docker compose down -v
