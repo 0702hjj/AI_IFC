@@ -5,7 +5,7 @@
 - **Milestone：** v0.10.1（编辑面对齐收尾）
 - **来源：** W-0045 交付后的对齐收尾 + v0.10 遗留观察兑现（用户裁决 2026-08-18：dxf 分支 IssuePanel/DiffPanel 对称不重点考虑，排除在外）
 - **执行者/分支：** kimi-code / feat/edit-parity-followups
-- **关闭 commit：** e6f5dd3（web params_keys 断链修复）+ 4c93fd7（webifc 定位脚本）+ 99c0242（DesignPanel 回滚按钮）+ 8bdb47a（services run 附 semanticDiff）+ e4b4952（server run_script 摘要升级）+ 119fb83（aiplan SKILL.md 补 version）+ 本 commit（文档收口，hash 随 PR 回填）（待提 PR）
+- **关闭 commit：** e6f5dd3（web params_keys 断链修复）+ 4c93fd7（webifc 定位脚本）+ 99c0242（DesignPanel 回滚按钮）+ 8bdb47a（services run 附 semanticDiff）+ e4b4952（server run_script 摘要升级）+ 119fb83（aiplan SKILL.md 补 version）+ 9c5ba84（文档收口）（PR #43）
 
 ## 背景
 

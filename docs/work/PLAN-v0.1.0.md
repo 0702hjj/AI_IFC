@@ -24,7 +24,7 @@
 | v0.6 | services/cad script-as-source chunk D ✅（2026-08-14，分支 feat/v0.8-dxf-viewer，PR #37）| W-0041 | kind=dxf 模型 ViewerPage 分流 Canvas 只读查看器（七类实体/pan-zoom/图层/选中属性/unsupported 明面化）测试绿；编辑 UI 另立 chunk 且开工需用户确认 |
 | v0.6 | chunk E：Eino 替换 opencode + 主子编排 + web-ifc 查看器 ✅（2026-08-17 实现完毕，分支 feat/v0.9-eino-webifc，**整 chunk 单 PR** 收口）| W-0043, W-0044 | 进程内 Eino agent loop 替换 opencode（SSE/REST 契约逐字段不变）+ subagent 主子编排 + web-ifc/three IFC 查看器（与 xeokit 并存，默认 xeokit） |
 | v0.10 | 中途预览 + DXF/webifc 编辑面 ✅（2026-08-18，PR #40）| W-0045 | run_script 成功推 viewer.staged SSE 事件 + 工具结果附 staging diff 摘要；dxf/webifc 自动刷新、xeokit 手动角标；dxf/webifc 分支挂 DesignPanel 全套编辑面 + dxf 选中定位脚本；aidxfv v1/v2 遗留删除 |
-| v0.10.1 | 编辑面对齐收尾 ✅（2026-08-19，分支 feat/edit-parity-followups，待提 PR）| W-0046 | locate params_keys 断链修复（PARAMS 聚焦恢复）；webifc 选中面板补「定位脚本」；DesignPanel 版本列表加回滚按钮；script/run 响应附构件级 semanticDiff、run_script 摘要优先构件级计数；aiplan SKILL.md 补 version 修复打包 |
+| v0.10.1 | 编辑面对齐收尾 ✅（2026-08-19，PR #43）| W-0046 | locate params_keys 断链修复（PARAMS 聚焦恢复）；webifc 选中面板补「定位脚本」；DesignPanel 版本列表加回滚按钮；script/run 响应附构件级 semanticDiff、run_script 摘要优先构件级计数；aiplan SKILL.md 补 version 修复打包 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 
