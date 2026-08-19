@@ -22,6 +22,7 @@ import {
   discardScript,
   runScript,
   saveScript,
+  rollbackScript,
   postScriptDiff,
   fetchStagingDiff,
 } from "@/api/client";
@@ -174,6 +175,13 @@ export function DesignPanel({ modelId }: { modelId: string }) {
     run(() => stageScriptParams(modelId, next));
   };
 
+  // 回滚：端点把该版本脚本重置进 staging 并重跑进 uploads——复用 run() 刷新路径
+  // （脚本/参数/版本重拉）+ flag 模型重载（与 试跑/保存大版本 同语义）。
+  const rollbackTo = (version: string) => {
+    if (!window.confirm(`回滚到 ${version}？当前脚本与暂存将被该版本替换`)) return;
+    run(() => rollbackScript(modelId, version), true);
+  };
+
   const lineCount = editorText === "" ? 1 : editorText.split("\n").length;
 
   if (noScript) return <div className="design-panel">该模型无构建脚本</div>;
@@ -302,6 +310,24 @@ export function DesignPanel({ modelId }: { modelId: string }) {
       {scripts.length > 1 && (
         <div className="design-versions">
           <div className="design-panel-header">大版本对比</div>
+          {scripts.map((v, i) => (
+            <div key={v.version} className="design-version-row" data-testid={`version-row-${v.version}`}>
+              <span>
+                {v.version}
+                {i === scripts.length - 1 ? "（当前）" : ""}
+              </span>
+              {i < scripts.length - 1 && (
+                <button
+                  type="button"
+                  data-testid={`rollback-${v.version}`}
+                  disabled={busy}
+                  onClick={() => rollbackTo(v.version)}
+                >
+                  回滚
+                </button>
+              )}
+            </div>
+          ))}
           <div className="design-actions">
             <select data-testid="diff-base" defaultValue={scripts[scripts.length - 2].version}>
               {scripts.map((v) => <option key={v.version} value={v.version}>{v.version}</option>)}

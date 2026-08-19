@@ -111,6 +111,14 @@
   gap: 6px;
 }
 
+.design-version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #e6e6e6;
+}
+
 .design-diff {
   display: flex;
   flex-direction: column;
