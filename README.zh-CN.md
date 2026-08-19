@@ -46,21 +46,28 @@ AI agent ──► REST 编辑 API ────────┘
 
 ## 快速开始
 
-见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`web`（React + xeokit）、`server`（Go）、`converter`（Node）、`services/ifc`（Python FastAPI + IfcOpenShell）。
-
-一键启动（推荐，只需 Docker）：`docker compose up --build` → 打开 http://localhost:8080（可调项见 `.env.example`）。
-
-手工启动：
+见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`web`（React + xeokit）、`server`（Go）、`converter`（Node）、`services/ifc`（Python FastAPI + IfcOpenShell）。宿主机直跑，无 Docker。
 
 ```bash
+# 一次性：安装依赖
 cd converter && npm install
+cd ../web && npm install
 cd ../services/ifc && uv sync
-VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 &
-cd ../server && go run ./cmd/server &
-cd ../web && npm install && npm run dev
+
+# 终端 1：edit-service（:8100）
+cd services/ifc
+VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
+
+# 终端 2：Go server（:8090）
+cd server && go run ./cmd/server
+
+# 终端 3：web 开发服务器（:5173）
+cd web && npm run dev
 ```
 
 打开 http://localhost:5173 ，上传 `converter/test/fixtures/wall-with-opening-and-window.ifc` 验证。
+
+生产形态：`cd web && npm run build` 后由 Go server 直接托管 `web/dist`（单端口 :8090，SPA fallback + 指纹资源长缓存），无需 nginx。
 
 ## AI 接入：两条互补路径
 

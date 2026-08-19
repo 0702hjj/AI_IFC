@@ -36,6 +36,7 @@ type config struct {
 	NodeBin         string `json:"nodeBin"`
 	ConverterScript string `json:"converterScript"`
 	MaxUploadMB     int64  `json:"maxUploadMB"`
+	WebDist         string `json:"webDist"`
 	PgDSN           string `json:"pgDSN"`
 	EditServiceURL  string `json:"editServiceURL"`
 	CadServiceURL   string `json:"cadServiceURL"`
@@ -58,6 +59,12 @@ func loadConfig(path string) (*config, error) {
 	}
 	if cfg.Host == "" {
 		cfg.Host = "127.0.0.1"
+	}
+	if d := os.Getenv("VIEWER_WEB_DIST"); d != "" {
+		cfg.WebDist = d
+	}
+	if cfg.WebDist == "" {
+		cfg.WebDist = "../web/dist"
 	}
 	if dsn := os.Getenv("VIEWER_PG_DSN"); dsn != "" {
 		cfg.PgDSN = dsn
@@ -178,7 +185,10 @@ func main() {
 	}
 	root := http.NewServeMux()
 	root.Handle("/api/v1/chat/", chatHandler)
-	root.Handle("/", handler)
+	root.Handle("/", api.NewStaticHandler(cfg.WebDist, handler))
+	if _, err := os.Stat(cfg.WebDist); err != nil {
+		log.Printf("web dist 不可用（%s）：静态页面返回 503，API 不受影响（构建：cd web && npm run build）", cfg.WebDist)
+	}
 	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
 	srv := &http.Server{Addr: addr, Handler: api.TokenAuth(cfg.APIToken)(root)}
 	if cfg.APIToken != "" {

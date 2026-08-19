@@ -20,7 +20,7 @@
 - 属性真改直通：属性编辑不再有 override 中间层，直接走 pending → commit 真改闭环。
 - ChatSidebar 修复：AI 对话侧栏问题修复。
 - Script-as-source 统一编辑（2026-08-08 迭代）：web 修改 = 改构建脚本——选中构件定位脚本调用点（ScriptMap，guid→designKey→行/列/origin）、PARAMS 表单 / libcst 标量改写（edit-call）+ 沙箱验证、上传 IFC 经 AI 复现为脚本（bootstrap.ifc 保留 + save 响应对齐计数）；L1 直改链路退役（410，回捞锚点 fb55a8a）；IFC 只物化最新大版本、历史按需重建（ifc_cache LRU 4）。
-- 部署化：Docker Compose 一键启动（server / web / PostgreSQL / edit-service / converter），配置外置（`.env.example` 全默认值；CI compose-smoke 真冒烟）。
+- 部署化：宿主机直跑——Go server 托管 web 构建产物（单端口对外），edit-service / cad-edit-service 本机进程（systemd 最小示例见快速开始）；PostgreSQL 可选。（早期为 Docker Compose，2026-08-19 起移除——容器层对 bwrap 沙箱已无隔离收益，沙箱回归宿主机。）
 - 重转去重：IFC 未变（mtime 不新于 XKT）时跳过全量重转（不发 converting、不入队）；XKT 缺失 / 判断失败保守重转（宁可多转不可漏转）。（几何 diff 已随 script-as-source 覆盖：IFC 是脚本产物，diff 为脚本 diff + 属性级语义 diff。）
 
 ## 近期

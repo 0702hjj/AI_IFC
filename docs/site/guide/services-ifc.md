@@ -52,22 +52,11 @@ VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
         └── edit-history.json    # 编辑历史（user-edits 追加，原子写）
 ```
 
-### Docker 单容器部署
+### 沙箱后端要求（宿主运行）
 
-仓库自带 `services/ifc/Dockerfile`（Python 3.10 + uv + ifcopenshell，含 bubblewrap 沙箱）。**构建上下文必须是仓库根**——镜像内 COPY 了 `skills/aiifc/references/docs/flows`（沙箱契约校验依赖）：
+服务以普通用户直接在宿主机运行即可。bwrap 沙箱走 unprivileged user namespace：Debian/Ubuntu 安装 `bubblewrap` 包即可用；RHEL 系确认 `user.max_user_namespaces > 0`。无 bwrap 时沙箱默认 **fail-closed**（run/save 拒绝执行，503）；开发机可显式 `ALLOW_RLIMIT_FALLBACK=1` 降级为 rlimit 模式（FS/网络隔离弱化），生产环境勿设。启动日志会打印所用后端（`script sandbox backend: ...`），部署时确认看到 `bwrap` 字样。
 
-```bash
-# 在仓库根执行
-docker build -f services/ifc/Dockerfile -t aiifc-edit-service .
-
-# 运行：挂数据卷 + 端口映射（数据目录语义同 VIEWER_DATA_DIR）
-mkdir -p /srv/aiifc-data
-docker run -d --name edit-service -p 127.0.0.1:8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
-```
-
-镜像内已固定 `VIEWER_DATA_DIR=/data`、`AIIFC_FLOWS_DIR=/opt/aiifc/flows`、`:8100`，无需再配环境变量。自检：`curl -sf http://127.0.0.1:8100/openapi.json` 返回 200、`GET /health` 返回 `{"status": "ok"}`。
-
-与完整平台的关系：**本容器只是业务核心**。对外完整链路（envelope 包装、鉴权、上传→转换→浏览）仍需 Go server + converter；AI agent 也可直连 :8100 调编辑 API（传 `provenance.source="AI"`）。直连无鉴权——保持容器端口绑定 127.0.0.1 或仅内网可达，勿暴露公网。
+与完整平台的关系：**本服务只是业务核心**。对外完整链路（envelope 包装、鉴权、上传→转换→浏览）仍需 Go server + converter；AI agent 也可直连 :8100 调编辑 API（传 `provenance.source="AI"`）。直连无鉴权——保持监听 127.0.0.1 或仅内网可达，勿暴露公网。
 
 ## 可调用端点全清单
 
@@ -139,5 +128,5 @@ services/ifc 之外的所有组件都是**可选的**。下表列「没有它，
 
 - **无鉴权**：:8100 直连无 token 校验，务必保持监听 127.0.0.1，勿暴露公网。要对外鉴权走 Go server。
 - **provenance 是声明字段**：`provenance.source`（AI/UI/USER）由调用方自报，服务端只做枚举校验，不验证身份。
-- **沙箱执行依赖**：run/save 依赖 ifcopenshell + aiifc flows（`script_lib` 契约校验）；无 bwrap 时沙箱降级为 rlimit（沙箱外 FS 写与网络不拦截，依赖容器层隔离）。
+- **沙箱执行依赖**：run/save 依赖 ifcopenshell + aiifc flows（`script_lib` 契约校验）；无 bwrap 时沙箱默认 fail-closed（503），显式 `ALLOW_RLIMIT_FALLBACK=1` 才降级为 rlimit（沙箱外 FS 写与网络不拦截）。
 - **缓存语义**：内存模型缓存有上限（`EDIT_SERVICE_MAX_MODELS`）；暂存只存内存（服务重启丢未 run 暂存），大版本落盘持久。
