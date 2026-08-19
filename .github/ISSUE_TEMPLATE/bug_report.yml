@@ -13,7 +13,7 @@ body:
       label: 环境
       description: 运行环境与版本信息
       placeholder: |
-        - 部署方式：Docker / 本地源码
+        - 部署方式：宿主直跑（开发 dev server / 生产 server 托管 dist）
         - 版本或 commit：
         - 操作系统 / 浏览器：
         - 相关组件：web / server / converter / edit-service
