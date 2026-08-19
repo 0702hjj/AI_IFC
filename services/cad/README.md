@@ -15,6 +15,8 @@ VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200
 
 配置（环境变量）：`CAD_SERVICE_PORT`（默认 8200）、`VIEWER_DATA_DIR`（默认 `../data`，建议绝对路径，须与 Go server 指向同一 `data`）、`AIDXF_FLOWS_DIR`（默认 `flows`，即本目录下 `services/cad/flows`，沙箱脚本契约校验的 `cad_script_lib` 契约层——公共面 `cad_script_lib.add_entity` / `cad_script_lib.write_and_validate` / `cad_script_lib.validate_script_contract`）、`CAD_SERVICE_MAX_MODELS`（默认 8）。
 
+沙箱（W-0047，环境变量，与 services/ifc 同名同义）：`SCRIPT_MAX_FSIZE_BYTES`（RLIMIT_FSIZE 单文件写上限，默认 256 MiB）、`SCRIPT_MAX_OUTPUT_BYTES`（脚本 stdout+stderr 累计上限，超出杀进程组 422，默认 1 MiB）、`SCRIPT_MAX_PRODUCT_BYTES`（产物与 map sidecar 发布上限，超限 422 不落盘，默认 256 MiB）、`SCRIPT_RUN_CONCURRENCY`（进程级 run/save 并发闸，满即 429，默认 3）、`ALLOW_RLIMIT_FALLBACK`（bwrap 不可用时显式放行 rlimit 降级——rlimit 不隔离网络与沙箱外 FS，**生产不要设**；缺省不设则 run/save 拒绝执行 503）。
+
 ## 编辑 API（chunk A+B+C 已交付）
 
 模型 id 必须匹配 `^m_[0-9a-f]{16}$`，对应 DXF 路径 `{VIEWER_DATA_DIR}/uploads/{id}.dxf`。
@@ -38,5 +40,5 @@ Chunk 边界——**本服务尚未包含**（后续 chunk 按 spec 2026-08-12-s
 ## 测试
 
 ```bash
-uv run --group dev pytest   # 209 测试
+uv run --group dev pytest   # 225 测试
 ```
