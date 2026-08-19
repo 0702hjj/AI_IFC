@@ -11,6 +11,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  file-size-gate:
+    name: file size gate (≤500 行，AGENTS 代码门控)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/check_file_size.sh
+
   converter:
     name: converter (Node, IFC→XKT)
     runs-on: ubuntu-latest

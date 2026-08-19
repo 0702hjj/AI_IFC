@@ -45,6 +45,14 @@ AI agent ──► REST 编辑 API ────┘
 4. 测试与源码同目录（`*_test.go` / `*.test.ts(x)` / `test_*.py`）。
 5. **异步写盘必须等落地**：涉及 `convert.Queue`、SSE、后台 goroutine 等异步写盘的测试，结束（尤其 `t.TempDir()` 清理）前必须用**条件等待**（轮询状态 + 超时）确认异步完成——禁止固定 sleep。教训：2026-08-06 main CI flake（TestCreateProjectViaChatPath，PR #12）。
 
+## 代码门控（硬规则）
+
+1. **按职责拆分模块**：任何源码与文档文件不得超过 **500 行**；接近上限即按领域/职责重构拆分，不等到撞线。
+2. **正常排版**：不得通过压缩代码、合并无关语句来规避行数限制。
+3. 代码清晰、函数职责单一；避免无意义的 clone、阻塞异步执行器、不受控的内存增长。
+
+机器强制：`scripts/check_file_size.sh`（CI `file-size-gate` job）；存量超限登记在 `scripts/file_size_whitelist.txt`（只减不增，新超限变红）；自动生成物/golden/wasm/research 镜像文档由脚本按类别豁免。白名单内的文件是重构候选，碰到顺手拆。
+
 ## 校验与业务隔离（硬规则）
 
 1. 业务规则校验必须住在 `verify*`/`validate*` 函数里；handler 内禁止内联 `if + raise HTTPException`（Python）/ `if + writeErr`（Go）的业务规则检查——请求形状校验归声明式层（pydantic `Field(pattern=...)`、解码），不在此列。handler 只做：decode → verify → 调领域 → 翻译错误。
