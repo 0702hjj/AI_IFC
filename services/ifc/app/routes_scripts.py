@@ -13,7 +13,9 @@ The build script is the single source of truth for generated models:
 - ``GET  /models/{id}/script/params`` — ast-extracted PARAMS (form feed).
 - ``POST /models/{id}/script/undo|redo|discard`` — WPS-style navigation.
 - ``POST /models/{id}/script/run`` — sandbox-run the staged script and
-  atomically replace ``uploads/{id}.ifc`` (no version).
+  atomically replace ``uploads/{id}.ifc`` (no version). The response carries
+  ``semanticDiff``: element-level {added, removed, changed} counts vs the
+  pre-run upload (null when the diff is unavailable).
 - ``POST /models/{id}/script/save`` — sandbox-run, then snapshot
   ``scripts/v{n}.py`` + ``versions/v{n}.ifc`` (atomic, lockstep). A failed
   run → 422 and no version. The v{n-1}↔v{n} diff is computed on demand by
@@ -41,6 +43,7 @@ import json
 import logging
 import os
 import shutil
+import tempfile
 from typing import Any, Dict, Optional
 
 import ifcopenshell.util.element
@@ -351,12 +354,70 @@ def _run_into_uploads(request: Request, id: str, script: str) -> str:
 def run_script_endpoint(
     request: Request, id: str = Path(pattern=MODEL_ID_PATTERN)
 ) -> Dict[str, Any]:
-    """Sandbox-run the current staged script into uploads (preview; no version)."""
+    """Sandbox-run the current staged script into uploads (preview; no version).
+
+    响应附 ``semanticDiff``：旧 uploads 产物 vs 本次 run 产物的构件级
+    {added, removed, changed} 计数（容错纪律同 ``_bootstrap_alignment``——
+    diff 失败/无旧产物降级 None，绝不让已成功的 run 失败）。
+    """
     model_upload_path(request, id)
     with model_lock(request, id):
         current = _current_or_409(_staging(request, id))
-        _run_into_uploads(request, id, current)
-        return {"modelId": id, "ok": True}
+        old_snapshot = _snapshot_upload(model_upload_path(request, id))
+        ifc_path = _run_into_uploads(request, id, current)
+        return {
+            "modelId": id,
+            "ok": True,
+            "semanticDiff": _run_diff_counts(old_snapshot, ifc_path, id),
+        }
+
+
+def _snapshot_upload(upload_path: str) -> Optional[str]:
+    """run 前把旧 uploads 产物复制到 tmp（供 run 后语义 diff 作基线）。
+
+    复制失败（磁盘错误等）记日志返回 None——快照是观测增强，不阻断 run。
+    调用方须持有模型锁（唯一写者）。
+    """
+    tmp: Optional[str] = None
+    try:
+        fd, tmp = tempfile.mkstemp(suffix=".ifc")
+        os.close(fd)
+        shutil.copyfile(upload_path, tmp)
+        return tmp
+    except OSError:
+        logger.warning("run diff 旧产物快照失败: %s", upload_path, exc_info=True)
+        if tmp is not None:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+        return None
+
+
+def _run_diff_counts(
+    old_snapshot: Optional[str], new_path: str, model_id: str
+) -> Optional[Dict[str, int]]:
+    """旧产物快照 vs 本次 run 产物的构件级 diff 计数；失败降级 None。
+
+    快照 tmp 文件无论成败都清理（单次使用的临时基线）。
+    """
+    if old_snapshot is None:
+        return None
+    try:
+        diff = diffing.compute_diff(old_snapshot, new_path)
+    except Exception:
+        logger.exception("run semantic diff failed for model %s", model_id)
+        return None
+    finally:
+        try:
+            os.unlink(old_snapshot)
+        except OSError:
+            logger.warning("run diff 快照清理失败: %s", old_snapshot, exc_info=True)
+    return {
+        "added": len(diff["added"]),
+        "removed": len(diff["removed"]),
+        "changed": len(diff["changed"]),
+    }
 
 
 @router.post("/models/{id}/script/save")
