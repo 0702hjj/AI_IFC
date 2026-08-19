@@ -13,7 +13,7 @@
 
 ## Docker Compose (recommended)
 
-Docker only; one command starts the full stack (web / server / converter / edit-service):
+Docker only; one command starts the full stack (web / server / converter / edit-service / cad-edit-service):
 
 ```bash
 cp .env.example .env   # optional: every entry has a default
@@ -21,6 +21,10 @@ docker compose up --build
 ```
 
 Open `http://localhost:8080`. Data lives in a named volume (`aiifc-data`); models survive `down`/`up`.
+
+> **Production deployments**: `VIEWER_API_TOKEN` is **required** for any production / multi-user setup (set it in `.env`; compose passes it to the server). Threat model: the editing API executes build scripts in a server-side sandbox — **script execution is code execution**; running with auth disabled (empty token) is only acceptable for local single-machine development.
+
+Both edit-service and cad-edit-service containers run as a **non-root user** (uid/gid 1000). The bwrap sandbox uses unprivileged user namespaces, which requires Docker ≥ 20.10 (default seccomp allows `CLONE_NEWUSER`) and a host kernel that permits unprivileged userns (default on Debian/Ubuntu; on RHEL-like systems check `user.max_user_namespaces > 0`). When bind-mounting a host directory via `DATA_DIR`, make sure it is writable by uid 1000 (e.g. `chown -R 1000:1000`); named volumes need no such step.
 
 With PostgreSQL (issues/changes/overrides via PG, tables created automatically):
 

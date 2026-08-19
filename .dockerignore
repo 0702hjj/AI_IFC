@@ -12,6 +12,7 @@ web/node_modules
 web/dist
 converter/node_modules
 services/ifc/.venv
+services/cad/.venv
 .env
 docs/node_modules
 .superpowers

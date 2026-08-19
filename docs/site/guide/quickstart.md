@@ -13,7 +13,7 @@
 
 ## Docker Compose（推荐）
 
-只需 Docker，一条命令起全栈（web / server / converter / edit-service）：
+只需 Docker，一条命令起全栈（web / server / converter / edit-service / cad-edit-service）：
 
 ```bash
 cp .env.example .env   # 可选：所有项均有默认值
@@ -21,6 +21,10 @@ docker compose up --build
 ```
 
 打开 `http://localhost:8080` 即可使用。数据存 named volume（`aiifc-data`），`down`/`up` 后模型仍在。
+
+> **生产部署必读**：`VIEWER_API_TOKEN` 在生产/多用户环境**必填**（`.env` 中设置，compose 透传给 server）。威胁模型：编辑 API 会在服务端沙箱中执行构建脚本——**脚本执行 = 代码执行**；鉴权关闭（token 为空）仅限本机单机开发，任何对外暴露的部署都必须设置 token。
+
+edit-service 与 cad-edit-service 容器以**非 root 用户**（uid/gid 1000）运行。沙箱 bwrap 走 unprivileged user namespace，要求：Docker ≥ 20.10（默认 seccomp 放行 `CLONE_NEWUSER`）且宿主内核允许 unprivileged userns（Debian/Ubuntu 默认开启；RHEL 系确认 `user.max_user_namespaces > 0`）。若用 `DATA_DIR` bind mount 宿主机目录，需保证该目录可被 uid 1000 写入（如 `chown -R 1000:1000`）；named volume 默认无此问题。
 
 追加 PostgreSQL（issues/changes/overrides 走 PG，建表自动）：
 

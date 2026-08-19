@@ -67,6 +67,11 @@ docker run -d --name edit-service -p 127.0.0.1:8100:8100 -v /srv/aiifc-data:/dat
 
 镜像内已固定 `VIEWER_DATA_DIR=/data`、`AIIFC_FLOWS_DIR=/opt/aiifc/flows`、`:8100`，无需再配环境变量。自检：`curl -sf http://127.0.0.1:8100/openapi.json` 返回 200、`GET /health` 返回 `{"status": "ok"}`。
 
+容器以**非 root 用户**（uid/gid 1000）运行。注意两点部署事实：
+
+- **数据卷写权限**：named volume 首次挂载会继承镜像内 `/data` 的属主（app），开箱可写；bind mount 宿主机目录时需自行保证该目录可被 uid 1000 写入（如 `chown -R 1000:1000 /srv/aiifc-data`）。
+- **bwrap 沙箱宿主要求**：非 root 下 bwrap 走 unprivileged user namespace，要求 Docker ≥ 20.10（默认 seccomp 放行 `CLONE_NEWUSER`）且宿主内核允许 unprivileged userns（Debian/Ubuntu 默认开启；RHEL 系确认 `user.max_user_namespaces > 0`）。不满足时沙箱降级为 rlimit 模式（FS/网络隔离弱化，依赖容器层隔离兜底）。
+
 与完整平台的关系：**本容器只是业务核心**。对外完整链路（envelope 包装、鉴权、上传→转换→浏览）仍需 Go server + converter；AI agent 也可直连 :8100 调编辑 API（传 `provenance.source="AI"`）。直连无鉴权——保持容器端口绑定 127.0.0.1 或仅内网可达，勿暴露公网。
 
 ## 可调用端点全清单

@@ -22,6 +22,7 @@ services:
     image: aiifc-server
     environment:
       VIEWER_EDIT_SERVICE_URL: http://edit-service:8100
+      VIEWER_CAD_SERVICE_URL: http://cad-edit-service:8200
       VIEWER_PG_DSN: ${VIEWER_PG_DSN:-}
       # Bearer token 鉴权（默认空 = 关闭；对外暴露 web 端口时务必设置）
       VIEWER_API_TOKEN: ${VIEWER_API_TOKEN:-}
@@ -31,6 +32,8 @@ services:
       - "${SERVER_PORT:-8090}:8090"
     depends_on:
       edit-service:
+        condition: service_healthy
+      cad-edit-service:
         condition: service_healthy
       postgres:
         condition: service_healthy
@@ -50,6 +53,24 @@ services:
       - "127.0.0.1:${EDIT_SERVICE_PORT:-8100}:8100"
     healthcheck:
       test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:8100/health')\""]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  cad-edit-service:
+    build:
+      context: .
+      dockerfile: services/cad/Dockerfile
+    image: aiifc-cad-edit-service
+    environment:
+      VIEWER_DATA_DIR: /data
+    volumes:
+      - "${DATA_DIR:-aiifc-data}:/data"
+    # 无鉴权（鉴权在 Go server），只绑 loopback，不对宿主机外部发布（与 edit-service 同约束）。
+    ports:
+      - "127.0.0.1:${CAD_SERVICE_PORT:-8200}:8200"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request;urllib.request.urlopen('http://localhost:8200/health')\""]
       interval: 5s
       timeout: 3s
       retries: 12
