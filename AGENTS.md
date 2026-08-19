@@ -30,8 +30,8 @@ AI agent ──► REST 编辑 API ────┘
 | web (React 19 + xeokit + web-ifc 双引擎 IFC 查看器 + zustand + Fabric Canvas DXF 查看器) | `web` | `npm test`（vitest，322 用例 / 27 文件）；`npm run lint`（oxlint）；`npm run build`（含 tsc） | `npm run dev`（:5173） |
 | server (Go 1.26，stdlib + pgx/v5 + cloudwego/eino) | `server` | `go test ./...`（248 测试，含 18 个 PG 测试需 VIEWER_TEST_PG_DSN，未设自动 skip）；`go vet ./...` | `go run ./cmd/server`（:8090） |
 | converter (Node，web-ifc + xeokit-convert) | `converter` | `npm test`（node --test） | 被 server 以子进程调用 |
-| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（246 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
-| cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（213 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
+| edit-service (Python 3.10 + FastAPI + ifcopenshell) | `services/ifc` | `uv run --group dev pytest`（258 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100` |
+| cad-edit-service (Python 3.10 + FastAPI + ezdxf) | `services/cad` | `uv run --group dev pytest`（225 测试） | `VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8200` |
 | mcp-server (Python + mcp 2.x MCPServer，stdio) | `mcp` | `uv run --group dev pytest`（20 测试） | `uv run python -m app.server`（薄包 edit-service REST，解析用户改后 IFC/DXF 并标 USER） |
 | skill 打包 | `tools/skill_pack.py`（泛化打包器：`--skill <name>` 默认 aiifc，`--skill-dir <path>` 任意 skill） | `python -m pytest tests/skill/ -q`（142 测试 +2 skip，CI 用独立 .ci-venv） | `python tools/skill_pack.py --archive`（默认 aiifc；`--skill-dir skills/aidxfv/v3 --archive` 打 CAD v3；`--skill-dir skills/aiplan --archive` 打 plan） |
 | 端到端 | `scripts/smoke.sh` | 需 server 运行 | 上传→转换→下载 |
@@ -91,6 +91,7 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 环境注意
 
+- 沙箱后端：bwrap 优先，缺失时 rlimit 降级**默认 fail-closed**（run/save 拒绝执行 503）；本地开发机无 bwrap 时需显式 `ALLOW_RLIMIT_FALLBACK=1`（生产/compose 勿设，W-0047）。沙箱资源/并发限额 env：`SCRIPT_RUN_CONCURRENCY`、`SCRIPT_MAX_FSIZE_BYTES`、`SCRIPT_MAX_OUTPUT_BYTES`、`SCRIPT_MAX_PRODUCT_BYTES`（两服务同名同义）。
 - edit-service 与 Go server 共享 `VIEWER_DATA_DIR`：两边必须指向同一 `data` 绝对路径，配错会 404 或改错文件。
 - demo/flows 用 `services/ifc/.venv`（含 ifcopenshell/ifcquery；ezdxf 不在其中，DXF 依赖用 `services/cad/.venv`）；**根 `.venv` 没有这些包**。
 - AI agent 直连 edit-service :8100 时传 `provenance.source="AI"`。

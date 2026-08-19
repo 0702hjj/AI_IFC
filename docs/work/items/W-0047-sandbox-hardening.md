@@ -1,10 +1,11 @@
 # W-0047: 沙箱加固——真实用户上线前的隔离补齐
 
-- **状态：** in-progress
+- **状态：** done
 - **优先级：** P0
 - **Milestone：** v0.11（见 PLAN-v0.1.0.md）
 - **来源：** 2026-08-19 用户裁决（本月内上线真实用户，沙箱隔离优先于 DSL）+ 沙箱勘察报告（explore 子代理，2026-08-19）
 - **执行者/分支：** kimi-code / feat/sandbox-hardening
+- **关闭 commit：** 4f4ac0f（部署形态）+ 2d7ee06（ifc 沙箱核心）+ 5eba3a6（cad 镜像同步）+ 本项收口 commit（hash 随 PR 回填）（待提 PR）
 
 ## 背景
 
@@ -43,3 +44,11 @@ script-as-source 的 Python 构建脚本在沙箱执行（`services/ifc` 与 `se
 - TDD：每个洞先写失败测试（复现越界读/泛洪/并发/降级放行），再改实现转绿。
 - 新增测试量 ≥ 新增实现量；异步/子进程断言用条件等待，禁止固定 sleep。
 - 双侧服务同构改动各配测试（隔离断言在 rlimit 降级下 skip 的既有模式照抄）。
+
+## 验收记录（2026-08-19）
+
+- 四洞全堵并有测试断言：沙箱内 open('/data/...')/读 /etc 失败；stdout 泛洪被杀 422；产物超限 422 不落盘；并发满 429 且成功/失败均释放；rlimit 无开关 503、有开关放行跑通。
+- 测试计数落地：ifc 246→258、cad 213→225（各 +12，双侧镜像）；本机 bwrap 可用，隔离用例真实执行无 skip；CI 无 bwrap 由 conftest ALLOW_RLIMIT_FALLBACK=1 放行。
+- 部署形态：ifc/cad 镜像非 root（uid 1000）；cad Dockerfile 新建 + compose 条目（127.0.0.1:8200 + 共享 data 卷 + healthcheck）；compose smoke CI 不经 workflow 改动（泛化 build/up），首次运行背书。
+- 全量回归 10 项全 PASS（server 248+vet / web 322+lint+build / ifc 258 / cad 225 / mcp 20 / converter / skill 142+2skip）；docs:build 通过。
+- 新 env：SCRIPT_MAX_FSIZE_BYTES / SCRIPT_MAX_OUTPUT_BYTES / SCRIPT_MAX_PRODUCT_BYTES / SCRIPT_RUN_CONCURRENCY / ALLOW_RLIMIT_FALLBACK（生产勿设）。
