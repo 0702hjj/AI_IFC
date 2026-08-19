@@ -24,6 +24,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 REAL_SKILL = REPO_ROOT / "skills" / "aiifc"
 REAL_CAD_SKILL = REPO_ROOT / "skills" / "aidxfv" / "v3"
 REAL_ORCH_SKILL = REPO_ROOT / "skills" / "aibim-orchestrator"
+REAL_PLAN_SKILL = REPO_ROOT / "skills" / "aiplan"
 
 SKILL_MD = """---
 name: {name}
@@ -283,6 +284,23 @@ class TestSkillPackRealBundle(unittest.TestCase):
             self.assertIn("aibim-orchestrator/SKILL.md", names)
             self.assertIn("aibim-orchestrator/references/RELAY_CONTRACT.md", names)
             self.assertIn("aibim-orchestrator/references/SUBAGENTS.md", names)
+
+    def test_real_plan_skill_builds_and_archives(self):
+        """aiplan skill 可归档（frontmatter version 是 archive 的硬前提）。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "dist"
+            result = packer.build(
+                skill_root=REAL_PLAN_SKILL,
+                output_root=out,
+                skill_name="aiplan",
+                archive=True,
+            )
+            self.assertTrue(result.skill_root.exists())
+            self.assertIsNotNone(result.archive_path)
+            self.assertTrue(result.archive_path.stat().st_size > 0)
+            with tarfile.open(result.archive_path, "r:gz") as tar:
+                names = tar.getnames()
+            self.assertIn("aiplan/SKILL.md", names)
 
     def test_real_cad_skill_cli_archive_contains_license(self):
         """`--skill aidxfv3 --skill-dir skills/aidxfv/v3 --archive` 显式名覆盖推断名 v3。"""

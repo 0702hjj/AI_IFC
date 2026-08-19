@@ -1,6 +1,7 @@
 ---
 name: aiplan
 description: plan 阶段 subagent——把外部资料（图片/PPT/技术文档/用户对话）归一为下游可执行的建筑实施方案。与用户自然语言交互确认设计意图，产出 plan.json（任务书，对接 cad）+ bim_supplement.json（CAD 覆盖不了的 BIM 补充：屋顶/特殊结构/PSET，对接 bim）。用于建筑方案框定、设计任务书、竖向功能分区、面积表、坡屋顶与特殊结构意图获取。不画 DXF、不写 IFC、不做坐标级布局。
+version: 0.1.0
 license: MIT
 compatibility: 自包含——纯 Python 脚本 + 内联 schema/金样/词表，仅依赖 jsonschema。独立可迁移，零跨 skill 运行时依赖。
 metadata:
