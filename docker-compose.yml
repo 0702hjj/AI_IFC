@@ -44,6 +44,11 @@ services:
       context: .
       dockerfile: services/ifc/Dockerfile
     image: aiifc-edit-service
+    # apparmor=unconfined：docker-default profile 拒绝容器内创建 user namespace
+    # （Ubuntu 24.04+ 宿主 AppArmor 限制下 bwrap 必死，W-0047 实证）——放开的是
+    # 服务容器的外层约束，脚本仍被内层 bwrap 沙箱隔离（ro 挂载 + 断网 + rlimit）。
+    security_opt:
+      - apparmor=unconfined
     environment:
       VIEWER_DATA_DIR: /data
     volumes:
@@ -62,6 +67,11 @@ services:
       context: .
       dockerfile: services/cad/Dockerfile
     image: aiifc-cad-edit-service
+    # apparmor=unconfined：docker-default profile 拒绝容器内创建 user namespace
+    # （Ubuntu 24.04+ 宿主 AppArmor 限制下 bwrap 必死，W-0047 实证）——放开的是
+    # 服务容器的外层约束，脚本仍被内层 bwrap 沙箱隔离（ro 挂载 + 断网 + rlimit）。
+    security_opt:
+      - apparmor=unconfined
     environment:
       VIEWER_DATA_DIR: /data
     volumes:
