@@ -24,4 +24,9 @@ COPY --from=converter-deps /src/converter/node_modules /opt/converter/node_modul
 COPY converter/package.json converter/convert.js /opt/converter/
 COPY converter/lib /opt/converter/lib
 EXPOSE 8090
+# 非 root 运行（W-0047）：node 基础镜像自带 uid 1000 的 node 用户，与 edit-service/cad-edit-service
+# 的 app 用户同 uid——共享 /data 卷内跨容器读写权限一致（server 先建的 root 属主目录会堵死
+# uid 1000 的 edit-service 写入，compose smoke 实证）。
+RUN mkdir -p /data && chown node:node /data
+USER node
 CMD ["/app/server", "-config", "/app/server_config.json"]

@@ -24,7 +24,7 @@ docker compose up --build
 
 > **生产部署必读**：`VIEWER_API_TOKEN` 在生产/多用户环境**必填**（`.env` 中设置，compose 透传给 server）。威胁模型：编辑 API 会在服务端沙箱中执行构建脚本——**脚本执行 = 代码执行**；鉴权关闭（token 为空）仅限本机单机开发，任何对外暴露的部署都必须设置 token。
 
-edit-service 与 cad-edit-service 容器以**非 root 用户**（uid/gid 1000）运行。沙箱 bwrap 走 unprivileged user namespace，要求：Docker ≥ 20.10（默认 seccomp 放行 `CLONE_NEWUSER`）且宿主内核允许 unprivileged userns（Debian/Ubuntu 默认开启；RHEL 系确认 `user.max_user_namespaces > 0`）。若用 `DATA_DIR` bind mount 宿主机目录，需保证该目录可被 uid 1000 写入（如 `chown -R 1000:1000`）；named volume 默认无此问题。
+server、edit-service 与 cad-edit-service 容器均以**非 root 用户**（uid/gid 1000）运行（三者同 uid，共享 `/data` 卷跨容器读写一致）。沙箱 bwrap 走 unprivileged user namespace，要求：Docker ≥ 20.10（默认 seccomp 放行 `CLONE_NEWUSER`）且宿主内核允许 unprivileged userns（Debian/Ubuntu 默认开启；RHEL 系确认 `user.max_user_namespaces > 0`）。若用 `DATA_DIR` bind mount 宿主机目录，需保证该目录可被 uid 1000 写入（如 `chown -R 1000:1000`）；named volume 默认无此问题。**从旧版升级**：已存在的 named volume 归 root 所有，需 `docker compose down -v` 重建（数据清掉）或 `docker run --rm -v aiifc-data:/data alpine chown -R 1000:1000 /data` 修正属主。
 
 追加 PostgreSQL（issues/changes/overrides 走 PG，建表自动）：
 
