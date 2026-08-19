@@ -103,3 +103,31 @@
   font-size: 13px;
   color: #9ca3af;
 }
+
+/* 定位脚本按钮/提示：对齐 DxfViewer 的 dxf-locate-btn/dxf-locate-notice */
+.ifc-lite-locate-btn {
+  margin-top: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+}
+
+.ifc-lite-locate-btn:hover:not(:disabled) {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.ifc-lite-locate-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ifc-lite-notice {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+}
