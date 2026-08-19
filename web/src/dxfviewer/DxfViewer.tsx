@@ -44,7 +44,7 @@ export default function DxfViewer({ modelId }: { modelId: string }) {
     locateScriptByKey(modelId, selected.key)
       .then((res) => {
         if (res.found && res.line != null) {
-          requestScriptJump({ line: res.line, origin: res.origin, paramsKeys: res.paramsKeys });
+          requestScriptJump({ line: res.line, origin: res.origin, paramsKeys: res.params_keys });
           setNotice(
             res.origin === "traced"
               ? `已定位到脚本第 ${res.line} 行；该实体由运行期逻辑生成，请在脚本编辑器中手动修改`
