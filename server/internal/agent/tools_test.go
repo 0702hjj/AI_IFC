@@ -442,24 +442,33 @@ func TestMarkDirtyNotCalledOnBackendFailure(t *testing.T) {
 
 // --- run_script 中途预览：staging diff 摘要 + PushStaged 信号 ---
 
-// stagedRunFixture 是路由感知的 run_script 测试后端：run 固定 200 {"ok":true}，
-// staging diff 端点按 diffBody/diffStatus 应答（默认 404，模拟少于两个暂存步）。
+// stagedRunFixture 是路由感知的 run_script 测试后端：run 固定 200（body 可用
+// runBody 覆盖，默认 {"ok":true}），staging diff 端点按 diffBody/diffStatus
+// 应答（默认 404，模拟少于两个暂存步）。
 type stagedRunFixture struct {
 	mu         sync.Mutex
 	diffCalls  int
 	diffStatus int
 	diffBody   string
+	runBody    string
 	srv        *httptest.Server
 }
 
 func newStagedRunFixture(t *testing.T, modelID string) *stagedRunFixture {
 	t.Helper()
-	f := &stagedRunFixture{diffStatus: http.StatusNotFound, diffBody: `{"detail":"fewer than two staged steps"}`}
+	f := &stagedRunFixture{
+		diffStatus: http.StatusNotFound,
+		diffBody:   `{"detail":"fewer than two staged steps"}`,
+		runBody:    `{"ok":true}`,
+	}
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/models/"+modelID+"/script/run":
-			_, _ = io.WriteString(w, `{"ok":true}`)
+			f.mu.Lock()
+			body := f.runBody
+			f.mu.Unlock()
+			_, _ = io.WriteString(w, body)
 		case r.Method == http.MethodGet && r.URL.Path == "/models/"+modelID+"/script/staging/diff":
 			f.mu.Lock()
 			f.diffCalls++
@@ -569,6 +578,52 @@ func TestRunScriptStagedPushSurvivesDiffUnavailable(t *testing.T) {
 	}
 	if !pushed {
 		t.Fatal("diff 不可用不应阻塞 viewer.staged 推送（预览信号与摘要解耦）")
+	}
+}
+
+// TestRunScriptPrefersSemanticDiffSummary：run 响应带构件级 semanticDiff 时
+// 摘要优先用它（构件增减比行级 added/removed 对 AI 自纠更有用），
+// 且不再回拉行级 staging diff。
+func TestRunScriptPrefersSemanticDiffSummary(t *testing.T) {
+	st := store.NewStore(t.TempDir())
+	m := mustModel(t, st, "a.ifc", store.KindIFC)
+	fx := newStagedRunFixture(t, m.ID)
+	fx.runBody = `{"ok":true,"semanticDiff":{"added":2,"removed":1,"changed":3}}`
+	// 行级 diff 也可用——必须不被消费（构件级优先）。
+	fx.diffStatus = http.StatusOK
+	fx.diffBody = `{"from":0,"to":1,"stats":{"added":9,"removed":9},"params_changes":[]}`
+	deps := ToolDeps{IFC: editsvc.New(fx.srv.URL), CAD: editsvc.New(fx.srv.URL), St: st}
+	out := invoke(t, DomainTools(deps), "run_script", `{"modelId":"`+m.ID+`"}`)
+	if !strings.Contains(out, `"ok":true`) {
+		t.Fatalf("run_script 输出 = %s", out)
+	}
+	if !strings.Contains(out, "构件 +2 -1 ~3") {
+		t.Fatalf("工具结果缺构件级计数摘要: %s", out)
+	}
+	if strings.Contains(out, "added=9") {
+		t.Fatalf("构件级可用时不应回退行级摘要: %s", out)
+	}
+	if fx.diffCallCount() != 0 {
+		t.Fatalf("构件级可用时不应再拉 staging diff（调用 %d 次）", fx.diffCallCount())
+	}
+}
+
+// TestRunScriptSemanticDiffNullFallsBackToLineSummary：run 响应 semanticDiff
+// 为 null（diff 失败/无旧产物降级）时回退既有行级 staging diff 摘要。
+func TestRunScriptSemanticDiffNullFallsBackToLineSummary(t *testing.T) {
+	st := store.NewStore(t.TempDir())
+	m := mustModel(t, st, "a.ifc", store.KindIFC)
+	fx := newStagedRunFixture(t, m.ID)
+	fx.runBody = `{"ok":true,"semanticDiff":null}`
+	fx.diffStatus = http.StatusOK
+	fx.diffBody = `{"from":0,"to":1,"stats":{"added":2,"removed":1},"params_changes":[]}`
+	deps := ToolDeps{IFC: editsvc.New(fx.srv.URL), CAD: editsvc.New(fx.srv.URL), St: st}
+	out := invoke(t, DomainTools(deps), "run_script", `{"modelId":"`+m.ID+`"}`)
+	if !strings.Contains(out, "added=2") || !strings.Contains(out, "removed=1") {
+		t.Fatalf("semanticDiff=null 应回退行级摘要: %s", out)
+	}
+	if fx.diffCallCount() != 1 {
+		t.Fatalf("回退路径 staging diff 调用 = %d, want 1", fx.diffCallCount())
 	}
 }
 

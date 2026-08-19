@@ -110,6 +110,25 @@ func toolJSON(v any) string {
 	return truncateToolResult(string(raw))
 }
 
+// semanticDiffSummary 从 run 响应里取构件级计数（edit-service run 端点附的
+// semanticDiff：旧产物 vs 本次产物的 {added, removed, changed}）折叠为一行
+// 摘要。字段为 null（diff 失败/无旧产物降级）、缺失或响应畸形 → 空串，
+// 调用侧回退行级 staging diff 摘要。
+func semanticDiffSummary(raw json.RawMessage) string {
+	var d struct {
+		SemanticDiff *struct {
+			Added   int `json:"added"`
+			Removed int `json:"removed"`
+			Changed int `json:"changed"`
+		} `json:"semanticDiff"`
+	}
+	if err := json.Unmarshal(raw, &d); err != nil || d.SemanticDiff == nil {
+		return ""
+	}
+	return fmt.Sprintf("[staging diff] 构件 +%d -%d ~%d",
+		d.SemanticDiff.Added, d.SemanticDiff.Removed, d.SemanticDiff.Changed)
+}
+
 // stagingDiffSummary 拉 staging 最近两步的轻量脚本 diff（GET /script/staging/diff）
 // 并折叠为一行摘要：行级 added/removed 计数 + PARAMS 变化行——追加进 run_script
 // 工具结果，tool 卡片零改动即可显示，AI 也能观测自纠。
@@ -254,7 +273,10 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				deps.markDirty(ctx)
 				deps.pushStaged(ctx, m)
 				text := truncateToolResult(string(out))
-				if s := stagingDiffSummary(ctx, cl, m.ID); s != "" {
+				// 摘要降级链：构件级（run 响应 semanticDiff）→ 行级 staging diff → 无摘要。
+				if s := semanticDiffSummary(out); s != "" {
+					text += "\n" + s
+				} else if s := stagingDiffSummary(ctx, cl, m.ID); s != "" {
 					text += "\n" + s
 				}
 				return truncateToolResult(text), nil

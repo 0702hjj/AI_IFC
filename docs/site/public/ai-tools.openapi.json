@@ -682,7 +682,7 @@
     "/models/{id}/script/run": {
       "post": {
         "summary": "Run Script Endpoint",
-        "description": "Sandbox-run the current staged script into uploads (preview; no version).",
+        "description": "Sandbox-run the current staged script into uploads (preview; no version).\n\n响应附 ``semanticDiff``：旧 uploads 产物 vs 本次 run 产物的构件级\n{added, removed, changed} 计数（容错纪律同 ``_bootstrap_alignment``——\ndiff 失败/无旧产物降级 None，绝不让已成功的 run 失败）。",
         "operationId": "run_script_endpoint_models__id__script_run_post",
         "parameters": [
           {
@@ -1063,7 +1063,7 @@
     "/models/{id}/script/edit-call": {
       "post": {
         "summary": "Edit Call",
-        "description": "Rewrite one scalar argument at a located callsite, then sandbox-run.\n\n顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。\norigin=traced 的调用点不可自动改写 → 422。",
+        "description": "Rewrite one scalar argument at a located callsite, then sandbox-run.\n\n顺序：定位 → 重写 → 契约校验+沙箱 run → staging.push；任何失败 422 零副作用。\norigin=traced 的调用点不可自动改写 → 422。\nstaging 与 map 分叉（未 run 的暂存/undo/旧版裸 map）→ 409 fail-closed：\nmap 行号只对生成它的那份脚本有效，放行会把改写落到错误的调用上。",
         "operationId": "edit_call_models__id__script_edit_call_post",
         "parameters": [
           {

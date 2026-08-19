@@ -16,7 +16,7 @@ from pathlib import Path
 
 import ezdxf
 
-from app import script_runner
+from app import dxf_diffing, script_runner
 
 from tests.conftest import MODEL_ID
 
@@ -186,7 +186,9 @@ class TestRun:
         client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
         resp = client.post(f"{BASE}/script/run")
         assert resp.status_code == 200
-        assert resp.json() == {"modelId": MODEL_ID, "ok": True}
+        body = resp.json()
+        assert body["modelId"] == MODEL_ID
+        assert body["ok"] is True
 
         after = _upload(data_dir)
         assert after.read_bytes() != before
@@ -196,6 +198,49 @@ class TestRun:
         envelope = json.loads(_current_map(data_dir).read_text(encoding="utf-8"))
         assert envelope["scriptHash"] == script_runner.script_hash(GOOD_SCRIPT)
         assert "0:line:1" in envelope["map"]
+
+    def test_run_returns_semantic_diff_counts(self, client):
+        """run 响应附构件级 diff：fixture（LINE+CIRCLE）→ 生成（仅 LINE）。"""
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        resp = client.post(f"{BASE}/script/run")
+        assert resp.status_code == 200, resp.text
+        diff = resp.json()["semanticDiff"]
+        assert set(diff) == {"added", "removed", "changed"}
+        assert all(isinstance(diff[k], int) for k in diff)
+        # fixture 的 LINE 与生成 LINE 同 key 同签名；CIRCLE 被移除
+        assert diff["added"] == 0
+        assert diff["removed"] == 1
+        assert diff["changed"] == 0
+
+    def test_second_run_diffs_against_previous_run(self, client):
+        """第二次 run 的基线是上一次 run 的产物（同 key 实体对齐为 changed）。"""
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        assert client.post(f"{BASE}/script/run").status_code == 200
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT_V2})
+        resp = client.post(f"{BASE}/script/run")
+        assert resp.status_code == 200, resp.text
+        diff = resp.json()["semanticDiff"]
+        assert diff is not None
+        # GOOD_SCRIPT_V2 只改 LINE 终点：同 key 对齐 → 1 changed，无增减
+        assert diff["added"] == 0
+        assert diff["removed"] == 0
+        assert diff["changed"] == 1
+
+    def test_run_semantic_diff_failure_degrades_to_none(
+        self, client, monkeypatch
+    ):
+        """diff 引擎爆炸 → semanticDiff=None，run 本身仍 200（容错纪律）。"""
+
+        def _boom(base_path: str, target_path: str) -> dict:
+            raise RuntimeError("dxf diff exploded")
+
+        monkeypatch.setattr(dxf_diffing, "compute_diff", _boom)
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        resp = client.post(f"{BASE}/script/run")
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["ok"] is True
+        assert body["semanticDiff"] is None
 
     def test_run_without_script_409(self, client):
         assert client.post(f"{BASE}/script/run").status_code == 409

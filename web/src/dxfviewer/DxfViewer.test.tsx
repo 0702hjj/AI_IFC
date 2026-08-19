@@ -536,7 +536,7 @@ describe("DxfViewer 定位脚本", () => {
 
   it("选中面板点定位脚本：按 key locate 命中 → requestScriptJump 入 store", async () => {
     api.locateScriptByKey.mockResolvedValue({
-      found: true, key: "k1", line: 7, col: 2, snippet: "s", origin: "literal", paramsKeys: [],
+      found: true, key: "k1", line: 7, col: 2, snippet: "s", origin: "literal", params_keys: [],
     });
     await selectKey("k1");
     const panel = screen.getByTestId("dxf-selected-panel");
@@ -552,7 +552,7 @@ describe("DxfViewer 定位脚本", () => {
 
   it("origin=params 命中透传 paramsKeys（PARAMS 表单聚焦键）", async () => {
     api.locateScriptByKey.mockResolvedValue({
-      found: true, key: "k1", line: 3, col: 0, snippet: "s", origin: "params", paramsKeys: ["wall_t"],
+      found: true, key: "k1", line: 3, col: 0, snippet: "s", origin: "params", params_keys: ["wall_t"],
     });
     await selectKey("k1");
     const btn = within(screen.getByTestId("dxf-selected-panel")).getByRole("button", { name: "定位脚本" });

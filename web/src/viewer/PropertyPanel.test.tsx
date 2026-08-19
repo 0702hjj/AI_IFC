@@ -134,7 +134,8 @@ describe("PropertyPanel 定位脚本", () => {
     api.locateScript.mockResolvedValue({
       found: true, designKey: "wall-1", line: 12, col: 4,
       snippet: "create_entity(..., key=params['key'])", origin: "params",
-      paramsKeys: ["key"],
+      // 服务端真实载荷是 snake_case（map entry ** 原样铺开，Go 代理零转换透传）
+      params_keys: ["key"],
     });
     await selectAndRender();
     fireEvent.click(screen.getByRole("button", { name: "定位脚本" }));
