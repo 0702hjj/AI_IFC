@@ -58,6 +58,16 @@ AI agent ──► REST 编辑 API ────┘
 
 一切纪律优先落为**事件触发的机器检查**（CI job、hook、契约测试），其次才是本文档的文字约定——不要让人/reviewer 轮询违规，让环境在事件（push/PR/文件写入）发生时唤起。多任务执行（SDD）同理：controller 不轮询子代理中间态，子代理报告文件即事件载荷，任务级 review 是事件触发的 gate。新立规矩时先问：能不能写成机器检查？
 
+## 部署形态变更（硬规则）
+
+`Dockerfile*`、`docker-compose.yml`、`.github/workflows/` 的变更 = **部署形态变更**：本机直跑的测试套件对容器内环境（非 root、共享卷属主、宿主 AppArmor/seccomp、userns 可用性）零证明力。本机无 docker daemon 时：
+
+1. PR 描述必须标注「部署形态未经本地验证，CI compose smoke 为唯一防线」；
+2. 合并前必须亲眼看 compose smoke 绿，禁止 `--auto` 合并后走人；
+3. compose smoke 失败先 `gh run view --job <id> --log` 拿容器日志（job 内有 `Dump logs on failure` 步骤）再改，禁止盲改重推。
+
+教训：2026-08-19 W-0047 连续三次 compose smoke 红（共享卷 uid 属主 → bwrap 被宿主 AppArmor 拦），全部因本机无法验证容器形态。
+
 ## API 契约
 
 - Go server 是唯一对外入口，对外路径统一 `/api/v1/{resource}/{id}`。

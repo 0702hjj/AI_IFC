@@ -7,9 +7,11 @@ FROM python:3.10-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # bubblewrap：脚本沙箱的 bwrap backend（与 services/ifc 同构）；缺它降级为 rlimit。
-# 非 root 下走 unprivileged user namespace（宿主要求同 services/ifc/Dockerfile）。
+# setuid root（chmod u+s）：绕过宿主对非特权 userns 的 AppArmor 限制（Ubuntu 24.04+ 默认
+# 拦截），容器非 root + 沙箱 bwrap 全宿主通用；详见 services/ifc/Dockerfile 同注。
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bubblewrap \
+    && chmod u+s /usr/bin/bwrap \
     && rm -rf /var/lib/apt/lists/*
 
 # 专用非 root 用户（uid/gid 1000，与 edit-service 镜像一致，共享同一数据卷）。

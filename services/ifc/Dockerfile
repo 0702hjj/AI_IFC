@@ -7,10 +7,12 @@ FROM python:3.10-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # bubblewrap：脚本沙箱的 bwrap backend（ro root + unshare-net）；缺它降级为 rlimit。
-# 非 root 运行仍可用：bwrap 走 unprivileged user namespace（Docker ≥20.10 默认
-# seccomp 放行 CLONE_NEWUSER；宿主内核需允许 unprivileged userns，Debian/Ubuntu 默认开）。
+# setuid root（chmod u+s）：bwrap 为 setuid 安全设计（启动即降权）。Ubuntu 24.04 等宿主
+# 的 AppArmor 默认拦截非特权 userns 创建（apparmor_restrict_unprivileged_userns），
+# setuid 后 userns 创建属特权操作不受此限——容器非 root + 沙箱 bwrap 在所有宿主通用。
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bubblewrap \
+    && chmod u+s /usr/bin/bwrap \
     && rm -rf /var/lib/apt/lists/*
 
 # 专用非 root 用户（uid/gid 1000，bind mount 数据目录时与宿主力用户对齐）。
