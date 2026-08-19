@@ -127,10 +127,10 @@ func TestLoadConfigRetiredOpenCodeURLEnvironmentIgnored(t *testing.T) {
 	_ = cfg // OpenCodeURL 字段已删除——编译期保证不可再引用
 }
 
-// TestShippedConfigsContainNoOpenCodeURL：随仓发布的两份 server_config*.json
+// TestShippedConfigsContainNoOpenCodeURL：随仓发布的 server_config.json
 // 不得再含退役键 openCodeURL，且 llm 三参（空缺省）在位。
 func TestShippedConfigsContainNoOpenCodeURL(t *testing.T) {
-	for _, name := range []string{"server_config.json", "server_config.docker.json"} {
+	for _, name := range []string{"server_config.json"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", name))
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
@@ -154,6 +154,37 @@ func TestShippedConfigsContainNoOpenCodeURL(t *testing.T) {
 		if cfg.LLMAPIKey != "" || cfg.LLMBaseURL != "" || cfg.LLMModel != "" {
 			t.Fatalf("%s llm 三参缺省应为空（scriptedModel 离线 demo 回退）: %+v", name, cfg)
 		}
+	}
+}
+
+// TestLoadConfigWebDist：webDist 缺省回退默认（../web/dist，与 dataDir 同 cwd 约定），
+// json 配置生效，VIEWER_WEB_DIST env 覆盖。
+func TestLoadConfigWebDist(t *testing.T) {
+	path := writeConfig(t, `{}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.WebDist != "../web/dist" {
+		t.Fatalf("webDist 缺省应为 ../web/dist，got %q", cfg.WebDist)
+	}
+
+	path = writeConfig(t, `{"webDist": "/srv/aiifc/web"}`)
+	cfg, err = loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.WebDist != "/srv/aiifc/web" {
+		t.Fatalf("json webDist 未读到: %q", cfg.WebDist)
+	}
+
+	t.Setenv("VIEWER_WEB_DIST", "/opt/web/dist")
+	cfg, err = loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.WebDist != "/opt/web/dist" {
+		t.Fatalf("env 应覆盖 json: %q", cfg.WebDist)
 	}
 }
 
