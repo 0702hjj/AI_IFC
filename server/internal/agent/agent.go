@@ -204,6 +204,26 @@ func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
 	return &Agent{name: o.name, runner: runner, store: o.store, maxStep: o.maxStep, maxContextChars: o.maxContextChars}, nil
 }
 
+// turnCount 返回历史父 turn/start 数（Run/Resume 共用基准）：
+// 子 agent 事件（含其 turn/start）不打扰父 turn 计数。store nil（离线/测试）返回 0。
+// 语义差异：Run 新开一轮 → turn = count+1；Resume 继续当前轮 → turn = max(count, 1)。
+func (a *Agent) turnCount(sessionID string) (int, error) {
+	if a.store == nil {
+		return 0, nil
+	}
+	prev, err := a.store.Load(sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("load session %s: %w", sessionID, err)
+	}
+	n := 0
+	for _, ev := range prev {
+		if ev.Type == EventTurnStart && ev.SubagentID == "" {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // Run 执行一轮 ADK ReAct 循环，返回只读事件通道（循环结束即关闭）。
 // 事件同时扇出到通道与 EventStore（append-only JSONL）；Ts 在扇出时打戳。
 // 底层：adk.Runner.Run → 消费 AgentEvent 流 → 翻译层映射为平台 9 种事件
@@ -214,20 +234,11 @@ func (a *Agent) Run(ctx context.Context, sessionID, userText string) (<-chan Eve
 		return nil, err
 	}
 	ctx = WithSessionID(ctx, sessionID) // 工具经 SessionIDFromContext 解析会话绑定模型
-	turn := 1
-	if a.store != nil {
-		prev, err := a.store.Load(sessionID)
-		if err != nil {
-			return nil, fmt.Errorf("load session %s: %w", sessionID, err)
-		}
-		for _, ev := range prev {
-			// 子 agent 事件（含其 turn/start）不打扰父 turn 计数——子内容经
-			// dispatch 工具结果回流，父模型上下文不含子 turn 边界。
-			if ev.Type == EventTurnStart && ev.SubagentID == "" {
-				turn++
-			}
-		}
+	n, err := a.turnCount(sessionID)
+	if err != nil {
+		return nil, err
 	}
+	turn := n + 1 // 新开一轮
 
 	out := make(chan Event, 256)
 	// sendRaw 是唯一发送路径：落盘（EventStore）+ 扇出通道。
@@ -305,11 +316,20 @@ func (s *memoryCheckPointStore) Get(_ context.Context, checkPointID string) ([]b
 // （params.Targets[interruptID]）续跑 agent。checkPointID = 会话 id
 // （Run 时 WithCheckPointID(sessionID) 落盘）。
 // 事件流与 Run 同一翻译层（子事件打标 / question 帧 / turn 收尾）。
+// turn 从 EventStore 恢复（中断发生在第 N 轮，resume 后事件仍属第 N 轮）。
 func (a *Agent) Resume(ctx context.Context, sessionID string, params *adk.ResumeParams) (<-chan Event, error) {
 	if err := validateSessionID(sessionID); err != nil {
 		return nil, err
 	}
 	ctx = WithSessionID(ctx, sessionID)
+	n, err := a.turnCount(sessionID)
+	if err != nil {
+		return nil, err
+	}
+	turn := n
+	if turn < 1 {
+		turn = 1 // 中断必有 turn/start；防御兜底
+	}
 	out := make(chan Event, 256)
 	sendRaw := func(ev Event) {
 		if a.store != nil {
@@ -320,11 +340,11 @@ func (a *Agent) Resume(ctx context.Context, sessionID string, params *adk.Resume
 	go func() {
 		iter, err := a.runner.ResumeWithParams(ctx, sessionID, params)
 		if err != nil {
-			sendRaw(Event{Type: EventError, Turn: 1, Payload: jsonPayload(map[string]any{"error": err.Error()}), Ts: time.Now()})
+			sendRaw(Event{Type: EventError, Turn: turn, Payload: jsonPayload(map[string]any{"error": err.Error()}), Ts: time.Now()})
 			close(out)
 			return
 		}
-		tr := newAdkTranslator(1, a.name, sessionID, a.maxStep, sendRaw)
+		tr := newAdkTranslator(turn, a.name, sessionID, a.maxStep, sendRaw)
 		tr.run(ctx, iter)
 		close(out)
 	}()

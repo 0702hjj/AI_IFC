@@ -1,0 +1,22 @@
+{
+  "floors": {
+    "fstd": {
+      "floor": "fstd",
+      "area_sqm": 1315.8,
+      "bbox_m": {
+        "w": 43.0,
+        "d": 30.6
+      },
+      "aspect_ratio": 1.41,
+      "perimeter_m": 147.2,
+      "deep_zone_ratio": 0.35,
+      "dominant_axes": "EW",
+      "exposure_m": {
+        "S": 43.0,
+        "N": 43.0,
+        "E": 30.6,
+        "W": 30.6
+      }
+    }
+  }
+}

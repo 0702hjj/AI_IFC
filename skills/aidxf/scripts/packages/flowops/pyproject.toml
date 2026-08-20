@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flowops"
+version = "0.1.0"
+description = "aidxfv3 flow operations: validate (DSL schema gate), preprocess (S0 assembly), pack (mission render), sync (edit bridge), deliver (confirmed seal + building.json). No geometry/drawing logic."
+requires-python = ">=3.12"
+dependencies = ["floorgeom", "dxfkit", "goldlib"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["flowops*"]

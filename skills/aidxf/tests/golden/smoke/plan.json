@@ -1,0 +1,40 @@
+{
+  "version": 3,
+  "project": "smoke_house",
+  "site": {
+    "lot_polygon_mm": [[0, 0], [16000, 0], [16000, 12000], [0, 12000]],
+    "origin": "lot_southwest",
+    "north_deg": 0,
+    "setbacks_mm": {"front": 1000, "rear": 1000, "left": 1000, "right": 1000}
+  },
+  "zones": [
+    {
+      "id": "house",
+      "function": "residence",
+      "floors": {"from": 1, "to": 3},
+      "floor_height_mm": 3000,
+      "outline_mm": [
+        {
+          "outer": [[0, 0], [16000, 0], [16000, 12000], [0, 12000]],
+          "holes": [],
+          "arcs": []
+        }
+      ],
+      "core_anchor_mm": [8000, 6000],
+      "program": [
+        {"room": "living", "count": 1, "area_sqm": [24, 40]},
+        {"room": "bedroom", "count": 2, "area_sqm": [12, 20]},
+        {"room": "kitchen", "count": 1, "area_sqm": [10, 18]},
+        {"room": "bathroom", "count": 1, "area_sqm": [5, 10]}
+      ]
+    }
+  ],
+  "requirements": [
+    {"subject": "bedroom", "rule": "faces_south", "strength": "must"}
+  ],
+  "standards": {
+    "packs": ["residence"],
+    "overrides": {"corridor_min_width_mm": 1200},
+    "emphases": ["所有卧室尽量朝南"]
+  }
+}

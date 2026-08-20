@@ -152,3 +152,61 @@ func TestAskUserStatePreservedOnNonTargetResume(t *testing.T) {
 		t.Fatalf("非目标 resume 应重新挂起原问题；types=%v", eventTypes(evs2))
 	}
 }
+
+// TestResumePreservesTurnNumber：第 2 轮中断 → resume 后事件 turn 仍是 2
+// （修复：Resume 曾硬编码 turn=1，前端消息分组会错乱）。
+func TestResumePreservesTurnNumber(t *testing.T) {
+	store := NewEventStore(t.TempDir())
+	script := Script{Steps: []ScriptStep{
+		{Chunks: []string{"第一轮回复"}},                             // Run 1 消耗
+		{ToolCalls: []ToolCallSpec{{ID: "a1", Name: "ask_user", Arguments: `{"question":"确认？"}`}}}, // Run 2 消耗 → 中断
+		{Chunks: []string{"第二轮续跑"}},                             // Resume 消耗
+	}}
+	ag, err := New(LLMConfig{},
+		WithModel(NewScriptedModel(script)),
+		WithStore(store),
+		WithMaxStep(10),
+	)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	// Run 1（turn 1）
+	ch1, err := ag.Run(context.Background(), "sess-turn", "第一问")
+	if err != nil {
+		t.Fatalf("Run1: %v", err)
+	}
+	for ev := range ch1 {
+		if ev.Turn != 1 {
+			t.Fatalf("Run1 事件 turn = %d, want 1", ev.Turn)
+		}
+	}
+	// Run 2（turn 2）→ 中断
+	ch2, err := ag.Run(context.Background(), "sess-turn", "第二问")
+	if err != nil {
+		t.Fatalf("Run2: %v", err)
+	}
+	var interruptID string
+	for ev := range ch2 {
+		if ev.Turn != 2 {
+			t.Fatalf("Run2 事件 turn = %d, want 2", ev.Turn)
+		}
+		if ev.Type == EventQuestionAsk {
+			interruptID = payloadString(t, ev, "interruptId")
+		}
+	}
+	if interruptID == "" {
+		t.Fatalf("Run2 未中断（无 question/ask）")
+	}
+	// Resume → turn 应仍是 2
+	ch3, err := ag.Resume(context.Background(), "sess-turn", &adk.ResumeParams{
+		Targets: map[string]any{interruptID: &AskUserInfo{Question: "确认？", UserAnswer: "确认"}},
+	})
+	if err != nil {
+		t.Fatalf("Resume: %v", err)
+	}
+	for ev := range ch3 {
+		if ev.Turn != 2 {
+			t.Fatalf("Resume 事件 turn = %d, want 2（修复前硬编码 1）", ev.Turn)
+		}
+	}
+}

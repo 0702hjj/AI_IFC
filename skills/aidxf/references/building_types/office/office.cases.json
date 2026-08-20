@@ -1,0 +1,137 @@
+{
+  "_meta": {
+    "description": "办公案例库。ratio_standards 从 golden 案例实测统计；cases 从 golden 提取真实轮廓+核心筒。本文件即事实源（双端同源）。",
+    "对齐": "aiplan building_types/office.cases.json ≡ aidxfv3 building_types/office/office.cases.json（C5 约束）",
+    "status": "2026-08-13 接入 golden 真实数据（office_std_01 + office_lobby_01）"
+  },
+  "type": "office",
+  "ratio_standards": [
+    {
+      "block": "core",
+      "ratio_range": [
+        0.12,
+        0.16
+      ],
+      "依据": "office_std_01 实测 15.6%（16.7×17.1m / 47.5×46.0m）",
+      "必填": true
+    },
+    {
+      "block": "corridor",
+      "ratio_range": [
+        0.08,
+        0.12
+      ],
+      "依据": "office_std_01 环廊 2400mm 实测（环廊面积/总面积）",
+      "必填": true
+    },
+    {
+      "block": "open_office",
+      "ratio_range": [
+        0.65,
+        0.75
+      ],
+      "依据": "office_std_01 外周四带（总面积-core-corridor-管井群）",
+      "必填": true
+    },
+    {
+      "block": "meeting",
+      "ratio_range": [
+        0,
+        0.05
+      ],
+      "依据": "标准层通常不单独设会议室区（并入 open_office）",
+      "必填": false
+    }
+  ],
+  "cases": [
+    {
+      "name": "office_std_01",
+      "outline_mm": [
+        [
+          0,
+          0
+        ],
+        [
+          47465,
+          0
+        ],
+        [
+          47465,
+          45995
+        ],
+        [
+          0,
+          45995
+        ]
+      ],
+      "core_anchor_mm": [
+        23730,
+        22950
+      ],
+      "area_allocation": [
+        {
+          "block": "core",
+          "ratio": 0.131
+        },
+        {
+          "block": "corridor",
+          "ratio": 0.1
+        },
+        {
+          "block": "open_office",
+          "ratio": 0.769
+        }
+      ],
+      "emphases": [
+        "近方形",
+        "核心筒居中",
+        "环廊"
+      ]
+    },
+    {
+      "name": "office_lobby_01",
+      "outline_mm": [
+        [
+          0,
+          0
+        ],
+        [
+          49005,
+          0
+        ],
+        [
+          49005,
+          48700
+        ],
+        [
+          0,
+          48700
+        ]
+      ],
+      "core_anchor_mm": [
+        25210,
+        24150
+      ],
+      "area_allocation": [
+        {
+          "block": "core",
+          "ratio": 0.131
+        },
+        {
+          "block": "corridor",
+          "ratio": 0.1
+        },
+        {
+          "block": "open_office",
+          "ratio": 0.769
+        }
+      ],
+      "emphases": [
+        "近方形",
+        "核心筒居中",
+        "首层大堂",
+        "幕墙"
+      ]
+    }
+  ]
+}
