@@ -283,6 +283,11 @@ export const schemas = {
       diff: { type: 'string', description: 'unified 文本 diff' },
       params: { type: 'object', description: 'PARAMS 变更' },
       stats: { type: 'object', description: 'diff 统计' },
+      buildingChanges: {
+        type: ['array', 'null'],
+        description: 'building.json 交付索引字段级差异（两侧均有 sidecar 时非空；否则 null）',
+        items: { type: 'object', properties: { op: { type: 'string', enum: ['add', 'remove', 'modify'] }, path: { type: 'string' }, before: {}, after: {} } },
+      },
     },
   },
   LocateResult: {

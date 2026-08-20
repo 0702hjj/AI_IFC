@@ -415,3 +415,38 @@ class TestScriptDiff:
         resp = client.post(f"{BASE}/script/save", json={"note": "无 building"})
         assert resp.status_code == 200
         assert not (_scripts_dir(data_dir) / "v1.building.json").exists()
+
+    def test_diff_includes_building_changes(self, client, data_dir):
+        """C1+diff：script/diff 响应带 building sidecar 字段级差异（交付索引可追溯）。"""
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        deliver = data_dir / "models" / MODEL_ID / "deliver"
+        deliver.mkdir(parents=True, exist_ok=True)
+        (deliver / "building.json").write_text(
+            json.dumps({"version": 1, "project": "p_x", "zones": [{"zone": "z1", "floors": 3}]}),
+            encoding="utf-8",
+        )
+        client.post(f"{BASE}/script/save")  # v1 带 building
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT_V2})
+        (deliver / "building.json").write_text(
+            json.dumps({"version": 2, "project": "p_x", "zones": [{"zone": "z1", "floors": 4}]}),
+            encoding="utf-8",
+        )
+        client.post(f"{BASE}/script/save")  # v2 带 building
+
+        resp = client.post(f"{BASE}/script/diff", json={"base": "v1", "target": "v2"})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["buildingChanges"] is not None
+        ops = {c["op"] + " " + c["path"] for c in body["buildingChanges"]}
+        assert "modify version" in ops
+        assert "modify zones[0].floors" in ops
+
+    def test_diff_building_sidecar_missing_null(self, client, data_dir):
+        """一侧无 building sidecar → buildingChanges null（不阻断脚本 diff）。"""
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        client.post(f"{BASE}/script/save")  # v1 无 building
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT_V2})
+        client.post(f"{BASE}/script/save")  # v2 无 building
+        resp = client.post(f"{BASE}/script/diff", json={"base": "v1", "target": "v2"})
+        assert resp.status_code == 200
+        assert resp.json()["buildingChanges"] is None

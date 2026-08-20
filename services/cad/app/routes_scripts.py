@@ -58,6 +58,7 @@ from fastapi import APIRouter, HTTPException, Path, Query, Request
 from pydantic import BaseModel, Field
 
 from . import (
+    building_diff,
     dxf_diffing,
     render,
     script_diff,
@@ -646,11 +647,17 @@ def diff_script_versions(
     data_dir = request.app.state.settings.data_dir
     base = verify_script_version(data_dir, id, body.base)
     target = verify_script_version(data_dir, id, body.target)
+    building_changes = None
+    base_building = building_diff.load_building_sidecar(data_dir, id, body.base)
+    target_building = building_diff.load_building_sidecar(data_dir, id, body.target)
+    if base_building is not None and target_building is not None:
+        building_changes = building_diff.diff_building(base_building, target_building)
     return {
         "base": body.base,
         "target": body.target,
         "engine": "script",
         **script_diff.diff_scripts(base, target, body.base, body.target),
+        "buildingChanges": building_changes,
     }
 
 
