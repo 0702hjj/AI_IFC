@@ -1,5 +1,3 @@
-docs/scripts/go-openapi-schema.mjs
-docs/site/reference/edit-api-reference.md
 services/cad/app/routes_scripts.py
 services/cad/tests/test_script_runner.py
 services/ifc/app/routes_scripts.py
