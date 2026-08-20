@@ -143,3 +143,56 @@ func (h *ChatHandler) listPlanHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, map[string]any{"projectId": projectID, "name": name, "history": history})
 }
+
+// diffPlanHistory 方案级 JSON diff（GET /projects/{projectID}/plan_history/{base}/{target}/diff）。
+// base/target 为历史版本（v{n}）；读两版内容做字段级 diff（B3：方案演化可追溯）。
+func (h *ChatHandler) diffPlanHistory(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !h.verifyPlanProject(w, projectID) {
+		return
+	}
+	name := r.URL.Query().Get("name")
+	if name == "" {
+		name = "plan.json"
+	}
+	base := r.PathValue("base")
+	target := r.PathValue("target")
+	baseContent, ok := verifyPlanHistoryVersion(w, h.deps.PlanSt, projectID, name, base)
+	if !ok {
+		return
+	}
+	targetContent, ok := verifyPlanHistoryVersion(w, h.deps.PlanSt, projectID, name, target)
+	if !ok {
+		return
+	}
+	changes, err := store.JSONDiff(baseContent, targetContent)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{
+		"projectId": projectID, "name": name, "base": base, "target": target,
+		"changes": changes,
+	})
+}
+
+// verifyPlanHistoryVersion 读 diff 一侧内容（verify 层单点）："current" 读当前态
+// （常见用法：v1 → current 看最近演化），否则读历史版本；不存在 → 404。
+func verifyPlanHistoryVersion(w http.ResponseWriter, ps *store.PlanStore, projectID, name, version string) ([]byte, bool) {
+	var content []byte
+	var err error
+	if version == "current" {
+		content, err = ps.Get(projectID, name)
+	} else {
+		content, err = ps.LoadHistory(projectID, name, version)
+	}
+	if err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			writeErr(w, http.StatusNotFound, codeNotFound, "plan 版本不存在: "+version)
+		} else {
+			writeErr(w, http.StatusBadRequest, codeInvalidType, err.Error())
+		}
+		return nil, false
+	}
+	return content, true
+}

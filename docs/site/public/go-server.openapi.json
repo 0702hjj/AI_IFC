@@ -3475,6 +3475,156 @@
         }
       }
     },
+    "/api/v1/projects/{projectID}/plan_history/{base}/{target}/diff": {
+      "get": {
+        "summary": "方案级 JSON diff（历史版本间 / 历史 vs current）",
+        "description": "比较方案产物的两个版本（base/target 为 v{n} 或 current），返回字段级差异（add/remove/modify + 路径）。方案演化可追溯（B3）。",
+        "operationId": "getApiV1ProjectsProjectIDPlan_historyBaseTargetDiff",
+        "tags": [
+          "plan"
+        ],
+        "parameters": [
+          {
+            "name": "projectID",
+            "in": "path",
+            "required": true,
+            "description": "项目 id（方案级存储键）",
+            "schema": {
+              "type": "string",
+              "pattern": "^p_[0-9a-f]{16}$"
+            }
+          },
+          {
+            "name": "base",
+            "in": "path",
+            "required": true,
+            "description": "基准版本（v{n} 或 current）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "target",
+            "in": "path",
+            "required": true,
+            "description": "目标版本（v{n} 或 current）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "description": "产物名（默认 plan.json）",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "plan.json",
+                "bim_supplement.json"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "enum": [
+                        0
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "base": {
+                          "type": "string"
+                        },
+                        "target": {
+                          "type": "string"
+                        },
+                        "changes": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "op": {
+                                "type": "string",
+                                "enum": [
+                                  "add",
+                                  "remove",
+                                  "modify"
+                                ]
+                              },
+                              "path": {
+                                "type": "string"
+                              },
+                              "before": {},
+                              "after": {}
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/校验错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "模型/Issue/会话/资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/models/{id}/issues/{file}": {
       "get": {
         "summary": "Issue 截图静态服务",
