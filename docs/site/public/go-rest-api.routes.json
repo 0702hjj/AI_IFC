@@ -29,6 +29,12 @@
       "file": "server/internal/api/chat.go"
     },
     {
+      "method": "POST",
+      "path": "/api/v1/chat/sessions/{cid}/answer",
+      "handler": "h.answerSession",
+      "file": "server/internal/api/chat.go"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/chat/sessions/{cid}/events",
       "handler": "h.events",

@@ -95,6 +95,24 @@ func frameID(frame string) string {
 	return ""
 }
 
+// frameDataStr 从 SSE 帧的 data JSON 提取字符串字段。
+func frameDataStr(t *testing.T, frame, key string) string {
+	t.Helper()
+	for _, line := range strings.Split(frame, "\n") {
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		var m map[string]any
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &m); err != nil {
+			continue
+		}
+		if s, ok := m[key].(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 // TestPostMessageAgentNotConfigured502：handler 未装配 agent（Ag=nil）时 postMessage
 // 走 writeChatErr → 502 envelope（code 50200）。opencode.Error 分支已随 opencode
 // 客户端退役删除，此处钉住仅存的错误翻译路径。
@@ -400,5 +418,53 @@ func TestAbortNoActiveRun(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), `"aborted":true`) {
 		t.Fatalf("body = %s, want aborted:true", rec.Body)
+	}
+}
+
+// TestAnswerSessionResumesHITL D3b：post 触发 ask_user 中断 → question.ask 帧 →
+// POST /answer 续跑 → 工具返回回答 → turn/end。
+func TestAnswerSessionResumesHITL(t *testing.T) {
+	h := newEinoTestHandler(t, agent.Script{Steps: []agent.ScriptStep{
+		{ToolCalls: []agent.ToolCallSpec{{ID: "a1", Name: "ask_user", Arguments: `{"question":"确认层高 3 米？"}`}}},
+		{Chunks: []string{"已确认，继续执行"}},
+	}})
+	cs, err := doChatCreate(h, `{"title":"t","modelId":"m_aaaaaaaaaaaaaaaa"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ch := h.subscribe(cs.ID)
+
+	if code := postChat(t, h, cs.ID, "帮我建墙"); code != http.StatusOK {
+		t.Fatalf("post status = %d", code)
+	}
+	// 中断 → question.ask 帧（流不 idle）
+	frames := collectUntil(t, ch, "question.ask")
+	var interruptID string
+	for _, f := range frames {
+		if frameEvent(f) == "question.ask" {
+			interruptID = frameDataStr(t, f, "interruptId")
+		}
+	}
+	if interruptID == "" {
+		t.Fatalf("未收到 question.ask 帧: %v", frames)
+	}
+	// /answer 续跑
+	resp := httptest.NewRequest(http.MethodPost, "/api/v1/chat/sessions/"+cs.ID+"/answer",
+		strings.NewReader(`{"interruptId":"`+interruptID+`","answer":"确认"}`))
+	rec := httptest.NewRecorder()
+	h.mux.ServeHTTP(rec, resp)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("answer status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	frames2 := collectUntil(t, ch, "session.idle")
+	got := false
+	for _, f := range frames2 {
+		// resume 后 ask_user 工具返回用户回答（scriptedModel 补完中断工具后收尾）
+		if frameEvent(f) == "message.part.updated" && strings.Contains(f, "确认") {
+			got = true
+		}
+	}
+	if !got {
+		t.Fatalf("resume 后未收到 ask_user 回答: %v", frames2)
 	}
 }

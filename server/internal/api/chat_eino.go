@@ -13,6 +13,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/cloudwego/eino/adk"
+
 	"ifcviewer/server/internal/agent"
 )
 
@@ -135,4 +137,49 @@ func (h *ChatHandler) abortSession(w http.ResponseWriter, r *http.Request) {
 		run.cancel()
 	}
 	writeJSON(w, map[string]bool{"aborted": true})
+}
+
+// answerSession 处理 HITL 用户回答（POST /api/v1/chat/sessions/{cid}/answer，D3b）：
+// body {interruptId, answer} → Agent.Resume（ResumeParams.Targets[interruptId] =
+// AskUserInfo.UserAnswer）续跑；事件流与 postMessage 同一 consumeRun 路径。
+func (h *ChatHandler) answerSession(w http.ResponseWriter, r *http.Request) {
+	cs := h.sessionOrErr(w, r.PathValue("cid"))
+	if cs == nil {
+		return
+	}
+	var body struct {
+		InterruptID string `json:"interruptId"`
+		Answer      string `json:"answer"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.InterruptID == "" || body.Answer == "" {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "interruptId/answer required")
+		return
+	}
+	if h.deps.Ag == nil {
+		writeChatErr(w, errAgentNotConfigured)
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	params := &adk.ResumeParams{Targets: map[string]any{
+		body.InterruptID: &agent.AskUserInfo{UserAnswer: body.Answer},
+	}}
+	events, err := h.deps.Ag.Resume(ctx, cs.AgentID, params)
+	if err != nil {
+		cancel()
+		writeChatErr(w, err)
+		return
+	}
+	run := &chatRun{cancel: cancel, identity: &chatSession{}}
+	h.mu.Lock()
+	if h.runs == nil {
+		h.runs = map[string]*chatRun{}
+	}
+	prev := h.runs[cs.ID]
+	h.runs[cs.ID] = run
+	h.mu.Unlock()
+	if prev != nil {
+		prev.cancel()
+	}
+	go h.consumeRun(cs, run, events)
+	writeJSON(w, map[string]bool{"accepted": true})
 }

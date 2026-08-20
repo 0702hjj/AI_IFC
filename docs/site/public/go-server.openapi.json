@@ -301,6 +301,115 @@
         }
       }
     },
+    "/api/v1/chat/sessions/{cid}/answer": {
+      "post": {
+        "summary": "HITL 回答（D3b）——question.ask 后的用户回答续跑",
+        "description": "body {interruptId, answer} → Agent.Resume（ResumeParams.Targets[interruptId] = AskUserInfo.UserAnswer）续跑。interruptId 来自 question.ask SSE 帧。",
+        "operationId": "postApiV1ChatSessionsCidAnswer",
+        "tags": [
+          "chat"
+        ],
+        "parameters": [
+          {
+            "name": "cid",
+            "in": "path",
+            "required": true,
+            "description": "chat 会话 id",
+            "schema": {
+              "type": "string",
+              "pattern": "^c_[0-9a-f]{16}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "enum": [
+                        0
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/AcceptedResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/校验错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "模型/Issue/会话/资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "上游服务不可达或错误（edit-service / cad-edit-service）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "JSON body，interruptId + answer",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "interruptId",
+                  "answer"
+                ],
+                "properties": {
+                  "interruptId": {
+                    "type": "string",
+                    "description": "question.ask 帧的 interruptId"
+                  },
+                  "answer": {
+                    "type": "string",
+                    "description": "用户回答"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/chat/sessions/{cid}/events": {
       "get": {
         "summary": "会话事件流（SSE）",
