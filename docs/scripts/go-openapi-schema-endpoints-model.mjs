@@ -335,4 +335,25 @@ export const modelEndpoints = {
     },
     errors: ['40400', '40001', '50000'],
   },
+  'POST /api/v1/projects/{projectID}/deliver': {
+    summary: 'plan 交付（B2）——aiplan land 确定性 CLI 执行 → 落方案级目录',
+    description: 'body {plan, bimSupplement} → 临时输入 → aiplan land（skill venv 可执行）→ 产出落方案级目录（PlanStore.Put 版本化）。aiplan 未配置 → 503。',
+    tags: ['plan'],
+    parameters: [projectIdParam()],
+    requestBody: {
+      description: 'JSON body，plan 与 bimSupplement 为方案 JSON 对象',
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: {
+          plan: { type: 'object', description: 'plan.json（project 字段 = projectID）' },
+          bimSupplement: { type: 'object', description: 'bim_supplement.json（project 字段 = projectID）' },
+        },
+      },
+    },
+    responses: {
+      200: { description: 'ok', data: { type: 'object', properties: { projectId: { type: 'string' }, planVersion: { type: 'string' }, bimVersion: { type: 'string' } } } },
+    },
+    errors: ['40001', '40400', '50000', '50200'],
+  },
 }

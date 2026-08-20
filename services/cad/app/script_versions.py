@@ -105,6 +105,7 @@ def save(
     dxf_src_path: str,
     note: str = "",
     map_text: Optional[str] = None,
+    building_text: Optional[str] = None,
 ) -> str:
     """Save a big version: script snapshot + DXF snapshot; return version name.
 
@@ -112,6 +113,8 @@ def save(
     ``scripts/v{n}.py`` and ``versions/v{n}.dxf`` always pair up. ``map_text``
     (the run's ScriptMap JSON) is snapshotted as ``scripts/v{n}.map.json`` in
     the same lockstep; scripts that produced no map get no map sidecar.
+    ``building_text`` (deliverable building.json, C1) is snapshotted as
+    ``scripts/v{n}.building.json`` in the same lockstep; absent → no sidecar.
     After the new snapshot lands, older rebuildable DXF snapshots are pruned
     (only the latest stays materialized).
     """
@@ -136,6 +139,8 @@ def save(
     )
     if map_text is not None:
         _write_atomic(os.path.join(directory, f"{version}.map.json"), map_text)
+    if building_text is not None:
+        _write_atomic(os.path.join(directory, f"{version}.building.json"), building_text)
     versions.snapshot_as(data_dir, model_id, dxf_src_path, version)
     _prune_rebuildable_snapshots(data_dir, model_id, version)
     return version

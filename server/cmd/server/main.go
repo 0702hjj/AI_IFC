@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -179,26 +180,30 @@ func main() {
 	// 领域工具集按模型 kind 路由（ifc→ed :8100 / dxf→cad :8200，agent.DomainTools）。
 	// 装配顺序：先建 ChatHandler（工具 deps 需要 handler 的会话表回调），再建 agent
 	//（注入领域工具），最后回填 Ag——handler 与 agent 互相引用只能这样破环。
-	evStore := agent.NewEventStore(cfg.DataDir)
-	chatHandler := api.NewChatHandler(api.ChatDeps{
-		Ev: evStore,
-		Ed: ed, Cad: cad, St: st, Ps: store.NewProjectStore(cfg.DataDir),
-		PlanSt: store.NewPlanStore(cfg.DataDir), Q: q, DataDir: cfg.DataDir,
-	})
-	llmCfg := agent.LLMConfig{
-		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
-	}
 	// 独立 skill venv（第二层）：bin 前缀进 PATH（execute 的 /bin/sh -c 能调到
-	// aiplan/aidxfv3）+ execute 命令白名单配置化对齐 dist。
+	// aiplan/aidxfv3）+ execute 命令白名单配置化对齐 dist + aiplan 可执行（B2 plan 交付）。
+	aiplanBin := ""
 	if cfg.SkillVenv != "" {
 		if fi, err := os.Stat(cfg.SkillVenv); err == nil && fi.IsDir() {
 			binDir := filepath.Join(cfg.SkillVenv, "bin")
 			if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH")); err == nil {
 				log.Printf("chat: skill venv 已注入 PATH（%s）", binDir)
 			}
+			if p, err := exec.LookPath("aiplan"); err == nil {
+				aiplanBin = p
+			}
 		} else {
 			log.Printf("chat: skillVenv %q 不存在，execute 可能找不到 skill CLI（跑 tools/install_skill_venv.sh）", cfg.SkillVenv)
 		}
+	}
+	evStore := agent.NewEventStore(cfg.DataDir)
+	chatHandler := api.NewChatHandler(api.ChatDeps{
+		Ev: evStore,
+		Ed: ed, Cad: cad, St: st, Ps: store.NewProjectStore(cfg.DataDir),
+		PlanSt: store.NewPlanStore(cfg.DataDir), AiplanBin: aiplanBin, Q: q, DataDir: cfg.DataDir,
+	})
+	llmCfg := agent.LLMConfig{
+		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
 	}
 	var cliNames []string
 	for _, c := range strings.Split(cfg.SkillCLI, ",") {

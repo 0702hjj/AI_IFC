@@ -392,3 +392,26 @@ class TestScriptDiff:
     def test_staging_diff_fewer_than_two_steps_409(self, client):
         client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
         assert client.get(f"{BASE}/script/staging/diff").status_code == 409
+
+    def test_save_with_building_sidecar(self, client, data_dir):
+        """C1：交付产物 building.json 存在时，save 随大版本 lockstep 落 v{n}.building.json。"""
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        # 模拟交付脚本已把 building.json 写到模型子树 deliver/ 区
+        deliver = data_dir / "models" / MODEL_ID / "deliver"
+        deliver.mkdir(parents=True, exist_ok=True)
+        building = {"version": 1, "project": "p_x", "zones": [{"zone": "z1", "dxf": "z1.dxf"}]}
+        (deliver / "building.json").write_text(json.dumps(building), encoding="utf-8")
+
+        resp = client.post(f"{BASE}/script/save", json={"note": "含 building"})
+        assert resp.status_code == 200
+        assert resp.json()["version"] == "v1"
+        sidecar = _scripts_dir(data_dir) / "v1.building.json"
+        assert sidecar.is_file()
+        assert json.loads(sidecar.read_text(encoding="utf-8"))["zones"][0]["zone"] == "z1"
+
+    def test_save_without_building_sidecar_no_file(self, client, data_dir):
+        """无 building 产物 → 不落 building sidecar（与 map 可空同纪律）。"""
+        client.put(f"{BASE}/script", json={"script": GOOD_SCRIPT})
+        resp = client.post(f"{BASE}/script/save", json={"note": "无 building"})
+        assert resp.status_code == 200
+        assert not (_scripts_dir(data_dir) / "v1.building.json").exists()

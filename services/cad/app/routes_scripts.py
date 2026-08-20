@@ -574,9 +574,18 @@ def save_script(
         if os.path.isfile(map_path):
             with open(map_path, "r", encoding="utf-8") as fh:
                 map_text = fh.read()
+        # C1：交付产物 building.json（交付脚本写到 models/{id}/deliver/）随大版本
+        # lockstep 快照为 scripts/v{n}.building.json；缺失则不落 sidecar（同 map 纪律）。
+        building_text: Optional[str] = None
+        building_path = os.path.join(
+            request.app.state.settings.data_dir, "models", id, "deliver", "building.json"
+        )
+        if os.path.isfile(building_path):
+            with open(building_path, "r", encoding="utf-8") as fh:
+                building_text = fh.read()
         version = script_versions.save(
             request.app.state.settings.data_dir, id, current, dxf_path,
-            note=note, map_text=map_text,
+            note=note, map_text=map_text, building_text=building_text,
         )
         staging.save()
         return {"modelId": id, "version": version, "staged": 0}
