@@ -149,6 +149,7 @@ func TestDomainToolsRegistered(t *testing.T) {
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
 		"get_project_plans", "deliver_plan", "get_project_models",
+		"get_script_locate", "edit_script_call",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("工具数 = %d (%v), want %d (%v)", len(got), got, len(want), want)
@@ -376,5 +377,41 @@ func TestProjectToolsUnconfigured(t *testing.T) {
 	out = invoke(t, DomainTools(deps), "deliver_plan", `{"projectId":"p_0000000000000001","plan":{}}`)
 	if !strings.Contains(out, "未配置") {
 		t.Fatalf("deliver_plan 未配置应提示: %s", out)
+	}
+}
+
+// TestGetScriptLocateTool D1：XDATA key → 调用点定位（走 resolve → GET locate）。
+func TestGetScriptLocateTool(t *testing.T) {
+	deps, ifcFB, _, st := newToolFixture(t)
+	m, err := st.CreateWithKind("a.ifc", 5, strings.NewReader("aaaaa"), store.KindIFC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := invoke(t, DomainTools(deps), "get_script_locate", `{"modelId":"`+m.ID+`","key":"0:line:1"}`)
+	if !strings.Contains(out, "ok") {
+		t.Fatalf("locate 输出应含 fake 响应: %s", out)
+	}
+	ifcFB.mu.Lock()
+	defer ifcFB.mu.Unlock()
+	if len(ifcFB.reqs) == 0 || !strings.Contains(ifcFB.reqs[0].path, "/script/locate") {
+		t.Fatalf("locate 应调 GET /script/locate: %+v", ifcFB.reqs)
+	}
+}
+
+// TestEditScriptCallTool D1：标量改写（走 resolve → POST edit-call）。
+func TestEditScriptCallTool(t *testing.T) {
+	deps, ifcFB, _, st := newToolFixture(t)
+	m, err := st.CreateWithKind("a.ifc", 5, strings.NewReader("aaaaa"), store.KindIFC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := invoke(t, DomainTools(deps), "edit_script_call", `{"modelId":"`+m.ID+`","key":"0:line:1","argument":"length","value":20}`)
+	if !strings.Contains(out, "ok") {
+		t.Fatalf("edit-call 输出应含 fake 响应: %s", out)
+	}
+	ifcFB.mu.Lock()
+	defer ifcFB.mu.Unlock()
+	if len(ifcFB.reqs) == 0 || !strings.Contains(ifcFB.reqs[0].path, "/script/edit-call") {
+		t.Fatalf("edit-call 应调 POST /script/edit-call: %+v", ifcFB.reqs)
 	}
 }

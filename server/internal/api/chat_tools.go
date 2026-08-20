@@ -9,7 +9,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/cloudwego/eino/components/tool"
 
@@ -69,44 +68,31 @@ func (h *ChatHandler) sessionBoundModel(ctx context.Context) string {
 	return ""
 }
 
-// createProjectForAgent 是 create_project 工具的后端（A1 项目级）：创建「项目」
-// （projectID）+ 首交付模型（kind 可选 ifc/dxf）。单 kind = 项目下主交付模型；
-// 管线（dxf→ifc）后续模型经 AddModel 挂入同一 projectID。返回 (model, project)。
-// Ps 未配置时降级单模型（返回 project=nil，调用方按兼容处理）。
-func (h *ChatHandler) createProjectForAgent(ctx context.Context, title, kind string) (*store.Model, *store.Project, error) {
-	if h.deps.St == nil || h.deps.Q == nil {
-		return nil, nil, fmt.Errorf("create_project 未装配（store/queue 缺失）")
+// createProjectForAgent 是 create_project 工具的后端（2026-08-20 空白化）：
+// 只创建「项目」（空白，不产模型）；kind = 项目类型（ifc|cad|cad→ifc 管线）。
+// 会话绑 projectId 后从空白构建（上传计划书 → 对话生成模型）。
+func (h *ChatHandler) createProjectForAgent(ctx context.Context, title, kind string) (*store.Project, error) {
+	if h.deps.Ps == nil {
+		return nil, fmt.Errorf("create_project 未装配（项目聚合缺失）")
 	}
 	if title == "" {
 		title = "AI 项目"
 	}
-	if !store.ValidKind(kind) {
-		return nil, nil, fmt.Errorf("create_project 不支持 kind=%q（ifc|dxf）", kind)
-	}
-	var m *store.Model
-	var err error
-	if kind == store.KindDXF {
-		m, err = h.deps.St.CreateWithKind(title+".dxf", int64(len(skeletonDXF)), strings.NewReader(skeletonDXF), store.KindDXF)
-	} else {
-		content := skeletonProjectIFC(newGlobalID(), ifcStringEscape(title))
-		m, err = h.deps.St.Create(title+".ifc", int64(len(content)), strings.NewReader(content))
-	}
+	return h.deps.Ps.CreateWithKind(title, kind)
+}
+
+// createProjectForAgentTool 是 agent.ToolDeps.CreateProject 的适配：返回项目信息。
+func (h *ChatHandler) createProjectForAgentTool(ctx context.Context, title, kind string) (any, error) {
+	p, err := h.createProjectForAgent(ctx, title, kind)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	h.deps.Q.Enqueue(m.ID)
-	// 项目聚合（Ps 未配置：降级单模型——旧装配兼容）
-	if h.deps.Ps == nil {
-		return m, nil, nil
-	}
-	p, err := h.deps.Ps.Create(title)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err := h.deps.Ps.AddModel(p.ID, m.ID, m.Kind, m.Name, m.Status); err != nil {
-		return nil, nil, err
-	}
-	return m, p, nil
+	return map[string]any{
+		"projectId": p.ID,
+		"title":     p.Title,
+		"kind":      p.Kind,
+		"models":    p.Models,
+	}, nil
 }
 
 // AgentToolDeps 组装 chat agent 的领域工具依赖（main/测试装配共用）。
@@ -176,28 +162,6 @@ func (h *ChatHandler) planDeliverForAgent(ctx context.Context, projectID, plan, 
 		return nil, fmt.Errorf("aiplan 未配置（skill venv 缺失），plan 交付不可用")
 	}
 	return h.deliverPlanCore(ctx, projectID, []byte(plan), []byte(bimSupplement))
-}
-
-// createProjectForAgentTool 是 agent.ToolDeps.CreateProject 的适配（项目级 A1）：
-// 返回可 JSON 化的 {model, project}。kind 缺省 ifc。
-func (h *ChatHandler) createProjectForAgentTool(ctx context.Context, title, kind string) (any, error) {
-	if kind == "" {
-		kind = store.KindIFC
-	}
-	m, p, err := h.createProjectForAgent(ctx, title, kind)
-	if err != nil {
-		return nil, err
-	}
-	if p == nil { // Ps 未配置：降级单模型（旧装配）
-		return m, nil
-	}
-	return map[string]any{
-		"modelId":   m.ID,
-		"projectId": p.ID,
-		"title":     p.Title,
-		"kind":      m.Kind,
-		"models":    p.Models,
-	}, nil
 }
 
 // DomainTools 产出 chat agent 的领域工具集（main 装配：agent.WithTools）。

@@ -37,6 +37,7 @@ type ModelRef struct {
 type Project struct {
 	ID        string     `json:"id"`
 	Title     string     `json:"title"`
+	Kind      string     `json:"kind,omitempty"` // 项目类型：ifc | cad | cad→ifc 管线（可选；空 = 未指定）
 	Models    []ModelRef `json:"models"`
 	CreatedAt time.Time  `json:"createdAt"`
 }
@@ -71,11 +72,16 @@ func (s *ProjectStore) write(p *Project) error {
 // Create 创建空项目（无模型）；模型随后经 AddModel 挂入（create_project 先建
 // 项目再挂首模型，A1）。
 func (s *ProjectStore) Create(title string) (*Project, error) {
+	return s.CreateWithKind(title, "")
+}
+
+// CreateWithKind 创建项目（kind = 项目类型：ifc/cad/cad→ifc 管线，可空）。
+func (s *ProjectStore) CreateWithKind(title, kind string) (*Project, error) {
 	id := newProjectID()
 	if err := os.MkdirAll(s.dir(id), 0o755); err != nil {
 		return nil, err
 	}
-	p := &Project{ID: id, Title: title, Models: []ModelRef{}, CreatedAt: time.Now().UTC()}
+	p := &Project{ID: id, Title: title, Kind: kind, Models: []ModelRef{}, CreatedAt: time.Now().UTC()}
 	if err := s.write(p); err != nil {
 		return nil, err
 	}

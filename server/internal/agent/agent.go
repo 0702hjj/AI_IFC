@@ -178,6 +178,9 @@ func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
 	// （"[tool error] ..."），翻译层恢复为带 error 载荷的 tool/result（单卡错误态），
 	// 模型可见可自愈；interrupt 错误透传（HITL 原语不被吞）。
 	handlers = append(handlers, newSafeToolMiddleware())
+	// D3c：交付审批 middleware（调了先问）——拦截 save_script/deliver_plan，
+	// 首次调用中断提问，用户经 /answer 确认后放行（官方 approval_wrapper 形态）。
+	handlers = append(handlers, newApprovalMiddleware())
 
 	ag, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:          o.name,

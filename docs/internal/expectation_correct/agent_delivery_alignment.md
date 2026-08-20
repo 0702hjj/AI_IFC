@@ -12,7 +12,7 @@
   → `run_script` 沙箱执行 → `save_script` 大版本化 → 平台模型。
 - **CAD 现状**：aidxf skill 走 CLI（execute 白名单）产物落 skill 工作区——
   无 modelId、不入 store、不版本化、前端不可见；`create_project` 无 CAD kind。
-- **目标**：交付对齐 = ① CAD 交付主链路「骨架脚本 + run_script」；② 辅助产物
+- **目标**：交付对齐 = ① CAD 交付主链路「交付脚本 + run_script」；② 辅助产物
   按方案③融入现有体系（**方案级目录 + 版本级 sidecar**）；③ 前端新建表单支持 kind。
 - **2026-08-20 核实升级（用户裁决）**：create_project 语义升级为**「唯一且通用项目」**
   （projectID，单 kind = 项目下主交付模型；dxf→ifc 管线 = 项目下多模型共享 projectID）；
@@ -57,8 +57,8 @@
 
 | # | 缺口 | 现状 | 对齐目标 |
 |---|---|---|---|
-| A | create_project 只有 IFC kind | `skeletonProjectIFC`（chat_orchestrator.go:53），无 CAD 骨架 | kind=dxf → `gen_dxf` 骨架契约脚本 + 前端表单 kind 选择 |
-| B | aidxf skill 产物不进平台模型 | CLI 产物落 skill 工作区，无 modelId/版本化 | 骨架脚本 + run_script 主链路；building.json 随版本 sidecar |
+| A | create_project 未通用化（只产骨架 IFC） | `skeletonProjectIFC`（chat_orchestrator.go:53），无 CAD 骨架 | create_project **空白化**（通用项目容器，无 kind 语义）；项目会话从空白构建 |
+| B | aidxf skill 产物不进平台模型 | CLI 产物落 skill 工作区，无 modelId/版本化 | 交付脚本 + run_script 主链路；building.json 随版本 sidecar |
 | C | 辅助产物（plan/bim_supplement/building.json）体系外 | 仅 fs_backend.go:15 注释提及，服务端零认知 | 方案③挂载（见 §4） |
 | D | M3 交付工具未做 | locate/edit-call 工具缺；design_review 门禁化缺；HITL question SSE + /answer + 交付审批缺 | 逐项补（沿用主方案 M3） |
 
@@ -67,7 +67,7 @@
 | # | 决策 | 依据 |
 |---|---|---|
 | D13 | **辅助产物挂载 = 方案③结合（2026-08-20 细化）**：plan.json + bim_supplement.json 作**方案级目录**（`{DATA}/plans/{projectID}/`，方案级版本化，P-1）；building.json 作**版本级 sidecar**（save 时随 `scripts/v{n}.building.json` lockstep 快照，P-2 内容源 = 服务端读 CLI 已写文件） | plan 演化独立于模型版本；building 随交付迭代需追溯 |
-| D14 | **CAD 交付主链路 = 骨架脚本 + run_script（P-5 细化）**：aidxf S0-S4 中间流程走通用独立脚本（execute，自由探索）；**最终交付 = cad_script_lib 契约构建脚本 → `run_script` 沙箱（用户共享）→ DXF 进 uploads + building.json 同期落盘**。create_project kind=dxf 产 gen_dxf 骨架契约脚本。**plan/cad/ifc 一人一个 run_script**（plan = aiplan land 落盘脚本沙箱执行 → plan.json/bim_supplement.json 落方案级目录；cad = 构建脚本 → DXF+building.json；ifc = 现状 aiifc 脚本） | 与 ifc 同构；交付级统一走用户共享沙箱（三级执行模型：交付级沙箱 / 中间流程 execute） |
+| D14 | **CAD 交付主链路 = 交付脚本 + run_script（P-5 细化）**：aidxf S0-S4 中间流程走通用独立脚本（execute，自由探索）；**最终交付 = cad_script_lib 契约构建脚本 → `run_script` 沙箱（用户共享）→ DXF 进 uploads + building.json 同期落盘**。create_project 是**通用空白项目容器**（无 kind 语义，不产骨架模型）。**plan/cad/ifc 一人一个 run_script**（plan = aiplan land 落盘脚本沙箱执行 → plan.json/bim_supplement.json 落方案级目录；cad = 构建脚本 → DXF+building.json；ifc = 现状 aiifc 脚本） | 与 ifc 同构；交付级统一走用户共享沙箱（三级执行模型：交付级沙箱 / 中间流程 execute） |
 | D15 | **前端新建表单加 kind 选择**（ifc/dxf），createChatProject 带 kind 参数 | 对齐 A 缺口；前端零改动红线不破（新增可选项，既有行为不变） |
 
 ## 4. 目标交付链路（plan/cad/ifc 一人一个 run_script）
@@ -79,7 +79,7 @@ aiplan CLI 中间流程（execute 通用脚本）──► aiplan land 落盘脚
     ──► save/落盘（方案级版本化 plan_history）
 
 【cad 阶段】
-create_project(kind=dxf) ──► gen_dxf 骨架契约脚本（staged）
+create_project（通用空白项目容器，无 kind 语义；会话绑 projectId）
 aidxf CLI 中间流程（execute，S0-S4 生成 DSL/过程产物，自由探索）
     ──► cad_script_lib 契约构建脚本（stage_script）
     ──► run_script 沙箱（用户共享）──► uploads/{id}.dxf + current.map.json + building.json（同期落盘）
@@ -109,7 +109,7 @@ aiifc 脚本（stage_script）──► run_script 沙箱（用户共享）─�
 > - **P-5 已裁决（2026-08-20）**：**交付级（最终 DXF/plan/building）统一走用户共享 run_script 沙箱**（一人一个 run_script：plan/cad/ifc）；**中间流程走通用独立脚本**（execute 自由探索，产物为 run_script 输入工作区）。不再要求中间产物落服务端认知区——最终产物经 run_script 落规范位置（uploads / 方案级目录 / 版本 sidecar）。
 > - **P-2 已裁决**：building.json sidecar 内容源 = **run_script 同期产物**（交付脚本把 building.json 写沙箱 workdir，save 时服务端读——对齐 map_text 模式 routes_scripts.py:572-576，不存在则无 sidecar）；不选 agent 工具传内容（64KB 截断 + CLI 同源一致性）。
 > - **P-4 已裁决**：shot.svg **砍掉前端透出**——留 skill 工作区（人的视觉返图备查）；不进服务端/不透出前端；模型自检靠文本链（geom_check/readback/validate），svg 非模型可读图像（read_file 是 XML 文本）。
-> - create_project kind=dxf = **两件事**：store 落骨架 DXF 产物（uploads）+ staging 落骨架脚本（§9.4）。
+> - **2026-08-20 组织逻辑澄清（用户）**：create_project 是**通用空白项目容器**——无 kind 语义、不产骨架模型；「kind=dxf 骨架脚本」是围绕上传模型的旧组织逻辑残留，**废弃**。从空白创建：新建项目 → 会话绑 projectId → 上传计划书 → 对话构建生成模型。
 
 
 ## 5. 工作分解（对齐阶段，2026-08-20 核实版）
@@ -118,16 +118,14 @@ aiifc 脚本（stage_script）──► run_script 沙箱（用户共享）─�
 
 | # | 工作项 | 内容 | 位置 |
 |---|---|---|---|
-| **A 项目创建** | A1: create_project 升级为项目级 | 创建「项目」（projectID `p_...`）+ 首交付模型（kind 可选 ifc/dxf）；单 kind = 项目下主模型；管线 = 项目下多模型共享 projectID；diff/版本**复用现有模型级逻辑**；**旧接口（初始化空白 ifc / 重命名）不变，仅编排变化** | `server/internal/api/chat_orchestrator.go` + `store`（方案级目录 + 模型） |
+| **A 项目创建** | A1: create_project 空白化（通用项目容器） | 创建「项目」（projectID `p_...`），**无 kind 语义、不产骨架模型**——从空白创建（新建项目 → 会话绑 projectId → 上传计划书 → 对话构建生成模型）；diff/版本**复用现有模型级逻辑**；**旧接口（初始化空白 ifc / 重命名）不变，仅组织逻辑变化** | `server/internal/api/chat_orchestrator.go` + `store`（项目聚合） |
 | | A2: 会话绑定项目 | chatSession 加 ProjectID（兼容保留 ModelID）；**1 session = 1 project**（幂等键 = projectId）；sessionBoundProject 替代 sessionBoundModel；agent 会话内可访问项目下全部模型与方案产物；旧会话无 ProjectID → 视单模型项目 | `server/internal/api/chat_session.go` + `chat_tools.go` |
 | | A3: 前端聊天框入口 + 历史项目列表 | 聊天框 → 新建项目/历史项目（复用现有 listSessions + chat-sessions.json）；新建后进入项目会话；kind 选择（ifc/dxf，默认 ifc 不变）；createChatProject(title, kind) | `client.ts` + `LibraryPage.tsx` + 会话列表 UI |
 | **B 方案级存储** | B1: 方案级目录（Go 单点，P-1/P-3） | `{DATA}/plans/{projectID}/`（plan.json + bim_supplement.json + plan_history/）；projectID 生成；读写端点；方案级版本化 | Go 侧（`store` 或新 `plans` 包） |
-| | B2: plan 交付端点（选 B，P-5） | `POST /plans/{id}/deliver`——沙箱执行 aiplan land 落盘脚本 → 校验 → 落方案级目录；**不碰几何 script_runner** | 新（Go 或 services） |
-| **B 方案级存储** | B1: 方案级目录（Go 单点，P-1/P-3） | `{DATA}/plans/{projectID}/`（plan.json + bim_supplement.json + plan_history/）；projectID 生成；读写端点；方案级版本化 | Go 侧（`store` 或新 `plans` 包） |
-| | B2: plan 交付端点（选 B，P-5） | `POST /plans/{id}/deliver`——沙箱执行 aiplan land 落盘脚本 → 校验 → 落方案级目录；**不碰几何 script_runner** | 新（Go 或 services） |
+| | B2: plan 交付端点（选 B，P-5） | `POST /projects/{projectID}/deliver`——aiplan land 确定性 CLI → 校验 → 落方案级目录；**不碰几何 script_runner** | Go（chat_plan.go） |
 | **C cad 交付链路** | C1: building.json 版本 sidecar（P-2） | `script_versions.save()` 加可选 building_text 参数（同 n lockstep）；save 读 run_script 同期产物；versions 列 sidecar 清单 | `script_versions.py` + `routes_scripts.py` |
-| | C2: 交付脚本形态（③ 能力保持） | 交付脚本 = **normalize 坐标产物（只读输入）+ cad_script_lib 画法库**；normalize 仍在 execute 中间流程（唯一坐标计算点不变） | `cad_script_lib.py` + skill 交付步骤 |
-| | C3: run_script 沙箱 bind normalize 产物 | 现有 `_sandbox_cmd` 只 bind 临时 workdir → 扩展 bind normalize 产物目录（输入工作区） | `script_runner.py` |
+| | C2: 交付脚本形态（2026-08-20 修正） | 交付脚本 = **沙箱内调 aidxfv3 deliver CLI 的薄封装**（不重新实现画法）——同一个 CLI/venv/flows，效果与 skill 原本执行**天然一致**（只是环境从 execute 换成 run_script 沙箱） | 交付脚本模板（cad_script_lib 契约包装 subprocess） |
+| | C3: 沙箱 bind 中间产物 + skill 环境 | run_script 沙箱 bind `models/{id}/pipeline/`（中间产物，只读输入）+ skill venv/flows（CLI 可执行）；脚本调 aidxfv3 deliver 完成交付 | `script_runner.py` + 沙箱配置 |
 | **D 工具面 + HITL** | D1: locate/edit-call 工具（M3-①） | 工具面补漏 | `tools.go` |
 | | D2: 项目/方案工具（对接 A/B） | 项目内模型列表、方案读写 | `tools.go` |
 | | D3: HITL 收尾（agent 侧 ask_user **已做** 2026-08-19，补 chat 层接线） | D3a: SSE question.ask 翻译（agent 事件→前端帧）；D3b: `/answer` 端点 → `Agent.Resume`；D3c: 交付审批 middleware（save/deliver 调了先问，官方 approval_wrapper 形态） | `chat_*` + `agent`（tools.go ask_user 已有不动） |
@@ -163,13 +161,80 @@ aiifc 脚本（stage_script）──► run_script 沙箱（用户共享）─�
 | 多次交付版本膨胀 | 与 DXF 快照同策略：可重建则剪枝（`_prune_rebuildable_snapshots` 同款） |
 | 前端新建 kind 选择 UI 复杂度 | 极薄（select 两值），默认 ifc 保持既有行为 |
 
+## 10. ID 体系与 diff 适配（2026-08-20 架构审查结论）
+
+### 10.1 ID 体系（两级 + 未来公司级）
+
+```
+m_[0-9a-f]{16}   modelId      模型级（store.Model，独立版本链）
+p_[0-9a-f]{16}   projectID    方案/子项目级（store.Project + plans/ 存储键）
+c_.../s_...                  会话/事件日志
+g_...（未来）    companyProjectID  公司级总项目（新上层概念，非 p_ 升级）
+```
+
+- **p_ 定位（已裁决）**：create_project 的 p_ 是「**方案/子项目**」，**不是总项目**。未来公司级总 PROJECTID（g_/cmp_...）是**新的上层概念**——独立前缀 + 独立资源名（如 `/api/v1/companies/`），不占用 p_ 语义。
+- **未来接入零迁移**：命名空间分离；`store.Project` 可加 `ParentProjectID`（omitempty，空 = 顶级）挂公司级；方案级存储键不变；会话仍绑方案级（1 session = 1 方案）。
+- **skill 产物链 `project` 字段 = p_**（方案级共享 ID）——不要改成公司级；公司级是上层聚合，不参与产物对齐。
+
+### 10.2 diff 适配（一方案多 DXF）
+
+| diff 面 | 现状 | 结论 |
+|---|---|---|
+| **模型级**（每 DXF/IFC 独立版本链） | `POST /models/{id}/script/diff`（:8200/:8100）+ staging/diff + agent get_diff | ✅ **已适配**——方案下 N 个 DXF = N 条独立版本链，各查各的 |
+| **方案级产物**（plan/bim_supplement） | plan_history 有版本化（B1），**无 diff 端点** | ⚠️ 补 `GET /projects/{projectID}/plan_history/{base}/{target}/diff`（下一波） |
+| **building.json** | C 块 sidecar 未做 | ⏳ 随模型版本链 diff（C 块定义） |
+| **方案级联动**（多 DXF 整体变化） | 无 | ⏳ P-6 成套交付后（不做） |
+
+- **注意（用户提醒）**：同 projectID 下不同 dxf 各自独立存放（uploads/{id}.dxf + 独立版本链）——diff 原子单元是**模型级**与**方案产物级**；**不要把方案整体当一个 diff 单元**（联动 diff 属成套交付后）。
+
 ## 9. 关键代码位置索引
 
 | 想查的 | 位置 |
 |---|---|
 | 版本 lockstep save（扩展锚点） | `services/cad/app/script_versions.py:101` |
-| CAD 脚本契约层（骨架脚本要满足的契约） | `services/cad/flows/cad_script_lib.py` |
+| CAD 脚本契约层（交付脚本要满足的契约） | `services/cad/flows/cad_script_lib.py` |
 | 骨架 IFC 生成（P1 参照） | `server/internal/api/chat_orchestrator.go:51` |
 | agent 工具 kind 路由 | `server/internal/agent/tools.go:69` |
 | 前端新建表单 | `web/src/pages/LibraryPage.tsx` + `web/src/api/client.ts:45` |
 | 主方案 M3（HITL/交付审批） | `docs/internal/expectation_correct/agent_deployment_plan.md:394` |
+
+## 11. 执行状态 + 新波次规划（2026-08-20 盘点）
+
+### 11.1 已完成（PR #57-#64，全部 11 checks 绿）
+
+| 波次 | 内容 | PR |
+|---|---|---|
+| 一 | A1/A2：create_project 项目级 + 会话绑定项目 | #57 |
+| 二 | B1：方案级存储 + 版本化 | #58 |
+| 三 | B3：方案级 diff | #59 |
+| 四 | B2：plan 交付端点 + C1：building sidecar | #60 |
+| 五 | building diff（script/diff 带 buildingChanges） | #61 |
+| 六 | A3：前端项目入口（kind 选择 + 项目会话 + 历史项目） | #62 |
+| 七 | D3a/b：HITL SSE question.ask + /answer | #63 |
+| 八 | D2：项目/方案工具面（get_project_plans/deliver_plan/get_project_models） | #64 |
+
+### 11.2 能力对齐确认（2026-08-20）
+
+- **中间执行 = execute 通用 shell 工具（原本设计，D12/M2-0）**——fs_backend 白名单 aiplan/aidxfv3，**skill 能力已覆盖无损失**（aiplan 11 子命令 + aidxfv3 14 子命令全可经 execute 调）。
+- **dxf 特殊 = 交付环节对齐 aiifc**（一人一个 run_script）：plan 交付 ✅（deliver_plan/B2）；cad 交付 ⏳（C2/C3）。
+
+### 11.3 还需改（新波次）
+
+| 波次 | 内容 | 类型 |
+|---|---|---|
+| **九** | ✅ ① create_project 空白化（只建项目 + kind 项目类型必选 + AgentAsTool 派发对齐）② 项目会话 chat 上下文（kind 路由提示）③ 前端强制预选（cad/ifc/cad→ifc，默认 cad） | 已完成（本地，未上传） |
+| **十** | 文档整理（含本波 C2/C3 修正）+ 杂项清理（skills/aidxf 存量、research/eino、opencode.json、server/server 编译产物、拆 agent_orchestrate 792 行超限） | 收尾 |
+| **十一** | D1 locate/edit-call 工具 · D3c 交付审批 middleware（save/deliver 调了先问） | 独立能力 |
+| **十二（后置）** | C2 交付脚本 = **沙箱内调 aidxfv3 deliver CLI 薄封装** + C3 沙箱 bind **中间产物 `models/{id}/pipeline/` + skill venv/flows**——**涉及 skill 改写/对齐流程设计，暂不实施**（2026-08-20 用户裁决：后续对齐流程时再定） | 后置 |
+| **后置** | 公司级总 PROJECTID（g_，Project.ParentProjectID）· 方案级联动 diff · 成套交付（P-6） | 未来 |
+
+### 11.5 中间产物位置 + 一致性保证（2026-08-20 修正，C2/C3 依据）
+
+- **中间产物位置**：agent 中间流程（execute 跑 S0-S3）产物落**模型工作区 `models/{id}/pipeline/`**（derived/skeleton/rooms/normalize 坐标）——服务端认知 + Delete 自动清理 + 沙箱可 bind。
+- **一致性保证**：交付脚本**不重新实现** skill 画法——**沙箱内调 aidxfv3 deliver CLI（薄封装）**：同一个 CLI/venv/flows，只是执行环境从 execute 换成 run_script 沙箱——**效果与 skill 原本执行天然一致**（非「等价验证」，是同一执行）。
+
+### 11.4 原则（用户重申）
+
+- **能力对齐原本 skill 设计，不可以有损失**——中间流程 execute 通用 shell（已有）；交付环节特殊对齐（一人一个 run_script）。
+- 不改写 skill 时，工具接口直接按目标逻辑落地；skill 改写（C2/C3）后置不阻塞交付能力对齐。
+- **交付脚本 = 换环境跑同一 CLI**（薄封装），不重写画法逻辑。

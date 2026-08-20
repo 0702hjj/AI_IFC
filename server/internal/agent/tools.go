@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/cloudwego/eino/components/tool"
@@ -224,6 +225,20 @@ type deliverPlanReq struct {
 	BimSupplement json.RawMessage `json:"bimSupplement,omitempty" jsonschema:"description=bim_supplement.json 内容（对象，可空）"`
 }
 
+// locateReq 是调用点定位入参（XDATA key）。
+type locateReq struct {
+	Key     string `json:"key" jsonschema:"required,description=XDATA 稳定 key（如 0:line:1，从 render.json 实体选中获得）"`
+	ModelID string `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
+}
+
+// editCallReq 是标量改写入参（value 为 JSON 标量）。
+type editCallReq struct {
+	Key      string          `json:"key" jsonschema:"required,description=XDATA 稳定 key"`
+	Argument string          `json:"argument" jsonschema:"required,description=要改写的参数名"`
+	Value    json.RawMessage `json:"value" jsonschema:"required,description=新标量值（str/int/float/bool）"`
+	ModelID  string          `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
+}
+
 // mustTool 构造 InferTool；schema 是静态的，构造失败即程序员错误，启动期直接 panic
 // （同 http.ServeMux 冲突 panic 语义），不拖错误签名污染 DomainTools 契约。
 func mustTool[T, R any](name, desc string, fn func(context.Context, T) (R, error)) tool.InvokableTool {
@@ -410,6 +425,27 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 					return toolErr(err), nil
 				}
 				return toolJSON(map[string]any{"projectId": projectID, "models": models}), nil
+			}),
+
+		mustTool("get_script_locate", "XDATA key → 脚本调用点定位（line/col/snippet）——选中构件后定位到创建它的脚本位置（M3-①）",
+			func(ctx context.Context, in locateReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				return toolRaw(cl.Do(ctx, http.MethodGet, "/models/"+m.ID+"/script/locate?key="+url.QueryEscape(in.Key), nil))
+			}),
+
+		mustTool("edit_script_call", "libcst 标量改写定位到的调用点实参（key+argument+value；沙箱 run + staging.push，422/409 零副作用）",
+			func(ctx context.Context, in editCallReq) (string, error) {
+				m, cl, errText := deps.resolve(ctx, in.ModelID)
+				if errText != "" {
+					return errText, nil
+				}
+				body, _ := json.Marshal(map[string]any{
+					"key": in.Key, "argument": in.Argument, "value": json.RawMessage(in.Value),
+				})
+				return toolRaw(cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/edit-call", body))
 			}),
 	}
 }

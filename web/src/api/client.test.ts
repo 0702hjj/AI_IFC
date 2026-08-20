@@ -244,8 +244,8 @@ describe("chat api", () => {
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/v1/chat/projects");
     expect(init.method).toBe("POST");
-    // 默认 kind=ifc（A3：新建项目类型选择）
-    expect(JSON.parse(init.body as string)).toEqual({ title: "p", kind: "ifc" });
+    // 默认 kind=cad（强制预选项目类型，默认 CAD 主交付）
+    expect(JSON.parse(init.body as string)).toEqual({ title: "p", kind: "cad" });
     expect(m).toEqual(model);
   });
 

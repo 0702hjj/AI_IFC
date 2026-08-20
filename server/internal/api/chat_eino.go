@@ -48,7 +48,17 @@ func (h *ChatHandler) postMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	text := body.Text
-	if cs.ModelID != "" {
+	// 系统上下文：项目会话（ProjectID 绑）基于项目（含 kind 路由提示）；
+	// 模型会话（ModelID）保持现状。
+	if cs.ProjectID != "" {
+		kindHint := ""
+		if p := h.projectKindForSession(cs.ProjectID); p != "" {
+			kindHint = projectKindRouteHint(p)
+		}
+		sys := fmt.Sprintf("当前会话绑定项目 %s（项目类型：%s）。本会话 chatSessionId：%s。%s方案产物可经 get_project_plans 读取；项目下模型经 get_project_models 查看。",
+			cs.ProjectID, h.projectKindLabel(cs.ProjectID), cs.ID, kindHint)
+		text = "[系统上下文] " + sys + "\n\n[用户需求] " + body.Text
+	} else if cs.ModelID != "" {
 		sys := fmt.Sprintf("当前会话绑定模型文件 data/uploads/%s.ifc（改它即改该模型；若是从零构建需求，该文件初始为骨架，直接在其上建造）。本会话 chatSessionId：%s。",
 			cs.ModelID, cs.ID)
 		// W-0016：≥2 个脚本大版本时追加「与上一大版本的脚本 diff」上下文（拉取失败自动降级）。

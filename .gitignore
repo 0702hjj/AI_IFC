@@ -30,3 +30,6 @@ analysis_results/
 
 .superpowers/
 .zcode/
+
+# Go 编译产物（误在仓库内 go build 生成）
+server/server

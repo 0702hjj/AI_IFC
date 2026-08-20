@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -67,55 +66,50 @@ func doCreateProject(t *testing.T, h *ChatHandler, body string) projectCreateRes
 	return r
 }
 
-// TestCreateProjectIFC 默认 kind=ifc：返回兼容结构（id=首模型）+ projectId 新字段。
-func TestCreateProjectIFC(t *testing.T) {
+// TestCreateProjectBlank 空白化：只建项目（projectId + 空 models），不产任何模型。
+func TestCreateProjectBlank(t *testing.T) {
 	dataDir := t.TempDir()
 	st := store.NewStore(dataDir)
 	ps := store.NewProjectStore(dataDir)
 	h := newProjectChatHandler(t, st, ps)
 
-	r := doCreateProject(t, h, `{"title":"A 项目"}`)
-	if r.ID == "" || r.ProjectID == "" {
-		t.Fatalf("missing id/projectId: %+v", r)
+	r := doCreateProject(t, h, `{"title":"A 项目","kind":"cad"}`)
+	if r.ProjectID == "" {
+		t.Fatalf("missing projectId: %+v", r)
 	}
-	if r.ID == r.ProjectID {
-		t.Fatalf("model id should differ from project id")
+	if r.ID != "" {
+		t.Fatalf("空白项目不应产模型（id = %q）", r.ID)
 	}
-	if r.Kind != "ifc" || r.Status != "converting" {
-		t.Fatalf("kind/status = %q/%q, want ifc/converting", r.Kind, r.Status)
-	}
-	// 项目落盘 + 模型挂入
+	// 项目落盘 + 无模型
 	p, err := ps.Get(r.ProjectID)
 	if err != nil {
 		t.Fatalf("project get: %v", err)
 	}
-	if len(p.Models) != 1 || p.Models[0].ID != r.ID {
-		t.Fatalf("project models = %+v, want [%s]", p.Models, r.ID)
+	if len(p.Models) != 0 {
+		t.Fatalf("空白项目 models = %+v, want 空", p.Models)
+	}
+	// 不产模型文件
+	if ms, _ := st.List(); len(ms) != 0 {
+		t.Fatalf("空白项目不应注册模型: %+v", ms)
 	}
 }
 
-// TestCreateProjectDXF kind=dxf：模型直接 ready + dxf 文件落盘。
-func TestCreateProjectDXF(t *testing.T) {
+// TestCreateProjectKind 项目类型保留（kind = 项目类型，不产模型）。
+func TestCreateProjectKind(t *testing.T) {
 	dataDir := t.TempDir()
-	st := store.NewStore(dataDir)
 	ps := store.NewProjectStore(dataDir)
-	h := newProjectChatHandler(t, st, ps)
+	h := newProjectChatHandler(t, store.NewStore(dataDir), ps)
 
-	r := doCreateProject(t, h, `{"title":"D 项目","kind":"dxf"}`)
-	if r.Kind != "dxf" || r.Status != "ready" {
-		t.Fatalf("kind/status = %q/%q, want dxf/ready", r.Kind, r.Status)
+	r := doCreateProject(t, h, `{"title":"D 项目","kind":"cad"}`)
+	if r.Kind != "cad" {
+		t.Fatalf("kind = %q, want cad（项目类型）", r.Kind)
 	}
-	m, err := st.Get(r.ID)
-	if err != nil || m.Kind != store.KindDXF {
-		t.Fatalf("model: %v %+v", err, m)
+	p, err := ps.Get(r.ProjectID)
+	if err != nil || p.Kind != "cad" {
+		t.Fatalf("project kind = %q, want cad", p.Kind)
 	}
-	if _, err := os.Stat(st.DXFPath(m.ID)); err != nil {
-		t.Fatalf("dxf file missing: %s", st.DXFPath(m.ID))
-	}
-	// 项目挂入 dxf 模型
-	p, _ := ps.Get(r.ProjectID)
-	if len(p.Models) != 1 || p.Models[0].Kind != "dxf" {
-		t.Fatalf("project models = %+v", p.Models)
+	if len(p.Models) != 0 {
+		t.Fatalf("kind 项目也不应产模型: %+v", p.Models)
 	}
 }
 
@@ -169,4 +163,17 @@ func doChatCreateJSON(t *testing.T, h *ChatHandler, body string) *chatSession {
 		t.Fatal(err)
 	}
 	return &cs
+}
+
+// TestCreateProjectKindRequired 强制预选：kind 缺失/非法 → 400（verify 层）。
+func TestCreateProjectKindRequired(t *testing.T) {
+	h := newProjectChatHandler(t, store.NewStore(t.TempDir()), store.NewProjectStore(t.TempDir()))
+	for _, body := range []string{`{"title":"x"}`, `{"title":"x","kind":""}`, `{"title":"x","kind":"bad"}`} {
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/projects", strings.NewReader(body))
+		rec := httptest.NewRecorder()
+		h.mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("body=%s status=%d, want 400", body, rec.Code)
+		}
+	}
 }
