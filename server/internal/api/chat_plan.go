@@ -10,6 +10,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -233,54 +234,56 @@ func (h *ChatHandler) deliverPlan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// 临时输入目录 → aiplan land → 读产出
+	v, err := h.deliverPlanCore(r.Context(), projectID, body.Plan, body.BimSupplement)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"projectId": projectID, "planVersion": v["planVersion"], "bimVersion": v["bimVersion"]})
+}
+
+// deliverPlanCore 是 plan 交付的执行核心（REST handler 与 agent deliver_plan 工具
+// 共用——单一事实源）：临时输入 → aiplan land → 读产出 → PlanStore.Put 版本化。
+func (h *ChatHandler) deliverPlanCore(ctx context.Context, projectID string, plan, bimSupplement []byte) (map[string]any, error) {
+	if len(plan) == 0 || len(bimSupplement) == 0 {
+		return nil, errors.New("plan/bimSupplement 缺失")
+	}
 	workdir, err := os.MkdirTemp("", "aiplan-deliver-*")
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
+		return nil, err
 	}
 	defer os.RemoveAll(workdir)
 	inPlan := filepath.Join(workdir, "plan.json")
 	inBim := filepath.Join(workdir, "bim_supplement.json")
-	if err := writeAtomicFile(inPlan, body.Plan); err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
+	if err := writeAtomicFile(inPlan, plan); err != nil {
+		return nil, err
 	}
-	if err := writeAtomicFile(inBim, body.BimSupplement); err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
+	if err := writeAtomicFile(inBim, bimSupplement); err != nil {
+		return nil, err
 	}
 	outDir := filepath.Join(workdir, "out")
 	cmd := exec.Command(h.deps.AiplanBin, "land", inPlan, inBim, "--outdir", outDir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "aiplan land 失败: "+strings.TrimSpace(string(out)))
-		return
+		return nil, errors.New("aiplan land 失败: " + strings.TrimSpace(string(out)))
 	}
-	// 读产出（land 可能 canon 重写）
 	planOut, err := os.ReadFile(filepath.Join(outDir, "plan.json"))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "aiplan land 未产出 plan.json")
-		return
+		return nil, errors.New("aiplan land 未产出 plan.json")
 	}
 	bimOut, err := os.ReadFile(filepath.Join(outDir, "bim_supplement.json"))
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "aiplan land 未产出 bim_supplement.json")
-		return
+		return nil, errors.New("aiplan land 未产出 bim_supplement.json")
 	}
-	// 落方案级目录（版本化）
 	planVer, err := h.deps.PlanSt.Put(projectID, "plan.json", planOut)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
+		return nil, err
 	}
 	bimVer, err := h.deps.PlanSt.Put(projectID, "bim_supplement.json", bimOut)
 	if err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
+		return nil, err
 	}
-	writeJSON(w, map[string]any{
-		"projectId": projectID, "planVersion": planVer, "bimVersion": bimVer,
-	})
+	return map[string]any{"planVersion": planVer, "bimVersion": bimVer}, nil
 }
 
 func writeAtomicFile(path string, content []byte) error {

@@ -119,7 +119,63 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		MarkDirty:     h.markSessionDirty,
 		PushStaged:    h.pushStaged,
 		CreateProject: h.createProjectForAgentTool,
+		// D2 项目/方案域
+		SessionProject: h.sessionBoundProject,
+		ProjectModels:  h.projectModelsForAgent,
+		PlanGet:        h.planGetForAgent,
+		PlanDeliver:    h.planDeliverForAgent,
 	}
+}
+
+// sessionBoundProject 解析 ctx 会话绑定的项目 id（A2；无绑定返回 ""）。
+func (h *ChatHandler) sessionBoundProject(ctx context.Context) string {
+	sid := agent.SessionIDFromContext(ctx)
+	if sid == "" {
+		return ""
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	cid, ok := h.byAgent[sid]
+	if !ok {
+		return ""
+	}
+	if cs := h.sessions[cid]; cs != nil {
+		return cs.ProjectID
+	}
+	return ""
+}
+
+// projectModelsForAgent 列项目下模型聚合（经 ProjectStore；项目不存在 → 文本错误）。
+func (h *ChatHandler) projectModelsForAgent(ctx context.Context, projectID string) ([]store.ModelRef, error) {
+	if h.deps.Ps == nil {
+		return nil, fmt.Errorf("项目聚合未配置（store 缺失）")
+	}
+	p, err := h.deps.Ps.Get(projectID)
+	if err != nil {
+		return nil, err
+	}
+	return p.Models, nil
+}
+
+// planGetForAgent 读方案产物当前态（经 PlanStore；未配置/缺失 → 文本错误）。
+func (h *ChatHandler) planGetForAgent(ctx context.Context, projectID, name string) (string, error) {
+	if h.deps.PlanSt == nil {
+		return "", fmt.Errorf("方案存储未配置")
+	}
+	content, err := h.deps.PlanSt.Get(projectID, name)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+// planDeliverForAgent 触发 plan 交付（复用 deliverPlan 的 aiplan land 执行逻辑；
+// 抽 deliverPlanCore 供 REST handler 与工具共用——单一事实源）。
+func (h *ChatHandler) planDeliverForAgent(ctx context.Context, projectID, plan, bimSupplement string) (map[string]any, error) {
+	if h.deps.AiplanBin == "" {
+		return nil, fmt.Errorf("aiplan 未配置（skill venv 缺失），plan 交付不可用")
+	}
+	return h.deliverPlanCore(ctx, projectID, []byte(plan), []byte(bimSupplement))
 }
 
 // createProjectForAgentTool 是 agent.ToolDeps.CreateProject 的适配（项目级 A1）：
