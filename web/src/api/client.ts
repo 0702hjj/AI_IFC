@@ -59,7 +59,7 @@ export interface CreateProjectResult {
   kind?: string;
   status?: string;
 }
-export function createChatProject(title: string, kind: string = "ifc") {
+export function createChatProject(title: string, kind: string = "cad") {
   return request<CreateProjectResult>("/api/v1/chat/projects", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

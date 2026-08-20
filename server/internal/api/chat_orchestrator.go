@@ -9,6 +9,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -48,90 +49,42 @@ func newGlobalID() string {
 	return sb.String()[:22]
 }
 
-// skeletonIFC 是最小合法 IFC（仅 IfcProject + 几何上下文 + 单位），
-// converter/edit-service 均已验证可正常消化。两个 %s = project GlobalId、项目名。
-const skeletonIFC = `ISO-10303-21;
-HEADER;
-FILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');
-FILE_NAME('skeleton.ifc','2026-01-01T00:00:00',(''),(''),'ifcopenshell','AI_IFC','');
-FILE_SCHEMA(('IFC4'));
-ENDSEC;
-DATA;
-#1=IFCPROJECT('%s',#5,'%s',$,$,$,$,(#9),#13);
-#5=IFCOWNERHISTORY($,$,$,$,$,$,$,$);
-#9=IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.E-05,#10,$);
-#10=IFCAXIS2PLACEMENT3D(#11,$,$);
-#11=IFCCARTESIANPOINT((0.,0.,0.));
-#13=IFCUNITASSIGNMENT((#14));
-#14=IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.);
-ENDSEC;
-END-ISO-10303-21;
-`
-
-// ifcStringEscape 转义 IFC STEP 字符串（单引号双写）。
-func ifcStringEscape(s string) string { return strings.ReplaceAll(s, "'", "''") }
-
-// skeletonProjectIFC 渲染骨架 IFC 内容（复用方：createProject REST 路由 +
-// agent create_project 工具——同一生成逻辑，单一事实源）。
-func skeletonProjectIFC(globalID, escapedTitle string) string {
-	return fmt.Sprintf(skeletonIFC, globalID, escapedTitle)
-}
-
-// skeletonDXF 是最小合法 DXF（空图纸：HEADER + 空 ENTITIES）。
-// services/cad 的 model_upload_path 守卫要求 uploads/{id}.dxf 存在——新建
-// kind=dxf 项目用空图起步，几何由后续脚本构建。
-const skeletonDXF = `0
-SECTION
-2
-HEADER
-9
-$ACADVER
-1
-AC1009
-0
-ENDSEC
-0
-SECTION
-2
-ENTITIES
-0
-ENDSEC
-0
-EOF
-`
-
-// createProject 创建空白项目（项目级，A1）：projectID + 首交付模型（kind 可选
-// ifc/dxf，默认 ifc）。返回兼容结构（id = 首模型 id，前端 ModelInfo 旧逻辑可用；
-// projectId = 项目 id，A2 会话绑定用它）。之后 AI 从零构建走与改模型相同的主链路。
+// createProject 创建空白项目（2026-08-20 组织逻辑澄清）：
+// 只创建项目（projectID p_...），**不产任何模型**——从空白创建；
+// kind = 项目类型（ifc | cad | cad->ifc，**必选**——强制开始会话前预选，
+// 与 AgentAsTool 派发对齐：类型 = 该项目 orchestrator 默认派发方向）。
 func (h *ChatHandler) createProject(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title string `json:"title"`
 		Kind  string `json:"kind"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body) // title/kind 可空
-	kind := body.Kind
-	if kind == "" {
-		kind = store.KindIFC
+	_ = json.NewDecoder(r.Body).Decode(&body) // title 可空
+	if err := verifyProjectKind(body.Kind); err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, err.Error())
+		return
 	}
-	m, p, err := h.createProjectForAgent(r.Context(), body.Title, kind)
+	p, err := h.createProjectForAgent(r.Context(), body.Title, body.Kind)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
 		return
 	}
-	// Ps 未配置（旧装配降级）：返回单模型（旧行为，前端 ModelInfo 契约不变）。
-	if p == nil {
-		writeJSON(w, m)
-		return
-	}
 	writeJSON(w, map[string]any{
-		"id":        m.ID, // 首模型（兼容前端 ModelInfo）
 		"projectId": p.ID,
 		"title":     p.Title,
-		"kind":      m.Kind,
-		"status":    m.Status,
+		"kind":      p.Kind,
 		"createdAt": p.CreatedAt,
 		"models":    p.Models,
 	})
+}
+
+// verifyProjectKind 校验项目类型（必选：ifc | cad | cad->ifc——强制预选，verify 层单点）。
+func verifyProjectKind(kind string) error {
+	switch kind {
+	case "ifc", "cad", "cad->ifc":
+		return nil
+	default:
+		return errors.New("项目类型必选（kind: ifc | cad | cad->ifc）——强制开始会话前预选")
+	}
 }
 
 // notifyIfDirty 是 agent loop 结束（turn/end，事件流关闭）后的变更检测 + 触发点：
@@ -316,4 +269,39 @@ func formatScriptDiffContext(modelID string, d *editsvc.ScriptDiffResult) string
 	fmt.Fprintf(&b, "\nPARAMS 变化：%s", params)
 	b.WriteString("\n纪律：在既有构建脚本上做增量修改，禁止整体重写；保持 PARAMS 的 key 稳定（只改值或新增 key，不改既有 key 名）。")
 	return b.String()
+}
+
+// projectKindForSession 读会话绑定项目的 kind（项目类型；无项目/读失败返回 ""）。
+func (h *ChatHandler) projectKindForSession(projectID string) string {
+	if h.deps.Ps == nil {
+		return ""
+	}
+	p, err := h.deps.Ps.Get(projectID)
+	if err != nil {
+		return ""
+	}
+	return p.Kind
+}
+
+// projectKindLabel 渲染项目类型的可读标签（未知/空 → "未指定"）。
+func (h *ChatHandler) projectKindLabel(projectID string) string {
+	k := h.projectKindForSession(projectID)
+	if k == "" {
+		return "未指定"
+	}
+	return k
+}
+
+// projectKindRouteHint 按项目类型生成 orchestrator 路由提示（与 AgentAsTool 派发结合）。
+func projectKindRouteHint(kind string) string {
+	switch kind {
+	case "cad":
+		return "本项目为 CAD 项目——构建走 cad-agent（aidxf 管线）：先 aiplan 归一 plan.json，再派 cad-agent 逐层出 DXF。"
+	case "ifc":
+		return "本项目为 IFC 项目——构建走 ifc-agent（aiifc 管线）：直接派 ifc-agent 产出 IFC。"
+	case "cad->ifc":
+		return "本项目为 cad→ifc 管线——先 aiplan → cad-agent 出 DXF → 再 ifc-agent 产 IFC。"
+	default:
+		return "请按用户需求判断交付类型：CAD 走 aidxf 管线（先 aiplan），IFC 走 aiifc 管线。"
+	}
 }

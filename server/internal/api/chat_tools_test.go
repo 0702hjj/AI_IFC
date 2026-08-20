@@ -9,7 +9,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -98,7 +97,7 @@ func newToolsTestHandler(t *testing.T, script agent.Script, fakeIFC, fakeCAD *fa
 		cad = editsvc.New(fakeCAD.srv.URL)
 	}
 	h := &ChatHandler{
-		deps:     ChatDeps{Ev: agent.NewEventStore(dataDir), Ed: ed, Cad: cad, St: st, Q: q, DataDir: dataDir},
+		deps:     ChatDeps{Ev: agent.NewEventStore(dataDir), Ed: ed, Cad: cad, St: st, Ps: store.NewProjectStore(dataDir), Q: q, DataDir: dataDir},
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
 		byAgent:  map[string]string{},
@@ -163,25 +162,12 @@ func TestAgentToolDepsAdapters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateProject: %v", err)
 	}
-	m, ok := v.(*store.Model)
-	if !ok || m.Name != "适配器项目.ifc" {
+	m, ok := v.(map[string]any)
+	if !ok || m["projectId"] == nil || m["title"] != "适配器项目" {
 		t.Fatalf("CreateProject 返回 = %v", v)
 	}
-	if !fileExists(fmt.Sprintf("%s/uploads/%s.ifc", h.deps.DataDir, m.ID)) {
-		t.Fatal("骨架 IFC 未落盘")
-	}
-	// 条件等待转换收尾（SetStatus ready，即 models.json 写盘完成）再返回——
-	// CreateProject 入队异步，不等会让 t.TempDir() 清理与 worker 写盘竞态
-	// （CI 慢速环境 unlinkat ... directory not empty，同 TestCreateProjectToolEndToEnd）。
-	deadline := time.Now().Add(5 * time.Second)
-	for time.Now().Before(deadline) {
-		if mm, err := h.deps.St.Get(m.ID); err == nil && mm.Status == "ready" {
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	if mm, _ := h.deps.St.Get(m.ID); mm == nil || mm.Status != "ready" {
-		t.Fatalf("骨架模型未转 ready（status=%v）", mm)
+	if models, _ := m["models"].([]store.ModelRef); len(models) != 0 {
+		t.Fatalf("空白项目不应产模型: %+v", models)
 	}
 	// 无会话上下文 / 未知会话：不 panic、不置位
 	deps.MarkDirty(context.Background())
@@ -191,9 +177,9 @@ func TestAgentToolDepsAdapters(t *testing.T) {
 }
 
 // TestCreateProjectToolEndToEnd：scripted agent 调 create_project 工具 →
-// 骨架 IFC 落盘 + 模型注册 + 入队转换（端到端走 agent 工具面）。
+// 空白项目创建（projectId + 空 models；不产模型、不入队转换）。
 func TestCreateProjectToolEndToEnd(t *testing.T) {
-	h, runs := newToolsTestHandler(t, agent.Script{Steps: []agent.ScriptStep{
+	h, _ := newToolsTestHandler(t, agent.Script{Steps: []agent.ScriptStep{
 		{ToolCalls: []agent.ToolCallSpec{{ID: "c1", Name: "create_project", Arguments: `{"title":"端到端项目"}`}}},
 		{Chunks: []string{"建好了"}},
 	}}, nil, nil)
@@ -204,13 +190,14 @@ func TestCreateProjectToolEndToEnd(t *testing.T) {
 	if code := postChat(t, h, cs.ID, "新建项目"); code != http.StatusOK {
 		t.Fatalf("post status = %d", code)
 	}
-	var found *store.Model
+	// 条件等待：项目落盘（ProjectStore 出现端到端项目）——异步写盘条件等待。
+	var found *store.Project
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		ms, _ := h.deps.St.List()
-		for _, m := range ms {
-			if m.Name == "端到端项目.ifc" {
-				found = m
+		ps, _ := h.deps.Ps.List()
+		for _, p := range ps {
+			if p.Title == "端到端项目" {
+				found = p
 			}
 		}
 		if found != nil {
@@ -219,15 +206,14 @@ func TestCreateProjectToolEndToEnd(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	if found == nil {
-		t.Fatal("create_project 工具未注册模型")
+		t.Fatal("create_project 工具未创建项目")
 	}
-	if !fileExists(fmt.Sprintf("%s/uploads/%s.ifc", h.deps.DataDir, found.ID)) {
-		t.Fatal("骨架 IFC 未落盘")
+	if len(found.Models) != 0 {
+		t.Fatalf("空白项目不应产模型: %+v", found.Models)
 	}
-	select {
-	case <-runs:
-	case <-time.After(2 * time.Second):
-		t.Fatal("骨架模型未入队转换")
+	// 不产模型文件、不入队转换
+	if ms, _ := h.deps.St.List(); len(ms) != 0 {
+		t.Fatalf("create_project 不应注册模型: %+v", ms)
 	}
 	// 等会话事件日志出现 idle 帧（evLog 环形缓冲不丢帧，是 turn 收尾的权威信号）：
 	// consumeRun 先推 session.idle 再做 notify 判定，idle 入日志即代表事件流排空、

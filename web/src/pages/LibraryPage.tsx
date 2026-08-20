@@ -20,8 +20,9 @@ import "./LibraryPage.css";
 
 const MAX_SIZE = 200 * 1024 * 1024;
 const KIND_OPTIONS = [
-  { value: "ifc", label: "IFC（BIM 模型）" },
-  { value: "dxf", label: "DXF（CAD 图纸）" },
+  { value: "cad", label: "CAD 项目（aidxf 管线，默认）" },
+  { value: "ifc", label: "IFC 项目（aiifc 管线）" },
+  { value: "cad->ifc", label: "CAD→IFC 管线" },
 ] as const;
 
 function formatSize(size: number): string {
@@ -44,25 +45,32 @@ export default function LibraryPage() {
   const [creatingProject, setCreatingProject] = useState(false);
   const [naming, setNaming] = useState(false);
   const [projectName, setProjectName] = useState("");
-  const [projectKind, setProjectKind] = useState<"ifc" | "dxf">("ifc");
+  const [projectKind, setProjectKind] = useState<"ifc" | "cad" | "cad->ifc">("cad");
   const navigate = useNavigate();
 
   const confirmCreate = async () => {
     setCreatingProject(true);
     try {
       const p = await createChatProject(projectName.trim() || "AI 项目", projectKind);
-      // 项目会话（1 session = 1 project，幂等）：先绑项目再进查看器
+      // 项目会话（1 session = 1 project，幂等）：先绑项目
       if (p.projectId) {
         await createChatSessionByProject(p.title || "AI 项目", p.projectId);
       }
-      // 等初始化转换完成（ready）再跳转，避免项目页加载未就绪的 XKT 失败
-      for (let i = 0; i < 30; i++) {
-        const cur = await fetchModel(p.id);
-        if (cur.status === "ready") break;
-        if (cur.status === "failed") throw new Error(cur.error || "初始化转换失败");
-        await new Promise((r) => setTimeout(r, 1000));
+      if (p.id) {
+        // 兼容：有首模型（旧行为）→ 等转换完成跳查看器
+        for (let i = 0; i < 30; i++) {
+          const cur = await fetchModel(p.id);
+          if (cur.status === "ready") break;
+          if (cur.status === "failed") throw new Error(cur.error || "初始化转换失败");
+          await new Promise((r) => setTimeout(r, 1000));
+        }
+        navigate(`/view/${p.id}${p.projectId ? `?project=${p.projectId}` : ""}`);
+      } else {
+        // 空白项目（2026-08-20）：无模型——刷新会话列表，用户从历史项目进入项目会话
+        await refreshSessions();
+        setNaming(false);
+        setError(`项目「${p.title}」已创建（空白项目）——点上方历史项目进入项目会话`);
       }
-      navigate(`/view/${p.id}${p.projectId ? `?project=${p.projectId}` : ""}`);
     } catch (e) {
       setError((e as Error).message);
       setCreatingProject(false);
@@ -167,7 +175,7 @@ export default function LibraryPage() {
             <select
               className="kind-select"
               value={projectKind}
-              onChange={(e) => setProjectKind(e.target.value as "ifc" | "dxf")}
+              onChange={(e) => setProjectKind(e.target.value as "ifc" | "cad" | "cad->ifc")}
               aria-label="项目类型"
             >
               {KIND_OPTIONS.map((k) => (

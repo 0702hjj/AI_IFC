@@ -259,7 +259,7 @@ func newChatProjectTestHandler(t *testing.T) *ChatHandler {
 	st := store.NewStore(dataDir)
 	q := convert.NewQueue(st, okRunner{}, 1)
 	h := &ChatHandler{
-		deps:     ChatDeps{St: st, Q: q, DataDir: dataDir},
+		deps:     ChatDeps{St: st, Ps: store.NewProjectStore(dataDir), Q: q, DataDir: dataDir},
 		mux:      http.NewServeMux(),
 		sessions: map[string]*chatSession{},
 		byAgent:  map[string]string{},
@@ -272,10 +272,10 @@ func newChatProjectTestHandler(t *testing.T) *ChatHandler {
 }
 
 // TestCreateProjectViaChatPath 断言 POST /api/v1/chat/projects 经 chat mux 可达：
-// 200 + envelope + 返回 ModelInfo（骨架 IFC 落盘 + 入队转换）。
+// 200 + envelope + 空白项目创建（projectId + 空 models，不产模型）。
 func TestCreateProjectViaChatPath(t *testing.T) {
 	h := newChatProjectTestHandler(t)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/projects", strings.NewReader(`{"title":"我的项目"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/chat/projects", strings.NewReader(`{"title":"我的项目","kind":"cad"}`))
 	rec := httptest.NewRecorder()
 	h.mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -288,26 +288,20 @@ func TestCreateProjectViaChatPath(t *testing.T) {
 	if e.Code != 0 {
 		t.Fatalf("envelope code=%d msg=%s, want 0", e.Code, e.Message)
 	}
-	var m store.Model
-	if err := json.Unmarshal(e.Data, &m); err != nil {
-		t.Fatalf("model decode: %v data=%s", err, e.Data)
+	var r struct {
+		ProjectID string `json:"projectId"`
+		Models    int    `json:"-"`
 	}
-	if !modelIDRe.MatchString(m.ID) {
-		t.Errorf("model id %q 不符合 ^m_[0-9a-f]{16}$", m.ID)
+	if err := json.Unmarshal(e.Data, &r); err != nil {
+		t.Fatalf("project decode: %v data=%s", err, e.Data)
 	}
-	if m.Name != "我的项目.ifc" {
-		t.Errorf("model name = %q, want 我的项目.ifc", m.Name)
+	if !strings.HasPrefix(r.ProjectID, "p_") || len(r.ProjectID) != 18 {
+		t.Errorf("projectId %q 不符合 p_ + 16 hex", r.ProjectID)
 	}
-	content, err := os.ReadFile(filepath.Join(h.deps.DataDir, "uploads", m.ID+".ifc"))
-	if err != nil {
-		t.Fatalf("骨架 IFC 未落盘: %v", err)
+	// 不产模型（store 空）
+	if ms, _ := h.deps.St.List(); len(ms) != 0 {
+		t.Errorf("空白项目不应注册模型: %+v", ms)
 	}
-	if !strings.Contains(string(content), "IFCPROJECT") || !strings.Contains(string(content), "我的项目") {
-		t.Errorf("骨架 IFC 内容不符: %s", content)
-	}
-	// 转换是异步的（Queue worker 会写 models/{id}/model.json），
-	// 必须等其完成再结束测试，否则 TempDir 清理与 worker 写盘竞争（flaky）。
-	waitModelStatus(t, h.deps.St, m.ID, "ready", 5*time.Second)
 }
 
 // waitModelStatus 轮询模型状态直到期望值或超时（条件等待，不用固定 sleep）。

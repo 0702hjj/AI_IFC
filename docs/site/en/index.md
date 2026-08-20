@@ -39,7 +39,7 @@ features:
 AI_IFC is a self-hosted, open-source AI generation platform with two peer logic legs:
 
 - **AI-generated IFC** (delivered): the `aiifc` skill lets AI write IfcOpenShell code to generate/modify models; `services/ifc` (edit-service) provides script sandbox execution, version snapshots, semantic diffs, and the script-as-source editing API — review models in 3D, file issues, edit the build script (PARAMS form / script editor), save big versions, and compare versions with diffs. Humans and AI agents edit through the same API.
-- **AI-generated CAD** (skill domain delivered; diff/editing API to build): the `aidxfv` skill lets AI generate/validate DXF with ezdxf; `services/cad` will be the peer of `services/ifc`.
+- **AI-generated CAD** (skill domain delivered; diff/editing API to build): the `aidxf` skill lets AI generate/validate DXF with ezdxf; `services/cad` will be the peer of `services/ifc`.
 - **Agent workflow control** (recommended, optional): orchestrator + event bus (`aiifc://` event URIs), removable.
 
 Reusability-first: two skills, two business-logic cores, optional frontend, optional PostgreSQL, interfaces callable or portable on their own. Framework spec: `docs/superpowers/specs/2026-08-11-platform-framework-design.md`.

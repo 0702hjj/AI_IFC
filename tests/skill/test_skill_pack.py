@@ -22,7 +22,7 @@ MODULE_SPEC.loader.exec_module(packer)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REAL_SKILL = REPO_ROOT / "skills" / "aiifc"
-REAL_CAD_SKILL = REPO_ROOT / "skills" / "aidxfv" / "v3"
+REAL_CAD_SKILL = REPO_ROOT / "skills" / "aidxf"
 REAL_ORCH_SKILL = REPO_ROOT / "skills" / "aibim-orchestrator"
 REAL_PLAN_SKILL = REPO_ROOT / "skills" / "aiplan"
 
@@ -60,7 +60,7 @@ class TestSkillPackValidate(unittest.TestCase):
         packer.validate(REAL_SKILL, strict_noise=False)
 
     def test_validate_real_cad_skill_passes(self):
-        packer.validate(REAL_CAD_SKILL, strict_noise=False, skill_name="aidxfv3")
+        packer.validate(REAL_CAD_SKILL, strict_noise=False, skill_name="aidxf")
 
     def test_validate_real_orchestrator_skill_passes(self):
         packer.validate(REAL_ORCH_SKILL, strict_noise=False)
@@ -138,7 +138,7 @@ class TestSkillPackValidate(unittest.TestCase):
     def test_real_skills_have_version(self):
         for root, name in (
             (REAL_SKILL, "aiifc"),
-            (REAL_CAD_SKILL, "aidxfv3"),
+            (REAL_CAD_SKILL, "aidxf"),
         ):
             self.assertTrue(
                 packer.skill_version(root),
@@ -255,7 +255,7 @@ class TestSkillPackRealBundle(unittest.TestCase):
             result = packer.build(
                 skill_root=REAL_CAD_SKILL,
                 output_root=out,
-                skill_name="aidxfv3",
+                skill_name="aidxf",
                 archive=True,
             )
             self.assertTrue(result.skill_root.exists())
@@ -263,7 +263,7 @@ class TestSkillPackRealBundle(unittest.TestCase):
             self.assertTrue(result.archive_path.stat().st_size > 0)
             with tarfile.open(result.archive_path, "r:gz") as tar:
                 names = tar.getnames()
-            self.assertIn("aidxfv3/SKILL.md", names)
+            self.assertIn("aidxf/SKILL.md", names)
             self.assertTrue(
                 any(n.endswith("/LICENSE") for n in names),
                 "MIT LICENSE 必须保留在 CAD skill 打包产物中",
@@ -303,13 +303,13 @@ class TestSkillPackRealBundle(unittest.TestCase):
             self.assertIn("aiplan/SKILL.md", names)
 
     def test_real_cad_skill_cli_archive_contains_license(self):
-        """`--skill aidxfv3 --skill-dir skills/aidxfv/v3 --archive` 显式名覆盖推断名 v3。"""
+        """`--skill aidxf --archive` 打包正式源（skills/aidxf）。"""
         from unittest.mock import patch
 
         with tempfile.TemporaryDirectory() as tmp:
             argv = [
                 "skill_pack.py",
-                "--skill", "aidxfv3",
+                "--skill", "aidxf",
                 "--skill-dir", str(REAL_CAD_SKILL),
                 "--output-root", str(Path(tmp) / "dist"),
                 "--archive",
@@ -318,11 +318,11 @@ class TestSkillPackRealBundle(unittest.TestCase):
             with patch("sys.argv", argv):
                 packer.main()
             version = packer.skill_version(REAL_CAD_SKILL)
-            archive = Path(tmp) / "dist" / f"aidxfv3-{version}.tar.gz"
+            archive = Path(tmp) / "dist" / f"aidxf-{version}.tar.gz"
             self.assertTrue(archive.exists())
             with tarfile.open(archive, "r:gz") as tar:
                 names = tar.getnames()
-            self.assertIn("aidxfv3/SKILL.md", names)
+            self.assertIn("aidxf/SKILL.md", names)
             self.assertTrue(
                 any(n.endswith("/LICENSE") for n in names),
                 "MIT LICENSE 必须保留在 CLI 打包产物中",
