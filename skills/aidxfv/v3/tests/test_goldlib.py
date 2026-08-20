@@ -151,15 +151,6 @@ class TestT34Plus:
         finally:
             rp.write_text(original, encoding="utf-8")
 
-    def test_p3_fail_quarantined(self, db_path, tmp_path):
-        """P3：replay FAIL → quarantine 不进入库。"""
-        # 复用 TestIngest 的 quarantine 测试（已在 test_ingest_quarantine_fail）
-        pass
-
-    def test_p4_reindex_idempotent(self, db_path):
-        """P4：reindex 幂等（两次 db 哈希一致）——已在 TestReindex 覆盖。"""
-        pass
-
     def test_p5_calibration_recorded(self):
         """P5：校准记录可溯（meta.json calibration + reverse 阈值标注）。"""
         meta = json.load(open(GOLD_DIR / "r01_house" / "meta.json"))

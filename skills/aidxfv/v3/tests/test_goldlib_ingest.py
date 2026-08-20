@@ -55,26 +55,27 @@ class TestIngestArtifacts:
         import shutil, sqlite3
         from goldlib.ingest import ingest
         from goldlib.reindex import reindex
-        # 构造案例：rooms.std.json（非 F1 命名）
-        case = tmp_path / "golden" / "residence" / "res_at"
-        case.mkdir(parents=True)
-        (case / "meta.json").write_text(json.dumps(
-            {"case_id": "res_at", "type": "residence", "template_worthy": True}))
-        (case / "skeleton.json").write_text("{}")
-        (case / "readback.json").write_text(json.dumps({"nodes": [
-            {"id": "a", "type": "living", "area_geo_sqm": 10,
-             "centroid_mm": [0, 0], "polygon_mm": [[0,0],[1,0],[1,1],[0,1]]}]}))
-        (case / "rooms.std.json").write_text(json.dumps(
-            {"rooms": [{"id": "living_01", "type": "living",
-                        "loc": {"between_axes": {"x": [0,1], "y": [0,1]}}}]}))
+        # 复制真实夹具到 tmp（避免污染只读夹具），并把 rooms 文件改成非 F1 命名——
+        # r01_house replay PASS（ ingest 前置可过），改名后硬编码 rooms.F1.json 才会暴露
+        work = tmp_path / "gold"
+        shutil.copytree(GOLD_DIR, work)
+        case = work / "r01_house"
+        (case / "rooms.F1.json").rename(case / "rooms.std.json")
+        # 清空 implements：避免 reindex 预置 meta.json#implements 证据行
+        # 占住 evidence 主键 (pattern_id, case_id)，掩盖 ingest 的 rooms at_path 写入
+        meta_path = case / "meta.json"
+        meta = json.loads(meta_path.read_text())
+        meta["implements"] = []
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False))
         db = tmp_path / "g.db"
-        reindex(str(tmp_path / "golden"), str(db))
-        r = ingest("res_at", str(tmp_path / "golden"), str(db))
-        if r.get("status") != "ingested":
-            pytest.skip(f"replay 前置未过（{r.get('reason', r.get('status'))}）——单测环境从略")
+        reindex(str(work), str(db))
+        r = ingest("r01_house", str(work), str(db))
+        assert r.get("status") == "ingested", \
+            f"ingest 应成功，实际 {r.get('status')}: {r.get('reason', '')}"
         conn = sqlite3.connect(str(db))
         paths = [row[0] for row in conn.execute(
-            "SELECT at_path FROM evidence WHERE case_id='res_at'").fetchall()]
+            "SELECT at_path FROM evidence WHERE case_id='r01_house'").fetchall()]
+        assert paths, "ingested 案例应有 evidence 记录"
         assert all("rooms.std.json" in p for p in paths), \
             f"at_path 应指向真实 rooms.std.json，实际 {paths}"
         assert not any("rooms.F1.json" in p for p in paths)
@@ -95,8 +96,8 @@ class TestIngestArtifacts:
         db = tmp_path / "g.db"
         reindex(str(work), str(db))
         r = ingest("r01_house", str(work), str(db))
-        if r.get("status") != "ingested":
-            pytest.skip(f"replay 前置未过（{r.get('reason', r.get('status'))}）——单测环境从略")
+        assert r.get("status") == "ingested", \
+            f"ingest 应成功，实际 {r.get('status')}: {r.get('reason', '')}"
         meta2 = json.loads(meta_path.read_text())
         assert len(meta2.get("implements", [])) > 0, \
             "ingest 后 meta.implements 应回写命中模式"

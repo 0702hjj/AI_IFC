@@ -175,13 +175,16 @@ class TestProxyEntities:
     def test_no_proxy_ok(self, golden_dxf):
         assert check_proxy_entities(golden_dxf) == []
 
-    def test_proxy_rejected(self, tmp_path):
-        """构造高占比代理实体 DXF → 拒收原因。"""
+    def test_plain_entities_not_rejected(self, tmp_path):
+        """普通实体 DXF 不触发代理拒收（占比门不误报）。
+
+        注：ezdxf 无法构造真正的 ACAD_PROXY_ENTITY，拒收路径由
+        check_proxy_entities 的占比逻辑 + 生产图回归保证，本用例只锁
+        「无代理 → 不拒收」方向。
+        """
         doc = ezdxf.new("R2010", setup=True)
         msp = doc.modelspace()
-        # 加一个普通实体 + 一个代理（无 proxy_graphic 是 ezdxf 限制——用 INSERT 模拟）
         msp.add_line((0, 0), (1000, 1000), dxfattribs={"layer": "WALL"})
-        # 真正构造代理实体较难；测试占位：占比检查逻辑在无代理时返回空
         path = tmp_path / "proxy.dxf"
         doc.saveas(path)
         assert check_proxy_entities(path) == []

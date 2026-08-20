@@ -30,7 +30,8 @@ class TestG1SourceQuality:
 
     def test_no_proxy_reject(self):
         """天正代理实体不拒收（R-01 无代理实体，G1 通过）。"""
-        assert True  # readback.json 无 error 字段即 G1 通过
+        g = json.load(open(R01 / "readback.json"))
+        assert "error" not in g  # readback.json 无 error 字段即 G1 通过
 
     def test_unparsed_ratio_below_threshold(self):
         """未解析实体比例低于淘汰阈值（G1 质量）。"""
