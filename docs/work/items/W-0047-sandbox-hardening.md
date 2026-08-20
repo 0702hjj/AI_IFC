@@ -5,7 +5,7 @@
 - **Milestone：** v0.11（见 PLAN-v0.1.0.md）
 - **来源：** 2026-08-19 用户裁决（本月内上线真实用户，沙箱隔离优先于 DSL）+ 沙箱勘察报告（explore 子代理，2026-08-19）
 - **执行者/分支：** kimi-code / feat/sandbox-hardening
-- **关闭 commit：** 4f4ac0f（部署形态）+ 2d7ee06（ifc 沙箱核心）+ 5eba3a6（cad 镜像同步）+ 本项收口 commit（hash 随 PR 回填）（待提 PR）
+- **关闭 commit：** 4f4ac0f（部署形态）+ 2d7ee06（ifc 沙箱核心）+ 5eba3a6（cad 镜像同步）+ ff8959b（收口）+ 5db6a2f/e54f9ff/0d39cab（docker 实证死路，已由移除取代）+ e464ee0/819c32a/f48e11d（宿主直跑改造）+ da9df18（代码门控）+ 91369ba（W-0048 立项）（PR #44，merge commit 0de0324）
 
 ## 背景
 
