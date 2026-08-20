@@ -30,6 +30,7 @@ type ChatDeps struct {
 	Cad     *editsvc.Client // dxf kind 后端（services/cad :8200）；nil 时 dxf 会话 notify 报错文本
 	St      *store.Store
 	Ps      *store.ProjectStore // 项目级聚合（A1：create_project 项目级）；nil 时 create_project 降级单模型
+	PlanSt  *store.PlanStore    // 方案级存储（B1：plans/{projectID}/plan.json + bim_supplement.json + 版本化）
 	Q       *convert.Queue
 	DataDir string
 }
@@ -85,6 +86,11 @@ func (h *ChatHandler) registerRoutes() {
 	h.mux.HandleFunc("GET /api/v1/chat/sessions/{cid}/events", h.events)
 	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/abort", h.abortSession)
 	h.mux.HandleFunc("POST /api/v1/chat/projects", h.createProject)
+	// B1 方案级存储（交付对齐）：项目资源下的 plan 产物（plan/cad/ifc 共享项目，
+	// plan.json/bim_supplement.json 挂项目资源前缀，非 chat 专属模块）
+	h.mux.HandleFunc("GET /api/v1/projects/{projectID}/{name}", h.getPlanFile)
+	h.mux.HandleFunc("PUT /api/v1/projects/{projectID}/{name}", h.putPlanFile)
+	h.mux.HandleFunc("GET /api/v1/projects/{projectID}/plan_history", h.listPlanHistory)
 }
 
 func (h *ChatHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }
