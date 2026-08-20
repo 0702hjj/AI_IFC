@@ -3364,6 +3364,132 @@
         }
       }
     },
+    "/api/v1/projects/{projectID}/deliver": {
+      "post": {
+        "summary": "plan 交付（B2）——aiplan land 确定性 CLI 执行 → 落方案级目录",
+        "description": "body {plan, bimSupplement} → 临时输入 → aiplan land（skill venv 可执行）→ 产出落方案级目录（PlanStore.Put 版本化）。aiplan 未配置 → 503。",
+        "operationId": "postApiV1ProjectsProjectIDDeliver",
+        "tags": [
+          "plan"
+        ],
+        "parameters": [
+          {
+            "name": "projectID",
+            "in": "path",
+            "required": true,
+            "description": "项目 id（方案级存储键）",
+            "schema": {
+              "type": "string",
+              "pattern": "^p_[0-9a-f]{16}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "code",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "enum": [
+                        0
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "projectId": {
+                          "type": "string"
+                        },
+                        "planVersion": {
+                          "type": "string"
+                        },
+                        "bimVersion": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数/校验错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "模型/Issue/会话/资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "上游服务不可达或错误（edit-service / cad-edit-service）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "description": "JSON body，plan 与 bimSupplement 为方案 JSON 对象",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "plan": {
+                    "type": "object",
+                    "description": "plan.json（project 字段 = projectID）"
+                  },
+                  "bimSupplement": {
+                    "type": "object",
+                    "description": "bim_supplement.json（project 字段 = projectID）"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/projects/{projectID}/plan_history": {
       "get": {
         "summary": "列方案产物历史版本",

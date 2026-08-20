@@ -13,7 +13,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"ifcviewer/server/internal/store"
 )
@@ -195,4 +199,103 @@ func verifyPlanHistoryVersion(w http.ResponseWriter, ps *store.PlanStore, projec
 		return nil, false
 	}
 	return content, true
+}
+
+// deliverPlan 执行 plan 交付（POST /projects/{projectID}/deliver，B2）：
+// body {plan, bimSupplement} → 临时输入 → `aiplan land` 沙箱外确定性 CLI →
+// 产出落方案级目录（PlanStore.Put 版本化）。不碰几何 script_runner（用户裁决 B）。
+func (h *ChatHandler) deliverPlan(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectID")
+	if !h.verifyPlanProject(w, projectID) {
+		return
+	}
+	if !verifyAiplanAvailable(w, h.deps.AiplanBin) {
+		return
+	}
+	var body struct {
+		Plan          json.RawMessage `json:"plan"`
+		BimSupplement json.RawMessage `json:"bimSupplement"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "invalid json body")
+		return
+	}
+	if len(body.Plan) == 0 || len(body.BimSupplement) == 0 {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "plan/bimSupplement 缺失")
+		return
+	}
+	if err := verifyPlanContent(body.Plan, projectID); err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "plan: "+err.Error())
+		return
+	}
+	if err := verifyPlanContent(body.BimSupplement, projectID); err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "bimSupplement: "+err.Error())
+		return
+	}
+	// 临时输入目录 → aiplan land → 读产出
+	workdir, err := os.MkdirTemp("", "aiplan-deliver-*")
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	defer os.RemoveAll(workdir)
+	inPlan := filepath.Join(workdir, "plan.json")
+	inBim := filepath.Join(workdir, "bim_supplement.json")
+	if err := writeAtomicFile(inPlan, body.Plan); err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	if err := writeAtomicFile(inBim, body.BimSupplement); err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	outDir := filepath.Join(workdir, "out")
+	cmd := exec.Command(h.deps.AiplanBin, "land", inPlan, inBim, "--outdir", outDir)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "aiplan land 失败: "+strings.TrimSpace(string(out)))
+		return
+	}
+	// 读产出（land 可能 canon 重写）
+	planOut, err := os.ReadFile(filepath.Join(outDir, "plan.json"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "aiplan land 未产出 plan.json")
+		return
+	}
+	bimOut, err := os.ReadFile(filepath.Join(outDir, "bim_supplement.json"))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "aiplan land 未产出 bim_supplement.json")
+		return
+	}
+	// 落方案级目录（版本化）
+	planVer, err := h.deps.PlanSt.Put(projectID, "plan.json", planOut)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	bimVer, err := h.deps.PlanSt.Put(projectID, "bim_supplement.json", bimOut)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{
+		"projectId": projectID, "planVersion": planVer, "bimVersion": bimVer,
+	})
+}
+
+func writeAtomicFile(path string, content []byte) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, content, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+// verifyAiplanAvailable 检查 aiplan 可执行（verify 层单点）：未配置 → 503。
+func verifyAiplanAvailable(w http.ResponseWriter, aiplanBin string) bool {
+	if aiplanBin == "" {
+		writeErr(w, http.StatusServiceUnavailable, codeBadGateway, "aiplan 未配置（skill venv 缺失），plan 交付不可用")
+		return false
+	}
+	return true
 }

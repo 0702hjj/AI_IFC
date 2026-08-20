@@ -245,6 +245,12 @@
       "file": "server/internal/api/chat.go"
     },
     {
+      "method": "POST",
+      "path": "/api/v1/projects/{projectID}/deliver",
+      "handler": "h.deliverPlan",
+      "file": "server/internal/api/chat.go"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/projects/{projectID}/plan_history",
       "handler": "h.listPlanHistory",
