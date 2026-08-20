@@ -148,6 +148,7 @@ func TestDomainToolsRegistered(t *testing.T) {
 	want := []string{
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
+		"get_project_plans", "deliver_plan", "get_project_models",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("工具数 = %d (%v), want %d (%v)", len(got), got, len(want), want)
@@ -326,5 +327,54 @@ func TestCreateProjectInvokesDepNoDirty(t *testing.T) {
 	}
 	if dirty {
 		t.Fatal("create_project 不应标记会话 dirty（防 notify 对绑定模型错跑管线）")
+	}
+}
+
+// TestGetProjectPlansTool D2：读项目方案产物（projectID 缺省回退会话绑定项目）。
+func TestGetProjectPlansTool(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	var gotPID string
+	deps.SessionProject = func(ctx context.Context) string { return "p_0000000000000001" }
+	deps.PlanGet = func(ctx context.Context, projectID, name string) (string, error) {
+		gotPID = projectID
+		return `{"version":1,"project":"p_0000000000000001"}`, nil
+	}
+	out := invoke(t, DomainTools(deps), "get_project_plans", `{}`)
+	if gotPID != "p_0000000000000001" {
+		t.Fatalf("PlanGet projectID = %q", gotPID)
+	}
+	if !strings.Contains(out, `"plan"`) || !strings.Contains(out, `"bimSupplement"`) {
+		t.Fatalf("get_project_plans 输出应含 plan/bimSupplement: %s", out)
+	}
+}
+
+// TestDeliverPlanTool D2：plan 交付（调 PlanDeliver 回调）。
+func TestDeliverPlanTool(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	var gotPlan string
+	deps.SessionProject = func(ctx context.Context) string { return "p_0000000000000001" }
+	deps.PlanDeliver = func(ctx context.Context, projectID, plan, bim string) (map[string]any, error) {
+		gotPlan = plan
+		return map[string]any{"planVersion": "v1", "bimVersion": "v1"}, nil
+	}
+	out := invoke(t, DomainTools(deps), "deliver_plan", `{"plan":{"project":"p_0000000000000001"}}`)
+	if !strings.Contains(gotPlan, "p_0000000000000001") {
+		t.Fatalf("PlanDeliver plan = %q", gotPlan)
+	}
+	if !strings.Contains(out, `"planVersion":"v1"`) {
+		t.Fatalf("deliver_plan 输出应含版本: %s", out)
+	}
+}
+
+// TestProjectToolsUnconfigured D2：回调未配置 → 文本错误（可空适配器）。
+func TestProjectToolsUnconfigured(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	out := invoke(t, DomainTools(deps), "get_project_plans", `{"projectId":"p_0000000000000001"}`)
+	if !strings.Contains(out, "未配置") {
+		t.Fatalf("get_project_plans 未配置应提示: %s", out)
+	}
+	out = invoke(t, DomainTools(deps), "deliver_plan", `{"projectId":"p_0000000000000001","plan":{}}`)
+	if !strings.Contains(out, "未配置") {
+		t.Fatalf("deliver_plan 未配置应提示: %s", out)
 	}
 }

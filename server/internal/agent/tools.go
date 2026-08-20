@@ -50,6 +50,17 @@ type ToolDeps struct {
 	// CreateProject 创建「项目」（项目级 A1：projectID + 首交付模型，kind ifc|dxf）；
 	// 返回可 JSON 化的 {model, project}；可空。
 	CreateProject func(ctx context.Context, title, kind string) (any, error)
+
+	// --- D2 项目/方案域（交付对齐） ---
+	// SessionProject 从 ctx 解析会话绑定项目 id（A2；无绑定返回 ""）；可空。
+	SessionProject func(ctx context.Context) string
+	// ProjectModels 列项目下模型聚合（id/kind/name/status）；可空。
+	ProjectModels func(ctx context.Context, projectID string) ([]store.ModelRef, error)
+	// PlanGet 读方案产物当前态（name = plan.json|bim_supplement.json）；可空。
+	PlanGet func(ctx context.Context, projectID, name string) (string, error)
+	// PlanDeliver 触发 plan 交付（B2：aiplan land → 落方案级目录），
+	// 返回 {planVersion, bimVersion}；可空。
+	PlanDeliver func(ctx context.Context, projectID, plan, bimSupplement string) (map[string]any, error)
 }
 
 func (d ToolDeps) markDirty(ctx context.Context) {
@@ -201,6 +212,18 @@ type createProjectReq struct {
 	Kind  string `json:"kind,omitempty" jsonschema:"description=首交付模型类别：ifc（默认）或 dxf"`
 }
 
+// projectRefReq 是项目域工具的统一入参（projectID 缺省回退会话绑定项目）。
+type projectRefReq struct {
+	ProjectID string `json:"projectId,omitempty" jsonschema:"description=项目 id（p_...；缺省用当前会话绑定项目）"`
+}
+
+// deliverPlanReq 是 plan 交付入参（plan/bimSupplement 为方案 JSON 对象文本）。
+type deliverPlanReq struct {
+	ProjectID     string          `json:"projectId,omitempty" jsonschema:"description=项目 id（p_...；缺省用当前会话绑定项目）"`
+	Plan          json.RawMessage `json:"plan" jsonschema:"required,description=plan.json 内容（对象）"`
+	BimSupplement json.RawMessage `json:"bimSupplement,omitempty" jsonschema:"description=bim_supplement.json 内容（对象，可空）"`
+}
+
 // mustTool 构造 InferTool；schema 是静态的，构造失败即程序员错误，启动期直接 panic
 // （同 http.ServeMux 冲突 panic 语义），不拖错误签名污染 DomainTools 契约。
 func mustTool[T, R any](name, desc string, fn func(context.Context, T) (R, error)) tool.InvokableTool {
@@ -334,7 +357,69 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				// 不依赖 notify；后续对 B 的 stage/run/save 才会置 dirty。
 				return toolJSON(v), nil
 			}),
+
+		mustTool("get_project_plans", "读项目方案产物当前态（plan.json / bim_supplement.json）——plan 是任务书（对接 cad/bim），先读它再决定派发",
+			func(ctx context.Context, in projectRefReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.PlanGet == nil {
+					return "get_project_plans 未配置（装配缺失）", nil
+				}
+				plan, err := deps.PlanGet(ctx, projectID, "plan.json")
+				if err != nil {
+					return toolErr(err), nil
+				}
+				bim, err := deps.PlanGet(ctx, projectID, "bim_supplement.json")
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(map[string]any{
+					"projectId": projectID, "plan": json.RawMessage(plan), "bimSupplement": json.RawMessage(bim),
+				}), nil
+			}),
+
+		mustTool("deliver_plan", "执行 plan 交付（aiplan land → 方案级目录版本化）：body 传 plan + bimSupplement（可从 get_project_plans 读后修改再交）",
+			func(ctx context.Context, in deliverPlanReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.PlanDeliver == nil {
+					return "deliver_plan 未配置（装配缺失）", nil
+				}
+				v, err := deps.PlanDeliver(ctx, projectID, string(in.Plan), string(in.BimSupplement))
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(v), nil
+			}),
+
+		mustTool("get_project_models", "列项目下模型聚合（id/kind/name/status）——项目会话内查看全部交付模型",
+			func(ctx context.Context, in projectRefReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.ProjectModels == nil {
+					return "get_project_models 未配置（装配缺失）", nil
+				}
+				models, err := deps.ProjectModels(ctx, projectID)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(map[string]any{"projectId": projectID, "models": models}), nil
+			}),
 	}
+}
+
+// resolveProjectID 归一项目 id（参数缺省回退会话绑定项目）。
+func resolveProjectID(ctx context.Context, deps ToolDeps, projectID string) string {
+	if projectID == "" && deps.SessionProject != nil {
+		projectID = deps.SessionProject(ctx)
+	}
+	return projectID
 }
 
 // AsBaseTools 把 DomainTools 产出转为 WithTools 的入参形状。

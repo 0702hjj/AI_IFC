@@ -124,7 +124,6 @@ var verifyIsolationAllowlist = map[string][]int{
 	"events":              {http.StatusInternalServerError},
 	"createProject":       {http.StatusInternalServerError},
 	"putPlanFile":         {http.StatusInternalServerError}, // 写盘 IO 透传（PlanStore.Put）
-	"deliverPlan":         {http.StatusInternalServerError}, // 临时目录/子进程/写盘 IO 透传（B2）
 }
 
 // statusArgCode 从 http.StatusXxx 常量选择器解析状态码；无法静态判定返回 0（跳过）。
