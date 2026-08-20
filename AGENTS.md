@@ -1,11 +1,8 @@
-# AGENTS.md — AI_IFC 人机协同契约
+> 产品文档：https://0702hjj.github.io/AI_IFC/
 
-> AI agent 的第一入口。读完本文件即可在不问人的情况下：起服务、跑测试、领工作项、遵守契约。
-> 人类入口：README.md · 产品文档：https://0702hjj.github.io/AI_IFC/
+## 项目
 
-## 项目是什么
-
-自托管、开源（Apache-2.0）的 AI 生成平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
+自托管、开源（Apache-2.0）的 AI 可编辑3D平台，提供两个对等逻辑 + 一个可选推荐项（框架 spec：`docs/superpowers/specs/2026-08-11-platform-framework-design.md`）：
 
 - **逻辑一：AI 生成 IFC**（已交付）——`skills/aiifc/` skill 封装 + `services/ifc` 业务逻辑核心的 diff 与 script-as-source 编辑 API（web/AI 修改统一改构建脚本，L1 直改链路已退役 410）；版本快照 + 语义 diff、设计师/AI 双角色同一套 REST 编辑 API。
 - **逻辑二：AI 生成 CAD**（skill 域已交付；`services/cad` chunk A+B+C 服务端已交付（骨架/沙箱/REST + diff/locate/edit-call + render.json + Go 代理 + web DXF Canvas 查看器已交付（W-0041），IFC 侧 web-ifc 查看器已交付（W-0044，与 xeokit 并存渐进）；dxf/webifc 编辑面（DesignPanel 全套 + dxf 选中定位脚本）与 viewer.staged 中途预览已交付（W-0045））——`skills/aiplan/`（plan 阶段，管线入口）+ `skills/aidxfv/`（**v3 正式版已上线，唯一迭代基线**；v1/v2 遗留版已于 2026-08-18 删除，原 `AI_CAD/skills/aidxfv*`）+ `skills/aiblueprint-mcp` + `services/cad`（与 ifc 同构）。plan→cad 管线 I/O：aiplan（输入无特殊要求；输出 `plan.json` + `bim_supplement.json`，schema 见 `skills/aiplan/references/schemas/`）→ aidxfv v3（输入 plan.json 只读 + 用户额外描述；输出 `building.json` + 各层 DXF）——契约与说明文档见 `docs/site/reference/ai-skill.md`（公开站），安装/打包见 `docs/site/guide/skills.md`。
@@ -39,11 +36,12 @@ AI agent ──► REST 编辑 API ────┘
 
 ## 测试纪律（硬规则）
 
-1. **新代码必须有契约/单测，新增测试量 ≥ 新增实现量（≥1:1）**；关键路径（契约、回滚、沙箱、状态机）加码。（2026-08-07 由 ~3 倍目标调整为现实口径，原目标见 git 历史）
+1. **新代码必须有契约/单测，新增测试量 ≥ 新增实现量（≥1:1）**；关键路径（契约、回滚、沙箱、状态机）加码。
 2. 修 bug：先写**复现该 bug 的失败测试**，再改实现，测试转绿才允许 commit。
 3. 新功能：TDD，先失败测试后实现。
 4. 测试与源码同目录（`*_test.go` / `*.test.ts(x)` / `test_*.py`）。
 5. **异步写盘必须等落地**：涉及 `convert.Queue`、SSE、后台 goroutine 等异步写盘的测试，结束（尤其 `t.TempDir()` 清理）前必须用**条件等待**（轮询状态 + 超时）确认异步完成——禁止固定 sleep。教训：2026-08-06 main CI flake（TestCreateProjectViaChatPath，PR #12）。
+6. **CI 不是探针**：推送前本地必须跑过对应套件（各组件测试命令见上表）；CI 红先 `gh run view --job <id> --log` 拿日志、本机复现定位根因再改——禁止不看日志盲改重推赌绿。教训：2026-08-19 W-0047 部署形态三连红（根因是环境差异，本机零证明力，详见「部署形态变更」节）。
 
 ## 代码门控（硬规则）
 
@@ -86,9 +84,8 @@ AI agent ──► REST 编辑 API ────┘
 
 ## Git 工作流（硬规则）
 
-- 远程 `main` **受保护**：GitHub ruleset 按用户 bypass（owner 已自加）。docs-only 小修（`*.md`、计数/指针/措辞级）允许直推 main；**任何代码变更与大改一律开分支走 PR**（`feat/...`、`fix/...`、`docs/...`）。判断不了大小就走 PR。
+- 远程 `main` ：docs-only 小修（`*.md`、计数/指针/措辞级）允许直推 main；**任何代码变更与大改一律开分支走 PR**（`feat/...`、`fix/...`、`docs/...`）。判断不了大小就走 PR。
 - 用 gh-cli 提 PR：`gh pr create`；CI（ci.yml 8 job + docs.yml 3 job）绿后合并；合并后删本地/远程分支。
-- **PR 节奏（2026-08-07 用户裁决）：一天最多 1 个 PR**——工作项在同一迭代分支上累积，当天收工时一次性提 PR（分支随取随用 `feat/|fix/|docs/<主题>`）；只有 main 红了的 hotfix 才单独提。
 - commit 信息中文、前缀式（`feat(server): ...` / `fix(web): ...` / `docs: ...` / `chore: ...`）。
 - 多任务实施计划默认用 superpowers:subagent-driven-development 执行（每任务派 fresh subagent + 任务级 review + 全分支终审）；进度记入 `.superpowers/sdd/<plan>/progress.md` ledger。
 
