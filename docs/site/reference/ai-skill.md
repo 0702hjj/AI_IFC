@@ -1,13 +1,13 @@
-# AI Skill（aiifc / aiplan / aidxfv）
+# AI Skill（aiifc / aiplan / aidxf）
 
-> 平台的 AI 生成能力以 **skill 包**交付，分两条线：**IFC 侧**（`aiifc`）与 **plan→cad 侧**（`aiplan` + `aidxfv` v3）。skill 面向 AI agent——agent 加载后直接写代码 / 跑命令来生成或修改模型，与 [AI 接入](/reference/ai) 的 REST 方式互补：REST 适合「改属性」这类细粒度编辑，skill 适合「从零建模型 / 整体生成」这类大动作。
+> 平台的 AI 生成能力以 **skill 包**交付，分两条线：**IFC 侧**（`aiifc`）与 **plan→cad 侧**（`aiplan` + `aidxf` v3）。skill 面向 AI agent——agent 加载后直接写代码 / 跑命令来生成或修改模型，与 [AI 接入](/reference/ai) 的 REST 方式互补：REST 适合「改属性」这类细粒度编辑，skill 适合「从零建模型 / 整体生成」这类大动作。
 
 ## 管线总览
 
-plan→cad 侧是 AI BIM 管线的入口与中段：`aiplan` 把外部资料归一成任务书，`aidxfv` v3 把任务书落地成图纸，下游 bim 消费：
+plan→cad 侧是 AI BIM 管线的入口与中段：`aiplan` 把外部资料归一成任务书，`aidxf` v3 把任务书落地成图纸，下游 bim 消费：
 
 ```
-外部资料 ──► aiplan ──┬─► plan.json（任务书）──────────► aidxfv v3 ──► building.json + 各层 DXF ──► bim
+外部资料 ──► aiplan ──┬─► plan.json（任务书）──────────► aidxf v3 ──► building.json + 各层 DXF ──► bim
                       └─► bim_supplement.json（BIM 补充）─────────────────────────────────────► bim
 ```
 
@@ -55,15 +55,15 @@ Skeleton（Project→Site→Building→Storey）
 
 | 输出 | 契约事实源 | 去向 |
 |---|---|---|
-| `plan.json`（任务书：要什么 / 在哪盖 / 什么规范） | `skills/aiplan/references/schemas/plan.schema.json` | 下游 cad（aidxfv v3 只读） |
+| `plan.json`（任务书：要什么 / 在哪盖 / 什么规范） | `skills/aiplan/references/schemas/plan.schema.json` | 下游 cad（aidxf v3 只读） |
 | `bim_supplement.json`（CAD 覆盖不了的 BIM 补充：屋顶 / 特殊结构 / PSET） | `skills/aiplan/references/schemas/bim_supplement.schema.json` | 下游 bim |
 
 - **落盘**：成对产出，`aiplan land <plan> <bim> --outdir <dir>` 落 `{workspace}/plan/`，过门禁（`aiplan validate` / `aiplan gate`）+ canon sha256 互指。
 - **自包含**：schema / 金样 / 词表 / 类型包全部内联在包内，仅依赖 `jsonschema`，独立可迁移，零跨 skill 运行时依赖。
 
-## aidxfv v3（plan→cad 正式版）
+## aidxf v3（plan→cad 正式版）
 
-`skills/aidxfv/v3/` 是 CAD 生成的**正式版框架**——**后续迭代都在这个框架上进行**（`v1` 通用 DXF / `v2` 建筑平面管线为遗留演进，不再作为迭代基线）。
+`skills/aidxf/` 是 CAD 生成的**正式版框架**——**后续迭代都在这个框架上进行**（`v1` 通用 DXF / `v2` 建筑平面管线为遗留演进，旧源 `skills/aidxfv/` 已于 2026-08-20 删除）。
 
 **输入**：
 - `plan.json`（aiplan 落盘的任务书，**只读**，全程不改）
@@ -94,13 +94,13 @@ cp -r skills/aiifc ~/.config/opencode/skills/aiifc
 # 或用打包器生成 tar.gz 分发包
 python tools/skill_pack.py --archive   # 产出 skills/dist/aiifc.tar.gz（默认 skill：aiifc）
 python tools/skill_pack.py --skill-dir skills/aiplan --archive        # aiplan
-python tools/skill_pack.py --skill-dir skills/aidxfv/v3 --archive     # aidxfv3
+python tools/skill_pack.py --skill aidxf --archive     # aidxf
 tar xzf skills/dist/<name>.tar.gz -C ~/.config/opencode/skills/
 
 # 2) 安装运行依赖（各 skill 包内 requirements.txt）
 uv pip install -r skills/aiifc/requirements.txt        # aiifc
 uv pip install -r skills/aiplan/requirements.txt       # aiplan
-uv pip install -r skills/aidxfv/v3/requirements.txt    # aidxfv3
+uv pip install -r skills/aidxf/requirements.txt    # aidxf
 ```
 
 ## 与平台 REST API 的关系
@@ -109,7 +109,7 @@ uv pip install -r skills/aidxfv/v3/requirements.txt    # aidxfv3
 |---|---|---|
 | **REST 编辑 API** | 在既有脚本上定向修改（PARAMS 暂存 / edit-call 标量改写）、版本与 diff | `:8100/models/{id}/...`（IFC，见 [AI 接入](/reference/ai)） |
 | **aiifc skill** | 从零建 IFC 模型、大改几何、复现上传 IFC（bootstrap），产出契约化构建脚本 | agent 直接写 Python（`ifcopenshell.api`） |
-| **aiplan / aidxfv v3 skill** | plan→cad 全链路：外部资料归一为任务书，任务书落地为逐层 DXF + building.json | agent 直接跑 `aiplan` / `aidxfv3` 命令 |
+| **aiplan / aidxf v3 skill** | plan→cad 全链路：外部资料归一为任务书，任务书落地为逐层 DXF + building.json | agent 直接跑 `aiplan` / `aidxfv3` 命令 |
 
 两者互补：skill 负责「生成 / 大改」，平台的沙箱执行 / 版本 / XKT 重转链路负责「落盘与追踪」。
 
@@ -122,4 +122,4 @@ uv pip install -r skills/aidxfv/v3/requirements.txt    # aidxfv3
 ## 许可
 
 - `skills/aiifc/` 声明为 **LGPL-3.0**（`SKILL.md` frontmatter `license` 字段）。文档参考自 [IfcOpenShell](https://github.com/IfcOpenShell/IfcOpenShell) 官方文档（LGPL-3.0）。
-- `skills/aiplan/` 与 `skills/aidxfv/v3/` 声明为 **MIT**。
+- `skills/aiplan/` 与 `skills/aidxf/` 声明为 **MIT**。

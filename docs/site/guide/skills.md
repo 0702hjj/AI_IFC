@@ -12,7 +12,7 @@
 | `aiblueprint-mcp` | DXF 交互微调 MCP server（检查/编辑/测量/预览） | MIT |
 | `aibim-orchestrator` | 主 Agent 编排提示词包（意图路由 + 子 Agent 分工契约 + plan→cad→ifc 接力数据契约） | Apache-2.0 |
 
-各 skill 的详细输入输出规范见 [AI Skill（aiifc / aiplan / aidxfv）](/reference/ai-skill)；变更记录见包内 `CHANGELOG.md`（既有 skill 当前版本均为 `0.1.0`）。
+各 skill 的详细输入输出规范见 [AI Skill（aiifc / aiplan / aidxf）](/reference/ai-skill)；变更记录见包内 `CHANGELOG.md`（既有 skill 当前版本均为 `0.1.0`）。
 
 ## 下载
 
@@ -20,7 +20,7 @@
 
 ```bash
 python tools/skill_pack.py --skill aiifc --archive
-python tools/skill_pack.py --skill aidxfv3 --skill-dir skills/aidxfv/v3 --archive
+python tools/skill_pack.py --skill aidxf --archive
 ```
 
 产物在 `skills/dist/`。

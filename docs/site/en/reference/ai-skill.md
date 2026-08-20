@@ -1,13 +1,13 @@
-# AI Skill (aiifc / aiplan / aidxfv)
+# AI Skill (aiifc / aiplan / aidxf)
 
-> The platform's AI authoring capabilities ship as **skill packages** on two tracks: the **IFC track** (`aiifc`) and the **plan→cad track** (`aiplan` + `aidxfv` v3). Skills are aimed at AI agents — after loading one, the agent writes code / runs commands directly to author or modify models. This complements [AI Integration](/en/reference/ai) over REST: REST fits fine-grained attribute edits, skills fit whole-model generation / large-scale changes.
+> The platform's AI authoring capabilities ship as **skill packages** on two tracks: the **IFC track** (`aiifc`) and the **plan→cad track** (`aiplan` + `aidxf` v3). Skills are aimed at AI agents — after loading one, the agent writes code / runs commands directly to author or modify models. This complements [AI Integration](/en/reference/ai) over REST: REST fits fine-grained attribute edits, skills fit whole-model generation / large-scale changes.
 
 ## Pipeline overview
 
-The plan→cad track is the entry and middle section of the AI BIM pipeline: `aiplan` normalizes external material into a design brief, `aidxfv` v3 turns that brief into drawings, and the downstream `bim` consumes it:
+The plan→cad track is the entry and middle section of the AI BIM pipeline: `aiplan` normalizes external material into a design brief, `aidxf` v3 turns that brief into drawings, and the downstream `bim` consumes it:
 
 ```
-External material ──► aiplan ──┬─► plan.json (design brief) ────────► aidxfv v3 ──► building.json + per-floor DXF ──► bim
+External material ──► aiplan ──┬─► plan.json (design brief) ────────► aidxf v3 ──► building.json + per-floor DXF ──► bim
                                └─► bim_supplement.json (BIM extras) ─────────────────────────────────────────────► bim
 ```
 
@@ -55,15 +55,15 @@ For complex floor plans / irregular / multi-storey, first emit a **design JSON**
 
 | Output | Contract source of truth | Consumed by |
 |---|---|---|
-| `plan.json` (design brief: what / where / which codes) | `skills/aiplan/references/schemas/plan.schema.json` | downstream cad (aidxfv v3, read-only) |
+| `plan.json` (design brief: what / where / which codes) | `skills/aiplan/references/schemas/plan.schema.json` | downstream cad (aidxf v3, read-only) |
 | `bim_supplement.json` (BIM extras CAD cannot cover: roof / special structure / PSET) | `skills/aiplan/references/schemas/bim_supplement.schema.json` | downstream bim |
 
 - **Landing**: outputs are produced in pairs — `aiplan land <plan> <bim> --outdir <dir>` lands them in `{workspace}/plan/` after gates (`aiplan validate` / `aiplan gate`) plus canon sha256 cross-references.
 - **Self-contained**: schema / golden examples / vocabulary / building-type packs are all inline; only depends on `jsonschema`; independently portable with zero cross-skill runtime dependencies.
 
-## aidxfv v3 (plan→cad, the official version)
+## aidxf v3 (plan→cad, the official version)
 
-`skills/aidxfv/v3/` is the **official framework** for CAD generation — **future iterations build on this framework** (`v1` general DXF / `v2` floor-plan pipeline are legacy evolution, no longer the iteration baseline).
+`skills/aidxf/` is the **official framework** for CAD generation — **future iterations build on this framework** (`v1` general DXF / `v2` floor-plan pipeline are legacy evolution, no longer the iteration baseline).
 
 **Input**:
 - `plan.json` (the design brief landed by aiplan, **read-only**, never modified)
@@ -100,7 +100,7 @@ tar xzf skills/dist/<name>.tar.gz -C ~/.config/opencode/skills/
 # 2) Install runtime deps (per-skill requirements.txt)
 uv pip install -r skills/aiifc/requirements.txt        # aiifc
 uv pip install -r skills/aiplan/requirements.txt       # aiplan
-uv pip install -r skills/aidxfv/v3/requirements.txt    # aidxfv3
+uv pip install -r skills/aidxf/requirements.txt    # aidxfv3
 ```
 
 ## Relationship to the platform REST API
@@ -109,7 +109,7 @@ uv pip install -r skills/aidxfv/v3/requirements.txt    # aidxfv3
 |---|---|---|
 | **REST editing API** | Targeted edits on an existing script (PARAMS staging / edit-call scalar rewrite); versions & diffs | `:8100/models/{id}/...` (IFC, see [AI Integration](/en/reference/ai)) |
 | **aiifc skill** | Build IFC from scratch / large geometry changes / reproduce an uploaded IFC (bootstrap); produce a contract-conforming build script | agent writes Python directly (`ifcopenshell.api`) |
-| **aiplan / aidxfv v3 skills** | Full plan→cad chain: external material → design brief → per-floor DXF + building.json | agent runs `aiplan` / `aidxfv3` commands directly |
+| **aiplan / aidxf v3 skills** | Full plan→cad chain: external material → design brief → per-floor DXF + building.json | agent runs `aiplan` / `aidxfv3` commands directly |
 
 They complement each other: the skills handle "generate / big-edit", the platform's sandbox / version / XKT-reconversion chain handles "persist & track".
 
@@ -122,4 +122,4 @@ They complement each other: the skills handle "generate / big-edit", the platfor
 ## License
 
 - `skills/aiifc/` declares **LGPL-3.0** (`license` field in SKILL.md frontmatter). Docs reference the [IfcOpenShell](https://github.com/IfcOpenShell/IfcOpenShell) official documentation (LGPL-3.0).
-- `skills/aiplan/` and `skills/aidxfv/v3/` declare **MIT**.
+- `skills/aiplan/` and `skills/aidxf/` declare **MIT**.
