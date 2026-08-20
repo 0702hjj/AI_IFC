@@ -214,8 +214,16 @@ func TestAgentToolUniqueIDs(t *testing.T) {
 		}
 		ids = append(ids, ev.SubagentID)
 	}
-	if len(ids) != 2 || ids[0] != "sa_1_1" || ids[1] != "sa_1_2" {
-		t.Fatalf("subagentId 序列 = %v, want [sa_1_1 sa_1_2]", ids)
+	// 并行派发（ADK 同一步多个 AgentAsTool 并发）时 subagentId 分配顺序不保证——
+	// 断言集合 {sa_1_1, sa_1_2} 而非顺序。
+	want := map[string]bool{"sa_1_1": true, "sa_1_2": true}
+	if len(ids) != len(want) {
+		t.Fatalf("subagentId 序列 = %v, want [sa_1_1 sa_1_2]（集合）", ids)
+	}
+	for _, id := range ids {
+		if !want[id] {
+			t.Fatalf("subagentId 序列 = %v, want [sa_1_1 sa_1_2]（集合）", ids)
+		}
 	}
 }
 

@@ -313,7 +313,7 @@ func TestCreateProjectInvokesDepNoDirty(t *testing.T) {
 	var gotTitle string
 	var dirty bool
 	deps.MarkDirty = func(ctx context.Context) { dirty = true }
-	deps.CreateProject = func(ctx context.Context, title string) (any, error) {
+	deps.CreateProject = func(ctx context.Context, title, kind string) (any, error) {
 		gotTitle = title
 		return map[string]any{"id": "m_1111111111111111", "name": title + ".ifc"}, nil
 	}

@@ -47,8 +47,9 @@ type ToolDeps struct {
 	// PushStaged 在 run_script 成功后推送 viewer.staged 中途预览信号
 	// （{modelId, kind} 载荷，走 pushSystem 管线；同 MarkDirty 的可空适配器模式）；可空。
 	PushStaged func(ctx context.Context, modelID, kind string)
-	// CreateProject 创建骨架项目（复用 chat 骨架 IFC 生成 + 注册 + 入队转换）；可空。
-	CreateProject func(ctx context.Context, title string) (any, error)
+	// CreateProject 创建「项目」（项目级 A1：projectID + 首交付模型，kind ifc|dxf）；
+	// 返回可 JSON 化的 {model, project}；可空。
+	CreateProject func(ctx context.Context, title, kind string) (any, error)
 }
 
 func (d ToolDeps) markDirty(ctx context.Context) {
@@ -197,6 +198,7 @@ type diffReq struct {
 
 type createProjectReq struct {
 	Title string `json:"title" jsonschema:"required,description=项目名（人类可读）"`
+	Kind  string `json:"kind,omitempty" jsonschema:"description=首交付模型类别：ifc（默认）或 dxf"`
 }
 
 // mustTool 构造 InferTool；schema 是静态的，构造失败即程序员错误，启动期直接 panic
@@ -317,12 +319,12 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				return toolRaw(cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/diff", body))
 			}),
 
-		mustTool("create_project", "创建空白项目（骨架 IFC + 注册模型 + 入队转换），返回新模型（含 modelId，后续编辑用它）",
+		mustTool("create_project", "创建空白项目（项目级：projectID + 首交付模型，kind 可选 ifc/dxf 默认 ifc），返回首模型（modelId 供后续编辑）+ projectId（会话绑定用它）",
 			func(ctx context.Context, in createProjectReq) (string, error) {
 				if deps.CreateProject == nil {
 					return "create_project 未配置（装配缺失）", nil
 				}
-				v, err := deps.CreateProject(ctx, in.Title)
+				v, err := deps.CreateProject(ctx, in.Title, in.Kind)
 				if err != nil {
 					return toolErr(err), nil
 				}

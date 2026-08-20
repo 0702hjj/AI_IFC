@@ -77,21 +77,61 @@ func skeletonProjectIFC(globalID, escapedTitle string) string {
 	return fmt.Sprintf(skeletonIFC, globalID, escapedTitle)
 }
 
-// createProject 创建空白项目：写入骨架 IFC 并注册为模型（modelId 即刻就位），
-// 入队转换。之后 AI 从零构建走的是与改模型完全相同的主链路。
-// 核心三步（骨架内容 + St.Create + 入队）抽为 createProjectForAgent 共用
-// （agent create_project 工具复用，chat_tools.go）。
+// skeletonDXF 是最小合法 DXF（空图纸：HEADER + 空 ENTITIES）。
+// services/cad 的 model_upload_path 守卫要求 uploads/{id}.dxf 存在——新建
+// kind=dxf 项目用空图起步，几何由后续脚本构建。
+const skeletonDXF = `0
+SECTION
+2
+HEADER
+9
+$ACADVER
+1
+AC1009
+0
+ENDSEC
+0
+SECTION
+2
+ENTITIES
+0
+ENDSEC
+0
+EOF
+`
+
+// createProject 创建空白项目（项目级，A1）：projectID + 首交付模型（kind 可选
+// ifc/dxf，默认 ifc）。返回兼容结构（id = 首模型 id，前端 ModelInfo 旧逻辑可用；
+// projectId = 项目 id，A2 会话绑定用它）。之后 AI 从零构建走与改模型相同的主链路。
 func (h *ChatHandler) createProject(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title string `json:"title"`
+		Kind  string `json:"kind"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body) // title 可空
-	m, err := h.createProjectForAgent(r.Context(), body.Title)
+	_ = json.NewDecoder(r.Body).Decode(&body) // title/kind 可空
+	kind := body.Kind
+	if kind == "" {
+		kind = store.KindIFC
+	}
+	m, p, err := h.createProjectForAgent(r.Context(), body.Title, kind)
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
 		return
 	}
-	writeJSON(w, m)
+	// Ps 未配置（旧装配降级）：返回单模型（旧行为，前端 ModelInfo 契约不变）。
+	if p == nil {
+		writeJSON(w, m)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"id":        m.ID, // 首模型（兼容前端 ModelInfo）
+		"projectId": p.ID,
+		"title":     p.Title,
+		"kind":      m.Kind,
+		"status":    m.Status,
+		"createdAt": p.CreatedAt,
+		"models":    p.Models,
+	})
 }
 
 // notifyIfDirty 是 agent loop 结束（turn/end，事件流关闭）后的变更检测 + 触发点：

@@ -159,7 +159,7 @@ func TestAgentToolDepsAdapters(t *testing.T) {
 	if !dirty {
 		t.Fatal("MarkDirty 未把会话置 dirty")
 	}
-	v, err := deps.CreateProject(ctx, "适配器项目")
+	v, err := deps.CreateProject(ctx, "适配器项目", "")
 	if err != nil {
 		t.Fatalf("CreateProject: %v", err)
 	}

@@ -56,18 +56,26 @@ type adkTranslator struct {
 	maxStep   int
 	send      func(Event)
 
-	// 子边界状态（路线 B）：curSub 非空 = 在子 agent 事件窗口内
-	subSeq     int
-	curSub     string // 当前子 subagentId（sa_{turn}_{seq}）
-	subName    string // 当前子 agent 名（persona 字段）
-	subTask    string // 当前子任务（父 AgentAsTool tool_call 的 arguments）
-	pendingArg map[string]string // 父 tool name -> arguments（task 取参）
+	// 子边界状态（路线 B）：并行子 agent（ADK 同一步多个工具调用并发执行）事件
+	// 会交错——按子 agent 名（RunPath 末位）分组窗口，非单值 curSub。父事件回来
+	// 意味着本轮工具全部完成（AgentAsTool 同步等待），closeAllSubs 统一收尾。
+	subSeq      int
+	curSubID    string            // 当前事件所属子 subagentId（emitSub 打标）
+	subWindows  map[string]*subWindow // 子 agent 名 → 窗口（并行分组）
+	pendingArg  map[string]string // 父 tool name -> arguments（task 取参）
+}
+
+// subWindow 是单个子 agent 的事件窗口（beginSub 分配，closeAllSubs 统一收尾）。
+type subWindow struct {
+	id   string // sa_{turn}_{seq}
+	name string // 子 agent 名（persona 字段）
+	task string // 父 AgentAsTool tool_call 的 arguments
 }
 
 func newAdkTranslator(turn int, agentName, sessionID string, maxStep int, send func(Event)) *adkTranslator {
 	return &adkTranslator{
 		turn: turn, agentName: agentName, sessionID: sessionID, maxStep: maxStep,
-		send: send, pendingArg: map[string]string{},
+		send: send, pendingArg: map[string]string{}, subWindows: map[string]*subWindow{},
 	}
 }
 
@@ -78,7 +86,7 @@ func (t *adkTranslator) emit(evType string, step int, payload map[string]any) {
 // emitSub 是子事件窗口内的发送：平台事件打 SubagentID/ParentSessionID 标签。
 func (t *adkTranslator) emitSub(evType string, step int, payload map[string]any) {
 	ev := Event{Type: evType, Turn: t.turn, Step: step, Payload: jsonPayload(payload), Ts: time.Now()}
-	ev.SubagentID = t.curSub
+	ev.SubagentID = t.curSubID
 	ev.ParentSessionID = t.sessionID
 	t.send(ev)
 }
@@ -107,11 +115,12 @@ func (t *adkTranslator) run(ctx context.Context, iter *adk.AsyncIterator[*adk.Ag
 			continue
 		}
 		isChild := len(ev.RunPath) >= 2
-		if isChild && t.curSub == "" {
-			t.beginSub(ev.AgentName)
-		}
-		if !isChild && t.curSub != "" {
-			t.endSub()
+		if isChild {
+			name := childAgentName(ev.RunPath)
+			if t.subWindows[name] == nil {
+				t.beginSub(name)
+			}
+			t.curSubID = t.subWindows[name].id
 		}
 		mv := ev.Output.MessageOutput
 		switch mv.Role {
@@ -123,36 +132,60 @@ func (t *adkTranslator) run(ctx context.Context, iter *adk.AsyncIterator[*adk.Ag
 			}
 		}
 	}
-	if t.curSub != "" {
-		t.endSub() // 收尾兜底（异常结束也要补 finished）
-	}
+	t.closeAllSubs() // 收尾兜底（异常结束也要补 finished）
 	t.emit(EventTurnEnd, 0, map[string]any{"message": finalText})
 }
 
-// beginSub 进入子 agent 事件窗口：分配 subagentId 并合成 subagent/status started。
+// childAgentName 取 RunPath 末位子 agent 名（AgentAsTool 拼接 parent+child，末位 = 子）。
+func childAgentName(rp []adk.RunStep) string {
+	if len(rp) == 0 {
+		return ""
+	}
+	return rp[len(rp)-1].String()
+}
+
+// beginSub 进入某子 agent 事件窗口：分配 subagentId 并合成 subagent/status started。
 // task 取自父 AgentAsTool tool_call 的 arguments（onAssistant 已收集）。
 func (t *adkTranslator) beginSub(agentName string) {
 	t.subSeq++
-	t.curSub = fmt.Sprintf("sa_%d_%d", t.turn, t.subSeq)
-	t.subName = agentName
-	t.subTask = t.pendingArg[agentName]
-	t.send(Event{Type: EventSubagentStatus, Turn: t.turn, SubagentID: t.curSub, ParentSessionID: t.sessionID,
-		Payload: jsonPayload(map[string]any{
-			"subagentId": t.curSub, "parentSessionId": t.sessionID,
-			"persona": agentName, "status": "started", "task": t.subTask,
-		}), Ts: time.Now()})
+	id := fmt.Sprintf("sa_%d_%d", t.turn, t.subSeq)
+	t.subWindows[agentName] = &subWindow{id: id, name: agentName, task: t.pendingArg[agentName]}
+	t.emitSubStatus(id, agentName, t.pendingArg[agentName], "started")
 }
 
-// endSub 退出子 agent 事件窗口：合成 subagent/status finished 并清状态。
-func (t *adkTranslator) endSub() {
-	t.send(Event{Type: EventSubagentStatus, Turn: t.turn, SubagentID: t.curSub, ParentSessionID: t.sessionID,
+// closeAllSubs 退出全部子 agent 事件窗口：合成 finished 并清状态（run 收尾兜底）。
+func (t *adkTranslator) closeAllSubs() {
+	if len(t.subWindows) == 0 {
+		return
+	}
+	for name, w := range t.subWindows {
+		t.emitSubStatus(w.id, name, w.task, "finished")
+	}
+	t.subWindows = map[string]*subWindow{}
+	t.curSubID = ""
+}
+
+// closeSubByTool 在父 tool/result 事件时关闭对应子窗口（AgentAsTool 工具名 =
+// 子 agent 名，同步等待子完成——父工具结果即子边界结束点）。无匹配窗口不动作。
+func (t *adkTranslator) closeSubByTool(toolName string) {
+	w, ok := t.subWindows[toolName]
+	if !ok {
+		return
+	}
+	t.emitSubStatus(w.id, w.name, w.task, "finished")
+	delete(t.subWindows, toolName)
+	if len(t.subWindows) == 0 {
+		t.curSubID = ""
+	}
+}
+
+// emitSubStatus 发 subagent/status 帧（started/finished 共用）。
+func (t *adkTranslator) emitSubStatus(id, name, task, status string) {
+	t.send(Event{Type: EventSubagentStatus, Turn: t.turn, SubagentID: id, ParentSessionID: t.sessionID,
 		Payload: jsonPayload(map[string]any{
-			"subagentId": t.curSub, "parentSessionId": t.sessionID,
-			"persona": t.subName, "status": "finished", "task": t.subTask,
+			"subagentId": id, "parentSessionId": t.sessionID,
+			"persona": name, "status": status, "task": task,
 		}), Ts: time.Now()})
-	t.curSub = ""
-	t.subName = ""
-	t.subTask = ""
 }
 
 // onInterrupt 处理 HITL 中断（M3）：从 InterruptContexts 找 root cause，
@@ -210,6 +243,10 @@ func (t *adkTranslator) onTool(mv *adk.MessageVariant, isChild bool) {
 	send := t.emit
 	if isChild {
 		send = t.emitSub // 子事件打 subagentId/parentSessionId 标签
+	} else {
+		// 父 tool/result：AgentAsTool 工具名 = 子 agent 名 → 关对应子窗口
+		// （同步等待子完成，父工具结果即子边界结束点）。
+		t.closeSubByTool(mv.ToolName)
 	}
 	send(EventStepStart, step, map[string]any{"kind": "tool", "name": mv.ToolName})
 	content, id := t.toolContent(mv)
