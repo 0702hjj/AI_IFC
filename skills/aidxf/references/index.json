@@ -1,0 +1,67 @@
+{
+ "cases": [
+  {
+   "case_id": "hotel_std_01",
+   "type": "hotel",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/hotel/hotel_std_01/meta.json"
+  },
+  {
+   "case_id": "office_lobby_01",
+   "type": "office",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/office/office_lobby_01/meta.json"
+  },
+  {
+   "case_id": "office_std_01",
+   "type": "office",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/office/office_std_01/meta.json"
+  },
+  {
+   "case_id": "res_2s4u_std",
+   "type": "residence",
+   "quality_score": null,
+   "template_worthy": true,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/residence/res_2s4u_std/meta.json"
+  },
+  {
+   "case_id": "res_3c6u_std",
+   "type": "residence",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/residence/res_3c6u_std/meta.json"
+  },
+  {
+   "case_id": "retail_mall_01",
+   "type": "retail",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/retail/retail_mall_01/meta.json"
+  },
+  {
+   "case_id": "retail_wanda_cinema",
+   "type": "retail",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/retail/retail_wanda_cinema/meta.json"
+  },
+  {
+   "case_id": "retail_wanda_std",
+   "type": "retail",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/retail/retail_wanda_std/meta.json"
+  },
+  {
+   "case_id": "floorplan_structure",
+   "type": "single_family",
+   "quality_score": null,
+   "template_worthy": false,
+   "path": "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/aidxfv/v3/references/golden/single_family/floorplan_structure/meta.json"
+  }
+ ]
+}

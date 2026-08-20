@@ -2,21 +2,14 @@ package agent
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"strings"
 	"sync"
 	"time"
 
-	"github.com/cloudwego/eino/callbacks"
-	"github.com/cloudwego/eino/components"
+	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/flow/agent"
-	"github.com/cloudwego/eino/flow/agent/react"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -33,18 +26,42 @@ const defaultMaxStep = 20
 // DefaultMaxStep 是子 agent run 的默认步数上限（SubagentConfig.MaxStep 缺省值）。
 const DefaultMaxStep = defaultMaxStep
 
+// defaultAgentName 是主 agent 的默认名（模型 step/start 事件展示名；子 agent 经 WithName 覆盖）。
+const defaultAgentName = "aiifc-main"
+
+// defaultMaxContextChars 是模型 context 的字符近似（会话记忆阀门基准，historyBudgetRatio=60%）。
+// 未超 60% 全量喂历史；超过触发语义压缩。1M 字符 ≈ 主流长上下文模型窗口
+// （128K~1M token 量级；若部署模型窗口更小，用 WithMaxContextChars 调低）。
+const defaultMaxContextChars = 1_000_000
+
 type Option func(*agentOptions)
 
 type agentOptions struct {
-	model   model.ToolCallingChatModel
-	tools   []tool.BaseTool
-	persona string
-	maxStep int
-	store   *EventStore
+	name            string
+	model           model.ToolCallingChatModel
+	childModel      func() model.ToolCallingChatModel // 子 agent 模型工厂（路线 B；nil 时默认新建）
+	tools           []tool.BaseTool
+	persona         string
+	maxStep         int
+	maxContextChars int // 模型 context 字符近似（会话记忆阀门基准）
+	store           *EventStore
+	skillsDir       string // 扁平 skills 目录（BaseDir/*/SKILL.md）；空 = 不挂 skill middleware
+}
+
+// WithName 设置 agent 名（step/start 事件展示名，供前端区分主/子角色）。
+func WithName(name string) Option {
+	return func(o *agentOptions) { o.name = name }
 }
 
 func WithModel(m model.ToolCallingChatModel) Option {
 	return func(o *agentOptions) { o.model = m }
+}
+
+// WithChildModelFactory 设置子 agent（ifc/cad）的模型工厂（路线 B）：
+// 每次调用产出一个独立实例（scriptedModel 有 pos 游标，主/子必须独立；
+// openai 无状态可共享但独立更干净）。nil 时默认按 cfg 新建、空回退 scripted。
+func WithChildModelFactory(f func() model.ToolCallingChatModel) Option {
+	return func(o *agentOptions) { o.childModel = f }
 }
 
 func WithTools(tools []tool.BaseTool) Option {
@@ -59,19 +76,41 @@ func WithMaxStep(n int) Option {
 	return func(o *agentOptions) { o.maxStep = n }
 }
 
+// WithMaxContextChars 设置模型 context 的字符近似（会话记忆阀门基准）：
+// 历史未超 60% 全量喂，超预算语义压缩。默认 defaultMaxContextChars。
+func WithMaxContextChars(n int) Option {
+	return func(o *agentOptions) { o.maxContextChars = n }
+}
+
 func WithStore(s *EventStore) Option {
 	return func(o *agentOptions) { o.store = s }
 }
 
-type Agent struct {
-	react *react.Agent
-	store *EventStore
+// WithSkillsDir 挂载官方 skill middleware（adk/middlewares/skill）：
+// 目录须为扁平结构（BaseDir/*/SKILL.md），middleware 自动注入 skill 工具
+// 与 progressive disclosure 系统提示词。空目录/不传 = 不挂载（离线/测试路径）。
+func WithSkillsDir(dir string) Option {
+	return func(o *agentOptions) { o.skillsDir = dir }
 }
 
-// New 装配 react.NewAgent：cfg.APIKey 为空（且未注入 WithModel）时回退确定性
-// scriptedModel，离线 demo 与测试不依赖真模型。
+type Agent struct {
+	name            string
+	runner          *adk.Runner
+	store           *EventStore
+	maxStep         int
+	maxContextChars int
+}
+
+// New 装配 ADK 三角色（路线 B，D10）：
+//   - orchestrator（主 agent）：领域工具 + AgentAsTool(ifc/cad) + EmitInternalEvents；
+//     skill middleware 全量挂载（aiplan 对话协调层 + aibim-orchestrator 编排手册，D11）
+//   - ifc-agent / cad-agent：独立 ChatModelAgent（各自 persona/独立模型实例/领域工具 +
+//     skill middleware），被 AgentAsTool 包装进 orchestrator 工具面
+//
+// cfg.APIKey 为空（且未注入 WithModel）时回退确定性 scriptedModel，离线 demo 与测试
+// 不依赖真模型。skillsDir 非空时挂官方 skill middleware（skill 工具自动进入模型工具面）。
 func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
-	o := agentOptions{persona: defaultPersona, maxStep: defaultMaxStep}
+	o := agentOptions{name: defaultAgentName, persona: defaultPersona, maxStep: defaultMaxStep, maxContextChars: defaultMaxContextChars}
 	for _, opt := range opts {
 		opt(&o)
 	}
@@ -86,57 +125,124 @@ func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
 			cm = defaultScriptedModel()
 		}
 	}
-	r, err := react.NewAgent(context.Background(), &react.AgentConfig{
-		ToolCallingModel: cm,
-		ToolsConfig:      compose.ToolsNodeConfig{Tools: o.tools},
-		MessageModifier:  react.NewPersonaModifier(o.persona),
-		MaxStep:          o.maxStep,
+	childModel := o.childModel
+	if childModel == nil {
+		childModel = func() model.ToolCallingChatModel {
+			c, err := NewChatModel(context.Background(), cfg)
+			if err != nil || c == nil {
+				return defaultScriptedModel()
+			}
+			return c
+		}
+	}
+	ctx := context.Background()
+
+	// 子 agent（ifc/cad）：独立模型实例 + 领域工具（A2 工具面按角色分离留后续精化）
+	// 角色 skill 映射（第一层：意图路由）：ifc-agent→aiifc、cad-agent→aidxf
+	// ask_user 工具（HITL 开放断点）：orchestrator + 子 agent 都能问用户
+	domainAndAsk := append(append([]tool.BaseTool{}, o.tools...), AskUserTool())
+	ifcAgent, err := newRoleAgent(ctx, roleAgentConfig{
+		name: PersonaIFC, description: "IFC 建模子 agent（aiifc skill，script-as-source：stage→run→save 三段式）",
+		instruction: ifcAgentPersona, model: childModel(), tools: domainAndAsk,
+		skillsDir: o.skillsDir, skills: []string{"aiifc"}, maxStep: o.maxStep,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("create react agent: %w", err)
+		return nil, err
 	}
-	return &Agent{react: r, store: o.store}, nil
+	cadAgent, err := newRoleAgent(ctx, roleAgentConfig{
+		name: PersonaCAD, description: "CAD 绘图子 agent（aidxf skill，DXF 生成/校验；建筑平面任务对齐 plan 需求）",
+		instruction: cadAgentPersona, model: childModel(), tools: domainAndAsk,
+		skillsDir: o.skillsDir, skills: []string{"aidxf"}, maxStep: o.maxStep,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// orchestrator：领域工具 + AgentAsTool(ifc/cad) + EmitInternalEvents（子事件实时上浮）
+	// 角色 skill 映射：orchestrator→aiplan（对话协调层内联，D11）；编排手册在 OrchestratorPersona
+	var handlers []adk.TypedChatModelAgentMiddleware[*schema.Message]
+	if o.skillsDir != "" {
+		skillMW, err := newSkillMiddleware(ctx, o.skillsDir, "aiplan")
+		if err != nil {
+			return nil, err
+		}
+		handlers = append(handlers, skillMW)
+	}
+	// filesystem middleware（D12/M2-0）：读 skill references + execute 白名单（orchestrator 也需读 aiplan references）
+	fsMW, err := newFilesystemMiddleware(ctx)
+	if err != nil {
+		return nil, err
+	}
+	handlers = append(handlers, fsMW)
+	// 工具错误兜底（官方 SafeToolMiddleware 形状）：工具 Go error → 文本结果
+	// （"[tool error] ..."），翻译层恢复为带 error 载荷的 tool/result（单卡错误态），
+	// 模型可见可自愈；interrupt 错误透传（HITL 原语不被吞）。
+	handlers = append(handlers, newSafeToolMiddleware())
+
+	ag, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
+		Name:          o.name,
+		Description:   "AI_IFC 平台主智能体：意图路由 + 领域工具（REST 沙箱交付）+ AgentAsTool(ifc/cad) + skill 技能包",
+		Instruction:   o.persona,
+		Model:         cm,
+		MaxIterations: o.maxStep,
+		ToolsConfig: adk.ToolsConfig{
+			ToolsNodeConfig: compose.ToolsNodeConfig{
+				Tools: orchestratorTools(domainAndAsk, ifcAgent, cadAgent),
+			},
+			EmitInternalEvents: true, // 子 AgentEvent 实时上浮（翻译层 RunPath 打标）
+		},
+		Handlers: handlers,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create adk chat model agent: %w", err)
+	}
+	runner := adk.NewRunner(ctx, adk.RunnerConfig{
+		Agent:           ag,
+		EnableStreaming: true,
+		CheckPointStore: newMemoryCheckPointStore(), // HITL 前置：中断状态落检查点，Resume 续跑
+	})
+	return &Agent{name: o.name, runner: runner, store: o.store, maxStep: o.maxStep, maxContextChars: o.maxContextChars}, nil
 }
 
-// Run 执行一轮 ReAct 循环（Stream 路径），返回只读事件通道（循环结束即关闭）。
+// turnCount 返回历史父 turn/start 数（Run/Resume 共用基准）：
+// 子 agent 事件（含其 turn/start）不打扰父 turn 计数。store nil（离线/测试）返回 0。
+// 语义差异：Run 新开一轮 → turn = count+1；Resume 继续当前轮 → turn = max(count, 1)。
+func (a *Agent) turnCount(sessionID string) (int, error) {
+	if a.store == nil {
+		return 0, nil
+	}
+	prev, err := a.store.Load(sessionID)
+	if err != nil {
+		return 0, fmt.Errorf("load session %s: %w", sessionID, err)
+	}
+	n := 0
+	for _, ev := range prev {
+		if ev.Type == EventTurnStart && ev.SubagentID == "" {
+			n++
+		}
+	}
+	return n, nil
+}
+
+// Run 执行一轮 ADK ReAct 循环，返回只读事件通道（循环结束即关闭）。
 // 事件同时扇出到通道与 EventStore（append-only JSONL）；Ts 在扇出时打戳。
-// EventStore 写盘失败不静默——以 error 事件浮出到通道，循环本身不被打断。
-//
-// 事件顺序确定性设计：react 输出流只带最终答复分片，中间模型/工具消息经
-// eino callbacks 观测（graph 线程同步发 step/start、tool/result；模型流式输出
-// 由消费 goroutine 合流为 assistant/message + tool/call 并逐片发 chunk）。
-// graph 线程在每个组件 onStart 先等上一模型流的消费完成信号（done），
-// 主 goroutine 在收尾前等最后一个 done——两条执行线的相对顺序由此确定。
+// 底层：adk.Runner.Run → 消费 AgentEvent 流 → 翻译层映射为平台 9 种事件
+// （见 events.go §4 adkTranslator）。与旧 react 路径的事件序列形状保持一致（前端零改动）。
 // 调用方必须排空通道直至关闭（缓冲 256，无人消费会阻塞）。
 func (a *Agent) Run(ctx context.Context, sessionID, userText string) (<-chan Event, error) {
 	if err := validateSessionID(sessionID); err != nil {
 		return nil, err
 	}
 	ctx = WithSessionID(ctx, sessionID) // 工具经 SessionIDFromContext 解析会话绑定模型
-	turn := 1
-	if a.store != nil {
-		prev, err := a.store.Load(sessionID)
-		if err != nil {
-			return nil, fmt.Errorf("load session %s: %w", sessionID, err)
-		}
-		for _, ev := range prev {
-			// 子 agent 事件（含其 turn/start）不打扰父 turn 计数——子内容经
-			// dispatch 工具结果回流，父模型上下文不含子 turn 边界。
-			if ev.Type == EventTurnStart && ev.SubagentID == "" {
-				turn++
-			}
-		}
+	n, err := a.turnCount(sessionID)
+	if err != nil {
+		return nil, err
 	}
+	turn := n + 1 // 新开一轮
 
 	out := make(chan Event, 256)
-	em := &runEmitter{turn: turn, pending: map[string][]string{}}
-	// sendRaw 是唯一发送路径：落盘（EventStore）+ 扇出通道；closed 守卫挡迟到事件。
-	sendRaw := func(force bool, ev Event) {
-		em.mu.RLock()
-		defer em.mu.RUnlock()
-		if em.closed && !force { // 主 goroutine 已收尾：迟到的 callback/合流/子事件丢弃（不得 send on closed）
-			return
-		}
+	// sendRaw 是唯一发送路径：落盘（EventStore）+ 扇出通道。
+	sendRaw := func(ev Event) {
 		if a.store != nil {
 			if err := a.store.Append(sessionID, ev); err != nil && ev.Type != EventError {
 				out <- Event{Type: EventError, Turn: turn, Step: ev.Step, Ts: time.Now(),
@@ -145,336 +251,102 @@ func (a *Agent) Run(ctx context.Context, sessionID, userText string) (<-chan Eve
 		}
 		out <- ev
 	}
-	send := func(force bool, evType string, step int, payload map[string]any) {
-		sendRaw(force, Event{Type: evType, Turn: turn, Step: step, Payload: jsonPayload(payload), Ts: time.Now()})
-	}
-	em.emit = func(evType string, step int, payload map[string]any) {
-		send(false, evType, step, payload)
-	}
-	// subagent 派发转发器：子 run 事件原样（含标签）走 sendRaw——同一通道、
-	// 同一落盘、同一 closed 守卫；h.ctx 携带父会话绑定供子工具 kind 路由。
-	hub := &subagentHub{emit: func(ev Event) { sendRaw(false, ev) }, parent: sessionID, turn: turn, ctx: ctx}
-	ctx = withSubagentHub(ctx, hub)
-	// forceEmit 收尾专用：closed 置位后仍发（仅主 goroutine 的 error/turn/end 兜底帧）。
-	forceEmit := func(evType string, payload map[string]any) {
-		send(true, evType, 0, payload)
-	}
 
 	go func() {
-		em.emit(EventTurnStart, 0, map[string]any{"user": userText})
-		sr, err := a.react.Stream(ctx,
-			[]*schema.Message{schema.UserMessage(userText)},
-			agent.WithComposeOptions(compose.WithCallbacks(em.handler())))
-		if err != nil {
-			em.abortRun(ctx, out, forceEmit, err)
-			return
-		}
-		defer sr.Close()
-		for {
-			if _, err := sr.Recv(); err != nil {
-				if !errors.Is(err, io.EOF) {
-					em.waitLastModel(ctx)
-					em.abortRun(ctx, out, forceEmit, err)
-					return
-				}
-				break
+		sendRaw(Event{Type: EventTurnStart, Turn: turn, Payload: jsonPayload(map[string]any{"user": userText}), Ts: time.Now()})
+		// 会话连续性：历史（检查阀门 BuildHistoryMessages） + 当前消息喂给模型。
+		// 未超 60% 预算全量回填；超预算语义压缩（每轮指令+最终回复）。store nil（离线/测试）不喂历史。
+		msgs := []*schema.Message{}
+		if a.store != nil {
+			if prev, err := a.store.Load(sessionID); err == nil {
+				msgs = append(msgs, BuildHistoryMessages(prev, a.maxContextChars)...)
 			}
 		}
-		final := em.waitLastModel(ctx)
-		msg := ""
-		if final != nil {
-			msg = final.Content
-		}
-		em.emit(EventTurnEnd, 0, map[string]any{"message": msg})
-		em.finishRun(out)
+		msgs = append(msgs, schema.UserMessage(userText))
+		// 翻译层消费 ADK 事件流并扇出（含子事件 RunPath 打标 + subagent/status 合成）；
+		// Next 迭代结束（含错误/取消）后自行收尾 turn/end。
+		tr := newAdkTranslator(turn, a.name, sessionID, a.maxStep, sendRaw)
+		// v1 无 CheckPointStore：WithCheckPointID 仅设置 runCtx 的 checkpoint 标识，
+		// 不落盘（Runner store=nil 时跳过 checkpoint 保存）。接 HITL（zref_resume）时
+		// 需先给 Runner 配 CheckPointStore 再启用 ResumeWithParams。
+		iter := a.runner.Run(ctx, msgs, adk.WithCheckPointID(sessionID))
+		tr.run(ctx, iter)
+		close(out)
 	}()
+
 	return out, nil
 }
 
-// finishRun 正常收尾：置 closed（挡掉迟到 emit）→ 等合流 goroutine 退出 → 关通道。
-// emit 持 RLock 发送、closed 置位持 Lock，close 与 send 之间有 happens-before。
-func (e *runEmitter) finishRun(out chan Event) {
-	e.mu.Lock()
-	e.closed = true
-	e.mu.Unlock()
-	e.wg.Wait()
-	close(out)
+// --- HITL：CheckPointStore + Resume（2026-08-19 接线，M3） -------------------
+//
+// 与「会话记忆」分工（不要混）：
+//   - EventStore JSONL + BuildHistoryMessages = 平台层会话记忆（历史喂模型）
+//   - CheckPointStore = ADK 框架内部的中断恢复状态（StatefulInterrupt → Resume 续跑）
+//
+// 参考实现：eino-examples/quickstart/chatwitheino/cmd/ch09 handleInterrupt +
+// eino-examples/adk/common/tool/follow_up_tool.go + store.go（in-memory）。
+
+// memoryCheckPointStore 是 compose.CheckPointStore 的 in-memory 实现（官方 store.go 同构）：
+// 存「中断时刻的 agent 运行状态」，供 ResumeWithParams 续跑。进程内有效——
+// 服务重启丢中断（v1 接受；持久化留后续）。
+type memoryCheckPointStore struct {
+	mu  sync.Mutex
+	mem map[string][]byte
 }
 
-// abortRun 异常/取消收尾：先置 closed（截断路径上迟到的合流事件确定丢弃），
-// 再补 error/turn/end 兜底帧（force），最后等合流 goroutine 退出、关通道。
-// 主动取消（abort）是正常控制流，只发 turn/end；组件 onError 已上报的同一错误不重复。
-func (e *runEmitter) abortRun(ctx context.Context, out chan Event, forceEmit func(string, map[string]any), err error) {
-	e.mu.Lock()
-	e.closed = true
-	// 包裹去重：eino 把组件错误再包一层（[NodeRunError] … [LocalFunc] … node path），
-	// 精确相等匹配不到已上报的错误——改包含判定，工具/模型级已上报（工具错误走
-	// tool/result 单卡映射）的错误不再重复刷 session 级 error 事件。
-	seen := e.lastErr != "" && strings.Contains(err.Error(), e.lastErr)
-	e.mu.Unlock()
-	if ctx.Err() == nil && !errors.Is(err, context.Canceled) {
-		if !seen {
-			forceEmit(EventError, map[string]any{"error": err.Error()})
-		}
-		forceEmit(EventTurnEnd, map[string]any{"error": err.Error()})
-	} else {
-		forceEmit(EventTurnEnd, map[string]any{})
+func newMemoryCheckPointStore() *memoryCheckPointStore {
+	return &memoryCheckPointStore{mem: map[string][]byte{}}
+}
+
+func (s *memoryCheckPointStore) Set(_ context.Context, checkPointID string, checkPoint []byte) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.mem[checkPointID] = checkPoint
+	return nil
+}
+
+func (s *memoryCheckPointStore) Get(_ context.Context, checkPointID string) ([]byte, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	v, ok := s.mem[checkPointID]
+	return v, ok, nil
+}
+
+// Resume 是 HITL 续跑入口：从 CheckPointStore 读中断状态，用用户回答
+// （params.Targets[interruptID]）续跑 agent。checkPointID = 会话 id
+// （Run 时 WithCheckPointID(sessionID) 落盘）。
+// 事件流与 Run 同一翻译层（子事件打标 / question 帧 / turn 收尾）。
+// turn 从 EventStore 恢复（中断发生在第 N 轮，resume 后事件仍属第 N 轮）。
+func (a *Agent) Resume(ctx context.Context, sessionID string, params *adk.ResumeParams) (<-chan Event, error) {
+	if err := validateSessionID(sessionID); err != nil {
+		return nil, err
 	}
-	e.wg.Wait()
-	close(out)
-}
-
-func jsonPayload(v any) json.RawMessage {
-	raw, err := json.Marshal(v)
+	ctx = WithSessionID(ctx, sessionID)
+	n, err := a.turnCount(sessionID)
 	if err != nil {
-		return json.RawMessage(`{"error":"payload marshal failed"}`)
+		return nil, err
 	}
-	return raw
-}
-
-// modelDone 是一个模型步骤的完成信号：在 onStart(model) 即注册（错误路径也能等到），
-// 由流式输出消费 goroutine（onEndStream）或 onError 关闭（once 保证只关一次）；
-// 关闭时该步骤的 chunk/assistant/message/tool/call 事件已全部发出；final 携带合流后的完整消息。
-type modelDone struct {
-	ch    chan struct{}
-	once  sync.Once
-	final *schema.Message
-}
-
-func (d *modelDone) close() { d.once.Do(func() { close(d.ch) }) }
-
-// runEmitter 经 eino callbacks 观测模型/工具每一步并扇出为事件（trace 模式）。
-// closed/wg 与主 goroutine 的收尾配合，保证 close(out) 后无任何 send。
-type runEmitter struct {
-	turn int
-
-	mu        sync.RWMutex
-	step      int
-	modelStep int                 // 当前模型组件的 step 序号
-	prevModel *modelDone          // 上一模型步骤的消费完成信号（待等待）
-	pending   map[string][]string // tool name -> 待配对 tool_call id 队列
-	wg        sync.WaitGroup      // 模型流合流 goroutine
-	closed    bool                // 主 goroutine 已收尾（后续 emit 丢弃）
-	lastErr   string              // onError 已上报的错误（finishRun 去重）
-	emit      func(evType string, step int, payload map[string]any)
-}
-
-func (e *runEmitter) handler() callbacks.Handler {
-	return callbacks.NewHandlerBuilder().
-		OnStartFn(e.onStart).
-		OnEndFn(e.onEnd).
-		OnErrorFn(e.onError).
-		OnEndWithStreamOutputFn(e.onEndStream).
-		Build()
-}
-
-func kindOf(info *callbacks.RunInfo) string {
-	switch info.Component {
-	case components.ComponentOfChatModel:
-		return "model"
-	case components.ComponentOfTool:
-		return "tool"
-	default:
-		return ""
+	turn := n
+	if turn < 1 {
+		turn = 1 // 中断必有 turn/start；防御兜底
 	}
-}
-
-// waitPrevModel 在 graph 线程内等待上一模型步骤的消费 goroutine 完成，
-// 保证 assistant/message、tool/call 先于后续组件的 step/start 落序列。
-func (e *runEmitter) waitPrevModel() {
-	e.mu.Lock()
-	prev := e.prevModel
-	e.prevModel = nil
-	e.mu.Unlock()
-	if prev != nil {
-		<-prev.ch
+	out := make(chan Event, 256)
+	sendRaw := func(ev Event) {
+		if a.store != nil {
+			_ = a.store.Append(sessionID, ev)
+		}
+		out <- ev
 	}
-}
-
-// waitLastModel 等最后一个模型步骤消费完成（主 goroutine 收尾前调用），
-// 返回合流后的最终答复消息。graph 中止时框架会关闭流拷贝，消费 goroutine
-// 随之 EOF，故此处无条件等待不会死锁。
-func (e *runEmitter) waitLastModel(ctx context.Context) *schema.Message {
-	e.mu.Lock()
-	prev := e.prevModel
-	e.prevModel = nil
-	e.mu.Unlock()
-	if prev == nil {
-		return nil
-	}
-	select {
-	case <-prev.ch:
-		return prev.final
-	case <-ctx.Done(): // 取消路径：框架未必投递流式回调，兜底防挂（迟到事件由 closed 挡掉）
-		return nil
-	}
-}
-
-func (e *runEmitter) onStart(ctx context.Context, info *callbacks.RunInfo, input callbacks.CallbackInput) context.Context {
-	kind := kindOf(info)
-	if kind == "" {
-		return ctx
-	}
-	e.waitPrevModel() // 模型流已被 graph 消费完（工具调用已集齐），此处仅等消费 goroutine 被调度
-	e.mu.Lock()
-	e.step++
-	step := e.step
-	if kind == "model" {
-		e.modelStep = step
-		e.prevModel = &modelDone{ch: make(chan struct{})} // 即时注册：错误/截断路径也能等到本步骤收尾
-	}
-	e.mu.Unlock()
-	e.emit(EventStepStart, step, map[string]any{"kind": kind, "name": info.Name})
-	return ctx
-}
-
-func (e *runEmitter) onEnd(ctx context.Context, info *callbacks.RunInfo, output callbacks.CallbackOutput) context.Context {
-	if kindOf(info) != "tool" {
-		return ctx
-	}
-	switch out := output.(type) {
-	case string:
-		e.onToolEnd(info.Name, out)
-	case *tool.CallbackOutput:
-		e.onToolEnd(info.Name, out.Response)
-	}
-	return ctx
-}
-
-// onEndStream 观测模型组件的流式输出：起消费 goroutine 逐帧读——
-// 正文/思考分片即发 chunk 事件（浏览器流式渲染），EOF 后合流为
-// assistant/message + tool/call 并关闭 done 信号。非模型组件的流只排空。
-func (e *runEmitter) onEndStream(ctx context.Context, info *callbacks.RunInfo, output *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
-	if kindOf(info) != "model" {
-		go func() {
-			defer output.Close()
-			for {
-				if _, err := output.Recv(); err != nil {
-					return
-				}
-			}
-		}()
-		return ctx
-	}
-	e.mu.Lock()
-	if e.closed { // 迟到的流式回调（取消路径）：只排空，不产事件
-		e.mu.Unlock()
-		go func() {
-			defer output.Close()
-			for {
-				if _, err := output.Recv(); err != nil {
-					return
-				}
-			}
-		}()
-		return ctx
-	}
-	step := e.modelStep
-	done := e.prevModel // onStart(model) 已注册
-	if done == nil {    // 防御：回调乱序时自建（本步骤事件无人等待，仅保证不丢）
-		done = &modelDone{ch: make(chan struct{})}
-		e.prevModel = done
-	}
-	e.wg.Add(1)
-	e.mu.Unlock()
 	go func() {
-		defer e.wg.Done()
-		defer done.close()
-		defer output.Close()
-		var frames []*schema.Message
-		for {
-			frame, err := output.Recv()
-			if err != nil {
-				break
-			}
-			msg, ok := frame.(*schema.Message)
-			if !ok || msg == nil {
-				continue
-			}
-			frames = append(frames, msg)
-			if msg.Content != "" {
-				e.emit(EventAssistantChunk, step, map[string]any{"content": msg.Content})
-			}
-			if msg.ReasoningContent != "" {
-				e.emit(EventAssistantChunk, step, map[string]any{"reasoning": msg.ReasoningContent})
-			}
+		iter, err := a.runner.ResumeWithParams(ctx, sessionID, params)
+		if err != nil {
+			sendRaw(Event{Type: EventError, Turn: turn, Payload: jsonPayload(map[string]any{"error": err.Error()}), Ts: time.Now()})
+			close(out)
+			return
 		}
-		if len(frames) > 0 {
-			if full, err := schema.ConcatMessages(frames); err == nil {
-				done.final = full
-				e.onModelEnd(step, full)
-			}
-		}
+		tr := newAdkTranslator(turn, a.name, sessionID, a.maxStep, sendRaw)
+		tr.run(ctx, iter)
+		close(out)
 	}()
-	return ctx
-}
-
-func (e *runEmitter) onModelEnd(step int, msg *schema.Message) {
-	if msg == nil {
-		return
-	}
-	e.mu.Lock()
-	var calls []map[string]any
-	for _, tc := range msg.ToolCalls {
-		calls = append(calls, map[string]any{
-			"id": tc.ID, "name": tc.Function.Name, "arguments": tc.Function.Arguments,
-		})
-		e.pending[tc.Function.Name] = append(e.pending[tc.Function.Name], tc.ID)
-	}
-	e.mu.Unlock()
-
-	payload := map[string]any{"content": msg.Content}
-	if len(calls) > 0 {
-		payload["tool_calls"] = calls
-	}
-	e.emit(EventAssistantMessage, step, payload)
-	for _, tc := range msg.ToolCalls {
-		e.emit(EventToolCall, step, map[string]any{
-			"id": tc.ID, "name": tc.Function.Name, "arguments": tc.Function.Arguments,
-		})
-	}
-}
-
-func (e *runEmitter) onToolEnd(name, response string) {
-	e.mu.Lock()
-	step := e.step
-	id := ""
-	if q := e.pending[name]; len(q) > 0 {
-		id = q[0]
-		e.pending[name] = q[1:]
-	}
-	e.mu.Unlock()
-	e.emit(EventToolResult, step, map[string]any{"id": id, "name": name, "content": response})
-}
-
-func (e *runEmitter) onError(ctx context.Context, info *callbacks.RunInfo, err error) context.Context {
-	kind := kindOf(info)
-	if kind == "" {
-		return ctx
-	}
-	e.mu.Lock()
-	step := e.step
-	if kind == "model" && e.prevModel != nil {
-		e.prevModel.close() // 模型未产出流式输出即失败：释放等待方
-	}
-	e.lastErr = err.Error() // 去重：abortRun 不再为同一错误补 session 级 error 事件
-	toolID := ""
-	if kind == "tool" { // 配对待回卡片的 tool_call id（同 onToolEnd）
-		if q := e.pending[info.Name]; len(q) > 0 {
-			toolID = q[0]
-			e.pending[info.Name] = q[1:]
-		}
-	}
-	e.mu.Unlock()
-	if ctx.Err() != nil || errors.Is(err, context.Canceled) {
-		return ctx // 主动取消不刷 error 事件（abort 是正常控制流）
-	}
-	if kind == "tool" {
-		// 工具执行失败 → 带 error 载荷的 tool/result：前端渲染该工具卡片的错误态
-		// （input/error 字段），而不是只有整轮失败的 session.error 横幅。
-		e.emit(EventToolResult, step, map[string]any{"id": toolID, "name": info.Name, "error": err.Error()})
-		return ctx
-	}
-	e.emit(EventError, step, map[string]any{"error": err.Error(), "name": info.Name})
-	return ctx
+	return out, nil
 }

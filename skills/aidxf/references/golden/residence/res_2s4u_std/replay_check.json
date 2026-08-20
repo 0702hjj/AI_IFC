@@ -1,0 +1,8 @@
+{
+ "status": "PASS",
+ "replay_area_diff_pct": 0.21,
+ "findings": [],
+ "declared_rooms": 17,
+ "readback_rooms": 17,
+ "decl_loc_null_skipped": 0
+}

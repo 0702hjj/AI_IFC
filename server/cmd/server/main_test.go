@@ -114,6 +114,71 @@ func TestLoadConfigLLMDefaultsEmpty(t *testing.T) {
 	}
 }
 
+// TestLoadConfigSkillsDirFromJSONAndEnv：skillsDir 从 server_config.json 读取，
+// VIEWER_SKILLS_DIR env 覆盖；缺省为空（skill middleware 不挂载）。
+func TestLoadConfigSkillsDirFromJSONAndEnv(t *testing.T) {
+	path := writeConfig(t, `{"skillsDir":"/abs/path/skills"}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.SkillsDir != "/abs/path/skills" {
+		t.Fatalf("json skillsDir 未读到: %+v", cfg)
+	}
+
+	t.Setenv("VIEWER_SKILLS_DIR", "/env/path/skills")
+	cfg, err = loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.SkillsDir != "/env/path/skills" {
+		t.Fatalf("env 应覆盖 json: %+v", cfg)
+	}
+
+	t.Setenv("VIEWER_SKILLS_DIR", "") // 清除 env，验证缺省为空
+	path2 := writeConfig(t, `{}`)
+	cfg, err = loadConfig(path2)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.SkillsDir != "" {
+		t.Fatalf("skillsDir 缺省应为空: %+v", cfg)
+	}
+}
+
+// TestLoadConfigSkillVenvAndCLI：skillVenv / skillCLI 从 server_config.json 读取，
+// VIEWER_SKILLS_VENV / VIEWER_SKILLS_CLI env 覆盖；skillCLI 缺省 = dist 对齐默认集。
+func TestLoadConfigSkillVenvAndCLI(t *testing.T) {
+	path := writeConfig(t, `{"skillVenv":"/abs/skills/.venv","skillCLI":"aiplan,aidxfv3"}`)
+	cfg, err := loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.SkillVenv != "/abs/skills/.venv" || cfg.SkillCLI != "aiplan,aidxfv3" {
+		t.Fatalf("skill 配置未读到: %+v", cfg)
+	}
+
+	t.Setenv("VIEWER_SKILLS_VENV", "/env/venv")
+	t.Setenv("VIEWER_SKILLS_CLI", "myskill")
+	cfg, err = loadConfig(path)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.SkillVenv != "/env/venv" || cfg.SkillCLI != "myskill" {
+		t.Fatalf("env 应覆盖 json: %+v", cfg)
+	}
+
+	t.Setenv("VIEWER_SKILLS_CLI", "")
+	path2 := writeConfig(t, `{}`)
+	cfg, err = loadConfig(path2)
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.SkillCLI != "aiplan,aidxfv3" {
+		t.Fatalf("skillCLI 缺省应为 dist 默认集: %+v", cfg)
+	}
+}
+
 // TestLoadConfigRetiredOpenCodeURLEnvironmentIgnored：VIEWER_OPENCODE_URL 已随
 // opencode serve 退役（chunk E，Eino 进程内接管）——环境变量残留不再被读取，
 // 配置结构中亦无该字段（openCodeURL 键被静默忽略，不报错）。

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
 
 	"ifcviewer/server/internal/agent"
@@ -104,31 +103,6 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 // DomainTools 产出 chat agent 的领域工具集（main 装配：agent.WithTools）。
 func (h *ChatHandler) DomainTools() []tool.BaseTool {
 	return agent.AsBaseTools(agent.DomainTools(h.AgentToolDeps()))
-}
-
-// SubagentAgentTools 产出带 subagent 编排的主 agent 工具面（main 装配）：
-// 领域工具集 + dispatch_ifc_agent / dispatch_cad_agent。子 agent 工具面 =
-// 领域工具集（按 persona 全量提供；kind 路由在工具内部按模型 kind 分流，
-// 与主 agent 同一套），绝不含派发工具——深度预算 1 结构性钉死。
-// newModel 为 nil 时子模型经 llm 装配（API key 空 → scriptedModel 回退，
-// 离线 demo 不派发真推理）；测试可注入 scripted 工厂。
-func (h *ChatHandler) SubagentAgentTools(llm agent.LLMConfig, newModel func() model.ToolCallingChatModel) []tool.BaseTool {
-	mk := newModel
-	if mk == nil {
-		mk = func() model.ToolCallingChatModel {
-			cm, err := agent.NewChatModel(context.Background(), llm)
-			if err != nil || cm == nil {
-				return nil // agent.New 回退 scriptedModel
-			}
-			return cm
-		}
-	}
-	subCfg := agent.SubagentConfig{
-		NewModel:  mk,
-		MakeTools: func(string) []tool.BaseTool { return h.DomainTools() },
-		MaxStep:   agent.DefaultMaxStep,
-	}
-	return append(h.DomainTools(), agent.AsBaseTools(agent.SubagentTools(subCfg))...)
 }
 
 // SetAgent 回填 agent（main 装配顺序：handler 先建（工具 deps 需要会话表回调）、

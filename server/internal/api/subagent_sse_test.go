@@ -144,16 +144,18 @@ func newSubagentHandler(t *testing.T) *ChatHandler {
 		creating: map[string]*sync.Mutex{},
 	}
 	h.registerRoutes()
-	// 主 agent 工具面 = 领域工具 + 派发工具；子模型每次派发新建 scripted 实例，
-	// 子工具面 = DomainTools（list_models 因 St 缺失错误文本化，不影响事件流契约）
+	// 主 agent 工具面 = 领域工具（AgentAsTool(ifc/cad) 在 agent.New 内部装配）；
+	// 子模型独立 scripted 实例（子工具面 = DomainTools，list_models 因 St 缺失
+	// 错误文本化，不影响事件流契约）
 	subNewModel := func() model.ToolCallingChatModel { return agent.NewScriptedModel(subagentScript()) }
 	ag, err := agent.New(agent.LLMConfig{},
 		agent.WithModel(agent.NewScriptedModel(agent.Script{Steps: []agent.ScriptStep{
-			{ToolCalls: []agent.ToolCallSpec{{ID: "d1", Name: "dispatch_ifc_agent", Arguments: `{"task":"生成标准层平面"}`}}},
+			{ToolCalls: []agent.ToolCallSpec{{ID: "d1", Name: agent.PersonaIFC, Arguments: `{"request":"生成标准层平面"}`}}},
 			{Chunks: []string{"已派发并汇总"}},
 		}})),
 		agent.WithStore(evStore),
-		agent.WithTools(h.SubagentAgentTools(agent.LLMConfig{}, subNewModel)),
+		agent.WithChildModelFactory(subNewModel),
+		agent.WithTools(h.DomainTools()),
 	)
 	if err != nil {
 		t.Fatalf("agent.New: %v", err)

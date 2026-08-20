@@ -1,0 +1,53 @@
+{
+  "floors": {
+    "fstd": {
+      "floor": "fstd",
+      "area_sqm": 860.9,
+      "bbox_m": {
+        "w": 55.54,
+        "d": 15.5
+      },
+      "aspect_ratio": 3.58,
+      "perimeter_m": 142.1,
+      "edges": [
+        {
+          "id": 0,
+          "kind": "line",
+          "dir": "E",
+          "len_m": 55.54
+        },
+        {
+          "id": 1,
+          "kind": "line",
+          "dir": "N",
+          "len_m": 15.5
+        },
+        {
+          "id": 2,
+          "kind": "line",
+          "dir": "W",
+          "len_m": 55.54
+        },
+        {
+          "id": 3,
+          "kind": "line",
+          "dir": "S",
+          "len_m": 15.5
+        }
+      ],
+      "deep_zone_ratio": 0.15,
+      "dominant_axes": "EW",
+      "exposure_m": {
+        "S": 55.54,
+        "N": 55.54,
+        "E": 15.5,
+        "W": 15.5
+      }
+    }
+  },
+  "zones": {
+    "std": {
+      "area_sqm": 860.9
+    }
+  }
+}

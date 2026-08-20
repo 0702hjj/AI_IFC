@@ -1,0 +1,96 @@
+{
+  "_meta": {
+    "description": "酒店案例库",
+    "status": "2026-08-13 首个案例 hotel_std_01"
+  },
+  "type": "hotel",
+  "ratio_standards": [
+    {
+      "block": "core",
+      "ratio_range": [
+        0.12,
+        0.18
+      ],
+      "依据": "hotel_std_01 实测核心筒 180sqm/1316sqm=13.7%",
+      "必填": true
+    },
+    {
+      "block": "corridor",
+      "ratio_range": [
+        0.1,
+        0.15
+      ],
+      "依据": "双内廊",
+      "必填": true
+    },
+    {
+      "block": "guest_rooms",
+      "ratio_range": [
+        0.6,
+        0.7
+      ],
+      "依据": "南北两排客房",
+      "必填": true
+    },
+    {
+      "block": "lounge",
+      "ratio_range": [
+        0.02,
+        0.05
+      ],
+      "依据": "公共休息室联通走廊",
+      "必填": false
+    }
+  ],
+  "cases": [
+    {
+      "name": "hotel_std_01",
+      "outline_mm": [
+        [
+          0,
+          0
+        ],
+        [
+          43000,
+          0
+        ],
+        [
+          43000,
+          30600
+        ],
+        [
+          0,
+          30600
+        ]
+      ],
+      "core_anchor_mm": [
+        21500,
+        16000
+      ],
+      "area_allocation": [
+        {
+          "block": "core",
+          "ratio": 0.137
+        },
+        {
+          "block": "corridor",
+          "ratio": 0.12
+        },
+        {
+          "block": "guest_rooms",
+          "ratio": 0.68
+        },
+        {
+          "block": "lounge",
+          "ratio": 0.03
+        }
+      ],
+      "emphases": [
+        "双内廊",
+        "核心筒居中",
+        "南北客房排",
+        "客房卫浴靠走廊侧"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+ "frame": {
+  "units": "mm",
+  "origin": "lot_southwest",
+  "north_deg": 0,
+  "modulus": 100
+ },
+ "zones": [
+  {
+   "zone": "house",
+   "axis_grid": {
+    "x": [
+     0,
+     4000,
+     8000,
+     12000,
+     16000,
+     20000
+    ],
+    "y": [
+     0,
+     4000,
+     8000,
+     12000
+    ]
+   },
+   "core": null,
+   "corridor": null,
+   "main_partitions": [],
+   "special_openings": [],
+   "typology": "single_house",
+   "typology_reason": "r01 独立住宅",
+   "note_responses": [],
+   "deviations": [],
+   "defaults_used": []
+  }
+ ]
+}

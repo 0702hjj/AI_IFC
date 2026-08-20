@@ -1,0 +1,22 @@
+{
+  "floors": {
+    "FF1": {
+      "floor": "FF1",
+      "area_sqm": 25950,
+      "bbox_m": {
+        "w": 194,
+        "d": 185
+      },
+      "aspect_ratio": 1.05,
+      "perimeter_m": 700,
+      "deep_zone_ratio": 0.5,
+      "dominant_axes": "EW",
+      "exposure_m": {
+        "S": 194,
+        "N": 194,
+        "E": 185,
+        "W": 185
+      }
+    }
+  }
+}
