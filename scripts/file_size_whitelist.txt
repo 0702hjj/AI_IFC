@@ -2,11 +2,3 @@ services/cad/app/routes_scripts.py
 services/cad/tests/test_script_runner.py
 services/ifc/app/routes_scripts.py
 services/ifc/tests/test_script_runner.py
-skills/aidxfv/v3/scripts/packages/dxfkit/src/dxfkit/readback.py
-skills/aidxfv/v3/scripts/packages/floorgeom/src/floorgeom/derive.py
-skills/aidxfv/v3/scripts/packages/floorgeom/src/floorgeom/normalize.py
-skills/aidxfv/v3/tests/test_goldlib.py
-skills/aidxfv/v3/tests/test_normalize.py
-skills/aiifc/references/docs/flows/design_review.py
-skills/aiplan/scripts/packages/aiplan_tools/src/aiplan_tools/normalize.py
-tests/skill/test_skill_hooks.py
