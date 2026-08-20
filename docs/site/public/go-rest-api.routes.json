@@ -234,6 +234,24 @@
     },
     {
       "method": "GET",
+      "path": "/api/v1/projects/{projectID}/{name}",
+      "handler": "h.getPlanFile",
+      "file": "server/internal/api/chat.go"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/projects/{projectID}/{name}",
+      "handler": "h.putPlanFile",
+      "file": "server/internal/api/chat.go"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/projects/{projectID}/plan_history",
+      "handler": "h.listPlanHistory",
+      "file": "server/internal/api/chat.go"
+    },
+    {
+      "method": "GET",
       "path": "/v1/models/{id}/issues/{file}",
       "handler": "h.serveIssueFile",
       "file": "server/internal/api/api.go"

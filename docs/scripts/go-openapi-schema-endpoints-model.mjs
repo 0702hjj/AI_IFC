@@ -3,7 +3,7 @@
 //
 // Go server OpenAPI 端点条目（chat / models / issues / overrides·changes 域）。
 // 由 go-openapi-schema.mjs 聚合进 endpoints；条目格式见该文件头注释。
-import { modelIdParam, chatCidParam, issueIdParam, entityIdParam } from './go-openapi-schema-params.mjs'
+import { modelIdParam, chatCidParam, issueIdParam, entityIdParam, projectIdParam } from './go-openapi-schema-params.mjs'
 
 export const modelEndpoints = {
   // ─────────────────────────── chat（demo）───────────────────────────
@@ -281,5 +281,45 @@ export const modelEndpoints = {
       200: { description: 'ok', data: '#/components/schemas/ChangeList' },
     },
     errors: ['40400', '50000'],
+  },
+
+  // ─────────────────────────── 项目方案级存储（交付对齐 B1）───────────────────────────
+  'GET /api/v1/projects/{projectID}/{name}': {
+    summary: '读方案产物（plan.json / bim_supplement.json）',
+    description: '读项目下的方案产物当前态（plan/cad/ifc 共享项目资源）。name 白名单：plan.json / bim_supplement.json。未落盘 404。',
+    tags: ['plan'],
+    parameters: [projectIdParam(), { name: 'name', in: 'path', required: true, description: '产物名（plan.json|bim_supplement.json）', schema: { type: 'string', enum: ['plan.json', 'bim_supplement.json'] } }],
+    responses: {
+      200: { description: 'ok', data: { type: 'object', properties: { projectId: { type: 'string' }, name: { type: 'string' }, version: { type: 'string', example: 'v1' }, content: { type: 'object' } } } },
+    },
+    errors: ['40400', '40001', '50000'],
+  },
+  'PUT /api/v1/projects/{projectID}/{name}': {
+    summary: '写方案产物（plan.json / bim_supplement.json，方案级版本化）',
+    description: '写项目下的方案产物并归档历史（plan_history/{name}/v{n}.json 递增）。body {content: <json 对象>}；content.project 必须 = projectID（共享 ID 对齐）。返回新版本名。',
+    tags: ['plan'],
+    parameters: [projectIdParam(), { name: 'name', in: 'path', required: true, description: '产物名（plan.json|bim_supplement.json）', schema: { type: 'string', enum: ['plan.json', 'bim_supplement.json'] } }],
+    requestBody: {
+      description: 'JSON body，content 为方案 JSON 对象',
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        properties: { content: { type: 'object', description: '方案产物（合法 JSON 对象；project 字段 = projectID）' } },
+      },
+    },
+    responses: {
+      200: { description: 'ok', data: { type: 'object', properties: { projectId: { type: 'string' }, name: { type: 'string' }, version: { type: 'string', example: 'v1' } } } },
+    },
+    errors: ['40001', '40400', '50000'],
+  },
+  'GET /api/v1/projects/{projectID}/plan_history': {
+    summary: '列方案产物历史版本',
+    description: '列项目下某方案产物的历史版本（v{n} 升序）。query name 缺省 plan.json。',
+    tags: ['plan'],
+    parameters: [projectIdParam(), { name: 'name', in: 'query', required: false, description: '产物名（默认 plan.json）', schema: { type: 'string', enum: ['plan.json', 'bim_supplement.json'] } }],
+    responses: {
+      200: { description: 'ok', data: { type: 'object', properties: { projectId: { type: 'string' }, name: { type: 'string' }, history: { type: 'array', items: { type: 'string' } } } } },
+    },
+    errors: ['40400', '40001', '50000'],
   },
 }
