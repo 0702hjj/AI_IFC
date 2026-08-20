@@ -20,6 +20,3 @@ skills/aidxfv/v3/tests/test_normalize.py
 skills/aiifc/references/docs/flows/design_review.py
 skills/aiplan/scripts/packages/aiplan_tools/src/aiplan_tools/normalize.py
 tests/skill/test_skill_hooks.py
-web/src/dxfviewer/DxfViewer.test.tsx
-web/src/viewer/ChatSidebar.test.tsx
-web/src/viewer/ChatSidebar.tsx
