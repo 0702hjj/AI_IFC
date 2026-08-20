@@ -182,7 +182,8 @@ func main() {
 	evStore := agent.NewEventStore(cfg.DataDir)
 	chatHandler := api.NewChatHandler(api.ChatDeps{
 		Ev: evStore,
-		Ed: ed, Cad: cad, St: st, Ps: store.NewProjectStore(cfg.DataDir), Q: q, DataDir: cfg.DataDir,
+		Ed: ed, Cad: cad, St: st, Ps: store.NewProjectStore(cfg.DataDir),
+		PlanSt: store.NewPlanStore(cfg.DataDir), Q: q, DataDir: cfg.DataDir,
 	})
 	llmCfg := agent.LLMConfig{
 		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
