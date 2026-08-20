@@ -31,6 +31,7 @@ export interface ChatSession {
   chatSessionId: string;
   opencodeSessionId: string;
   modelId: string;
+  projectId?: string;
   title: string;
   createdAt: string;
 }
@@ -41,12 +42,28 @@ export function createChatSession(title: string, modelId: string | null) {
     body: JSON.stringify({ title, modelId: modelId ?? "" }),
   });
 }
-export function listChatSessions() { return request<ChatSession[]>("/api/v1/chat/sessions"); }
-export function createChatProject(title: string) {
-  return request<ModelInfo>("/api/v1/chat/projects", {
+export function createChatSessionByProject(title: string, projectId: string) {
+  return request<ChatSession>("/api/v1/chat/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title }),
+    body: JSON.stringify({ title, projectId }),
+  });
+}
+export function listChatSessions() { return request<ChatSession[]>("/api/v1/chat/sessions"); }
+
+/** 项目创建响应（A1：id=首模型兼容 ModelInfo + projectId 新字段）。 */
+export interface CreateProjectResult {
+  id: string;
+  projectId?: string;
+  title: string;
+  kind?: string;
+  status?: string;
+}
+export function createChatProject(title: string, kind: string = "ifc") {
+  return request<CreateProjectResult>("/api/v1/chat/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title, kind }),
   });
 }
 export function postChatMessage(cid: string, text: string) {

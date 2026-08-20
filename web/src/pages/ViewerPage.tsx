@@ -2,8 +2,8 @@
 // Copyright (C) 2026 0702hjj
 
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { fetchModel, createChatSession, type ChatSession } from "@/api/client";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { fetchModel, createChatSession, createChatSessionByProject, type ChatSession } from "@/api/client";
 import type { ModelInfo } from "@/api/types";
 import { ViewerProvider } from "@/viewer/ViewerContext";
 import { Toolbar } from "@/viewer/Toolbar";
@@ -31,6 +31,8 @@ function readEngine(): ViewerEngine {
 
 export default function ViewerPage() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get("project") ?? undefined;
   const [reloadKey, setReloadKey] = useState(0);
   const [status, setStatus] = useState<ModelInfo["status"] | null>(null);
   const [kind, setKind] = useState<ModelInfo["kind"] | null>(null);
@@ -80,7 +82,11 @@ export default function ViewerPage() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    createChatSession("项目对话", id)
+    // A3：URL 带 project 参数 → 绑定项目会话（1 session = 1 project）；否则绑模型会话（现状）
+    const sessionPromise = projectId
+      ? createChatSessionByProject("项目对话", projectId)
+      : createChatSession("项目对话", id);
+    sessionPromise
       .then((s) => {
         if (!cancelled) setSession(s);
       })
@@ -90,7 +96,7 @@ export default function ViewerPage() {
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, projectId]);
 
   // 首次进入自动展开一次（让入口可发现）；之后由 Toolbar 按钮控制
   useEffect(() => {

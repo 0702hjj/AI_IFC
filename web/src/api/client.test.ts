@@ -244,8 +244,17 @@ describe("chat api", () => {
     const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("/api/v1/chat/projects");
     expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body as string)).toEqual({ title: "p" });
+    // 默认 kind=ifc（A3：新建项目类型选择）
+    expect(JSON.parse(init.body as string)).toEqual({ title: "p", kind: "ifc" });
     expect(m).toEqual(model);
+  });
+
+  it("createChatProject passes kind=dxf", async () => {
+    const spy = vi.fn(async () => new Response(JSON.stringify(envelope({ id: "m_0123456789abcd", projectId: "p_0123456789abcdef", title: "d", kind: "dxf", status: "ready" })), { status: 200 }));
+    vi.stubGlobal("fetch", spy);
+    await createChatProject("d", "dxf");
+    const [, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toEqual({ title: "d", kind: "dxf" });
   });
 });
 

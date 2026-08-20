@@ -10,12 +10,19 @@ import {
   retryModel,
   downloadUrl,
   createChatProject,
+  createChatSessionByProject,
+  listChatSessions,
   fetchModel,
+  type ChatSession,
 } from "@/api/client";
 import type { ModelInfo } from "@/api/types";
 import "./LibraryPage.css";
 
 const MAX_SIZE = 200 * 1024 * 1024;
+const KIND_OPTIONS = [
+  { value: "ifc", label: "IFC（BIM 模型）" },
+  { value: "dxf", label: "DXF（CAD 图纸）" },
+] as const;
 
 function formatSize(size: number): string {
   if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
@@ -31,25 +38,31 @@ function validateFile(file: File): string | null {
 
 export default function LibraryPage() {
   const [models, setModels] = useState<ModelInfo[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [error, setError] = useState<string>("");
   const [uploading, setUploading] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [naming, setNaming] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [projectKind, setProjectKind] = useState<"ifc" | "dxf">("ifc");
   const navigate = useNavigate();
 
   const confirmCreate = async () => {
     setCreatingProject(true);
     try {
-      const m = await createChatProject(projectName.trim() || "AI 项目");
+      const p = await createChatProject(projectName.trim() || "AI 项目", projectKind);
+      // 项目会话（1 session = 1 project，幂等）：先绑项目再进查看器
+      if (p.projectId) {
+        await createChatSessionByProject(p.title || "AI 项目", p.projectId);
+      }
       // 等初始化转换完成（ready）再跳转，避免项目页加载未就绪的 XKT 失败
       for (let i = 0; i < 30; i++) {
-        const cur = await fetchModel(m.id);
+        const cur = await fetchModel(p.id);
         if (cur.status === "ready") break;
         if (cur.status === "failed") throw new Error(cur.error || "初始化转换失败");
         await new Promise((r) => setTimeout(r, 1000));
       }
-      navigate(`/view/${m.id}`);
+      navigate(`/view/${p.id}${p.projectId ? `?project=${p.projectId}` : ""}`);
     } catch (e) {
       setError((e as Error).message);
       setCreatingProject(false);
@@ -66,9 +79,18 @@ export default function LibraryPage() {
     }
   }, []);
 
+  const refreshSessions = useCallback(async () => {
+    try {
+      setSessions(await listChatSessions());
+    } catch (e) {
+      // 会话列表不可用不影响模型库主体
+    }
+  }, []);
+
   useEffect(() => {
     refresh();
-  }, [refresh]);
+    refreshSessions();
+  }, [refresh, refreshSessions]);
 
   useEffect(() => {
     if (!models.some((m) => m.status === "converting")) return;
@@ -142,6 +164,16 @@ export default function LibraryPage() {
               onChange={(e) => setProjectName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") confirmCreate(); if (e.key === "Escape") setNaming(false); }}
             />
+            <select
+              className="kind-select"
+              value={projectKind}
+              onChange={(e) => setProjectKind(e.target.value as "ifc" | "dxf")}
+              aria-label="项目类型"
+            >
+              {KIND_OPTIONS.map((k) => (
+                <option key={k.value} value={k.value}>{k.label}</option>
+              ))}
+            </select>
             <button className="chat-entry-btn" disabled={creatingProject} onClick={confirmCreate}>
               {creatingProject ? "初始化中…" : "创建"}
             </button>
@@ -153,6 +185,25 @@ export default function LibraryPage() {
           </button>
         )}
       </div>
+
+      {sessions.length > 0 && (
+        <section className="history-section">
+          <h2>历史项目（会话）</h2>
+          <ul className="history-list">
+            {sessions.map((s) => (
+              <li key={s.chatSessionId}>
+                <Link
+                  to={s.modelId ? `/view/${s.modelId}${s.projectId ? `?project=${s.projectId}` : ""}` : "#"}
+                  onClick={(e) => { if (!s.modelId) e.preventDefault(); }}
+                >
+                  <span className="history-title">{s.title}</span>
+                  <span className="history-time">{new Date(s.createdAt).toLocaleString()}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <div
         className={`dropzone${dragOver ? " dragover" : ""}`}
