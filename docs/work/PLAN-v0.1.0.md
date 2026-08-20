@@ -17,7 +17,7 @@
 | v0.2 | script-closure 收口 ✅（2026-08-10，分支 feat/v0.2-script-closure）| W-0021..W-0025 | 直改退役残留消费者收口（notify 走 script 管线）；params_keys 定位聚焦；骨架确定性；校验隔离机器强制；skill hooks 校验即事件 |
 | v0.3 | orchestrator-closure ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure）| W-0017 spec + notify 事件化 + minors 清扫 + 平台框架入约 | notify 重构为 Pure Core + Imperative Shell；事件 URI 化闭环；架构方向定稿入约 |
 | v0.4 | 可复用性 + 上线健壮性 ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure，PR #31）| 物理重组（viewer/ 拆分）+ Go OpenAPI + skill 打包器泛化 + services/ifc 独立调用文档 + diff 超时 + 重转去重 + stale 清扫 | 结构一步到位（services/ifc + web/server/converter/mcp 顶层化 + skills/aidxfv 收敛）；对外唯一入口机器可消费 OpenAPI；任意 skill 可打包；diff 超时 504；同源跳过重转 |
-| v0.5 | 可移植复用 ✅（2026-08-12，spec: 2026-08-12-portability-reuse-design.md，分支 feat/v0.5-portability-reuse，PR #31）| W-0026..W-0029（W-0030 仅立项保留 open；W-0031 转入下迭代） | 对接契约入站；services/ifc 镜像冒烟通过；skill 版本化 + Release runbook 文档化（首发布随下迭代）；aibim-orchestrator 提示词包可打包、W-0017 关闭 |
+| v0.5 | 可移植复用 ✅（2026-08-12，spec: 2026-08-12-portability-reuse-design.md，分支 feat/v0.5-portability-reuse，PR #31）| W-0026..W-0029（W-0030/W-0031 已于 2026-08-20 关闭：前者立项目的已达成，后者 wontfix——Docker 部署形态已移除） | 对接契约入站；services/ifc 镜像冒烟通过；skill 版本化 + Release runbook 文档化（首发布随下迭代）；aibim-orchestrator 提示词包可打包、W-0017 关闭 |
 | v0.6 | services/cad script-as-source chunk A ✅（2026-08-12，分支 feat/v0.5-portability-reuse 累积，PR #31）| W-0032, W-0033 | cad_script_lib 契约+XDATA 身份测试绿；services/cad 骨架端点与沙箱全测试绿 |
 | v0.6 | services/cad script-as-source chunk B ✅（2026-08-13，分支 feat/v0.6-cad-diff，PR #34）| W-0034, W-0035 | diff 引擎与 locate/edit-call 测试绿 |
 | v0.6 | services/cad script-as-source chunk C ✅（2026-08-13，分支 feat/v0.7-cad-render，PR #36）| W-0039, W-0040 | render.json 实体带 key + unsupported 明面化；Go kind 分流 + cad 端点代理（edit-call 除外）契约测试绿 |
