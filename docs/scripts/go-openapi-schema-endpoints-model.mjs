@@ -322,4 +322,17 @@ export const modelEndpoints = {
     },
     errors: ['40400', '40001', '50000'],
   },
+  'GET /api/v1/projects/{projectID}/plan_history/{base}/{target}/diff': {
+    summary: '方案级 JSON diff（历史版本间 / 历史 vs current）',
+    description: '比较方案产物的两个版本（base/target 为 v{n} 或 current），返回字段级差异（add/remove/modify + 路径）。方案演化可追溯（B3）。',
+    tags: ['plan'],
+    parameters: [projectIdParam(),
+      { name: 'base', in: 'path', required: true, description: '基准版本（v{n} 或 current）', schema: { type: 'string' } },
+      { name: 'target', in: 'path', required: true, description: '目标版本（v{n} 或 current）', schema: { type: 'string' } },
+      { name: 'name', in: 'query', required: false, description: '产物名（默认 plan.json）', schema: { type: 'string', enum: ['plan.json', 'bim_supplement.json'] } }],
+    responses: {
+      200: { description: 'ok', data: { type: 'object', properties: { projectId: { type: 'string' }, name: { type: 'string' }, base: { type: 'string' }, target: { type: 'string' }, changes: { type: 'array', items: { type: 'object', properties: { op: { type: 'string', enum: ['add', 'remove', 'modify'] }, path: { type: 'string' }, before: {}, after: {} } } } } } },
+    },
+    errors: ['40400', '40001', '50000'],
+  },
 }

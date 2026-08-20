@@ -83,3 +83,51 @@ func TestPlanGetNotFound(t *testing.T) {
 		t.Fatalf("empty history err = %v, want nil", err)
 	}
 }
+
+// TestPlanLoadHistory 读历史版本内容（diff 端点数据源）。
+func TestPlanLoadHistory(t *testing.T) {
+	s := NewPlanStore(t.TempDir())
+	pid := "p_0000000000000003"
+	s.Put(pid, "plan.json", []byte(`{"project":"p_0000000000000003","rev":1}`))
+	s.Put(pid, "plan.json", []byte(`{"project":"p_0000000000000003","rev":2}`))
+	// 历史 v1 = rev:1（旧当前态归档）
+	v1, err := s.LoadHistory(pid, "plan.json", "v1")
+	if err != nil || !strings.Contains(string(v1), `"rev":1`) {
+		t.Fatalf("load v1: %v %s", err, v1)
+	}
+	// 不存在的版本 → ErrNotFound
+	if _, err := s.LoadHistory(pid, "plan.json", "v9"); err != ErrNotFound {
+		t.Fatalf("load v9 err = %v, want ErrNotFound", err)
+	}
+	// 当前态版本不是历史（v2 是 current，不在 history）
+	if _, err := s.LoadHistory(pid, "plan.json", "v2"); err != ErrNotFound {
+		t.Fatalf("load v2 (current) err = %v, want ErrNotFound", err)
+	}
+}
+
+// TestJSONDiff 方案级 JSON 字段级 diff（新增/删除/修改/嵌套路径）。
+func TestJSONDiff(t *testing.T) {
+	base := `{"version":1,"project":"p_x","site":{"name":"A","area":100},"zones":[{"zone":"z1","floors":3},{"zone":"z2","floors":2}]}`
+	target := `{"version":2,"project":"p_x","site":{"name":"A","area":120,"height":30},"zones":[{"zone":"z1","floors":4},{"zone":"z3","floors":1}]}`
+	diff, err := JSONDiff([]byte(base), []byte(target))
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, d := range diff {
+		got[d.Op+" "+d.Path] = true
+	}
+	want := map[string]bool{
+		"modify version":         true,
+		"modify site.area":       true,
+		"add site.height":        true,
+		"modify zones[0].floors": true,
+		"modify zones[1].zone":   true, // z3 替换 z2（数组按索引比较 → modify 字段）
+		"modify zones[1].floors": true,
+	}
+	for w := range want {
+		if !got[w] {
+			t.Fatalf("missing diff %q; got %v", w, got)
+		}
+	}
+}

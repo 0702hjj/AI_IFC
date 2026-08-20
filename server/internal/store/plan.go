@@ -30,6 +30,7 @@ var planFileNames = map[string]bool{
 }
 
 var planHistoryRe = regexp.MustCompile(`^v(\d+)\.json$`)
+var planVersionRe = regexp.MustCompile(`^v\d+$`)
 
 // PlanStore 管理方案级产物（当前态 + 历史版本）。
 type PlanStore struct{ DataDir string }
@@ -147,6 +148,28 @@ func (s *PlanStore) ListHistory(projectID, name string) ([]string, error) {
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// LoadHistory 读方案产物的历史版本内容；非法 name/id → ErrInvalidKind/ErrInvalidID，
+// 版本不存在（含当前态版本——它不在 history/ 下）→ ErrNotFound。
+func (s *PlanStore) LoadHistory(projectID, name, version string) ([]byte, error) {
+	if !validPlanName(name) {
+		return nil, ErrInvalidKind
+	}
+	if !validProjectID(projectID) {
+		return nil, ErrInvalidID
+	}
+	if !planVersionRe.MatchString(version) {
+		return nil, ErrNotFound
+	}
+	data, err := os.ReadFile(filepath.Join(s.historyDir(projectID, name), version+".json"))
+	if os.IsNotExist(err) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 func writeAtomic(path string, content []byte) error {

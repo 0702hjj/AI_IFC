@@ -91,6 +91,7 @@ func (h *ChatHandler) registerRoutes() {
 	h.mux.HandleFunc("GET /api/v1/projects/{projectID}/{name}", h.getPlanFile)
 	h.mux.HandleFunc("PUT /api/v1/projects/{projectID}/{name}", h.putPlanFile)
 	h.mux.HandleFunc("GET /api/v1/projects/{projectID}/plan_history", h.listPlanHistory)
+	h.mux.HandleFunc("GET /api/v1/projects/{projectID}/plan_history/{base}/{target}/diff", h.diffPlanHistory)
 }
 
 func (h *ChatHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) { h.mux.ServeHTTP(w, r) }

@@ -126,3 +126,64 @@ func TestPlanHistoryEndpoint(t *testing.T) {
 		t.Fatalf("history = %+v, want [v1]", r)
 	}
 }
+
+// TestPlanHistoryDiffEndpoint 方案级 diff 端点（历史版本间 JSON 字段级差异）。
+func TestPlanHistoryDiffEndpoint(t *testing.T) {
+	h, p := planHandlerWithProject(t)
+	put := func(content string) {
+		req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+p.ID+"/plan.json",
+			strings.NewReader(`{"content":`+content+`}`))
+		rec := httptest.NewRecorder()
+		h.mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("put status = %d body=%s", rec.Code, rec.Body.String())
+		}
+	}
+	put(`{"version":1,"project":"`+p.ID+`","site":{"area":100}}`)
+	put(`{"version":2,"project":"`+p.ID+`","site":{"area":120}}`)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+p.ID+"/plan_history/v1/current/diff", nil)
+	rec := httptest.NewRecorder()
+	h.mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("diff status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	var e struct {
+		Code int             `json:"code"`
+		Data json.RawMessage `json:"data"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &e)
+	var r struct {
+		Name    string `json:"name"`
+		Base    string `json:"base"`
+		Target  string `json:"target"`
+		Changes []struct {
+			Op   string `json:"op"`
+			Path string `json:"path"`
+		} `json:"changes"`
+	}
+	_ = json.Unmarshal(e.Data, &r)
+	if r.Name != "plan.json" || r.Base != "v1" || r.Target != "current" {
+		t.Fatalf("diff meta = %+v", r)
+	}
+	found := false
+	for _, c := range r.Changes {
+		if c.Op == "modify" && c.Path == "site.area" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("changes 缺 site.area modify: %+v", r.Changes)
+	}
+}
+
+// TestPlanHistoryDiffNotFound 不存在版本 → 404（verify 层）。
+func TestPlanHistoryDiffNotFound(t *testing.T) {
+	h, p := planHandlerWithProject(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+p.ID+"/plan_history/v1/current/diff", nil)
+	rec := httptest.NewRecorder()
+	h.mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound && rec.Code != http.StatusBadRequest {
+		t.Fatalf("diff notfound status = %d", rec.Code)
+	}
+}
