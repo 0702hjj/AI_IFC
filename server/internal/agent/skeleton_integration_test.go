@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 )
@@ -10,6 +11,9 @@ import (
 // 端到端骨架验证——orchestrator 角色化挂 aiplan，调用返回真实 aiplan SKILL.md 正文
 // （progressive disclosure 内容片段）。验证「接入 ADK skill」在真实数据上闭环。
 func TestSkeletonRealSkillsIntegration(t *testing.T) {
+	if _, err := os.Stat(distSkillsDir()); err != nil {
+		t.Skipf("skills/dist 未打包（本地先跑 tools/skill_pack.py；CI 无 dist 跳过集成）: %v", err)
+	}
 	ag, err := New(LLMConfig{},
 		WithSkillsDir(distSkillsDir()),
 		WithModel(NewScriptedModel(Script{Steps: []ScriptStep{

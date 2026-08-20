@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/cloudwego/eino/adk/middlewares/skill"
+	"os"
 	localbk "github.com/cloudwego/eino-ext/adk/backend/local"
 )
 
@@ -12,6 +13,9 @@ import (
 // 恰好 3 个（aidxf/aiplan/aiifc），开发版本（aidxfv 指针/aibim-orchestrator/
 // aiblueprint-mcp）不出现。防止误把 skillsDir 指回 skills/ 根目录。
 func TestSkillDistOnlyFormalSet(t *testing.T) {
+	if _, err := os.Stat(distSkillsDir()); err != nil {
+		t.Skipf("skills/dist 未打包（本地先跑 tools/skill_pack.py；CI 无 dist 跳过集成）: %v", err)
+	}
 	ctx := context.Background()
 	backend, err := localbk.NewBackend(ctx, &localbk.Config{})
 	if err != nil {

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cloudwego/eino/adk/filesystem"
+	"os"
 )
 
 // TestValidateSkillCommandAllowlist：execute 命令白名单（领域收敛单点）——
@@ -175,6 +176,9 @@ func TestExecuteCommandAllowlistEnforced(t *testing.T) {
 // orchestrator 角色化挂 aiplan：skill 工具拿 aiplan BaseDirectory →
 // read_file 读 references 真实文件（schemas/predicate_vocabulary.md 等）。
 func TestSkillReferencesReadFlow(t *testing.T) {
+	if _, err := os.Stat(distSkillsDir()); err != nil {
+		t.Skipf("skills/dist 未打包（本地先跑 tools/skill_pack.py；CI 无 dist 跳过集成）: %v", err)
+	}
 	ref := "/home/cyvol0521/.code/gaiahub/CADapi/AI_IFC/skills/dist/aiplan/references/predicate_vocabulary.md"
 	ag, err := New(LLMConfig{},
 		WithSkillsDir(distSkillsDir()),

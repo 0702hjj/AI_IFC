@@ -7,6 +7,7 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
+	"os"
 )
 
 // TestSkeletonAgentToolRealSkills：真实 skills/ 目录下三角色装配（路线 B）——
@@ -14,6 +15,9 @@ import (
 // 子 agent 各自挂 skill middleware；scriptedModel 派发 ifc-agent 子 agent 读
 // 会话 id 后收尾，验证整条链路在真实 skill 数据上不报错且子事件带标签。
 func TestSkeletonAgentToolRealSkills(t *testing.T) {
+	if _, err := os.Stat(distSkillsDir()); err != nil {
+		t.Skipf("skills/dist 未打包（本地先跑 tools/skill_pack.py；CI 无 dist 跳过集成）: %v", err)
+	}
 	sidTool, err := newStringTool("read_sid", func(ctx context.Context) (string, error) {
 		return "sid=" + SessionIDFromContext(ctx), nil
 	})

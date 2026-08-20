@@ -7,11 +7,15 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/tool"
+	"os"
 )
 
 // TestRoleSkillBoundaryOrchestrator：第一层角色映射——orchestrator 只允许 aiplan
 // （对话协调层内联）；调 aiifc 被角色过滤拒绝（文本错误，不中断循环）。
 func TestRoleSkillBoundaryOrchestrator(t *testing.T) {
+	if _, err := os.Stat(distSkillsDir()); err != nil {
+		t.Skipf("skills/dist 未打包（本地先跑 tools/skill_pack.py；CI 无 dist 跳过集成）: %v", err)
+	}
 	script := Script{Steps: []ScriptStep{
 		{ToolCalls: []ToolCallSpec{{ID: "s1", Name: "skill", Arguments: `{"skill":"aiifc"}`}}},
 		{Chunks: []string{"收尾"}},
@@ -49,6 +53,9 @@ func TestRoleSkillBoundaryOrchestrator(t *testing.T) {
 // TestRoleSkillBoundarySubAgent：第一层角色映射——ifc-agent 子 agent 只允许 aiifc；
 // 派发后子 agent 调 skill{"skill":"aiifc"} 成功（返回 SKILL.md），调 aiplan 被拒。
 func TestRoleSkillBoundarySubAgent(t *testing.T) {
+	if _, err := os.Stat(distSkillsDir()); err != nil {
+		t.Skipf("skills/dist 未打包（本地先跑 tools/skill_pack.py；CI 无 dist 跳过集成）: %v", err)
+	}
 	// 子脚本：先调 skill aiifc（允许），再调 skill aiplan（拒绝），收尾
 	child := Script{Steps: []ScriptStep{
 		{ToolCalls: []ToolCallSpec{{ID: "c1", Name: "skill", Arguments: `{"skill":"aiifc"}`}}},
