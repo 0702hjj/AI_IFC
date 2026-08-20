@@ -31,6 +31,15 @@ web 端的「修改」统一为「修改构建脚本」（script-as-source）：
 - **试运行** → 沙箱执行暂存脚本预览产物，不产生版本。
 - **保存版本** → 跑脚本生成 IFC，晋升为大版本 v{n+1}（脚本 + map 成对快照，IFC 只物化最新，见 [版本与 Diff Viewer](/viewer/versions-diff)）。
 
+## DXF 与 webifc 编辑面
+
+Design 面板（PARAMS 表单 / 脚本编辑器 / 暂存 / 试运行 / 保存 / 大版本 diff）不只属于 xeokit 分支——**dxf（Canvas 查看器）与 webifc 引擎分支同样挂全套编辑面**，与 xeokit 分支共用同一份 store 与 REST 契约：
+
+- **dxf 选中定位脚本**：dxf 画布中选中带 key 的实体（render.json 经 XDATA 携带），选中面板出现**「定位脚本」**按钮——按 key 调 `GET /api/v1/models/{id}/script/locate?key=`，命中即切到 Design 面板脚本编辑器并跳行高亮（与 IFC 侧 guid 定位同一跳行链路）。选中无 key 实体不显示该按钮；locate 未命中 / 暂存过期（stale）/ 请求失败时面板给出降级提示。
+- **webifc 选中定位脚本**：webifc 引擎的选中面板同样有**「定位脚本」**按钮——从属性行取 GlobalId 调 `locate?guid=`，命中走同一跳行链路。选中无 GlobalId 的构件不显示该按钮；未命中 / stale / 失败同样降级提示。
+- **版本回滚**：Design 面板版本列表中，非当前版本行有**「回滚到版本」**按钮——确认后恢复该大版本的脚本并重新运行进当前产物（`script/rollback`），画布自动刷新。
+- **中途预览（live preview）**：AI 或人在 Design 面板「试运行」成功后，服务端推 `viewer.staged` 事件——dxf 与 webifc 分支**自动刷新**画布（render.json / IFC 直读，重载廉价）；xeokit 分支因重转 XKT 慢且闪烁，改为画布左上角角标「AI 中间结果 · 点击预览」，点击才重载。保存大版本后仍由 `viewer.committed` 驱动常规刷新。
+
 ## bootstrap：上传 IFC → 脚本（AI 路线）
 
 有 AI 参与时，上传 IFC 的意图是**参考生成**：

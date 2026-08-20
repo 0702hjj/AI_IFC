@@ -5,6 +5,7 @@
   "nodeBin": "node",
   "converterScript": "../converter/convert.js",
   "maxUploadMB": 200,
+  "webDist": "../web/dist",
   "pgDSN": "",
   "editServiceURL": "http://127.0.0.1:8100",
   "cadServiceURL": "http://127.0.0.1:8200",

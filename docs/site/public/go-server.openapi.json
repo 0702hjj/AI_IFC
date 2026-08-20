@@ -3877,6 +3877,36 @@
           "ok": {
             "type": "boolean",
             "const": true
+          },
+          "semanticDiff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SemanticDiffCounts"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "构件级 {added, removed, changed} 计数（旧 uploads 产物 vs 本次 run）；diff 失败/首次 run 无旧产物时为 null"
+          }
+        }
+      },
+      "SemanticDiffCounts": {
+        "type": "object",
+        "required": [
+          "added",
+          "removed",
+          "changed"
+        ],
+        "properties": {
+          "added": {
+            "type": "integer"
+          },
+          "removed": {
+            "type": "integer"
+          },
+          "changed": {
+            "type": "integer"
           }
         }
       },

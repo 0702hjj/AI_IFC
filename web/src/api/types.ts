@@ -163,8 +163,9 @@ export interface ScriptLocateResult {
   col?: number;
   snippet?: string;
   origin?: ScriptLocateOrigin;
-  // origin=params 时：该构件引用的 PARAMS 键（PARAMS 表单聚焦目标；literal/traced 为空）
-  paramsKeys?: string[];
+  // origin=params 时：该构件引用的 PARAMS 键（PARAMS 表单聚焦目标；literal/traced 为空）。
+  // 服务端契约是 snake_case（Python locate 把 map entry ** 原样铺开，Go 代理 RawMessage 透传）。
+  params_keys?: string[];
   // staging 与 ScriptMap 分叉（有未运行的脚本修改）→ true：行号不可信，不跳行
   stale?: boolean;
 }

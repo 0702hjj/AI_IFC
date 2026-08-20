@@ -46,21 +46,28 @@ AI agent ──► REST 编辑 API ────────┘
 
 ## 快速开始
 
-见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`web`（React + xeokit）、`server`（Go）、`converter`（Node）、`services/ifc`（Python FastAPI + IfcOpenShell）。
-
-一键启动（推荐，只需 Docker）：`docker compose up --build` → 打开 http://localhost:8080（可调项见 `.env.example`）。
-
-手工启动：
+见文档站 [环境要求与本地部署](https://0702hjj.github.io/AI_IFC/guide/quickstart)。四个组件：`web`（React + xeokit）、`server`（Go）、`converter`（Node）、`services/ifc`（Python FastAPI + IfcOpenShell）。宿主机直跑，无 Docker。
 
 ```bash
+# 一次性：安装依赖
 cd converter && npm install
+cd ../web && npm install
 cd ../services/ifc && uv sync
-VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 &
-cd ../server && go run ./cmd/server &
-cd ../web && npm install && npm run dev
+
+# 终端 1：edit-service（:8100）
+cd services/ifc
+VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
+
+# 终端 2：Go server（:8090）
+cd server && go run ./cmd/server
+
+# 终端 3：web 开发服务器（:5173）
+cd web && npm run dev
 ```
 
 打开 http://localhost:5173 ，上传 `converter/test/fixtures/wall-with-opening-and-window.ifc` 验证。
+
+生产形态：`cd web && npm run build` 后由 Go server 直接托管 `web/dist`（单端口 :8090，SPA fallback + 指纹资源长缓存），无需 nginx。
 
 ## AI 接入：两条互补路径
 
@@ -73,7 +80,7 @@ skill 与 agent 无关（opencode、Claude Code、Cursor 等皆可）。打包�
 
 ```bash
 python tools/skill_pack.py --archive   # 产出 skills/dist/aiifc.tar.gz（默认 skill：aiifc）
-python tools/skill_pack.py --skill-dir skills/aidxfv/v1 --archive   # 任意 skill 目录（这里是 CAD v1）
+python tools/skill_pack.py --skill-dir skills/aidxfv/v3 --archive   # 任意 skill 目录（这里是 CAD v3）
 ```
 
 ## 仓库布局
@@ -83,7 +90,7 @@ python tools/skill_pack.py --skill-dir skills/aidxfv/v1 --archive   # 任意 ski
 ```
 AGENTS.md          # 人机协同契约（AI agent 入口）
 skills/aiifc/      # AI 建模 skill——IFC 逻辑（可分发包，agent 无关）
-skills/aidxfv/     # AI 制图 skill——CAD 逻辑（v1 通用 DXF / v2 建筑平面管线）
+skills/aidxfv/     # AI 制图 skill——CAD 逻辑（v3 plan→cad 建筑平面管线正式版；v1/v2 已于 2026-08-18 删除）
 services/ifc/      # IFC 业务逻辑核心：diff + script-as-source 编辑 API
 services/cad/      # CAD 业务逻辑核心：diff + 编辑 API（待建，与 services/ifc 同构）
 web/               # 可选前端（React 19 + xeokit，:5173）
@@ -101,7 +108,7 @@ docs/superpowers/  # 设计规范与实施计划（过程产物）
 examples/          # IFC 时代示例脚本
 ```
 
-`services/ifc/` 即 IFC 业务逻辑核心；`skills/aidxfv/v1|v2` + `skills/aiblueprint-mcp` 即 CAD skill 域（自原 `AI_CAD/` 收编）；`web|server|converter|mcp|scripts|data` 即共享可选运行时（自原 `viewer/` 拆分至顶层）。CAD 调研材料在 `research/cad/`。
+`services/ifc/` 即 IFC 业务逻辑核心；`skills/aiplan` + `skills/aidxfv/v3` + `skills/aiblueprint-mcp` 即 CAD skill 域（自原 `AI_CAD/` 收编）；`web|server|converter|mcp|scripts|data` 即共享可选运行时（自原 `viewer/` 拆分至顶层）。CAD 调研材料在 `research/cad/`。
 
 SCAD 遗产代码（`src/`、`skills/simplecadapi/`、SCAD 时代打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
 

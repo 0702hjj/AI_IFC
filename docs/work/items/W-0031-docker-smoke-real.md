@@ -1,10 +1,11 @@
 # W-0031: services/ifc 真容器冒烟（docker build/run 实测）
 
-- **状态：** open
+- **状态：** wontfix
 - **优先级：** P2
 - **Milestone：** v0.5 后续/下迭代
 - **来源：** W-0027 验收残余（2026-08-12 环境无 docker daemon）
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** kimi-code / docs/close-w0030-w0031
+- **关闭理由：** 2026-08-19 起部署形态改为宿主直跑（无 Docker），docker-compose.yml 与全部 Dockerfile 已删（PR #44，W-0047）。冒烟对象已不存在，item 失去意义。2026-08-20 用户裁决关闭。
 
 ## 背景
 

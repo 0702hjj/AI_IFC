@@ -64,7 +64,7 @@ The Design panel parses the current script's `PARAMS` block to generate a parame
 
 ## Execution safety
 
-The edit-service runs scripts in a subprocess with a 60s timeout, rlimits (CPU/memory) and an isolated temporary directory; failures return 422 with the last 2KB of stderr. Container deployments are naturally offline (compose internal network).
+The edit-service runs scripts in a subprocess with a 60s timeout, rlimits (CPU/memory) and an isolated temporary directory; failures return 422 with the last 2KB of stderr. With the preferred bwrap backend (install the bubblewrap package on the host), scripts run with on-demand read-only mounts and `--unshare-net`; without bwrap the sandbox fails closed (503) unless `ALLOW_RLIMIT_FALLBACK=1` is set for development. The edit-service has no auth of its own: keep it bound to `127.0.0.1` — all external traffic goes through the Go server proxy.
 
 ## API
 

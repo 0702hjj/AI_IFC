@@ -103,3 +103,24 @@ class TestPackKnowledge:
             "  {\"loc\": {\"on_edge\": \"S\"}}\n"
             "决策依据: 说明\n", encoding="utf-8")
         assert "\"on_edge\": \"S\"" in _extract_pattern_dsl(str(src))
+
+
+class TestNodeValidation:
+    """node 是 missions/ 下的目录名（CLI 参数直传）——必须拒绝路径穿越。"""
+
+    @pytest.mark.parametrize("bad", ["../evil", "a/b", "a\\b", "..", "a..b",
+                                     ".hidden", "podium.", "a b", "a;b", ""])
+    def test_pack_mission_rejects_bad_node(self, tmp_path, bad):
+        with pytest.raises(ValueError, match="node"):
+            pack_mission(bad, project_dir=str(tmp_path), inputs={})
+
+    def test_register_mission_rejects_bad_node(self, tmp_path):
+        init_state(str(tmp_path))
+        with pytest.raises(ValueError, match="node"):
+            register_mission("../evil", str(tmp_path))
+
+    @pytest.mark.parametrize("good", ["podium.rooms", "tower_f1.skeleton",
+                                      "zone-2.details", "A9.x"])
+    def test_valid_nodes_accepted(self, tmp_path, good):
+        m = pack_mission(good, project_dir=str(tmp_path), inputs={})
+        assert m["node"] == good

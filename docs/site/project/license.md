@@ -10,7 +10,7 @@ AI_IFC 以 **Apache-2.0** 发布（[LICENSE](https://github.com/0702hjj/AI_IFC/b
 
 | 目录 | 许可证 | 上游 |
 | --- | --- | --- |
-| `skills/aidxfv/v1/`、`skills/aidxfv/v2/` | MIT | earthtojake/text-to-cad（各自 LICENSE 文件） |
+| `skills/aiplan/`、`skills/aidxfv/v3/` | MIT | 主仓原创自包含（v3 LICENSE 文件 / frontmatter 声明） |
 | `skills/aiblueprint-mcp/` | MIT | thebossnow/aiblueprint-mcp |
 
 > ⚠️ **xeokit 注意**：本仓代码是 Apache-2.0，但 `web/` 前端依赖 AGPL-3.0 的 @xeokit/xeokit-sdk——分发含 xeokit 的前端构建产物时整体受 AGPL 约束（网络使用即触发）。闭源/商用场景请改用 three.js（MIT）+ web-ifc（MPL-2.0）。converter/ 以子进程方式使用 xeokit-convert，其输出（XKT 数据）不受 AGPL 覆盖。详见根 NOTICE。

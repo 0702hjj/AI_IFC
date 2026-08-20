@@ -1,6 +1,7 @@
 ---
 name: aidxfv3
 description: plan→cad 建筑平面管线 v3——接 aiplan 落盘的 plan.json，LLM 声明骨架/房间 DSL，机器做确定性工作（派生/锚定/校验/渲染/检索），产出 skeleton/rooms/DXF/building.json。用于建筑平面图/户型/标准层/办公/住宅/商业平面生成。两段式四步：JSON 先行 → 断点确认 → worker 逐构件画 DXF。
+version: 0.1.0
 license: MIT
 compatibility: 自包含——纯 Python 包（floorgeom/dxfkit/goldlib/flowops）+ 内联 schema/词表/类型包，依赖 ezdxf + shapely。独立可迁移，零跨 skill 运行时依赖。
 metadata:

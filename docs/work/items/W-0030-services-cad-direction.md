@@ -1,10 +1,11 @@
 # W-0030: services/cad 同构方向立项
 
-- **状态：** open
+- **状态：** done
 - **优先级：** P2
 - **Milestone：** v0.5（可移植复用，本轮仅立项不实施）
 - **来源：** spec 2026-08-12-portability-reuse-design.md §5
-- **执行者/分支：** （领取时填）
+- **执行者/分支：** kimi-code / docs/close-w0030-w0031
+- **关闭说明：** 立项目的已达成——本 item 仅为方向占位（验收标准仅「item 存在且方向写清」），其指向的实施已由 W-0032~W-0045 全部交付（services/cad 骨架/沙箱/REST/diff/locate/edit-call/render.json/Go 代理/web DXF 查看器）。2026-08-20 用户裁决关闭。
 
 ## 背景
 

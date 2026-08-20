@@ -52,22 +52,11 @@ Model ids must match `^m_[0-9a-f]{16}$`, mapped to `uploads/{id}.ifc`:
         └── edit-history.json    # edit history (appended by user-edits, atomic write)
 ```
 
-### Docker single-container deployment
+### Sandbox backend requirements (host run)
 
-The repo ships `services/ifc/Dockerfile` (Python 3.10 + uv + ifcopenshell, bubblewrap sandbox included). **The build context must be the repo root** — the image COPYs `skills/aiifc/references/docs/flows` (required by sandbox contract validation):
+The service runs directly on the host as a regular user. The bwrap sandbox relies on unprivileged user namespaces: install the `bubblewrap` package on Debian/Ubuntu and it works; on RHEL-like systems check `user.max_user_namespaces > 0`. Without bwrap the sandbox is **fail-closed** by default (run/save rejected with 503); on dev machines you may explicitly set `ALLOW_RLIMIT_FALLBACK=1` to degrade to rlimit mode (weaker FS/network isolation) — never set it in production. The startup log prints the active backend (`script sandbox backend: ...`); confirm it says `bwrap` when deploying.
 
-```bash
-# run from the repo root
-docker build -f services/ifc/Dockerfile -t aiifc-edit-service .
-
-# run: mount the data volume + map the port (same semantics as VIEWER_DATA_DIR)
-mkdir -p /srv/aiifc-data
-docker run -d --name edit-service -p 127.0.0.1:8100:8100 -v /srv/aiifc-data:/data aiifc-edit-service
-```
-
-`VIEWER_DATA_DIR=/data`, `AIIFC_FLOWS_DIR=/opt/aiifc/flows` and `:8100` are baked into the image — no extra env needed. Smoke check: `curl -sf http://127.0.0.1:8100/openapi.json` returns 200, `GET /health` returns `{"status": "ok"}`.
-
-Relationship to the full platform: **this container is only the business core**. The complete public chain (envelope wrapping, auth, upload → convert → browse) still needs the Go server + converter; an AI agent may also call the editing API directly on :8100 (pass `provenance.source="AI"`). Direct access has no auth — bind the port to 127.0.0.1 or keep it on an internal network; never expose it publicly.
+Relationship to the full platform: **this service is only the business core**. The complete public chain (envelope wrapping, auth, upload → convert → browse) still needs the Go server + converter; an AI agent may also call the editing API directly on :8100 (pass `provenance.source="AI"`). Direct access has no auth — bind the port to 127.0.0.1 or keep it on an internal network; never expose it publicly.
 
 ## Callable endpoint catalog
 

@@ -16,6 +16,15 @@ export interface ScriptJump {
   nonce: number;
 }
 
+// AI run_script 沙箱成功后的中间产物预览信号（viewer.staged，ChatSidebar 监听写入）。
+// ViewerPage 按管线分流消费：dxf/webifc 直挂自动重载，xeokit 出角标点击才重载。
+// nonce 递增保证同一 model 连续多次 staged 也能触发消费方 effect。
+export interface StagedPreview {
+  modelId: string;
+  kind: "ifc" | "dxf";
+  nonce: number;
+}
+
 interface ViewerState {
   selectedId: string | null;
   tool: ViewerTool;
@@ -29,6 +38,7 @@ interface ViewerState {
   diffOpen: boolean;
   chatOpen: boolean;
   pendingModelReload: boolean; // AI commit 后（viewer.committed）置 true；前端轮询到 ready 即 reload 并清零
+  stagedPreview: StagedPreview | null; // AI run_script 中间产物（viewer.staged）；消费方按 nonce 触发
   scriptJump: ScriptJump | null;
   setSelected: (id: string | null) => void;
   setTool: (tool: ViewerTool) => void;
@@ -47,6 +57,7 @@ interface ViewerState {
   setChatOpen: (open: boolean) => void;
   flagPendingModelReload: () => void;
   clearPendingModelReload: () => void;
+  flagStagedPreview: (p: { modelId: string; kind: "ifc" | "dxf" }) => void;
   requestScriptJump: (jump: {
     line: number;
     origin?: ScriptLocateOrigin;
@@ -68,6 +79,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
   diffOpen: false,
   chatOpen: false,
   pendingModelReload: false,
+  stagedPreview: null,
   scriptJump: null,
   setSelected: (id) => set({ selectedId: id }),
   setTool: (tool) => set({ tool }),
@@ -109,6 +121,8 @@ export const useViewerStore = create<ViewerState>((set) => ({
   setChatOpen: (open) => set({ chatOpen: open }),
   flagPendingModelReload: () => set({ pendingModelReload: true }),
   clearPendingModelReload: () => set({ pendingModelReload: false }),
+  flagStagedPreview: (p) =>
+    set((s) => ({ stagedPreview: { ...p, nonce: (s.stagedPreview?.nonce ?? 0) + 1 } })),
   requestScriptJump: (jump) =>
     set((s) => ({ scriptJump: { ...jump, nonce: (s.scriptJump?.nonce ?? 0) + 1 } })),
   clearScriptJump: () => set({ scriptJump: null }),

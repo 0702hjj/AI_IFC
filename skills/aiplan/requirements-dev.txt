@@ -1,0 +1,3 @@
+-r requirements.txt
+# 开发/测试依赖：uv pip install -r requirements-dev.txt
+pytest

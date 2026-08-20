@@ -8,9 +8,7 @@
 | --- | --- | --- |
 | `aiifc` | IFC authoring/editing (IfcOpenShell reference bundle) | LGPL-3.0 |
 | `aiplan` | Plan-stage skill (external material → plan.json + bim_supplement.json; feeds both cad and bim; no special input requirements) | MIT |
-| `aidxfv1` | General CAD/DXF generation (forked from earthtojake/text-to-cad, self-contained vendored runtime) | MIT |
-| `aidxfv2` | Architectural floor-plan pipeline (plan.json alignment → draft → per-floor DXF) | MIT |
-| `aidxfv3` | plan→cad floor-plan pipeline, official version (aiplan's plan.json → building.json + per-floor DXF; the iteration baseline going forward) | MIT |
+| `aidxfv3` | plan→cad floor-plan pipeline, official version (aiplan's plan.json → building.json + per-floor DXF; the sole iteration baseline — v1/v2 retired and removed) | MIT |
 | `aiblueprint-mcp` | MCP server for interactive DXF inspection/editing/measure/preview | MIT |
 | `aibim-orchestrator` | Main-agent orchestration prompt pack (intent routing + sub-agent contracts + plan→cad→ifc relay data contract) | Apache-2.0 |
 
@@ -22,7 +20,7 @@ Grab `<name>-<version>.tar.gz` (e.g. `aiifc-0.1.0.tar.gz`) from the GitHub Relea
 
 ```bash
 python tools/skill_pack.py --skill aiifc --archive
-python tools/skill_pack.py --skill aidxfv1 --skill-dir skills/aidxfv/v1 --archive
+python tools/skill_pack.py --skill aidxfv3 --skill-dir skills/aidxfv/v3 --archive
 ```
 
 Artifacts land in `skills/dist/`.
@@ -39,7 +37,6 @@ Once installed, the runtime indexes `name`/`description` from `SKILL.md` automat
 ## Runtime dependencies
 
 - **aiifc**: Python with `ifcopenshell` / `ifcquery` / `numpy` (see the bundled `requirements.txt`); for pairing with the `services/ifc` edit service see [services/ifc Standalone](/en/guide/services-ifc).
-- **aidxfv1 / aidxfv2**: Python with `ezdxf` etc. (see the bundled `requirements.txt`).
 - **aidxfv3**: Python with `ezdxf` + `shapely` (see the bundled `requirements.txt`).
 - **aiplan**: only `jsonschema` (see the bundled `requirements.txt`).
 - **aiblueprint-mcp**: MCP-server form; dependencies in its bundled `requirements.txt`, wire it up via the bundled README / opencode.json.

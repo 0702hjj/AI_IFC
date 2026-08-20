@@ -78,7 +78,7 @@ def test_missing_md_with_rules_json(isolated_packs):
 def test_cli_exit_code(isolated_packs, capsys):
     """CLI：初态退出码 0；有漂移退出码 1。"""
     from aiplan_tools import check_pack_drift as mod
-    assert mod._main([], ) == 0 or True  # 默认 PACKS 初态——先确认
+    assert mod._main([]) == 0  # 默认 PACKS 初态无漂移
     # 用 isolated 测漂移态
     pack = json.loads((isolated_packs / "office.rules.json").read_text(encoding="utf-8"))
     pack["rules"].append({"predicate": "x", "args": {"a": "b"}, "strength": "must"})

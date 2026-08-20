@@ -13,6 +13,16 @@
 - **主子编排**：`dispatch_ifc_agent` / `dispatch_cad_agent` 派子 agent（独立 agent run + persona，深度预算 1 防递归）；子 agent 事件带 `subagentId` 标签经同一 SSE 下发，前端右侧边栏分组展示。
 - agent 的暂存/保存改动同样走 notify 管线：run/save 成功后自动排队重转、`viewer.committed` 事件驱动前端刷新。
 
+### 中途预览（live preview）
+
+`run_script` 试跑成功即推 SSE 事件 `event: viewer.staged`（`data: {"modelId","kind":"ifc"|"dxf"}`，严格 2 字段，与 `viewer.committed` 同一推送管线），**保存大版本之前**人就能看到中间结果：
+
+- **dxf 管线**：render.json 直挂，画布自动刷新。
+- **ifc + webifc 引擎**：web-ifc 直读 IFC，自动重挂查看器。
+- **ifc + xeokit 引擎**：重转 XKT 慢且闪烁，不自动刷——画布左上角出现角标「AI 中间结果 · 点击预览」，点击才重载。
+
+同时 `run_script` 的工具结果末尾会追加 staging diff 摘要，供 AI 对照预期自纠：**优先构件级计数**（`[staging diff] 构件 +N -M ~K`，取自 run 响应的 `semanticDiff`——`script/run` 成功时附旧产物 vs 新产物的构件级 `{added, removed, changed}`，diff 失败或首次 run 无旧产物时为 `null`）；构件级不可用时**回退行级摘要**（`[staging diff] added=N removed=M` + `PARAMS +/-/~ key ...` 行，复用 `GET /script/staging/diff`）；两者都不可用则不附摘要。run 失败时不推事件、不附摘要。
+
 ## 双角色同一 API
 
 人（浏览器）与 AI agent 使用**同一套脚本编辑端点**，仅入口不同：

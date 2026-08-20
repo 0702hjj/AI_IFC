@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -13,19 +14,16 @@ import ezdxf
 import pytest
 from fastapi.testclient import TestClient
 
-FLOWS_DIR = (
-    Path(__file__).resolve().parents[3]
-    / "skills"
-    / "aidxfv"
-    / "v1"
-    / "scripts"
-    / "flows"
-)
+FLOWS_DIR = Path(__file__).resolve().parents[1] / "flows"
 sys.path.insert(0, str(FLOWS_DIR))
 
 import cad_script_lib  # noqa: E402
 
 from app.main import create_app  # noqa: E402
+
+# W-0047 fail-closed：CI/本地无 bwrap 时测试仍走 rlimit 降级路径（显式放行）。
+# TestRlimitFailClosed 用 monkeypatch 覆盖该开关的两态。
+os.environ.setdefault("ALLOW_RLIMIT_FALLBACK", "1")
 
 MODEL_ID = "m_0123456789abcdef"
 

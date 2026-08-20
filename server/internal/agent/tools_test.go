@@ -1,9 +1,11 @@
+// tools_test.go：领域工具测试夹具（fakeBackend/newToolFixture/invoke/mustModel）
+// + 注册面与正常路径代理测试；错误/kind 路由/守卫见 tools_guard_test.go，
+// run_script 中途预览见 tools_staged_test.go，agent 集成见 tools_integration_test.go。
 package agent
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -61,6 +63,19 @@ func (fb *fakeBackend) count() int {
 	fb.mu.Lock()
 	defer fb.mu.Unlock()
 	return len(fb.reqs)
+}
+
+// saw 断言记录中出现过一次指定 method+path 的请求（run_script 成功后会追加
+// staging diff 轻量调用，last() 不再恒为工具主调用——改用 saw 钉主调用发生过）。
+func (fb *fakeBackend) saw(method, path string) bool {
+	fb.mu.Lock()
+	defer fb.mu.Unlock()
+	for _, r := range fb.reqs {
+		if r.method == method && r.path == path {
+			return true
+		}
+	}
+	return false
 }
 
 func (fb *fakeBackend) last() recordedReq {
@@ -227,9 +242,8 @@ func TestRunScriptUsesSlowPathAndMarksDirty(t *testing.T) {
 	if !strings.Contains(out, `"ok":true`) {
 		t.Fatalf("run_script 输出 = %s", out)
 	}
-	last := ifcFB.last()
-	if last.method != http.MethodPost || last.path != "/models/"+m.ID+"/script/run" {
-		t.Fatalf("后端收到 %s %s, want POST /models/%s/script/run", last.method, last.path, m.ID)
+	if !ifcFB.saw(http.MethodPost, "/models/"+m.ID+"/script/run") {
+		t.Fatalf("后端未收到 POST /models/%s/script/run", m.ID)
 	}
 	if !dirty {
 		t.Fatal("run_script 成功后应标记会话 dirty")
@@ -312,199 +326,5 @@ func TestCreateProjectInvokesDepNoDirty(t *testing.T) {
 	}
 	if dirty {
 		t.Fatal("create_project 不应标记会话 dirty（防 notify 对绑定模型错跑管线）")
-	}
-}
-
-// --- 错误文本化 / 截断 ---
-
-func TestToolErrorTextualized(t *testing.T) {
-	deps, ifcFB, _, st := newToolFixture(t)
-	m := mustModel(t, st, "a.ifc", store.KindIFC)
-	ifcFB.status = http.StatusUnprocessableEntity
-	ifcFB.body = `{"detail":"脚本第 3 行语法错误"}`
-	out := invoke(t, DomainTools(deps), "run_script", `{"modelId":"`+m.ID+`"}`)
-	if !strings.Contains(out, "调用失败") || !strings.Contains(out, "脚本第 3 行语法错误") {
-		t.Fatalf("错误未文本化（LLM 无法观测）: %s", out)
-	}
-}
-
-func TestToolResultTruncatedAt64K(t *testing.T) {
-	deps, ifcFB, _, st := newToolFixture(t)
-	m := mustModel(t, st, "a.ifc", store.KindIFC)
-	ifcFB.body = `{"script":"` + strings.Repeat("x", 200000) + `"}`
-	out := invoke(t, DomainTools(deps), "get_script", `{"modelId":"`+m.ID+`"}`)
-	if len(out) > maxToolResult+64 {
-		t.Fatalf("输出未截断: len=%d", len(out))
-	}
-	if !strings.Contains(out, "(truncated)") {
-		t.Fatalf("输出缺截断标记: ...%s", out[len(out)-40:])
-	}
-}
-
-// --- kind 路由（双 fake 钉死） ---
-
-func TestKindRoutingDXFGoesToCadOnly(t *testing.T) {
-	deps, ifcFB, cadFB, st := newToolFixture(t)
-	m := mustModel(t, st, "plan.dxf", store.KindDXF)
-	invoke(t, DomainTools(deps), "get_script", `{"modelId":"`+m.ID+`"}`)
-	if cadFB.count() != 1 {
-		t.Fatalf("cad 后端命中 = %d, want 1", cadFB.count())
-	}
-	if ifcFB.count() != 0 {
-		t.Fatalf("ifc 后端命中 = %d, want 0（dxf 模型不得打到 :8100）", ifcFB.count())
-	}
-}
-
-func TestKindRoutingIFCGoesToIfcOnly(t *testing.T) {
-	deps, ifcFB, cadFB, st := newToolFixture(t)
-	m := mustModel(t, st, "a.ifc", store.KindIFC)
-	invoke(t, DomainTools(deps), "run_script", `{"modelId":"`+m.ID+`"}`)
-	if ifcFB.count() != 1 {
-		t.Fatalf("ifc 后端命中 = %d, want 1", ifcFB.count())
-	}
-	if cadFB.count() != 0 {
-		t.Fatalf("cad 后端命中 = %d, want 0", cadFB.count())
-	}
-}
-
-// --- 守卫 ---
-
-func TestUnknownModelIDTextualizedNoBackendHit(t *testing.T) {
-	deps, ifcFB, cadFB, _ := newToolFixture(t)
-	out := invoke(t, DomainTools(deps), "get_script", `{"modelId":"m_0000000000000000"}`)
-	if !strings.Contains(out, "m_0000000000000000") {
-		t.Fatalf("未知 modelId 应错误文本化: %s", out)
-	}
-	if ifcFB.count()+cadFB.count() != 0 {
-		t.Fatal("守卫失败：未知 modelId 不应触达任何后端")
-	}
-}
-
-func TestInvalidModelIDRejectedNoBackendHit(t *testing.T) {
-	deps, ifcFB, cadFB, _ := newToolFixture(t)
-	out := invoke(t, DomainTools(deps), "get_script", `{"modelId":"../../etc/passwd"}`)
-	if out == "" || strings.Contains(out, `"ok":true`) {
-		t.Fatalf("非法 modelId 应拒绝: %s", out)
-	}
-	if ifcFB.count()+cadFB.count() != 0 {
-		t.Fatal("守卫失败：非法 modelId 不应触达任何后端")
-	}
-}
-
-func TestNoModelIDNoSessionBinding(t *testing.T) {
-	deps, ifcFB, cadFB, _ := newToolFixture(t)
-	out := invoke(t, DomainTools(deps), "get_script", `{}`)
-	if !strings.Contains(out, "未绑定") && !strings.Contains(out, "modelId") {
-		t.Fatalf("无 modelId 无绑定应提示: %s", out)
-	}
-	if ifcFB.count()+cadFB.count() != 0 {
-		t.Fatal("守卫失败：无模型上下文不应触达任何后端")
-	}
-}
-
-func TestSessionModelFallback(t *testing.T) {
-	deps, ifcFB, _, st := newToolFixture(t)
-	m := mustModel(t, st, "a.ifc", store.KindIFC)
-	deps.SessionModel = func(ctx context.Context) string { return m.ID }
-	out := invoke(t, DomainTools(deps), "get_script", `{}`)
-	if !strings.Contains(out, `"ok":true`) {
-		t.Fatalf("会话绑定模型回退失败: %s", out)
-	}
-	if last := ifcFB.last(); last.path != "/models/"+m.ID+"/script" {
-		t.Fatalf("后端路径 = %s, want 会话绑定模型", last.path)
-	}
-}
-
-func TestMarkDirtyNotCalledOnBackendFailure(t *testing.T) {
-	deps, ifcFB, _, st := newToolFixture(t)
-	var dirty bool
-	deps.MarkDirty = func(ctx context.Context) { dirty = true }
-	m := mustModel(t, st, "a.ifc", store.KindIFC)
-	ifcFB.status = http.StatusInternalServerError
-	ifcFB.body = `{"detail":"sandbox boom"}`
-	invoke(t, DomainTools(deps), "stage_script", `{"modelId":"`+m.ID+`","script":"x"}`)
-	if dirty {
-		t.Fatal("后端失败不应标记 dirty（变更未落地）")
-	}
-}
-
-// --- agent 集成：工具错误的单卡映射 + ctx 会话注入 ---
-
-func TestRunInjectsSessionIDToToolCtx(t *testing.T) {
-	var gotSid string
-	sidTool, err := newStringTool("whoami", func(ctx context.Context) (string, error) {
-		gotSid = SessionIDFromContext(ctx)
-		return "ok", nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ag, err := New(LLMConfig{},
-		WithModel(NewScriptedModel(Script{Steps: []ScriptStep{
-			{ToolCalls: []ToolCallSpec{{ID: "c1", Name: "whoami", Arguments: `{}`}}},
-			{Chunks: []string{"done"}},
-		}})),
-		WithTools([]tool.BaseTool{sidTool}),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	events, err := ag.Run(context.Background(), "s_ctxinjection", "hi")
-	if err != nil {
-		t.Fatal(err)
-	}
-	collect(t, events)
-	if gotSid != "s_ctxinjection" {
-		t.Fatalf("工具 ctx 会话 id = %q, want s_ctxinjection", gotSid)
-	}
-}
-
-// TestToolErrorEmitsErrorToolResult：工具返回 Go error（框架级失败）时，
-// 事件流应给出带 error 载荷的 tool/result（前端渲染单卡错误态），
-// 而非只有 session.error 横幅；lastErr 去重保证不重复上报。
-func TestToolErrorEmitsErrorToolResult(t *testing.T) {
-	boomTool, err := newStringTool("boom", func(ctx context.Context) (string, error) {
-		return "", errors.New("kaboom")
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	ag, err := New(LLMConfig{},
-		WithModel(NewScriptedModel(Script{Steps: []ScriptStep{
-			{ToolCalls: []ToolCallSpec{{ID: "c1", Name: "boom", Arguments: `{}`}}},
-		}})),
-		WithTools([]tool.BaseTool{boomTool}),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	events, err := ag.Run(context.Background(), "s_toolerror", "hi")
-	if err != nil {
-		t.Fatal(err)
-	}
-	evs := collect(t, events)
-	var errResult, errEvent, turnEnd bool
-	for _, ev := range evs {
-		switch ev.Type {
-		case EventToolResult:
-			// eino 会包裹工具错误（[LocalFunc] failed to invoke tool … err=kaboom），
-			// 断言含原始错误文本即可（LLM/前端可观测）。
-			if e := payloadString(t, ev, "error"); strings.Contains(e, "kaboom") {
-				errResult = true
-			}
-		case EventError:
-			errEvent = true
-		case EventTurnEnd:
-			turnEnd = true
-		}
-	}
-	if !errResult {
-		t.Fatalf("缺带 error 载荷的 tool/result 事件: %v", eventTypes(evs))
-	}
-	if errEvent {
-		t.Fatalf("工具错误不应再刷 session 级 error 事件（单卡映射替代）: %v", eventTypes(evs))
-	}
-	if !turnEnd {
-		t.Fatalf("缺 turn/end 收尾: %v", eventTypes(evs))
 	}
 }

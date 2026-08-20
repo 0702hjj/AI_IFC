@@ -3,11 +3,14 @@
 
 // web-ifc IFC 查看器组件：加载编排（下载→openIfcApi→几何→场景→树）+
 // 树/属性侧栏 + 拾取/树点击的选中联动（store.selectedId ↔ expressID 字符串）。
+// 选中面板可「定位脚本」：selectedId 是 expressID，guid 从已加载属性行取 GlobalId
+// → locate → requestScriptJump → DesignPanel 跳行（对齐 PropertyPanel 的 xeokit 链路）；
+// miss/stale/请求失败降级为非阻断提示，无 GlobalId 的选中不渲染按钮。
 // 分层：ifcLoader（纯提取）→ ifcScene（three 挂载）→ 本组件（React 桥接）。
 // 移植说明：文案集中在本文件顶部常量，改 i18n 时单点替换。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { downloadIfcBytes } from "@/api/client";
+import { downloadIfcBytes, locateScript } from "@/api/client";
 import { useViewerStore } from "@/viewer/store";
 import {
   openIfcApi,
@@ -29,6 +32,8 @@ const TEXT = {
   propsTitle: "构件属性",
   propsEmpty: "该节点无属性",
   backToList: "返回模型库",
+  locate: "定位脚本",
+  locating: "定位中…",
 };
 
 export default function IfcLiteViewer({ modelId }: { modelId: string }) {
@@ -36,8 +41,11 @@ export default function IfcLiteViewer({ modelId }: { modelId: string }) {
   const [tree, setTree] = useState<SpatialTreeNode | null>(null);
   const [props, setProps] = useState<PropertyRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const selectedId = useViewerStore((s) => s.selectedId);
   const setSelected = useViewerStore((s) => s.setSelected);
+  const requestScriptJump = useViewerStore((s) => s.requestScriptJump);
 
   // 打开的模型与场景句柄跨渲染保留；卸载时统一清理
   const openedRef = useRef<OpenedIfcModel | null>(null);
@@ -88,6 +96,8 @@ export default function IfcLiteViewer({ modelId }: { modelId: string }) {
   // 选中 → 属性面板（选中也来自树点击，同一管路加载属性行）
   useEffect(() => {
     const opened = openedRef.current;
+    setNotice(null);
+    setLocating(false);
     if (!opened || selectedId == null) {
       setProps(null);
       return;
@@ -117,6 +127,32 @@ export default function IfcLiteViewer({ modelId }: { modelId: string }) {
     },
     [setSelected]
   );
+
+  // locate 要 guid，selectedId 是 expressID——从已加载属性行取 GlobalId
+  const selectedGuid = props?.find((r) => r.label === "GlobalId")?.value ?? null;
+
+  const locate = () => {
+    if (!selectedGuid || locating) return;
+    setLocating(true);
+    setNotice(null);
+    locateScript(modelId, selectedGuid)
+      .then((res) => {
+        if (res.found && res.line != null) {
+          requestScriptJump({ line: res.line, origin: res.origin, paramsKeys: res.params_keys });
+          setNotice(
+            res.origin === "traced"
+              ? `已定位到脚本第 ${res.line} 行；该构件由运行期逻辑生成，请在脚本编辑器中手动修改`
+              : `已定位到脚本第 ${res.line} 行`
+          );
+        } else if (res.stale) {
+          setNotice("脚本有未运行的修改，调用点定位已过期；请先运行脚本，属性只读");
+        } else {
+          setNotice("该构件没有脚本调用点（非脚本生成），属性只读；可在脚本编辑器中手动修改");
+        }
+      })
+      .catch(() => setNotice("脚本定位不可用，属性只读"))
+      .finally(() => setLocating(false));
+  };
 
   return (
     <div className="ifc-lite-viewer">
@@ -160,6 +196,17 @@ export default function IfcLiteViewer({ modelId }: { modelId: string }) {
               ))}
             </dl>
           )}
+          {selectedGuid && (
+            <button
+              type="button"
+              className="ifc-lite-locate-btn"
+              disabled={locating}
+              onClick={locate}
+            >
+              {locating ? TEXT.locating : TEXT.locate}
+            </button>
+          )}
+          {notice && <p className="ifc-lite-notice">{notice}</p>}
         </div>
       </aside>
     </div>

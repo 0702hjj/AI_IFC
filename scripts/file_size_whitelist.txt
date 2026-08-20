@@ -1,0 +1,4 @@
+services/cad/app/routes_scripts.py
+services/cad/tests/test_script_runner.py
+services/ifc/app/routes_scripts.py
+services/ifc/tests/test_script_runner.py

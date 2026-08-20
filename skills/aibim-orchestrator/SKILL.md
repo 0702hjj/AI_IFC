@@ -24,7 +24,7 @@ license: Apache-2.0
 ## 接力编排（主 Agent 核心职责）
 
 - **默认情形**：设计师带成熟方案来（口述/草图/既有 DXF/既有脚本）→ 直接派 cad-agent / ifc-agent 生成。plan 不是必经环节。
-- **可选 plan 范式**：只有从模糊想法起步才提示启用。plan.json 的对齐/草案/确认是 cad-agent 的 aidxfv v2 管线内部环节（step-00 ingest → step-04 deliver，状态机 draft/confirmed 在 v2 内部流转），主 Agent 不把 plan 当独立锚点门禁。
+- **可选 plan 范式**：只有从模糊想法起步才提示启用。plan.json 由 aiplan 产出、aidxfv v3 管线消费（S0 预处理 → S4 交付，断点确认在 v3 内部流转），主 Agent 不把 plan 当独立锚点门禁。
 - **信息传递上移主 Agent**：子 Agent 之间永不直接交互、互不知道对方存在。一切产物位置（plan.json / DXF 目录 / building.json / 脚本 / IFC 版本路径）由主 Agent 维护清单，每次派发在「输入锚点」字段显式传入；子 Agent 只认主 Agent 显式给出的路径。
 - 细节约定见 `references/RELAY_CONTRACT.md`（主 Agent 接力手册）。
 
@@ -33,7 +33,7 @@ license: Apache-2.0
 1. 子 Agent 提示词模板见 references/SUBAGENTS.md（输入契约/输出契约/边界各就各位）。
 2. 一次一派发，等子 Agent 报告再决定下一步；不并行派两个写同一产物的子 Agent。
 3. 子 Agent 报告即事件载荷：含产物路径、版本号、validate 结果；汇总时原样转述关键字段，不编造。
-4. 强制确认门禁只有两个：DXF 确认、IFC 交付确认（见 references/RELAY_CONTRACT.md「确认门禁」段）。plan 确认仅在启用可选 plan 范式时存在，且由 cad-agent 的 v2 管线内部承载，不是主 Agent 门禁。
+4. 强制确认门禁只有两个：DXF 确认、IFC 交付确认（见 references/RELAY_CONTRACT.md「确认门禁」段）。plan 确认仅在启用可选 plan 范式时存在，且由 cad-agent 的 v3 管线内部承载（断点确认），不是主 Agent 门禁。
 
 ## 边界
 

@@ -35,10 +35,10 @@ headers in each file), except the vendored portions listed below.
 =====================================================================
 Vendored / forked portions (keep their own licenses)
 =====================================================================
-  skills/aidxfv/v1/            MIT — fork of earthtojake/text-to-cad (skills/dxf);
+  skills/aiplan/               MIT — main-repo original, self-contained;
                                see LICENSE in that directory
-  skills/aidxfv/v2/            MIT — same upstream; see LICENSE in that directory
-                               (except scripts/flows/, which is main-repo Apache-2.0)
+  skills/aidxfv/v3/            MIT — main-repo original, self-contained;
+                               see LICENSE in that directory
   skills/aiblueprint-mcp/      MIT — upstream thebossnow/aiblueprint-mcp;
                                see frontmatter attribution in SKILL.md
 

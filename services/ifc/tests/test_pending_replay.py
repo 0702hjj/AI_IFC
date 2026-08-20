@@ -67,16 +67,27 @@ def _write_pending_entry(data_dir: Path) -> None:
     )
 
 
-def _stage_copy_fixture_script(client: TestClient) -> None:
+def _stage_fixture_script(client: TestClient) -> None:
+    """暂存一个沙箱内自建 IFC 的脚本。
+
+    W-0047 挂载收窄后沙箱读不到宿主 fixture 文件（不再整根挂载），
+    改为沙箱内用 script_lib 构建；本组用例只关心 run 成功 + 打标。
+    """
     script = (
-        f"PARAMS = {{'src': {str(FIXTURE_IFC)!r}}}\n"
+        "import sys\n"
+        "\n"
+        "import ifcopenshell\n"
+        "\n"
+        "from script_lib import create_skeleton, write_and_validate\n"
+        "\n"
+        "PARAMS = {'name': 'pending-replay', 'storeys': {'1F': 0.0}}\n"
         "\n"
         "def build(params, out_path):\n"
-        "    import shutil\n"
-        "    shutil.copyfile(params['src'], out_path)\n"
+        "    model = ifcopenshell.file(schema='IFC4')\n"
+        "    create_skeleton(model, name=params['name'], storeys=params['storeys'])\n"
+        "    write_and_validate(model, out_path)\n"
         "\n"
         'if __name__ == "__main__":\n'
-        "    import sys\n"
         "    build(PARAMS, sys.argv[1])\n"
     )
     resp = client.put(f"/models/{MODEL_ID}/script", json={"script": script})
@@ -99,7 +110,7 @@ class TestReplayFlagging:
     ) -> None:
         _write_pending_entry(data_dir)
         client = restart()
-        _stage_copy_fixture_script(client)
+        _stage_fixture_script(client)
 
         # Script run replaces uploads/{id}.ifc and drops the in-memory model;
         # the restored pending entry must be flagged needs_replay by the run.

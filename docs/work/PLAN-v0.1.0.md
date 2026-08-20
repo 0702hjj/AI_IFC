@@ -17,12 +17,16 @@
 | v0.2 | script-closure 收口 ✅（2026-08-10，分支 feat/v0.2-script-closure）| W-0021..W-0025 | 直改退役残留消费者收口（notify 走 script 管线）；params_keys 定位聚焦；骨架确定性；校验隔离机器强制；skill hooks 校验即事件 |
 | v0.3 | orchestrator-closure ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure）| W-0017 spec + notify 事件化 + minors 清扫 + 平台框架入约 | notify 重构为 Pure Core + Imperative Shell；事件 URI 化闭环；架构方向定稿入约 |
 | v0.4 | 可复用性 + 上线健壮性 ✅（2026-08-11，分支 feat/v0.2-orchestrator-closure，PR #31）| 物理重组（viewer/ 拆分）+ Go OpenAPI + skill 打包器泛化 + services/ifc 独立调用文档 + diff 超时 + 重转去重 + stale 清扫 | 结构一步到位（services/ifc + web/server/converter/mcp 顶层化 + skills/aidxfv 收敛）；对外唯一入口机器可消费 OpenAPI；任意 skill 可打包；diff 超时 504；同源跳过重转 |
-| v0.5 | 可移植复用 ✅（2026-08-12，spec: 2026-08-12-portability-reuse-design.md，分支 feat/v0.5-portability-reuse，PR #31）| W-0026..W-0029（W-0030 仅立项保留 open；W-0031 转入下迭代） | 对接契约入站；services/ifc 镜像冒烟通过；skill 版本化 + Release runbook 文档化（首发布随下迭代）；aibim-orchestrator 提示词包可打包、W-0017 关闭 |
+| v0.5 | 可移植复用 ✅（2026-08-12，spec: 2026-08-12-portability-reuse-design.md，分支 feat/v0.5-portability-reuse，PR #31）| W-0026..W-0029（W-0030/W-0031 已于 2026-08-20 关闭：前者立项目的已达成，后者 wontfix——Docker 部署形态已移除） | 对接契约入站；services/ifc 镜像冒烟通过；skill 版本化 + Release runbook 文档化（首发布随下迭代）；aibim-orchestrator 提示词包可打包、W-0017 关闭 |
 | v0.6 | services/cad script-as-source chunk A ✅（2026-08-12，分支 feat/v0.5-portability-reuse 累积，PR #31）| W-0032, W-0033 | cad_script_lib 契约+XDATA 身份测试绿；services/cad 骨架端点与沙箱全测试绿 |
 | v0.6 | services/cad script-as-source chunk B ✅（2026-08-13，分支 feat/v0.6-cad-diff，PR #34）| W-0034, W-0035 | diff 引擎与 locate/edit-call 测试绿 |
 | v0.6 | services/cad script-as-source chunk C ✅（2026-08-13，分支 feat/v0.7-cad-render，PR #36）| W-0039, W-0040 | render.json 实体带 key + unsupported 明面化；Go kind 分流 + cad 端点代理（edit-call 除外）契约测试绿 |
 | v0.6 | services/cad script-as-source chunk D ✅（2026-08-14，分支 feat/v0.8-dxf-viewer，PR #37）| W-0041 | kind=dxf 模型 ViewerPage 分流 Canvas 只读查看器（七类实体/pan-zoom/图层/选中属性/unsupported 明面化）测试绿；编辑 UI 另立 chunk 且开工需用户确认 |
 | v0.6 | chunk E：Eino 替换 opencode + 主子编排 + web-ifc 查看器 ✅（2026-08-17 实现完毕，分支 feat/v0.9-eino-webifc，**整 chunk 单 PR** 收口）| W-0043, W-0044 | 进程内 Eino agent loop 替换 opencode（SSE/REST 契约逐字段不变）+ subagent 主子编排 + web-ifc/three IFC 查看器（与 xeokit 并存，默认 xeokit） |
+| v0.10 | 中途预览 + DXF/webifc 编辑面 ✅（2026-08-18，PR #40）| W-0045 | run_script 成功推 viewer.staged SSE 事件 + 工具结果附 staging diff 摘要；dxf/webifc 自动刷新、xeokit 手动角标；dxf/webifc 分支挂 DesignPanel 全套编辑面 + dxf 选中定位脚本；aidxfv v1/v2 遗留删除 |
+| v0.10.1 | 编辑面对齐收尾 ✅（2026-08-19，PR #43）| W-0046 | locate params_keys 断链修复（PARAMS 聚焦恢复）；webifc 选中面板补「定位脚本」；DesignPanel 版本列表加回滚按钮；script/run 响应附构件级 semanticDiff、run_script 摘要优先构件级计数；aiplan SKILL.md 补 version 修复打包 |
+| v0.11 | 沙箱加固 + 移除 Docker 改宿主直跑 ✅（2026-08-19，PR #44）| W-0047 | bwrap 按需挂载堵跨租户读（不挂 /data//etc）；RLIMIT_FSIZE + stdout 泛洪截断 + 产物大小校验 + 并发闸（429）；rlimit 降级 fail-closed（ALLOW_RLIMIT_FALLBACK 开关）；部署形态实证后改为宿主直跑（移除 Docker，server 托管 web/dist）；部署文档强制 VIEWER_API_TOKEN |
+| v0.12 | 文件行数门控合规重构 ✅（PR #48~#52，白名单收敛到 4 项）+ aiplan/aidxfv 审计收尾 | W-0049、W-0050 | 历史 plan 归档豁免 gate（白名单 25→19）；15 个超限文件按组件分 PR 拆分，纯重构不改行为、用例数不减；W-0050：golden meta 乱码键修复、假测试清理、依赖卫生、pack node 校验、删 aiplan 重复 source.dxf ×9 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 

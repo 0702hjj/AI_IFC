@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
@@ -12,6 +13,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
+
+# W-0047 fail-closed：CI/本地无 bwrap 时测试仍走 rlimit 降级路径（显式放行）。
+# TestRlimitFailClosed 用 monkeypatch 覆盖该开关的两态。
+os.environ.setdefault("ALLOW_RLIMIT_FALLBACK", "1")
 
 FIXTURE_IFC = (
     Path(__file__).resolve().parents[3]

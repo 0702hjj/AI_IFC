@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   discardScript: vi.fn(),
   runScript: vi.fn(),
   saveScript: vi.fn(),
+  rollbackScript: vi.fn(),
   postScriptDiff: vi.fn(),
   fetchStagingDiff: vi.fn(),
 }));
@@ -84,6 +85,7 @@ function setup(opts?: {
   api.discardScript.mockResolvedValue({ modelId: "m_1", discarded: 2, script: scriptText });
   api.runScript.mockResolvedValue({ modelId: "m_1", ok: true });
   api.saveScript.mockResolvedValue({ modelId: "m_1", version: "v3", staged: 0 });
+  api.rollbackScript.mockResolvedValue({ modelId: "m_1", version: "v1", script: scriptText });
   api.postScriptDiff.mockResolvedValue(bigDiff);
   api.fetchStagingDiff.mockResolvedValue(stagingDiff);
 }
@@ -348,6 +350,54 @@ describe("DesignPanel script jump（定位脚本）", () => {
       })
     );
     await waitFor(() => expect(scroll).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe("DesignPanel 回滚到版本", () => {
+  let confirmSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+  });
+  afterEach(() => {
+    confirmSpy.mockRestore();
+  });
+
+  it("版本列表每行渲染；当前（最新）版本无回滚按钮", async () => {
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("大版本对比");
+    expect(screen.getByTestId("version-row-v1")).toBeTruthy();
+    expect(screen.getByTestId("version-row-v2")).toBeTruthy();
+    expect(screen.getByTestId("rollback-v1")).toBeTruthy();
+    expect(screen.queryByTestId("rollback-v2")).toBeNull();
+  });
+
+  it("确认后回滚：调 rollbackScript + 脚本重载刷新 + flag 模型重载", async () => {
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("大版本对比");
+    const before = api.fetchScript.mock.calls.length;
+    fireEvent.click(screen.getByTestId("rollback-v1"));
+    expect(confirmSpy).toHaveBeenCalled();
+    await waitFor(() => expect(api.rollbackScript).toHaveBeenCalledWith("m_1", "v1"));
+    // 复用既有刷新路径：rollback 端点重置 staging 并重跑进 uploads → 重拉脚本 + flag 重载
+    await waitFor(() => expect(api.fetchScript.mock.calls.length).toBeGreaterThan(before));
+    await waitFor(() => expect(useViewerStore.getState().pendingModelReload).toBe(true));
+  });
+
+  it("取消确认：不调 rollbackScript", async () => {
+    confirmSpy.mockReturnValue(false);
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("大版本对比");
+    fireEvent.click(screen.getByTestId("rollback-v1"));
+    expect(api.rollbackScript).not.toHaveBeenCalled();
+  });
+
+  it("回滚失败显示错误，不 flag 模型重载", async () => {
+    api.rollbackScript.mockRejectedValue(new Error("HTTP 404: version not found"));
+    render(<DesignPanel modelId="m_1" />);
+    await screen.findByText("大版本对比");
+    fireEvent.click(screen.getByTestId("rollback-v1"));
+    expect(await screen.findByText(/version not found/)).toBeTruthy();
+    expect(useViewerStore.getState().pendingModelReload).toBe(false);
   });
 });
 

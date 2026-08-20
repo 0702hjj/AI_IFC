@@ -240,6 +240,37 @@ func TestScriptSandboxActionsUseSlowClient(t *testing.T) {
 	}
 }
 
+// run 响应新增的可选 semanticDiff（构件级 diff 计数）随 RawMessage 自然透传，
+// envelope 不动、既有字段不动（Item D 红线）。
+func TestScriptRunSemanticDiffPassthrough(t *testing.T) {
+	py, pyURL := newFakePy(t)
+	env := newEditEnv(t, pyURL)
+	mockBody := `{"modelId":"` + env.modelID + `","ok":true,` +
+		`"semanticDiff":{"added":2,"removed":1,"changed":3}}`
+	py.set("POST", "/models/"+env.modelID+"/script/run", 200, mockBody)
+	rec := doEditReq(t, env.mux, "POST", "/api/v1/models/"+env.modelID+"/script/run", `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body)
+	}
+	e := decodeEnv(t, rec)
+	if e.Code != 0 {
+		t.Fatalf("envelope code = %d (body %s)", e.Code, rec.Body)
+	}
+	var got, want interface{}
+	if err := json.Unmarshal(e.Data, &got); err != nil {
+		t.Fatalf("data not JSON: %v", err)
+	}
+	if err := json.Unmarshal([]byte(mockBody), &want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("data = %s, want %s", e.Data, mockBody)
+	}
+	// run 成功会排 XKT 重转（异步写 models/{id}/），等其落地再结束
+	waitRun(t, env.runs)
+	waitReady(t, env.st, env.modelID)
+}
+
 // 小版本 diff（暂存链步间）：GET + query 透传，包 envelope（W-0012）。
 func TestScriptStagingDiffProxy(t *testing.T) {
 	py, pyURL := newFakePy(t)

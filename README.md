@@ -46,21 +46,28 @@ AI agent ──► REST editing API ────┘
 
 ## Quick start
 
-See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `web` (React + xeokit), `server` (Go), `converter` (Node), `services/ifc` (Python FastAPI + IfcOpenShell).
-
-One-command start (recommended, Docker only): `docker compose up --build` → open http://localhost:8080 (tunables in `.env.example`).
-
-Manual start:
+See [Environment & Local Deployment](https://0702hjj.github.io/AI_IFC/guide/quickstart). Four components: `web` (React + xeokit), `server` (Go), `converter` (Node), `services/ifc` (Python FastAPI + IfcOpenShell). Runs directly on the host, no Docker.
 
 ```bash
+# One-time dependency install
 cd converter && npm install
+cd ../web && npm install
 cd ../services/ifc && uv sync
-VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100 &
-cd ../server && go run ./cmd/server &
-cd ../web && npm install && npm run dev
+
+# Terminal 1: edit-service (:8100)
+cd services/ifc
+VIEWER_DATA_DIR="$(cd ../data && pwd)" uv run uvicorn app.main:app --port 8100
+
+# Terminal 2: Go server (:8090)
+cd server && go run ./cmd/server
+
+# Terminal 3: web dev server (:5173)
+cd web && npm run dev
 ```
 
 Open http://localhost:5173 and upload `converter/test/fixtures/wall-with-opening-and-window.ifc`.
+
+Production shape: after `cd web && npm run build`, the Go server serves `web/dist` itself (single port :8090, SPA fallback + long caching for fingerprinted assets) — no nginx needed.
 
 ## AI: two complementary routes
 
@@ -73,7 +80,7 @@ The skill is agent-agnostic (opencode, Claude Code, Cursor, …). Bundle it with
 
 ```bash
 python tools/skill_pack.py --archive   # produces skills/dist/aiifc.tar.gz (default skill: aiifc)
-python tools/skill_pack.py --skill-dir skills/aidxfv/v1 --archive   # any skill dir (here: CAD v1)
+python tools/skill_pack.py --skill-dir skills/aidxfv/v3 --archive   # any skill dir (here: CAD v3)
 ```
 
 ## Repository layout
@@ -83,7 +90,7 @@ The platform provides **two peer logic legs** — AI-generated IFC and AI-genera
 ```
 AGENTS.md          # human-AI collaboration contract (agent entry point)
 skills/aiifc/      # AI authoring skill — IFC leg (distributable, agent-agnostic)
-skills/aidxfv/     # AI authoring skill — CAD leg (v1 general DXF / v2 floor-plan pipeline)
+skills/aidxfv/     # AI authoring skill — CAD leg (v3 plan→cad floor-plan pipeline; v1/v2 removed 2026-08-18)
 services/ifc/      # IFC business-logic core: diff + script-as-source editing API
 services/cad/      # CAD business-logic core: diff + editing API (to build, peer of services/ifc)
 web/               # optional frontend (React 19 + xeokit, :5173)
@@ -101,7 +108,7 @@ docs/superpowers/  # design specs and implementation plans (process artifacts)
 examples/          # IFC-era example scripts
 ```
 
-`services/ifc/` is the IFC business-logic core; `skills/aidxfv/v1|v2` + `skills/aiblueprint-mcp` are the CAD skill domain (moved from the former `AI_CAD/`); `web|server|converter|mcp|scripts|data` are the shared optional runtime (moved out of the former `viewer/`). CAD research material lives in `research/cad/`.
+`services/ifc/` is the IFC business-logic core; `skills/aiplan` + `skills/aidxfv/v3` + `skills/aiblueprint-mcp` are the CAD skill domain (moved from the former `AI_CAD/`); `web|server|converter|mcp|scripts|data` are the shared optional runtime (moved out of the former `viewer/`). CAD research material lives in `research/cad/`.
 
 The SimpleCADAPI heritage code (`src/`, `skills/simplecadapi/`, SCAD-era packaging files) was moved to the private archive repo [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive) on 2026-08-06; this repo no longer contains it.
 

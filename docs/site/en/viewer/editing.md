@@ -31,6 +31,15 @@ Form submits and editor saves pass static contract validation first (422 with ze
 - **Run** → sandbox-execute the staged script for a preview, without creating a version.
 - **Save version** → run the script to produce the IFC and promote to big version v{n+1} (script + map snapshotted as a pair; only the latest IFC is materialized — see [Versions & Diff Viewer](/en/viewer/versions-diff)).
 
+## DXF and webifc editing surface
+
+The Design panel (PARAMS form / script editor / staging / run / save / big-version diff) is not xeokit-only — **the dxf (Canvas viewer) and webifc engine branches mount the same full editing surface**, sharing the same store and REST contract:
+
+- **DXF select → locate script**: select an entity carrying a key (render.json carries it via XDATA) in the dxf canvas and the selection panel shows a **"Locate script"** button — it calls `GET /api/v1/models/{id}/script/locate?key=`; on a hit the Design panel switches to the script editor and jumps to the call line, highlighted (the same jump pipeline as IFC guid locate). Entities without a key do not show the button; locate misses / stale staging / request failures surface a degraded hint in the panel.
+- **webifc select → locate script**: the webifc engine's selection panel has the same **"Locate script"** button — it takes the GlobalId from the property row and calls `locate?guid=`, jumping through the same pipeline on a hit. Elements without a GlobalId do not show the button; misses / stale staging / failures degrade with a hint as well.
+- **Version rollback**: in the Design panel's version list, every non-current version row has a **"Roll back to this version"** button — after confirmation it restores that big version's script and re-runs it into the current artifact (`script/rollback`), and the canvas refreshes automatically.
+- **Mid-run live preview**: after a successful "Run" (by the AI or a human) the server pushes a `viewer.staged` event — the dxf and webifc branches **auto-refresh** the canvas (render.json / direct IFC reads are cheap); the xeokit branch shows a badge "AI 中间结果 · 点击预览" at the top-left of the canvas instead, reloading only on click (XKT reconversion is slow and flickery). Saving a big version still refreshes via `viewer.committed` as before.
+
 ## Bootstrap: uploaded IFC → script (AI route)
 
 With AI involved, an uploaded IFC is meant as a **reference for reproduction**:

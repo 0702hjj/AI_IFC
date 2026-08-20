@@ -33,7 +33,7 @@ AI_IFC/
 └── NOTICE                    # 三方组件与归档代码边界
 ```
 
-原 `viewer/` 目录已物理拆分：`edit-service` → `services/ifc/`、`web|server|converter|mcp-server|scripts` → 顶层同名目录、`data` → 顶层 `data/`（gitignored）；原 `AI_CAD/` 已收编：`aidxfv1|aidxfv2` → `skills/aidxfv/v1|v2`、`aiblueprint-mcp` → `skills/aiblueprint-mcp/`、`docs/buildingplan` → `skills/aidxfv/docs/`、调研 → `research/cad/`。SCAD 遗产代码（`src/simplecadapi/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
+原 `viewer/` 目录已物理拆分：`edit-service` → `services/ifc/`、`web|server|converter|mcp-server|scripts` → 顶层同名目录、`data` → 顶层 `data/`（gitignored）；原 `AI_CAD/` 已收编：`aidxfv` → `skills/aidxfv/`（v1/v2 遗留版已于 2026-08-18 删除，现仅存 v3 正式版）、`aiblueprint-mcp` → `skills/aiblueprint-mcp/`、`docs/buildingplan` → `skills/aidxfv/docs/`、调研 → `research/cad/`。SCAD 遗产代码（`src/simplecadapi/`、`skills/simplecadapi/`、根打包配置）已于 2026-08-06 移至私有归档仓 [0702hjj/SimpleCADAPI-archive](https://github.com/0702hjj/SimpleCADAPI-archive)，本仓不再包含。
 
 ## 文档边界
 

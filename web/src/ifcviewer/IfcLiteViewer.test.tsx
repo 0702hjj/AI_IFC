@@ -10,7 +10,7 @@
 // 拾取/树点击的选中联动（store.setSelected + 场景 setSelection）。
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { act, cleanup, render, screen, fireEvent } from "@testing-library/react";
+import { act, cleanup, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 
 // three 挂载层 fake：IfcLiteViewer 不直接 import three，mock 后测试进程不加载真 three
 const mountLayer = vi.hoisted(() => {
@@ -89,7 +89,9 @@ const fakeApi = vi.hoisted(() => {
     GetVertexArray: () => new Float32Array([0, 0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1]),
     GetIndexArray: () => new Uint32Array([0, 1, 2]),
     GetLine: (_id: number, eid: number) =>
-      eid === 11 ? { Name: { value: "基本墙" }, Tag: { value: "W-1" } } : undefined,
+      eid === 11
+        ? { Name: { value: "基本墙" }, Tag: { value: "W-1" }, GlobalId: { value: "0abc$W" } }
+        : undefined,
     properties: {
       getSpatialStructure: vi.fn(async () => ({
         expressID: 1,
@@ -120,6 +122,7 @@ vi.mock("./ifcLoader", async (importOriginal) => {
 
 const clientFake = vi.hoisted(() => ({
   downloadIfcBytes: vi.fn(),
+  locateScript: vi.fn(),
 }));
 vi.mock("@/api/client", () => clientFake);
 
@@ -130,17 +133,19 @@ import { useViewerStore } from "@/viewer/store";
 beforeEach(() => {
   clientFake.downloadIfcBytes.mockReset();
   clientFake.downloadIfcBytes.mockResolvedValue(new Uint8Array([1, 2, 3]));
+  clientFake.locateScript.mockReset();
+  clientFake.locateScript.mockResolvedValue({ found: false });
   mountLayer.mountIfcScene.mockClear();
   mountLayer.handles.length = 0;
   mountLayer.pickResult = null;
   fakeApi.state.openedWith = [];
   fakeApi.state.closed = [];
-  useViewerStore.setState({ selectedId: null });
+  useViewerStore.setState({ selectedId: null, scriptJump: null });
 });
 
 afterEach(() => {
   cleanup();
-  useViewerStore.setState({ selectedId: null });
+  useViewerStore.setState({ selectedId: null, scriptJump: null });
 });
 
 function renderViewer(modelId = "m_abcd0000abcd0001") {
@@ -221,5 +226,95 @@ describe("IfcLiteViewer 选中联动", () => {
     expect(useViewerStore.getState().selectedId).toBe("2");
     expect(mountLayer.handles[0].setSelection).toHaveBeenCalledWith(2);
     expect(await screen.findByText("该节点无属性")).toBeTruthy();
+  });
+});
+
+// 定位脚本（选中 → 属性行取 GlobalId → locate → requestScriptJump → DesignPanel 跳行，
+// 对齐 PropertyPanel 的 xeokit 链路；webifc 侧 selectedId 是 expressID，guid 从属性行取）。
+// miss/stale/请求失败降级为非阻断提示；无 GlobalId 的选中不渲染按钮。
+describe("IfcLiteViewer 定位脚本", () => {
+  async function pickWall() {
+    renderViewer();
+    await ready();
+    mountLayer.pickResult = 11;
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("ifc-canvas"));
+    });
+    // 等属性行（含 GlobalId）落地再点按钮
+    await screen.findByText("0abc$W");
+  }
+
+  it("选中带 GlobalId 的构件 → 按 guid locate 命中 → scriptJump 入 store + 提示", async () => {
+    clientFake.locateScript.mockResolvedValue({
+      found: true, designKey: "wall-1", line: 12, col: 4, origin: "literal", params_keys: [],
+    });
+    await pickWall();
+    const panel = screen.getByTestId("ifc-props");
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole("button", { name: "定位脚本" }));
+    });
+    expect(clientFake.locateScript).toHaveBeenCalledWith("m_abcd0000abcd0001", "0abc$W");
+    await waitFor(() =>
+      expect(useViewerStore.getState().scriptJump).toMatchObject({ line: 12, origin: "literal" })
+    );
+    expect(await screen.findByText(/已定位到脚本第 12 行/)).toBeTruthy();
+  });
+
+  it("origin=params 命中透传 paramsKeys（snake_case 载荷 → camel store，PARAMS 表单聚焦键）", async () => {
+    clientFake.locateScript.mockResolvedValue({
+      found: true, designKey: "wall-1", line: 3, col: 0, origin: "params", params_keys: ["wall_t"],
+    });
+    await pickWall();
+    const panel = screen.getByTestId("ifc-props");
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole("button", { name: "定位脚本" }));
+    });
+    await waitFor(() => expect(useViewerStore.getState().scriptJump?.line).toBe(3));
+    expect(useViewerStore.getState().scriptJump?.paramsKeys).toEqual(["wall_t"]);
+  });
+
+  it("locate miss → 非阻断提示，不发 scriptJump，属性仍可见", async () => {
+    clientFake.locateScript.mockResolvedValue({ found: false });
+    await pickWall();
+    const panel = screen.getByTestId("ifc-props");
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole("button", { name: "定位脚本" }));
+    });
+    expect(await screen.findByText(/没有脚本调用点/)).toBeTruthy();
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+    expect(screen.getByText("基本墙")).toBeTruthy();
+  });
+
+  it("locate stale（staging 与 map 分叉）→ 过期提示，不发 scriptJump", async () => {
+    clientFake.locateScript.mockResolvedValue({ found: false, stale: true });
+    await pickWall();
+    const panel = screen.getByTestId("ifc-props");
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole("button", { name: "定位脚本" }));
+    });
+    expect(await screen.findByText(/已过期/)).toBeTruthy();
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+  });
+
+  it("locate 请求失败 → 降级提示，不抛错", async () => {
+    clientFake.locateScript.mockRejectedValue(new Error("HTTP 500"));
+    await pickWall();
+    const panel = screen.getByTestId("ifc-props");
+    await act(async () => {
+      fireEvent.click(within(panel).getByRole("button", { name: "定位脚本" }));
+    });
+    expect(await screen.findByText(/脚本定位不可用/)).toBeTruthy();
+    expect(useViewerStore.getState().scriptJump).toBeNull();
+  });
+
+  it("无 GlobalId 的选中（树节点 storey）不渲染定位按钮", async () => {
+    renderViewer();
+    await ready();
+    await act(async () => {
+      fireEvent.click(screen.getByText("IFCBUILDINGSTOREY #2"));
+    });
+    await screen.findByText("该节点无属性");
+    const panel = screen.getByTestId("ifc-props");
+    expect(within(panel).queryByRole("button", { name: "定位脚本" })).toBeNull();
   });
 });

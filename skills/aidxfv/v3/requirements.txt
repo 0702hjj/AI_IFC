@@ -1,3 +1,5 @@
 ezdxf
 shapely
+# Pillow：skill 代码零直接 import，但 ezdxf.addons.drawing.frontend（dxfkit/svg.py
+# SVG 导出链路）在模块 import 时硬性 import PIL.Image——transitive 运行期依赖，不可删
 Pillow

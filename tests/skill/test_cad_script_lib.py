@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FLOWS_DIR = REPO_ROOT / "skills" / "aidxfv" / "v1" / "scripts" / "flows"
-SKILL_MD = REPO_ROOT / "skills" / "aidxfv" / "v1" / "SKILL.md"
+FLOWS_DIR = REPO_ROOT / "services" / "cad" / "flows"
+SKILL_MD = REPO_ROOT / "services" / "cad" / "README.md"
 
 sys.path.insert(0, str(FLOWS_DIR))
 
@@ -276,13 +276,13 @@ class TestWriteAndValidate:
 
 
 class TestDocDrift:
-    """SKILL.md 引用的 cad_script_lib.<name> 必须在实现中存在(漂移防护)。"""
+    """services/cad README 引用的 cad_script_lib.<name> 必须在实现中存在(漂移防护)。"""
 
     def test_skill_md_referenced_names_exist(self):
         text = SKILL_MD.read_text(encoding="utf-8")
         documented = set(re.findall(r"cad_script_lib\.(\w+)", text))
         documented.discard("py")  # 排除路径引用 cad_script_lib.py
-        assert documented, "SKILL.md 应引用 cad_script_lib.<name>"
+        assert documented, "services/cad README 应引用 cad_script_lib.<name>"
         for name in documented:
             assert hasattr(cad_script_lib, name), \
                 f"cad_script_lib 缺少 SKILL.md 引用的 {name}"
