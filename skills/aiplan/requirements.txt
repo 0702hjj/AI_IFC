@@ -3,4 +3,5 @@
 --editable ./scripts/packages/aiplan_tools
 jsonschema
 shapely
-pytest
+# 可选：ezdxf —— 仅 translate_golden 的 golden 坐标诊断（source_dxf_bbox）用，
+# 缺失时自动降级跳过（coord_report.note 标注），不列入运行期依赖

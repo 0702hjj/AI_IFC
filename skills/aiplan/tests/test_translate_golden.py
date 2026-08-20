@@ -117,3 +117,21 @@ class TestTranslateCase:
             r = translate_case(case_dir, write=False)
             assert r["schema_errors"] == [], \
                 f"{r['case_id']}: {r['schema_errors'][:2]}"
+
+
+class TestSourceDxfMissing:
+    """source.dxf 缺失时优雅降级（W-0050：aiplan 侧 source.dxf 已删，诊断可选）。"""
+
+    def test_translate_without_source_dxf(self, tmp_path):
+        import shutil
+        src = GOLDEN / "residence" / "res_2s4u_std"
+        case = tmp_path / "res_2s4u_std"
+        case.mkdir()
+        shutil.copy(src / "design_intent.json", case)
+        shutil.copy(src / "meta.json", case)
+        result = translate_case(case, write=False)
+        assert result["schema_errors"] == []
+        report = result["coord_report"]
+        assert report["source_bbox"] is None
+        assert "跳过坐标对比" in report["note"]
+        assert report["intent_bbox"] is not None
