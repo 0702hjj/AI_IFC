@@ -20,11 +20,14 @@ type chatSession struct {
 	ID string `json:"chatSessionId"`
 	// AgentID 是内置 agent 的会话 id（事件日志 {DataDir}/chat/{AgentID}.jsonl）。
 	// JSON 字段名保留 opencodeSessionId——web client.ts 的 ChatSession 契约不动。
-	AgentID   string    `json:"opencodeSessionId"`
-	ModelID   string    `json:"modelId"`
-	Title     string    `json:"title"`
-	CreatedAt string    `json:"createdAt"`
-	dirty     bool      `json:"-"` // write/edit 工具改过 uploads/{modelId}.ifc（file.edited 捕获）
+	AgentID string `json:"opencodeSessionId"`
+	ModelID string `json:"modelId"`
+	// ProjectID 是项目级绑定（A2：1 session = 1 project）。旧会话无 ProjectID
+	// 视为单模型项目（模型即项目主体，兼容迁移）；幂等键 projectId 非空时优先。
+	ProjectID string `json:"projectId,omitempty"`
+	Title     string `json:"title"`
+	CreatedAt string `json:"createdAt"`
+	dirty     bool   `json:"-"` // write/edit 工具改过 uploads/{modelId}.ifc（file.edited 捕获）
 	lastCheck time.Time `json:"-"` // 上次变更检测时刻；idle 时 mtime 晚于它即视为被改（兜底 bash/脚本改文件场景）
 }
 
@@ -124,6 +127,21 @@ func (h *ChatHandler) findSession(modelID string) *chatSession {
 	return nil
 }
 
+// findSessionByProject 按 projectId 查已绑定会话（A2：1 session = 1 project）。
+func (h *ChatHandler) findSessionByProject(projectID string) *chatSession {
+	if projectID == "" {
+		return nil
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	for _, cs := range h.sessions {
+		if cs.ProjectID == projectID {
+			return cs
+		}
+	}
+	return nil
+}
+
 // createLock 返回某 modelId 专用的创建串行锁（同 modelId 并发请求共享同一把，互不阻塞其他 modelId）。
 func (h *ChatHandler) createLock(key string) *sync.Mutex {
 	h.createMu.Lock()
@@ -138,34 +156,61 @@ func (h *ChatHandler) createLock(key string) *sync.Mutex {
 
 func (h *ChatHandler) createSession(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Title   string `json:"title"`
-		ModelID string `json:"modelId"`
+		Title     string `json:"title"`
+		ModelID   string `json:"modelId"`
+		ProjectID string `json:"projectId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "invalid json body")
 		return
 	}
+	// A2：projectId 非空 → 项目必须存在（verify 层，业务规则不在 handler 内联）。
+	// 项目绑定优先；无 projectId 时退回 modelId 幂等（旧语义：单模型项目）。
+	if body.ProjectID != "" {
+		if h.deps.Ps == nil {
+			writeErr(w, http.StatusBadRequest, codeInvalidType, "project store 未配置")
+			return
+		}
+		if _, err := h.deps.Ps.Get(body.ProjectID); err != nil {
+			writeErr(w, http.StatusBadRequest, codeNotFound, "project not found: "+body.ProjectID)
+			return
+		}
+		if existing := h.findSessionByProject(body.ProjectID); existing != nil {
+			writeJSON(w, existing)
+			return
+		}
+	}
 	// 幂等：同一 modelId 只会有一个会话——退出再打开返回同一会话（会话连续性）。
 	// 快速路径：读锁先查，命中即返回。
-	if existing := h.findSession(body.ModelID); existing != nil {
-		writeJSON(w, existing)
-		return
+	if body.ModelID != "" {
+		if existing := h.findSession(body.ModelID); existing != nil {
+			writeJSON(w, existing)
+			return
+		}
 	}
 	if body.Title == "" {
 		body.Title = "chat"
 	}
 	// per-modelId 串行创建：同 modelId 的并发请求在此互斥（StrictMode dev 双发 / 用户连点），
 	// 网络往返在锁内但仅阻塞同 modelId；拿到锁后 double-check，已被别人建好就直接复用。
-	cmu := h.createLock(body.ModelID)
+	cmu := h.createLock(body.ModelID + "|" + body.ProjectID)
 	cmu.Lock()
 	defer cmu.Unlock()
-	if existing := h.findSession(body.ModelID); existing != nil {
-		writeJSON(w, existing)
-		return
+	if body.ProjectID != "" {
+		if existing := h.findSessionByProject(body.ProjectID); existing != nil {
+			writeJSON(w, existing)
+			return
+		}
+	}
+	if body.ModelID != "" {
+		if existing := h.findSession(body.ModelID); existing != nil {
+			writeJSON(w, existing)
+			return
+		}
 	}
 	cs := &chatSession{
 		ID: newChatID(), AgentID: newAgentSessionID(), ModelID: body.ModelID,
-		Title: body.Title, CreatedAt: time.Now().UTC().Format(time.RFC3339),
+		ProjectID: body.ProjectID, Title: body.Title, CreatedAt: time.Now().UTC().Format(time.RFC3339),
 		lastCheck: time.Now(),
 	}
 	h.mu.Lock()
