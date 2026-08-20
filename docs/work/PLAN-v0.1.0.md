@@ -26,7 +26,7 @@
 | v0.10 | 中途预览 + DXF/webifc 编辑面 ✅（2026-08-18，PR #40）| W-0045 | run_script 成功推 viewer.staged SSE 事件 + 工具结果附 staging diff 摘要；dxf/webifc 自动刷新、xeokit 手动角标；dxf/webifc 分支挂 DesignPanel 全套编辑面 + dxf 选中定位脚本；aidxfv v1/v2 遗留删除 |
 | v0.10.1 | 编辑面对齐收尾 ✅（2026-08-19，PR #43）| W-0046 | locate params_keys 断链修复（PARAMS 聚焦恢复）；webifc 选中面板补「定位脚本」；DesignPanel 版本列表加回滚按钮；script/run 响应附构件级 semanticDiff、run_script 摘要优先构件级计数；aiplan SKILL.md 补 version 修复打包 |
 | v0.11 | 沙箱加固 + 移除 Docker 改宿主直跑 ✅（2026-08-19，PR #44）| W-0047 | bwrap 按需挂载堵跨租户读（不挂 /data//etc）；RLIMIT_FSIZE + stdout 泛洪截断 + 产物大小校验 + 并发闸（429）；rlimit 降级 fail-closed（ALLOW_RLIMIT_FALLBACK 开关）；部署形态实证后改为宿主直跑（移除 Docker，server 托管 web/dist）；部署文档强制 VIEWER_API_TOKEN |
-| v0.12 | 文件行数门控合规重构（进行中）| W-0049 | 历史 plan 归档豁免 gate（白名单 25→19）；剩余 15 个超限文件按组件分 PR 拆分（routes_scripts.py ×2 + runner 测试 ×2 留 W-0048 顺手收口），纯重构不改行为、用例数不减 |
+| v0.12 | 文件行数门控合规重构 ✅（PR #48~#52，白名单收敛到 4 项）+ aiplan/aidxfv 审计收尾 | W-0049、W-0050 | 历史 plan 归档豁免 gate（白名单 25→19）；15 个超限文件按组件分 PR 拆分，纯重构不改行为、用例数不减；W-0050：golden meta 乱码键修复、假测试清理、依赖卫生、pack node 校验、删 aiplan 重复 source.dxf ×9 |
 
 ## M1 修复冲刺（建议分支 `fix/post-v2-audit`）
 
