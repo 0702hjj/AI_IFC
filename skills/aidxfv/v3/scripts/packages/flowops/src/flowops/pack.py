@@ -7,7 +7,18 @@ mission.json 字段对齐 architecture §5 状态机；state.json 是恢复唯�
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
+
+# node 是 missions/ 下的目录名（CLI 参数直传）：<zone>.<stage> 段式命名，
+# 段内仅字母/数字/_/-——拒绝路径分隔符与 .. 穿越（对齐主仓 modelId 白名单风格）
+_NODE_RE = re.compile(r"^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$")
+
+
+def _validate_node(node: str) -> None:
+    if not _NODE_RE.match(node or ""):
+        raise ValueError(
+            f"invalid node {node!r}: 期望 <zone>.<stage>（段内仅 [A-Za-z0-9_-]）")
 
 
 def pack_mission(node: str, project_dir: str, inputs: dict,
@@ -26,6 +37,7 @@ def pack_mission(node: str, project_dir: str, inputs: dict,
         由主 agent 派发前用 goldlib 预筛（pattern 命中段 / case skeleton_dsl）
     :return: mission dict
     """
+    _validate_node(node)
     project = Path(project_dir)
     mission_dir = project / "missions" / node
     mission_dir.mkdir(parents=True, exist_ok=True)
@@ -119,6 +131,7 @@ def init_state(project_dir: str) -> dict:
 
 def register_mission(node: str, project_dir: str) -> dict:
     """把新 mission 登记进 state.json（不重复）。"""
+    _validate_node(node)
     project = Path(project_dir)
     state_path = project / "state.json"
     if not state_path.exists():
