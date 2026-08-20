@@ -11,8 +11,8 @@ violations=0
 
 while IFS= read -r f; do
   case "$f" in
-    # 自动生成物 / golden 参考物 / wasm 二进制 / 调研镜像文档：不计入门控
-    docs/site/public/*|*/references/golden/*|*/tests/golden/*|web/public/wasm/*|research/*) continue ;;
+    # 自动生成物 / golden 参考物 / wasm 二进制 / 调研镜像文档 / 已执行完毕的历史 plan 归档：不计入门控
+    docs/site/public/*|*/references/golden/*|*/tests/golden/*|web/public/wasm/*|research/*|docs/superpowers/plans/*) continue ;;
   esac
   case "$f" in
     *.py|*.go|*.ts|*.tsx|*.js|*.mjs|*.css|*.sh|*.md|*.toml|*.yaml|*.yml|*.html) ;;
