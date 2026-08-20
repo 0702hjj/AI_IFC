@@ -32,13 +32,15 @@ graph LR
   CV -->|model.xkt + metadata.json| FS
 ```
 
-## chat agent（Eino，进程内）
+## chat agent（Eino ADK，进程内）
 
-chat 侧 AI 对话由 `server/internal/agent/` 的 **Eino react agent loop** 驱动（cloudwego/eino + OpenAI 兼容组件），完全在 Go 进程内运行：
+chat 侧 AI 对话由 `server/internal/agent/` 的 **Eino ADK** 驱动（`adk.ChatModelAgent` + `Runner` + OpenAI 兼容组件），完全在 Go 进程内运行：
 
-- **事件流**：agent 事件经翻译层产出与前端 ChatSidebar 契约一致的 SSE 帧（message/part 事件族），会话持久化为 append-only JSONL 事件日志（投影派生消息历史）。原 opencode serve 外部进程已退役（W-0043），SSE/REST 契约不变。
+- **事件流**：ADK AgentEvent 经翻译层映射为平台事件，再产出与前端 ChatSidebar 契约一致的 SSE 帧（message/part 事件族）；会话持久化为 append-only JSONL 事件日志（投影派生消息历史 + 跨 turn 历史回填）。原 opencode serve 外部进程已退役（W-0043），SSE/REST 契约不变。
 - **领域工具集**：LLM 不给 bash/任意文件工具，只给平台领域工具（`list_models` / `get_model_info` / `get_script` / `stage_script` / `run_script` / `save_script` / `get_versions` / `get_diff` / `create_project`），按模型 kind 路由到 edit-service 或 cad-edit-service；工具错误以文本返回供模型自愈，结果 64KB 截断。
-- **主子编排**：主 agent 经 `subagent` 工具派 `ifc-agent` / `cad-agent` 子 agent（独立 agent run，深度预算 1 防递归）；子 agent 事件带 `subagentId` 标签经同一 SSE 下发，前端右侧边栏分组展示。
+- **三角色编排（AgentAsTool）**：orchestrator（对话入口 + 意图路由）经官方 `AgentAsTool` 派 `ifc-agent`（aiifc skill）/ `cad-agent`（aidxf skill）子 agent——独立 ChatModelAgent + 独立模型实例，深度预算 1（子 agent 无派发工具）；子 agent 事件带 `subagentId` 标签经同一 SSE 下发，前端右侧边栏分组展示。
+- **skill 能力**：`skills/dist` 正式集合（aiplan/aiifc/aidxf）经官方 skill middleware 加载；filesystem 收敛适配（读 references + execute 白名单 CLI，禁任意文件写）；独立 skill venv 提供 CLI 执行环境。
+- **会话连续性 + HITL**：跨 turn 历史回填（检查阀门 ≤60% context 全量喂 / 超预算语义压缩）；`ask_user` 工具（官方 interrupt/resume）→ `question.ask` SSE 帧，用户回答经 `/answer` 续跑。
 - **离线模式（scriptedModel）**：`llmAPIKey` 为空时回退确定性脚本模型——测试与离线 demo 不依赖真实 LLM。
 
 ## 组件职责
