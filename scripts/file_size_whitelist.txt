@@ -1,5 +1,3 @@
-server/internal/agent/tools_test.go
-server/internal/api/chat_tools_test.go
 services/cad/app/routes_scripts.py
 services/cad/tests/test_script_runner.py
 services/ifc/app/routes_scripts.py
