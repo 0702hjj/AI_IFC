@@ -86,6 +86,7 @@ func (h *ChatHandler) registerRoutes() {
 	h.mux.HandleFunc("GET /api/v1/chat/sessions/{cid}/messages", h.getMessages)
 	h.mux.HandleFunc("GET /api/v1/chat/sessions/{cid}/events", h.events)
 	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/abort", h.abortSession)
+	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/answer", h.answerSession)
 	h.mux.HandleFunc("POST /api/v1/chat/projects", h.createProject)
 	// B1 方案级存储（交付对齐）：项目资源下的 plan 产物（plan/cad/ifc 共享项目，
 	// plan.json/bim_supplement.json 挂项目资源前缀，非 chat 专属模块）

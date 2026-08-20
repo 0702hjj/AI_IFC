@@ -7,7 +7,7 @@
 // useChatStream，part 展示子组件（ToolCard/SubagentPanel/ReasoningBlock）在
 // ChatSidebarParts，SSE 解析纯函数在 chatStreamUtils（W-0049 行数门控拆分）。
 import { useEffect, useRef, useState } from "react";
-import { postChatMessage, abortChatSession, type ChatSession } from "@/api/client";
+import { postChatMessage, abortChatSession, answerChatQuestion, type ChatSession } from "@/api/client";
 import { useViewerStore } from "./store";
 import { useChatStream } from "./useChatStream";
 import { MarkdownBubble, ReasoningBlock, SubagentPanel, ToolCard } from "./ChatSidebarParts";
@@ -16,13 +16,33 @@ import "./ChatSidebar.css";
 export function ChatSidebar({ session }: { session: ChatSession }) {
   const chatOpen = useViewerStore((s) => s.chatOpen);
   const setChatOpen = useViewerStore((s) => s.setChatOpen);
-  const { messages, setMessages, subagents, busy, setBusy, connLost } = useChatStream(session);
+  const { messages, setMessages, subagents, busy, setBusy, connLost, question, setQuestion } = useChatStream(session);
   const [input, setInput] = useState("");
+  const [answer, setAnswer] = useState("");
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, chatOpen]);
+
+  // HITL：提交问题回答 → /answer 续跑
+  const submitAnswer = async () => {
+    if (!question) return;
+    const text = answer.trim();
+    if (!text) return;
+    setAnswer("");
+    setQuestion(null);
+    setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: "user", kind: "text", text }]);
+    try {
+      await answerChatQuestion(session.chatSessionId, question.interruptId, text);
+    } catch (e) {
+      setBusy(false);
+      setMessages((prev) => [
+        ...prev,
+        { id: `e-${Date.now()}`, role: "system", kind: "system", text: `回答失败：${(e as Error).message}` },
+      ]);
+    }
+  };
 
   const send = async () => {
     const text = input.trim();
@@ -80,16 +100,34 @@ export function ChatSidebar({ session }: { session: ChatSession }) {
         <div ref={bottomRef} />
       </div>
       <div className="chat-inputbar">
-        <textarea
-          value={input}
-          placeholder={session.modelId ? "描述修改需求…" : "描述想建的模型…"}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-        />
-        {busy ? (
-          <button className="chat-stop" onClick={stop} title="停止 AI 当前执行">⏹ 停止</button>
+        {question ? (
+          <>
+            <div className="chat-question">
+              <div className="chat-question-text">🤔 {question.question}</div>
+              <textarea
+                autoFocus
+                value={answer}
+                placeholder="输入回答…"
+                onChange={(e) => setAnswer(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitAnswer(); } }}
+              />
+              <button className="chat-primary" disabled={!answer.trim()} onClick={submitAnswer}>回答</button>
+            </div>
+          </>
         ) : (
-          <button className="chat-primary" disabled={!input.trim()} onClick={send}>发送</button>
+          <>
+            <textarea
+              value={input}
+              placeholder={session.modelId ? "描述修改需求…" : "描述想建的模型…"}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            />
+            {busy ? (
+              <button className="chat-stop" onClick={stop} title="停止 AI 当前执行">⏹ 停止</button>
+            ) : (
+              <button className="chat-primary" disabled={!input.trim()} onClick={send}>发送</button>
+            )}
+          </>
         )}
       </div>
     </aside>

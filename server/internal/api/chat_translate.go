@@ -181,6 +181,13 @@ func (tr *eventTranslator) translate(ev agent.Event) []translatedFrame {
 		return []translatedFrame{{event: "session.error", data: map[string]any{
 			"error": strOf(p, "error"),
 		}}}
+	case agent.EventQuestionAsk:
+		// D3a：HITL 提问（ask_user 中断）→ question.ask SSE 帧，前端弹框收集回答
+		//（用户回答经 POST /answer → Agent.Resume 续跑）。
+		return []translatedFrame{{event: "question.ask", data: map[string]any{
+			"interruptId": strOf(p, "interruptId"),
+			"question":    strOf(p, "question"),
+		}}}
 	case agent.EventTurnEnd:
 		return []translatedFrame{
 			{event: "session.status", data: map[string]any{"status": map[string]any{"type": "idle"}}},

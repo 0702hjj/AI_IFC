@@ -57,6 +57,28 @@ export const modelEndpoints = {
     },
     errors: ['40400', '50200'],
   },
+  'POST /api/v1/chat/sessions/{cid}/answer': {
+    summary: 'HITL 回答（D3b）——question.ask 后的用户回答续跑',
+    description: 'body {interruptId, answer} → Agent.Resume（ResumeParams.Targets[interruptId] = AskUserInfo.UserAnswer）续跑。interruptId 来自 question.ask SSE 帧。',
+    tags: ['chat'],
+    parameters: [chatCidParam()],
+    requestBody: {
+      description: 'JSON body，interruptId + answer',
+      contentType: 'application/json',
+      schema: {
+        type: 'object',
+        required: ['interruptId', 'answer'],
+        properties: {
+          interruptId: { type: 'string', description: 'question.ask 帧的 interruptId' },
+          answer: { type: 'string', description: '用户回答' },
+        },
+      },
+    },
+    responses: {
+      200: { description: 'ok', data: '#/components/schemas/AcceptedResult' },
+    },
+    errors: ['40001', '40400', '50200'],
+  },
   'GET /api/v1/chat/sessions/{cid}/events': {
     summary: '会话事件流（SSE）',
     description: 'Server-Sent Events：`event: <type>` + `data: <json>` 帧。事件类型含 session.creating / session.idle / message / session.error / viewer.committed / viewer.notify_failed 等。非信封响应。',

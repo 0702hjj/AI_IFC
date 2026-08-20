@@ -90,6 +90,13 @@ export function fetchChatMessages(cid: string) {
 export function abortChatSession(cid: string) {
   return request<{ aborted: boolean }>(`/api/v1/chat/sessions/${cid}/abort`, { method: "POST" });
 }
+export function answerChatQuestion(cid: string, interruptId: string, answer: string) {
+  return request<{ accepted: boolean }>(`/api/v1/chat/sessions/${cid}/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ interruptId, answer }),
+  });
+}
 // EventSource 不支持自定义头：token 经 query 传递（server 侧仅 events 路径放行 ?token= 回退）
 export const chatEventsUrl = (cid: string) => {
   const base = `/api/v1/chat/sessions/${cid}/events`;

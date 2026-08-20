@@ -9,6 +9,11 @@ import { useViewerStore } from "./store";
 import { WELCOME, type ChatMsg, type SubagentGroup, type SubagentPart } from "./chatStreamTypes";
 import { extractErrText, fmtInput, mapStatus, parseEventData } from "./chatStreamUtils";
 
+export interface ChatQuestion {
+  interruptId: string;
+  question: string;
+}
+
 export function useChatStream(session: ChatSession) {
   const flagPendingModelReload = useViewerStore((s) => s.flagPendingModelReload);
   const flagStagedPreview = useViewerStore((s) => s.flagStagedPreview);
@@ -16,6 +21,7 @@ export function useChatStream(session: ChatSession) {
   const [subagents, setSubagents] = useState<SubagentGroup[]>([]);
   const [busy, setBusy] = useState(false);
   const [connLost, setConnLost] = useState(false);
+  const [question, setQuestion] = useState<ChatQuestion | null>(null);
   const rolesRef = useRef<Map<string, string>>(new Map());
 
   // upsert：按 id 更新或追加一条消息。
@@ -258,8 +264,15 @@ export function useChatStream(session: ChatSession) {
       flagStagedPreview({ modelId: d.modelId, kind: d.kind });
     });
 
+    // question.ask：HITL 提问（ask_user 中断）——前端弹输入框收集回答，经 /answer 续跑。
+    es.addEventListener("question.ask", (e) => {
+      const d = parseEventData(e);
+      if (!d || typeof d.interruptId !== "string" || !d.interruptId) return;
+      setQuestion({ interruptId: d.interruptId, question: String(d.question ?? "") });
+    });
+
     return () => es.close();
   }, [session.chatSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { messages, setMessages, subagents, busy, setBusy, connLost };
+  return { messages, setMessages, subagents, busy, setBusy, connLost, question, setQuestion };
 }

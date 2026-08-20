@@ -277,3 +277,18 @@ func TestProjectChatHistoryMultiTurn(t *testing.T) {
 		t.Errorf("两轮的 user 消息 id 应不同: %v", msgs[0].Info["id"])
 	}
 }
+
+// TestTranslateQuestionAsk D3a：EventQuestionAsk → question.ask SSE 帧。
+func TestTranslateQuestionAsk(t *testing.T) {
+	tr := newEventTranslator("s_abc")
+	frames := tr.translate(ev(t, agent.EventQuestionAsk, 1, 0, map[string]any{
+		"interruptId": "i-123", "question": "是否确认以 3 米层高保存？",
+	}))
+	if len(frames) != 1 || frames[0].event != "question.ask" {
+		t.Fatalf("frames = %+v, want 1 question.ask", frames)
+	}
+	d := frameData(t, frames[0])
+	if strOf(d, "interruptId") != "i-123" || strOf(d, "question") == "" {
+		t.Fatalf("question.ask payload = %v", d)
+	}
+}
