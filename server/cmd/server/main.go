@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -42,6 +43,9 @@ type config struct {
 	LLMAPIKey       string `json:"llmAPIKey"`
 	LLMBaseURL      string `json:"llmBaseURL"`
 	LLMModel        string `json:"llmModel"`
+	SkillsDir       string `json:"skillsDir"` // 扁平 skills 目录（BaseDir/*/SKILL.md），挂官方 skill middleware
+	SkillVenv       string `json:"skillVenv"` // 独立 skill venv 路径（bin 注入 PATH，execute 能调到 aiplan/aidxfv3）
+	SkillCLI        string `json:"skillCLI"`  // execute 命令白名单（逗号分隔；默认 aiplan,aidxfv3）
 	APIToken        string `json:"apiToken"`
 	CORSOriginsRaw  string `json:"corsOrigins"`
 	CORSOrigins     []string
@@ -82,6 +86,18 @@ func loadConfig(path string) (*config, error) {
 	}
 	if m := os.Getenv("VIEWER_LLM_MODEL"); m != "" {
 		cfg.LLMModel = m
+	}
+	if s := os.Getenv("VIEWER_SKILLS_DIR"); s != "" {
+		cfg.SkillsDir = s
+	}
+	if v := os.Getenv("VIEWER_SKILLS_VENV"); v != "" {
+		cfg.SkillVenv = v
+	}
+	if c := os.Getenv("VIEWER_SKILLS_CLI"); c != "" {
+		cfg.SkillCLI = c
+	}
+	if cfg.SkillCLI == "" {
+		cfg.SkillCLI = "aiplan,aidxfv3" // 默认 = dist 正式集合 CLI 入口
 	}
 	if t := os.Getenv("VIEWER_API_TOKEN"); t != "" {
 		cfg.APIToken = t
@@ -164,10 +180,40 @@ func main() {
 	llmCfg := agent.LLMConfig{
 		APIKey: cfg.LLMAPIKey, BaseURL: cfg.LLMBaseURL, Model: cfg.LLMModel,
 	}
+	// 独立 skill venv（第二层）：bin 前缀进 PATH（execute 的 /bin/sh -c 能调到
+	// aiplan/aidxfv3）+ execute 命令白名单配置化对齐 dist。
+	if cfg.SkillVenv != "" {
+		if fi, err := os.Stat(cfg.SkillVenv); err == nil && fi.IsDir() {
+			binDir := filepath.Join(cfg.SkillVenv, "bin")
+			if err := os.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH")); err == nil {
+				log.Printf("chat: skill venv 已注入 PATH（%s）", binDir)
+			}
+		} else {
+			log.Printf("chat: skillVenv %q 不存在，execute 可能找不到 skill CLI（跑 tools/install_skill_venv.sh）", cfg.SkillVenv)
+		}
+	}
+	var cliNames []string
+	for _, c := range strings.Split(cfg.SkillCLI, ",") {
+		if c = strings.TrimSpace(c); c != "" {
+			cliNames = append(cliNames, c)
+		}
+	}
+	agent.SetSkillCommandAllowlist(cliNames)
+	log.Printf("chat: execute 命令白名单 = %v（VIEWER_SKILLS_CLI 可覆盖）", cliNames)
+	// 对齐官方 ch09 resolveSkillsDir：目录不存在/不可读时跳过挂载（skill 工具不出现），
+	// 而不是装配后运行时才爆。skillsDir 为空则完全不挂 skill middleware。
+	skillsDir := cfg.SkillsDir
+	if skillsDir != "" {
+		if fi, err := os.Stat(skillsDir); err != nil || !fi.IsDir() {
+			log.Printf("chat: skillsDir %q 不存在或不可读，跳过 skill middleware 挂载（配置 VIEWER_SKILLS_DIR）", skillsDir)
+			skillsDir = ""
+		}
+	}
 	chatAgent, err := agent.New(llmCfg,
 		agent.WithStore(evStore),
-		agent.WithTools(chatHandler.SubagentAgentTools(llmCfg, nil)),
+		agent.WithTools(chatHandler.DomainTools()),
 		agent.WithPersona(agent.OrchestratorPersona),
+		agent.WithSkillsDir(skillsDir),
 	)
 	if err != nil {
 		log.Fatalf("create chat agent: %v", err)
@@ -175,6 +221,11 @@ func main() {
 	chatHandler.SetAgent(chatAgent)
 	if cfg.LLMAPIKey == "" {
 		log.Printf("chat: VIEWER_LLM_API_KEY 未配置，回退 scriptedModel（离线 demo 模式）")
+	}
+	if cfg.SkillsDir != "" {
+		log.Printf("chat: skill middleware 已挂载（skillsDir=%s）", cfg.SkillsDir)
+	} else {
+		log.Printf("chat: skillsDir 未配置（VIEWER_SKILLS_DIR 或 server_config.json skillsDir），skill 工具未挂载")
 	}
 	root := http.NewServeMux()
 	root.Handle("/api/v1/chat/", chatHandler)

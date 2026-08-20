@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aidxfv3"
+version = "0.1.0"
+description = "aidxfv3 CLI shell: thin argparse wrapper, lazy imports, no business logic. Exit codes 0 pass / 1 FAIL / 2 SchemaError."
+requires-python = ">=3.12"
+dependencies = ["floorgeom", "dxfkit", "goldlib", "flowops"]
+
+[project.scripts]
+aidxfv3 = "aidxfv3.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aidxfv3*"]

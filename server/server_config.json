@@ -10,5 +10,8 @@
   "cadServiceURL": "http://127.0.0.1:8200",
   "llmAPIKey": "",
   "llmBaseURL": "",
-  "llmModel": ""
+  "llmModel": "",
+  "skillsDir": "../skills/dist",
+  "skillVenv": "../skills/.venv",
+  "skillCLI": "aiplan,aidxfv3"
 }
