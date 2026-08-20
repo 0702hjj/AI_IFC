@@ -1,6 +1,7 @@
 # W-0050: aiplan/aidxfv 静态审计收尾修复
 
-- **状态：** done（实施完成于 fix/w0050-audit-followups，待 PR）
+- **状态：** done
+- **关闭于：** PR #53
 - **优先级：** P2
 - **Milestone：** v0.12（见 PLAN-v0.1.0.md）
 - **来源：** 2026-08-20 aiplan/aidxfv 静态审计报告（用户裁决全修）
