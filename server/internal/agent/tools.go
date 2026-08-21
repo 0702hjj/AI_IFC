@@ -47,6 +47,9 @@ type ToolDeps struct {
 	// CreateProject 创建「项目」（项目级 A1：projectID + 首交付模型，kind ifc|dxf）；
 	// 返回可 JSON 化的 {model, project}；可空。
 	CreateProject func(ctx context.Context, title, kind string) (any, error)
+	// InitModel 在项目下初始化骨架模型（agent 会话内新建 DXF/IFC——script-as-source：
+	// 骨架脚本构建出最小模型 v1）。返回 {modelId, kind, title, projectId}；可空。
+	InitModel func(ctx context.Context, projectID, kind, title string) (any, error)
 
 	// --- D2 项目/方案域（交付对齐） ---
 	// SessionProject 从 ctx 解析会话绑定项目 id（A2；无绑定返回 ""）；可空。
@@ -231,6 +234,27 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				// turn 结束的 notifyIfDirty 对未变更的 A 跑完整管线（stale staging 时
 				// save 出无意图版本）。新模型的转换由 CreateProject 内部 Enqueue 直接触发，
 				// 不依赖 notify；后续对 B 的 stage/run/save 才会置 dirty。
+				return toolJSON(v), nil
+			}),
+
+		mustTool("init_model", "在项目下初始化骨架模型（新建 DXF/IFC：骨架脚本沙箱构建出最小模型 v1，分配 modelId）——agent 会话内新建模型的入口；CAD 项目每次新建图纸时调用，后续看 get_project_models 决定新建或编辑已有",
+			func(ctx context.Context, in initModelReq) (string, error) {
+				if deps.InitModel == nil {
+					return "init_model 未配置（装配缺失）", nil
+				}
+				pid := in.ProjectID
+				if pid == "" {
+					pid = resolveProjectID(ctx, deps, "")
+				}
+				kind := in.Kind
+				if kind == "" {
+					kind = "dxf"
+				}
+				v, err := deps.InitModel(ctx, pid, kind, in.Title)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				deps.markDirty(ctx)
 				return toolJSON(v), nil
 			}),
 

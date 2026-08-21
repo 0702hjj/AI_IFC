@@ -78,7 +78,25 @@ func (h *ChatHandler) createProjectForAgent(ctx context.Context, title, kind str
 	if title == "" {
 		title = "AI 项目"
 	}
-	return h.deps.Ps.CreateWithKind(title, kind)
+	p, err := h.deps.Ps.CreateWithKind(title, kind)
+	if err != nil {
+		return nil, err
+	}
+	// ifc 管线：建项目即初始化骨架模型（分配 modelId，1 个——script-as-source：
+	// 骨架脚本构建出最小 IFC v1）。骨架构建失败 → 回滚项目（不留无模型的 ifc 项目）。
+	// cad/cad->ifc 管线：保持空白，agent 会话内经 init_model 工具按需初始化 DXF。
+	if kind == store.KindIFC {
+		if _, err := h.initModel(ctx, p.ID, store.KindIFC, title); err != nil {
+			_ = h.deps.Ps.Delete(p.ID)
+			return nil, fmt.Errorf("初始化 IFC 骨架模型: %w", err)
+		}
+		// initModel 经 AddModel 更新了 project.json——返回前刷新（p 是 initModel 前旧引用，
+		// Models 空会让 REST 响应缺骨架模型）。
+		if fresh, err := h.deps.Ps.Get(p.ID); err == nil && fresh != nil {
+			return fresh, nil
+		}
+	}
+	return p, nil
 }
 
 // createProjectForAgentTool 是 agent.ToolDeps.CreateProject 的适配：返回项目信息。
@@ -105,6 +123,7 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		MarkDirty:     h.markSessionDirty,
 		PushStaged:    h.pushStaged,
 		CreateProject: h.createProjectForAgentTool,
+		InitModel:     h.initModelForAgentTool,
 		// D2 项目/方案域
 		SessionProject: h.sessionBoundProject,
 		ProjectModels:  h.projectModelsForAgent,

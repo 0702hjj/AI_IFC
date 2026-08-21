@@ -314,9 +314,8 @@ func (h *ChatHandler) deleteProject(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "project store 未配置")
 		return
 	}
-	p, err := h.deps.Ps.Get(pid)
-	if err != nil || p == nil {
-		writeErr(w, http.StatusNotFound, codeNotFound, "project not found: "+pid)
+	p := h.projectOrErr(w, pid)
+	if p == nil {
 		return
 	}
 
@@ -361,3 +360,16 @@ func (h *ChatHandler) deleteProject(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, nil)
 }
 
+// projectOrErr 取项目或 404（资源查找归 helper，handler 不内联非 400 writeErr）。
+func (h *ChatHandler) projectOrErr(w http.ResponseWriter, id string) *store.Project {
+	if h.deps.Ps == nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "project store 未配置")
+		return nil
+	}
+	p, err := h.deps.Ps.Get(id)
+	if err != nil || p == nil {
+		writeErr(w, http.StatusNotFound, codeNotFound, "project not found: "+id)
+		return nil
+	}
+	return p
+}

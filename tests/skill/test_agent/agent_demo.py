@@ -66,10 +66,13 @@ def is_alive(port, path="/health"):
 def launch(name, cwd, cmd):
     logf = LOG_DIR / f"agent_demo_{name}.log"
     print(f"  [up] 启动 {name}: {' '.join(cmd)}  ->  {logf}")
+    env = os.environ.copy()
+    # 共享 VIEWER_DATA_DIR（edit-service/cad 与 Go server 必须同一 data 绝对路径）
+    env["VIEWER_DATA_DIR"] = DATA_DIR
     with open(logf, "a") as f:
         subprocess.Popen(
             cmd, cwd=cwd, stdout=f, stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL, start_new_session=True,
+            stdin=subprocess.DEVNULL, start_new_session=True, env=env,
         )
 
 

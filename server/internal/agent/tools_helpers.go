@@ -116,6 +116,12 @@ type saveScriptReq struct {
 	ModelID string `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
 }
 
+type initModelReq struct {
+	ProjectID string `json:"projectId,omitempty" jsonschema:"description=项目 id（p_...；缺省用当前会话绑定项目）"`
+	Kind      string `json:"kind,omitempty" jsonschema:"description=模型类别：dxf（默认，CAD 图纸）或 ifc"`
+	Title     string `json:"title" jsonschema:"required,description=模型名（如「一层平面」「我的建筑」）"`
+}
+
 type diffReq struct {
 	Base    string `json:"base" jsonschema:"required,description=基线大版本号（如 v1）"`
 	Target  string `json:"target" jsonschema:"required,description=目标大版本号（如 v2）"`

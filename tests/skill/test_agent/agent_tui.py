@@ -57,9 +57,13 @@ def is_alive(port, path="/health"):
 
 
 def launch(name, cwd, cmd):
+    env = os.environ.copy()
+    # 共享 VIEWER_DATA_DIR（AGENTS 硬规则：edit-service/cad 与 Go server 必须同一 data 绝对路径，
+    # 否则 stage/run script 时 edit-service 找不到 Go 写的 uploads/{id} 文件 → 404 model not found）
+    env["VIEWER_DATA_DIR"] = DATA_DIR
     with open(LOG_DIR / f"agent_demo_{name}.log", "a") as f:
         subprocess.Popen(cmd, cwd=cwd, stdout=f, stderr=subprocess.STDOUT,
-                         stdin=subprocess.DEVNULL, start_new_session=True)
+                         stdin=subprocess.DEVNULL, start_new_session=True, env=env)
 
 
 def ensure_services():

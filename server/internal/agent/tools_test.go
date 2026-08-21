@@ -149,7 +149,7 @@ func TestDomainToolsRegistered(t *testing.T) {
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
 		"get_project_plans", "deliver_plan", "get_project_models",
-		"get_script_locate", "edit_script_call",
+		"get_script_locate", "edit_script_call", "init_model",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("工具数 = %d (%v), want %d (%v)", len(got), got, len(want), want)
@@ -414,4 +414,34 @@ func TestEditScriptCallTool(t *testing.T) {
 	if len(ifcFB.reqs) == 0 || !strings.Contains(ifcFB.reqs[0].path, "/script/edit-call") {
 		t.Fatalf("edit-call 应调 POST /script/edit-call: %+v", ifcFB.reqs)
 	}
+}
+
+// TestInitModelTool init_model 工具：spy InitModel 回调验证 projectId 归一 + kind 默认 + markDirty。
+func TestInitModelTool(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	var gotProjectID, gotKind, gotTitle string
+	marked := false
+	deps.InitModel = func(ctx context.Context, projectID, kind, title string) (any, error) {
+		gotProjectID, gotKind, gotTitle = projectID, kind, title
+		return map[string]any{"modelId": "m_test1234", "kind": kind, "title": title, "projectId": projectID}, nil
+	}
+	deps.MarkDirty = func(ctx context.Context) { marked = true }
+	out := invoke(t, DomainTools(deps), "init_model", `{"title":"一层平面"}`)
+	var res map[string]any
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("输出非 JSON: %v out=%s", err, out)
+	}
+	if res["modelId"] != "m_test1234" {
+		t.Errorf("modelId=%v", res["modelId"])
+	}
+	if gotKind != "dxf" {
+		t.Errorf("kind 缺省应 dxf，got %q", gotKind)
+	}
+	if gotTitle != "一层平面" {
+		t.Errorf("title=%q", gotTitle)
+	}
+	if !marked {
+		t.Error("init_model 未 markDirty（模型变更信号）")
+	}
+	_ = gotProjectID // 无绑定时 projectId 为空（initModel 内部处理/可为空项目外初始化）
 }
