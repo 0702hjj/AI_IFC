@@ -6,11 +6,20 @@
 ## 画图流程总览
 
 ```
+⓪ record.start() + record.wrap_draw_module(draw)   # 开记录（机器固化 build() 脚本用，draw_api 不变）
 ① new_doc() 建文档（R2010 + mm + 图层表 + 标注样式，AutoCAD 兼容）
 ② draw_partition_base() 画分区轮廓底座（skeleton normalize 产物：outline/core/corridor/切割线）
 ③ 逐构件画：墙 → 开洞 → 门/窗 → 楼梯/构件 → 标注/尺寸/标签
 ④ doc.saveas() 存盘（中文自动转 \U+XXXX + 字节级确定）
+⑤ record.to_build_script(record.calls(), params)    # 固化 build() 脚本（该 zone 构建脚本事实源）
 ```
+
+> **record 记录（2026-08-21 起，draw_api 能力规范不变）**：画图前 `record.start()` +
+> `record.wrap_draw_module(draw)` 开启——机器在 draw 实现侧记录每次调用（函数+参数+次序），
+> 画完 `record.to_build_script(record.calls(), params={skeleton/rooms/details DSL})` 固化为
+> archdxf 可运行的 **build() 脚本**（该 zone 构建脚本事实源，供 S4-b 注册平台模型）。
+> key 顺序计数确定性（reset_keys 归零，同序列重放产同 key）→ 固化脚本重放 = 原图（字节级）。
+> 详见 `draw_composition.md` 第 5 步 + `machine_contract.md` S4 交付改造。
 
 ## 函数清单
 

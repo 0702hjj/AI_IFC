@@ -64,15 +64,33 @@ aidxfv3 state advance    --project <dir> --node <zone>.rooms   # 按产物推进
 aidxfv3 state reconcile  --project <dir>          # 中断恢复：扫 missions/ 汇总真实状态（不改写）
 aidxfv3 deliver --project <dir>
 ```
-- pack 在 `<project>/missions/<node>/` 生成 `mission.json` + `prompt.md`（注入输入指针 + gold pattern DSL 片段）。
+- **`<dir>`（工作区）= `{DATA}/skill-work/{projectID}`**（2026-08-21 起）：agent 注入的项目
+  skill 工作区，主 agent 先 `get_skill_workdir` 拿绝对路径，所有 aidxfv3 `--project` 用它——
+  projectId 隔离多项目不混淆；中间产物（derived/missions/deliver）落该工作区，禁止落其他位置。
+- pack 在 `<dir>/missions/<node>/` 生成 `mission.json` + `prompt.md`（注入输入指针 + gold pattern DSL 片段）。
 - `state` 负责状态记录；执行编排（线性逐 zone、断点、重做决策）由主 agent 亲自按 dispatch.md。
   状态推进规则（产物驱动）：rooms.json→declared；+geom.json→presented；
   +floor.dxf→built；+readback.json+geom_check.json(PASS)→done。
 - 多 zone（异楼层裙房/塔楼）：`floors.json#dag.edges` 恒空，各 zone 独立 mission **顺序**推进——
   `state sync` 补出全部 mission，主 agent 逐个 zone 线性处理（前一个 done 再进下一个）。
-- deliver 扫 `missions/<node>/` 中同时有 `floor.dxf` + `rooms.json` 的目录 → 复制到
-  `<project>/deliver/`：`<floor>.dxf` + `<floor>.rooms.json` + `building.json`。
-- 产物须符合 `references/schemas/building.schema.json`；`deliver.py` 默认 `project` 写死占位，交付前改回真实项目名。
+
+### S4 交付改造（2026-08-21 起，deliver 不再「复制 DXF」）
+- **S2/S3 画图时机器经 `dxfkit.record` 记录 draw 调用序列**（主 agent 画图前 `record.start()` +
+  `record.wrap_draw_module(draw)`；draw_api 调用面不变，仅模块函数被包装为记录版）。
+- **S4-a 固化**：`record.to_build_script(record.calls(), params={skeleton/rooms/details DSL})` 把
+  调用序列固化为 archdxf 可运行的 **build() 脚本**（PARAMS 字面量 + build(params,out_path) 重放 +
+  `__main__`，对齐 services/cad script-as-source 契约）——该 zone 的构建脚本事实源。
+- **S4-b 注册平台模型**：主 agent 对每 zone 经 script 工具链注册——`init_model(dxf)`（分配 modelId）
+  → `stage_script(build 脚本)` → `run_script`（沙箱跑 build 产 DXF）→ `save_script`（v1 版本化）。
+  **这步替代了旧 deliver 的「复制 DXF 到 deliver/」**——DXF 交付 = 平台模型（modelId + script-as-source
+  版本化 + viewer render.json 可看），不是游离文件。
+- **S4-c building.json**：`aidxfv3 deliver` 汇总整栋楼（site/standards/vertical_relations/
+  design_rationale/requirements 原样来自 plan），zones[] 记 **modelId**（平台模型指针，替代旧
+  DXF 文件路径 + sha256）+ 非几何属性（typology/note/area）。几何留在各 zone 平台模型的 DXF。
+- **deliver 后清理中间产物**：S4 完成后清空工作区过程产物（missions/derived/floor.dxf 过程态）——
+  事实源已转移到平台模型 build() 脚本（models/{modelId}/scripts/），再次修改走平台模型
+  script-as-source（改 build 脚本 → 沙箱跑），不依赖过程残留（避免误导）。building.json 与
+  build() 脚本随平台模型/方案产物保留。
 
 ### gold
 ```

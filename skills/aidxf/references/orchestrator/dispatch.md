@@ -12,14 +12,24 @@
 
 多 zone 起步：`aidxfv3 state sync --project <dir>` 补出全部 mission，再按 zones 顺序逐个处理：
 
+> **`<dir>`（工作区）= `{DATA}/skill-work/{projectID}`**（2026-08-21 起）：主 agent 先
+> `get_skill_workdir` 拿项目 skill 工作区绝对路径，所有 aidxfv3 `--project` 用它——projectId
+> 隔离多项目不混淆，中间产物（derived/missions/deliver）落该工作区。
+
 ```
 对每个 mission（按 zones 顺序，前一个 done 才进下一个）：
   aidxfv3 pack --node <node> --project <dir>   # 渲染 mission（输入指针 + 知识注入）
   声明段：主 agent 读 missions/<node>/prompt.md + design/rooms.md → 写 rooms.json
           机器校验链（validate + normalize + check）→ 断点② 确认
-  建造段：主 agent 读 design/details.md → 复制 skeleton.<floor>.dxf → 逐构件画 floor.dxf
+  建造段：主 agent 读 design/details.md → record.start()+wrap_draw_module(draw) 开记录
+          → 复制 skeleton.<floor>.dxf → 逐构件画 floor.dxf → record.to_build_script 固化 build() 脚本
   aidxfv3 state advance --project <dir> --node <node>   # 状态随产物推进
 ```
+
+**S4 交付（全部 zone done 后）**：见 `steps/step-04-deliver.md`——
+S4-a 固化每 zone build() 脚本 → S4-b 每 zone 经 init_model + stage/run/save 注册平台模型
+（modelId）→ S4-c `aidxfv3 deliver` 汇总 building.json（zones 记 modelId）→ deliver 后清理
+中间产物（再次修改走平台模型 script-as-source，不依赖过程残留）。
 
 **每 zone 处理时按 include 声明加载参考提示**（design/rooms.md / design/details.md 头部的
 `> include：...` 行）——rooms 的 include 链 = output_contract + work_area + draw_api +

@@ -185,6 +185,15 @@ S4-c building.json 汇总（deliver 保留，指针改造）
 init_model 注册）。与 ifc 管线的「建项目即 init_model(ifc)」对齐——**骨架初始化 → 深化**
 统一模式。
 
+**deliver 后清理中间产物（已敲定，2026-08-21）**：S4 完成后清空工作区过程产物
+（missions/derived/floor.dxf 过程态）——
+- **事实源已转移**：平台模型的 build() 脚本（models/{modelId}/scripts/）是该 zone 唯一事实源。
+- **再次修改不依赖中间产物**（已实测核实 ✅：改 build 脚本 → 沙箱跑 → 新 DXF，实体随改变化）——
+  再次修改走平台模型 script-as-source（stage/run/save），**不会重跑 aidxf S0-S4 全流程**。
+- **残留误导**：过程文件（missions/prompt/floor.dxf 过程态）残留会让再次修改误以为要按
+  missions/derived 继续，其实该改平台模型脚本——故清理。
+- 保留：平台模型 build() 脚本 + DXF + building.json（方案/项目级）。
+
 **可执行化单元**：
 - plan：`aiplan <cmd>`（route/derive/normalize/geom/gate/validate/canon/land）——step 0-2
 - cad：`aidxfv3 <cmd>`（preprocess/validate/normalize/check/pack/state/draw/deliver）——S0-S4
@@ -452,11 +461,12 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 | 文档 | 旧逻辑残留 | 当前接口（改为） | 所属波次 |
 |---|---|---|---|
 | `SKILL.md` | S4 行「building.json + 逐层 DXF + 封存 rooms」；中段「复制 DXF」 | S4-a 固化→S4-b 注册平台模型（modelId）→S4-c building.json 记 modelId | P0-1/P0-2（✅ 已改） |
-| `steps/step-04-deliver.md` | `aidxfv3 deliver` 复制 `deliver/<floor>.dxf` + `<floor>.rooms.json` + building.json（checksums） | S4 交付改造三子步：S4-a 固化 build() 脚本 / S4-b init_model+script 工具链注册 / S4-c building.json 记 modelId | P0-2 |
-| `references/machine_contract.md` | deliver 扫 missions → 复制 DXF 到 deliver/ + building.json（sha256）；**`<project>` 任意目录** | deliver 不再复制 DXF（被 script 工具链替代）；record 固化契约 + modelId 指针；**`<project>` = `{DATA}/skill-work/{projectID}`（agent 注入的项目工作区，P0-2a 地基）** | P0-1（record）/P0-2（deliver + 工作区）/P0-3（building） |
-| `references/draw_composition.md` | 出口 `doc.saveas("floor.dxf")`（无 record/固化） | 出口加 record 记录（LLM 画时机器记录调用序列）→ S4-a 固化 build() 脚本（draw_api 不变） | P0-1 |
-| `references/schemas/building.schema.json` | zones[] 记 `dxf`（文件路径）+ `sha256` | zones[] 记 `modelId`（平台模型指针，替代文件路径） | P0-3 |
-| `references/orchestrator/dispatch.md` | 编排无 init_model/script 工具链；`<project>` 任意 | 编排加 S4-b：init_model + stage/run/save 注册平台模型环节；`<project>` = skill-work/{projectID} | P0-2 |
+| `steps/step-04-deliver.md` | `aidxfv3 deliver` 复制 `deliver/<floor>.dxf` + `<floor>.rooms.json` + building.json（checksums） | S4 交付改造三子步（S4-a 固化/S4-b 注册/S4-c building.json 记 modelId）+ **deliver 后清理中间产物** | P0-2（✅ 已改） |
+| `references/machine_contract.md` | deliver 扫 missions → 复制 DXF 到 deliver/ + building.json（sha256）；**`<project>` 任意目录** | deliver 不再复制 DXF（被 script 工具链替代）；record 固化契约 + modelId 指针；**`<project>` = `{DATA}/skill-work/{projectID}`**；deliver 后清理中间产物 | P0-1/P0-2（✅ 已改）/P0-3（building） |
+| `references/draw_composition.md` | 出口 `doc.saveas("floor.dxf")`（无 record/固化） | 出口加 record 记录（LLM 画时机器记录调用序列）→ S4-a 固化 build() 脚本（draw_api 不变）+ 过程产物清理说明 | P0-1（✅ 已改） |
+| `references/draw_api.md` | 画图流程无 record 步骤 | 流程加 ⓪ record.start+wrap 开记录 + ⑤ record.to_build_script 固化（draw_api 能力规范不变） | P0-1（✅ 已改） |
+| `references/schemas/building.schema.json` | zones[] 记 `dxf`（文件路径）+ `sha256` | zones[] 记 `modelId`（平台模型指针，替代文件路径） | P0-3（🔧 待改） |
+| `references/orchestrator/dispatch.md` | 编排无 init_model/script 工具链；`<project>` 任意 | 编排加 建造段 record 开记录/固化 + S4-b init_model/script 工具链注册；`<project>` = skill-work/{projectID} | P0-2（✅ 已改） |
 
 **清理纪律**：
 1. **同波同步**：改代码的同一波次更新对应文档（文档随代码 commit 同波落地，不滞后）。
