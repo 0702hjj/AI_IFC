@@ -300,3 +300,72 @@ func TestBuildingDeliverForAgent(t *testing.T) {
 		t.Errorf("building.json 内容不一致: %s", got)
 	}
 }
+
+// TestUpstreamToWorkdirForAgent ifc 消费桥接：building+bim 落工作区 + 各 zone DXF 按 modelId 复制到 dxf/。
+func TestUpstreamToWorkdirForAgent(t *testing.T) {
+	h, ps := newKindAgentHandler(t)
+	p, _ := ps.CreateWithKind("项目", "cad->ifc")
+	if h.deps.PlanSt == nil {
+		h.deps.PlanSt = store.NewPlanStore(h.deps.DataDir)
+	}
+	// building.json（zones 记 modelId）+ bim_supplement.json
+	mid := "m_0123456789abcdef"
+	building := `{"version":2,"project":"` + p.ID + `","zones":[{"zone":"tower","floors_from":1,"floors_to":3,"modelId":"` + mid + `"}]}`
+	if _, err := h.deps.PlanSt.Put(p.ID, "building.json", []byte(building)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.deps.PlanSt.Put(p.ID, "bim_supplement.json", []byte(`{"roof":{"type":"gable"}}`)); err != nil {
+		t.Fatal(err)
+	}
+	// 造 zone DXF（uploads/{modelId}.dxf 当前态）
+	if err := os.MkdirAll(filepath.Join(h.deps.DataDir, "uploads"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dxfContent := []byte("0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n")
+	if err := os.WriteFile(filepath.Join(h.deps.DataDir, "uploads", mid+".dxf"), dxfContent, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := h.upstreamToWorkdirForAgent(context.Background(), p.ID)
+	if err != nil {
+		t.Fatalf("upstreamToWorkdirForAgent: %v", err)
+	}
+	// building/bim 落工作区
+	wantDir := filepath.Join(h.deps.DataDir, "skill-work", p.ID)
+	if out["buildingPath"] != filepath.Join(wantDir, "building.json") {
+		t.Errorf("buildingPath = %v", out["buildingPath"])
+	}
+	if out["bimPath"] != filepath.Join(wantDir, "bim_supplement.json") {
+		t.Errorf("bimPath = %v", out["bimPath"])
+	}
+	// 各 zone DXF 复制到 dxf/<zone>.dxf
+	dxfPaths, _ := out["dxfPaths"].(map[string]string)
+	towerDxf := dxfPaths["tower"]
+	if towerDxf != filepath.Join(wantDir, "dxf", "tower.dxf") {
+		t.Errorf("tower DXF 路径 = %q", towerDxf)
+	}
+	got, err := os.ReadFile(towerDxf)
+	if err != nil || string(got) != string(dxfContent) {
+		t.Errorf("tower DXF 内容不一致: %v", err)
+	}
+}
+
+// TestUpstreamToWorkdirMissingDxf zone DXF 缺失 → 报错（提示需先 init_model + run）。
+func TestUpstreamToWorkdirMissingDxf(t *testing.T) {
+	h, ps := newKindAgentHandler(t)
+	p, _ := ps.CreateWithKind("项目", "cad->ifc")
+	if h.deps.PlanSt == nil {
+		h.deps.PlanSt = store.NewPlanStore(h.deps.DataDir)
+	}
+	building := `{"version":2,"project":"` + p.ID + `","zones":[{"zone":"tower","floors_from":1,"floors_to":1,"modelId":"m_9999999999999999"}]}`
+	if _, err := h.deps.PlanSt.Put(p.ID, "building.json", []byte(building)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.deps.PlanSt.Put(p.ID, "bim_supplement.json", []byte(`{}`)); err != nil {
+		t.Fatal(err)
+	}
+	// uploads/m_999...dxf 不存在
+	if _, err := h.upstreamToWorkdirForAgent(context.Background(), p.ID); err == nil {
+		t.Error("zone DXF 缺失应报错（提示需先 init_model + run 产 DXF）")
+	}
+}

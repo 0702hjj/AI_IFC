@@ -150,7 +150,7 @@ func TestDomainToolsRegistered(t *testing.T) {
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
 		"get_project_plans", "deliver_plan", "deliver_building", "get_project_models", "get_skill_workdir",
-		"stage_plan_to_workdir",
+		"stage_plan_to_workdir", "stage_upstream_to_workdir",
 		"get_script_locate", "edit_script_call", "init_model",
 	}
 	if len(got) != len(want) {
@@ -573,3 +573,32 @@ func TestGetProjectPlansBuildingMissing(t *testing.T) {
 type missingErr struct{}
 
 func (e *missingErr) Error() string { return "not found" }
+
+// TestStageUpstreamToWorkdirTool stage_upstream_to_workdir：返回 building/bim/dxfDir/dxfPaths。
+func TestStageUpstreamToWorkdirTool(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	deps.SessionProject = func(ctx context.Context) string { return "p_x" }
+	deps.UpstreamToWorkdir = func(ctx context.Context, projectID string) (map[string]any, error) {
+		return map[string]any{
+			"buildingPath": "/data/skill-work/p_x/building.json",
+			"bimPath":      "/data/skill-work/p_x/bim_supplement.json",
+			"dxfDir":       "/data/skill-work/p_x/dxf",
+			"dxfPaths":     map[string]string{"tower": "/data/skill-work/p_x/dxf/tower.dxf"},
+		}, nil
+	}
+	out := invoke(t, DomainTools(deps), "stage_upstream_to_workdir", `{}`)
+	for _, k := range []string{"buildingPath", "bimPath", "dxfDir", "tower.dxf"} {
+		if !strings.Contains(out, k) {
+			t.Fatalf("stage_upstream_to_workdir 输出应含 %q, got %s", k, out)
+		}
+	}
+}
+
+// TestStageUpstreamToWorkdirToolUnconfigured 未配置/未绑项目 → 文本错误。
+func TestStageUpstreamToWorkdirToolUnconfigured(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	out := invoke(t, DomainTools(deps), "stage_upstream_to_workdir", `{}`)
+	if !strings.Contains(out, "未指定 projectId") && !strings.Contains(out, "未配置") {
+		t.Fatalf("未绑项目/未配置应文本错误, got %s", out)
+	}
+}

@@ -72,6 +72,11 @@ type ToolDeps struct {
 	// 落到 skill 工作区文件，返回 {planPath, bimPath}——aidxfv3 preprocess --plan 等命令
 	// 需要文件路径时的桥接（plan 内容 → 工作区文件）；可空。
 	PlanToWorkdir func(ctx context.Context, projectID string) (map[string]string, error)
+	// UpstreamToWorkdir 把 ifc 消费的上游产物（building.json + bim_supplement.json +
+	// 各 zone DXF）落到 skill 工作区，返回 {buildingPath, bimPath, dxfDir, dxfPaths}——
+	// cad->ifc 消费上游：ifc-agent 跑 aiifc consume-upstream 的输入桥接（多 DXF 按
+	// zones[].modelId 从 uploads/{modelId}.dxf 复制到工作区 dxf/）；可空。
+	UpstreamToWorkdir func(ctx context.Context, projectID string) (map[string]any, error)
 }
 
 func (d ToolDeps) markDirty(ctx context.Context) {
@@ -376,6 +381,22 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 					"planPath":  paths["planPath"],
 					"bimPath":   paths["bimPath"],
 				}), nil
+			}),
+
+		mustTool("stage_upstream_to_workdir", "把 ifc 消费的上游产物（building.json + bim_supplement.json + 各 zone DXF）落到 skill 工作区，返回 {buildingPath, bimPath, dxfDir, dxfPaths}——cad->ifc 消费上游：你跑 aiifc consume-upstream --building <buildingPath> --bim <bimPath> --dxf-dir <dxfDir> 前的输入桥接（多 DXF 按 zones[].modelId 从平台模型复制到工作区 dxf/）。先 get_project_plans 确认 building 存在再调",
+			func(ctx context.Context, in projectRefReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.UpstreamToWorkdir == nil {
+					return "stage_upstream_to_workdir 未配置（装配缺失）", nil
+				}
+				v, err := deps.UpstreamToWorkdir(ctx, projectID)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(v), nil
 			}),
 
 		mustTool("get_script_locate", "XDATA key → 脚本调用点定位（line/col/snippet）——选中构件后定位到创建它的脚本位置（M3-①）",

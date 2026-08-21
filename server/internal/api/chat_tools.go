@@ -8,6 +8,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -131,13 +132,14 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		CreateProject: h.createProjectForAgentTool,
 		InitModel:     h.initModelForAgentTool,
 		// D2 项目/方案域
-		SessionProject:  h.sessionBoundProject,
-		ProjectModels:   h.projectModelsForAgent,
-		PlanGet:         h.planGetForAgent,
-		PlanDeliver:     h.planDeliverForAgent,
-		BuildingDeliver: h.buildingDeliverForAgent,
-		SkillWorkDir:    h.skillWorkDirForAgent,
-		PlanToWorkdir:   h.planToWorkdirForAgent,
+		SessionProject:    h.sessionBoundProject,
+		ProjectModels:     h.projectModelsForAgent,
+		PlanGet:           h.planGetForAgent,
+		PlanDeliver:       h.planDeliverForAgent,
+		BuildingDeliver:   h.buildingDeliverForAgent,
+		SkillWorkDir:      h.skillWorkDirForAgent,
+		PlanToWorkdir:     h.planToWorkdirForAgent,
+		UpstreamToWorkdir: h.upstreamToWorkdirForAgent,
 	}
 }
 
@@ -234,6 +236,83 @@ func (h *ChatHandler) planDeliverForAgent(ctx context.Context, projectID, plan, 
 		return nil, fmt.Errorf("aiplan 未配置（skill venv 缺失），plan 交付不可用")
 	}
 	return h.deliverPlanCore(ctx, projectID, []byte(plan), []byte(bimSupplement))
+}
+
+// upstreamToWorkdirForAgent 把 ifc 消费的上游产物落到 skill 工作区（cad->ifc 消费上游桥接）：
+// building.json + bim_supplement.json（PlanStore → skill-work/{projectID}/）+
+// 各 zone DXF（building.json zones[].modelId → uploads/{modelId}.dxf 当前态 →
+// skill-work/{projectID}/dxf/<zone>.dxf）。返回 {buildingPath, bimPath, dxfDir, dxfPaths}——
+// ifc-agent 跑 aiifc consume-upstream --building/--bim/--dxf-dir 的输入桥接。
+func (h *ChatHandler) upstreamToWorkdirForAgent(ctx context.Context, projectID string) (map[string]any, error) {
+	if h.deps.PlanSt == nil {
+		return nil, fmt.Errorf("方案存储未配置")
+	}
+	if h.deps.DataDir == "" {
+		return nil, fmt.Errorf("数据目录未配置")
+	}
+	dir, err := h.skillWorkDirForAgent(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{"projectId": projectID}
+	for _, name := range []string{"building.json", "bim_supplement.json"} {
+		content, err := h.deps.PlanSt.Get(projectID, name)
+		if err != nil {
+			return nil, fmt.Errorf("读上游产物 %s: %w（需先 deliver_building/deliver_plan）", name, err)
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return nil, fmt.Errorf("写工作区 %s: %w", name, err)
+		}
+		if name == "building.json" {
+			out["buildingPath"] = path
+		} else {
+			out["bimPath"] = path
+		}
+	}
+	dxfDir := filepath.Join(dir, "dxf")
+	if err := os.MkdirAll(dxfDir, 0o755); err != nil {
+		return nil, fmt.Errorf("建 dxf 目录: %w", err)
+	}
+	zones, err := h.buildingZones(projectID)
+	if err != nil {
+		return nil, err
+	}
+	dxfPaths := map[string]string{}
+	for _, z := range zones {
+		zone, _ := z["zone"].(string)
+		modelID, _ := z["modelId"].(string)
+		if zone == "" || modelID == "" {
+			continue
+		}
+		src := filepath.Join(h.deps.DataDir, "uploads", modelID+".dxf")
+		if _, err := os.Stat(src); err != nil {
+			return nil, fmt.Errorf("zone %s 的 DXF 缺失（%s——需先 init_model 注册并 run 产 DXF）: %w", zone, src, err)
+		}
+		dst := filepath.Join(dxfDir, zone+".dxf")
+		if err := copyFile(src, dst); err != nil {
+			return nil, fmt.Errorf("复制 zone %s DXF: %w", zone, err)
+		}
+		dxfPaths[zone] = dst
+	}
+	out["dxfDir"] = dxfDir
+	out["dxfPaths"] = dxfPaths
+	return out, nil
+}
+
+// buildingZones 读 building.json 的 zones[]（zone + modelId 列表）。
+func (h *ChatHandler) buildingZones(projectID string) ([]map[string]any, error) {
+	content, err := h.deps.PlanSt.Get(projectID, "building.json")
+	if err != nil {
+		return nil, fmt.Errorf("读 building.json: %w", err)
+	}
+	var b struct {
+		Zones []map[string]any `json:"zones"`
+	}
+	if err := json.Unmarshal(content, &b); err != nil {
+		return nil, fmt.Errorf("building.json 解析: %w", err)
+	}
+	return b.Zones, nil
 }
 
 // buildingDeliverForAgent 交付 building.json（aidxf S4-c：agent 组装 plan 形态整栋楼 +
