@@ -5,6 +5,7 @@
 - **Milestone：** v0.13（见 PLAN-v0.1.0.md）
 - **来源：** 2026-08-21 用户裁决：「当前 cad 编辑，人机走的是我合并的两套依赖（dxfkit + archdxf），虽然跑通了但后续需要注意合不合适」
 - **执行者/分支：** （领取时填）
+- **GitHub Issue：** #70（https://github.com/0702hjj/AI_IFC/issues/70）
 
 ## 背景
 

@@ -5,6 +5,7 @@
 - **Milestone：** v0.13（见 PLAN-v0.1.0.md）
 - **来源：** 2026-08-21 用户裁决：「还有的话，是目前 project 管理相关的更新」
 - **执行者/分支：** （领取时填）
+- **GitHub Issue：** #71（https://github.com/0702hjj/AI_IFC/issues/71）
 
 ## 背景
 

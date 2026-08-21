@@ -5,6 +5,7 @@
 - **Milestone：** v0.13（见 PLAN-v0.1.0.md）
 - **来源：** 2026-08-21 用户裁决：「最后还需要重点完善的是 cad->ifc 的这个消化管线，还需要多做实验」
 - **执行者/分支：** （领取时填）
+- **GitHub Issue：** #69（https://github.com/0702hjj/AI_IFC/issues/69）
 
 ## 背景
 
