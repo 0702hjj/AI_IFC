@@ -85,7 +85,11 @@ func (h *ChatHandler) createProjectForAgent(ctx context.Context, title, kind str
 	// ifc 管线：建项目即初始化骨架模型（分配 modelId，1 个——script-as-source：
 	// 骨架脚本构建出最小 IFC v1）。骨架构建失败 → 回滚项目（不留无模型的 ifc 项目）。
 	// cad/cad->ifc 管线：保持空白，agent 会话内经 init_model 工具按需初始化 DXF。
-	if kind == store.KindIFC {
+	// ifc / cad->ifc 管线：建项目即初始化 IFC 骨架模型（分配 modelId，绑定——script-as-source：
+	// 骨架脚本构建出最小 IFC v1）。cad->ifc 先初始化 ifc 骨架（形成绑定），cad 部分按需
+	// 经 init_model 初始化 DXF。骨架构建失败 → 回滚项目。
+	// cad 管线：保持空白，agent 会话内经 init_model 按需初始化 DXF。
+	if kind == store.KindIFC || kind == "cad->ifc" {
 		if _, err := h.initModel(ctx, p.ID, store.KindIFC, title); err != nil {
 			_ = h.deps.Ps.Delete(p.ID)
 			return nil, fmt.Errorf("初始化 IFC 骨架模型: %w", err)

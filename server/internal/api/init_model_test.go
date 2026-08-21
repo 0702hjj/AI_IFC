@@ -205,3 +205,30 @@ func TestInitModelRequiresProject(t *testing.T) {
 		t.Error("无项目绑定应拒绝（init_model 需项目会话）")
 	}
 }
+
+// TestCreateProjectCadToIfcInitIFC cad->ifc 项目建项目即初始化 ifc 骨架模型（形成绑定）。
+// 与 ifc 一致（1 个 ifc 骨架），与 cad 区分（cad 空白）。
+func TestCreateProjectCadToIfcInitIFC(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, ps := newInitModelHandler(t, fake.srv.URL)
+	h.registerRoutes()
+
+	r := doCreateProject(t, h, `{"title":"cad->ifc 项目","kind":"cad->ifc"}`)
+	if r.ProjectID == "" {
+		t.Fatalf("missing projectId: %+v", r)
+	}
+	p, err := ps.Get(r.ProjectID)
+	if err != nil {
+		t.Fatalf("project get: %v", err)
+	}
+	if p.Kind != "cad->ifc" {
+		t.Errorf("kind = %q, want cad->ifc", p.Kind)
+	}
+	// 建项目即初始化 ifc 骨架模型（1 个 ifc，绑定）
+	if len(p.Models) != 1 {
+		t.Fatalf("cad->ifc 应初始化 1 个 ifc 骨架模型，got %d", len(p.Models))
+	}
+	if p.Models[0].Kind != "ifc" {
+		t.Errorf("骨架模型 kind = %q, want ifc", p.Models[0].Kind)
+	}
+}
