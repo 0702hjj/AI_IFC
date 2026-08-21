@@ -50,12 +50,16 @@ from typing import Dict, List, Optional
 from fastapi import HTTPException
 
 from .config import Settings
+from . import sandbox_exec
 
 logger = logging.getLogger(__name__)
 
 RUN_TIMEOUT_S = 60
 MEM_LIMIT_BYTES = 1 << 30  # 1 GiB (RLIMIT_AS, virtual address space)
 MAX_PROCS = 256  # RLIMIT_NPROC：防 fork 炸弹
+# 注入 sandbox_exec 共享常量（单一源——本模块常量，避免拆分后两处漂移）。
+sandbox_exec._bind_constants(RUN_TIMEOUT_S, MEM_LIMIT_BYTES, MAX_PROCS)
+
 STDERR_TAIL_BYTES = 2048
 FSIZE_LIMIT_BYTES = 256 << 20  # RLIMIT_FSIZE 默认（env SCRIPT_MAX_FSIZE_BYTES）
 OUTPUT_LIMIT_BYTES = 1 << 20  # stdout+stderr 累计上限（env SCRIPT_MAX_OUTPUT_BYTES）
@@ -100,100 +104,16 @@ def script_hash(script_text: str) -> str:
     return hashlib.sha256(script_text.encode("utf-8")).hexdigest()
 
 
-def _limits(nproc: int, fsize: int) -> None:
-    """preexec_fn: apply resource limits (inherited by bwrap and its child)."""
-    import resource
-
-    resource.setrlimit(resource.RLIMIT_CPU, (RUN_TIMEOUT_S + 30, RUN_TIMEOUT_S + 60))
-    resource.setrlimit(resource.RLIMIT_AS, (MEM_LIMIT_BYTES, MEM_LIMIT_BYTES))
-    resource.setrlimit(resource.RLIMIT_NPROC, (nproc, nproc))
-    # 单文件写上限：防脚本写满 /data 卷（产物发布前的 product 校验之外的
-    # 内核层硬闸，bwrap/rlimit 两后端都生效）。
-    resource.setrlimit(resource.RLIMIT_FSIZE, (fsize, fsize))
-
-
-def _nproc_budget() -> int:
-    """RLIMIT_NPROC 目标值：当前 uid 的 task 数 + MAX_PROCS 余量。
-
-    RLIMIT_NPROC 按 uid 的全部 task（含既有线程）计数，固定上限会让高线程
-    环境下的沙箱连 fork/userns 都建不了（EAGAIN）；「现有 + 余量」把脚本
-    能新增的进程数约束在 MAX_PROCS 以内，与环境无关。
-    """
-    uid = os.getuid()
-    current = 0
-    for entry in os.listdir("/proc"):
-        if not entry.isdigit():
-            continue
-        try:
-            if os.stat(f"/proc/{entry}").st_uid != uid:
-                continue
-            current += len(os.listdir(f"/proc/{entry}/task"))
-        except OSError:
-            continue
-    return current + MAX_PROCS
-
-
-def _runtime_ro_binds() -> List[str]:
-    """运行时按需只读挂载：系统库目录 + 解释器前缀。
-
-    venv（sys.prefix，site-packages 里的 ezdxf）与 uv/pyenv 管理的解释器
-    （sys.base_prefix）常在 /usr 之外，必须显式挂载。按挂载目标路径字面
-    去重（**不能**按 realpath：/lib64→usr/lib 这类符号链接若按 realpath
-    去重，沙箱里就没有 /lib64 路径，动态加载器直接 ENOENT）。
-    **不含 /data、/etc**。
-    """
-    args: List[str] = []
-    seen: set = set()
-    for path in ("/usr", "/lib", "/lib64", "/bin", "/sbin",
-                 sys.base_prefix, sys.prefix):
-        if os.path.isdir(path) and path not in seen:
-            seen.add(path)
-            args.extend(["--ro-bind", path, path])
-    return args
-
-
-def detect_backend() -> str:
-    """Return "bwrap" when bubblewrap sandboxing works here, else "rlimit"."""
-    global _BACKEND
-    if _BACKEND is not None:
-        return _BACKEND
-    _BACKEND = "rlimit"
-    bwrap = shutil.which("bwrap")
-    if bwrap:
-        try:
-            subprocess.run(
-                [bwrap, *_runtime_ro_binds(), "--dev", "/dev",
-                 "--unshare-net", "--", sys.executable, "-c", "pass"],
-                check=True, capture_output=True, timeout=10,
-            )
-            _BACKEND = "bwrap"
-        except (subprocess.SubprocessError, OSError):
-            _BACKEND = "rlimit"
-    if _BACKEND == "bwrap":
-        logger.info("script sandbox backend: bwrap (按需挂载 + unshare-net)")
-    else:
-        logger.warning(
-            "script sandbox backend: rlimit 降级（bwrap 不可用；沙箱外 FS 写与网络不拦截）"
-        )
-    return _BACKEND
-
-
-def verify_sandbox_backend() -> None:
-    """rlimit 降级 fail-closed：bwrap 不可用时拒绝执行，除非显式放行。
-
-    rlimit 模式不拦截网络与沙箱外 FS 读写（跨租户隔离失效），生产必须跑在
-    bwrap 下；本地开发/CI 无 bwrap 时设 ``ALLOW_RLIMIT_FALLBACK=1`` 显式
-    接受降级。检查只做判断，无副作用。
-    """
-    if detect_backend() == "bwrap":
-        return
-    if os.environ.get("ALLOW_RLIMIT_FALLBACK") == "1":
-        return
-    raise HTTPException(
-        status_code=503,
-        detail="沙箱后端降级为 rlimit（bwrap 不可用），网络与沙箱外文件系统不隔离；"
-        "确认接受降级后设 ALLOW_RLIMIT_FALLBACK=1 显式放行",
-    )
+# 沙箱后端/环境/命令构造拆至 sandbox_exec（行数门控拆分）——此处保留模块级别名，
+# 使既有调用点（script_runner._sandbox_env / _sandbox_cmd / detect_backend / ...）与
+# 测试（monkeypatch script_runner.detect_backend 等）不受影响。
+_limits = sandbox_exec._limits
+_nproc_budget = sandbox_exec._nproc_budget
+_runtime_ro_binds = sandbox_exec._runtime_ro_binds
+detect_backend = sandbox_exec.detect_backend
+verify_sandbox_backend = sandbox_exec.verify_sandbox_backend
+_sandbox_env = sandbox_exec._sandbox_env
+_sandbox_cmd = sandbox_exec._sandbox_cmd
 
 
 def _load_cad_script_lib(flows_dir: str):
@@ -215,46 +135,6 @@ def validate_script_text(settings: Settings, script_text: str) -> List[str]:
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(script_text)
         return cad_script_lib.validate_script_contract(path)
-
-
-def _sandbox_env(settings: Settings, workdir: str) -> Dict[str, str]:
-    return {
-        "PATH": os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin"),
-        "PYTHONPATH": settings.flows_dir,
-        "PYTHONDONTWRITEBYTECODE": "1",
-        "PYTHONUTF8": "1",
-        # BLAS thread pools blow the 1 GiB address-space limit with per-thread
-        # stacks; scripts are single-threaded geometry code anyway.
-        "OPENBLAS_NUM_THREADS": "1",
-        "OMP_NUM_THREADS": "1",
-        "MKL_NUM_THREADS": "1",
-        "NUMEXPR_NUM_THREADS": "1",
-        "HOME": workdir,
-        "TMPDIR": workdir,
-    }
-
-
-def _sandbox_cmd(settings: Settings, workdir: str) -> List[str]:
-    """Wrap the command in bwrap when available (按需挂载 + no network).
-
-    挂载集：系统库/解释器（``_runtime_ro_binds``）+ flows_dir 只读 +
-    tmpfs /tmp + 最小 /dev + /proc + 可写 workdir。**不挂 /data、/etc**。
-    """
-    if detect_backend() == "bwrap":
-        return [
-            shutil.which("bwrap") or "bwrap",
-            *_runtime_ro_binds(),
-            "--ro-bind", settings.flows_dir, settings.flows_dir,
-            "--tmpfs", "/tmp",
-            "--dev", "/dev",
-            "--proc", "/proc",
-            "--bind", workdir, workdir,
-            "--chdir", workdir,
-            "--unshare-net",
-            "--die-with-parent",
-            "--",
-        ]
-    return []
 
 
 def _tail(data: bytes, limit: int = STDERR_TAIL_BYTES) -> str:
