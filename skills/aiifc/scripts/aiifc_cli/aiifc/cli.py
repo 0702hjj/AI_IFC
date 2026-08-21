@@ -31,8 +31,39 @@ def _flows_dir() -> Path:
     """
     if d := os.environ.get("AIIFC_FLOWS_DIR"):
         return Path(d)
-    # 本文件 skills/aiifc/scripts/aiifc/aiifc/cli.py → 上 4 级 = skills/aiifc
+    # 本文件 skills/aiifc/scripts/aiifc_cli/aiifc/cli.py → 上 4 级 = skills/aiifc
     return Path(__file__).resolve().parents[3] / "references" / "docs" / "flows"
+
+
+def resolve_skill_workdir(project_id: str) -> str:
+    """projectId → 平台 skill 工作区绝对路径（{VIEWER_DATA_DIR}/skill-work/{projectID}）。
+
+    中间产物规范落盘（与 aidxfv3 同构）：design.json / features.json / 演示 IFC 等
+    **中间产物**（辅助信息，不进版本）落 skill-work/{projectID}/——CLI 内部算路径
+    （结构性保证，不靠 LLM 传对 -o 路径）。build 脚本 + IFC 版本化走 models/{modelId}/
+    （script-as-source，不经此）。
+    """
+    if not project_id:
+        return ""
+    data_root = os.environ.get("VIEWER_DATA_DIR", "")
+    if not data_root:
+        raise SystemExit(
+            "VIEWER_DATA_DIR 未设置——--project-id 需平台环境（agent execute 注入）；"
+            "独立使用请显式 -o 指定输出路径"
+        )
+    return os.path.join(data_root, "skill-work", project_id)
+
+
+def _default_out(args, name: str) -> str:
+    """-o 缺省：--project-id 时落 skill-work/{projectID}/<name>（中间产物规范落盘）；
+    显式 -o 优先；无 --project-id 时 cwd 缺省名（独立使用）。父目录确保存在。"""
+    if args.out and args.out != name:  # 显式 -o（非缺省名）优先
+        out = args.out
+    else:
+        pid = getattr(args, "project_id", None)
+        out = os.path.join(resolve_skill_workdir(pid), name) if pid else (args.out or name)
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    return out
 
 
 def _emit(data: dict, out: str | None) -> None:
@@ -58,8 +89,8 @@ def _run_flow(script: str, flow_args: list[str], out: str | None) -> int:
 
 
 def _cmd_design_build(args) -> int:
-    out_file = args.out or "features.json"
-    rc = _run_flow("design_builder.py", [args.design, "-o", out_file], args.out and None or None)
+    out_file = _default_out(args, "features.json")
+    rc = _run_flow("design_builder.py", [args.design, "-o", out_file], None)
     if rc != 0:
         return rc
     _emit({"valid": True, "features": out_file}, None)
@@ -67,7 +98,7 @@ def _cmd_design_build(args) -> int:
 
 
 def _cmd_build_script(args) -> int:
-    out_file = args.out or "model.ifc"
+    out_file = _default_out(args, "model.ifc")
     rc = _run_flow("build_script_template.py", [args.features, "-o", out_file], None)
     if rc != 0:
         return rc
@@ -76,7 +107,7 @@ def _cmd_build_script(args) -> int:
 
 
 def _cmd_dxf_from_design(args) -> int:
-    out_file = args.out or "plan.dxf"
+    out_file = _default_out(args, "plan.dxf")
     rc = _run_flow("dxf_from_design.py", [args.design, "-o", out_file], None)
     if rc != 0:
         return rc
@@ -100,7 +131,8 @@ def _cmd_consume_upstream(args) -> int:
     except Exception as e:  # noqa: BLE001 —— 薄壳兜底，错误文本化
         _emit({"valid": False, "error": str(e)}, args.out)
         return 1
-    out_file = args.out or "design.json"
+    out_file = _default_out(args, "design.json")
+    Path(out_file).parent.mkdir(parents=True, exist_ok=True)
     Path(out_file).write_text(json.dumps(design, ensure_ascii=False, indent=1), encoding="utf-8")
     _emit({"valid": True, "design": out_file,
            "storeys": len(design.get("frame", {}).get("storeys", {}))}, None)
@@ -114,20 +146,28 @@ def build_parser() -> argparse.ArgumentParser:
     d = sub.add_parser("design-build", help="design.json → features.json（flows/design_builder.py）")
     d.add_argument("design", help="design.json 路径")
     d.add_argument("-o", "--out", default="features.json")
+    d.add_argument("--project-id", dest="project_id",
+                   help="平台项目 id——中间产物（features.json）自动落 skill-work/{pid}/（结构性落盘）")
 
     b = sub.add_parser("build-script", help="features.json → IFC（flows/build_script_template.py）")
     b.add_argument("features", help="features.json 路径")
     b.add_argument("-o", "--out", default="model.ifc")
+    b.add_argument("--project-id", dest="project_id",
+                   help="平台项目 id——演示 IFC 落 skill-work/{pid}/（真正版本化走 script-as-source stage/run/save → models/{modelId}/）")
 
     x = sub.add_parser("dxf-from-design", help="design.json → DXF（flows/dxf_from_design.py）")
     x.add_argument("design", help="design.json 路径")
     x.add_argument("-o", "--out", default="plan.dxf")
+    x.add_argument("--project-id", dest="project_id",
+                   help="平台项目 id——中间产物（plan.dxf）自动落 skill-work/{pid}/")
 
     c = sub.add_parser("consume-upstream", help="上游产物 → design.json（aiifc.consume_upstream 新库，cad->ifc）")
     c.add_argument("--building", required=True, help="building.json 路径（zones 记 modelId）")
     c.add_argument("--bim", required=True, help="bim_supplement.json 路径")
     c.add_argument("--dxf-dir", required=True, help="各 zone DXF 目录（或 workdir）")
     c.add_argument("-o", "--out", default="design.json")
+    c.add_argument("--project-id", dest="project_id",
+                   help="平台项目 id——中间产物（design.json）自动落 skill-work/{pid}/（结构性落盘，与 aidxfv3 同构）")
     return p
 
 
