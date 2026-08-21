@@ -24,14 +24,19 @@ metadata:
 ## 定位
 
 cad 是 AI BIM 管线的中段：上游 aiplan 落盘 plan.json（任务书）→ 本 skill 生成
-逐层 DXF + building.json（工程图纸 + bim 接口）→ 下游 bim 消费。
+**每 zone 平台模型（build() 脚本 + DXF，script-as-source 版本化）+ building.json（记 modelId）**→ 下游 bim 消费。
 
 ```
-aiplan(plan.json) ──► aidxfv3(S0-S4) ──► building.json + 逐层 DXF + 封存 rooms ──► bim
+aiplan(plan.json) ──► aidxfv3(S0-S3 画 + S4 交付改造) ──► 每 zone 平台模型(modelId+build脚本+DXF) + building.json(记modelId) ──► bim
 ```
 
-- 职责：把 plan 的设计意图落地成可交付的平面图
+- 职责：把 plan 的设计意图落地成可交付的平面图（**交付 = 平台模型**，非游离文件）
 - `plan.json` 只读输入，全程不改
+- **S4 交付改造（2026-08-21 起）**：S2/S3 主 agent 调 dxfkit.draw 画 floor.dxf 时，机器经
+  `dxfkit.record` 记录 draw 调用序列；S4 不再「复制 DXF 到 deliver/」，而是
+  S4-a 固化每 zone build() 脚本 → S4-b 经 init_model + stage/run/save（script 工具链）注册
+  平台模型（modelId + script-as-source 版本化）→ S4-c building.json 汇总（zones[] 记 modelId）。
+  详见 `steps/step-04-deliver.md`。
 
 ## 自包含
 
@@ -71,9 +76,9 @@ schema/词表/类型包/金例全部自持在 `references/` 内，本 skill 的�
 |---|---|---|
 | 0 预处理 | `steps/step-00-preprocess.md` | plan.json → derived/（floors + zone 包 + skeleton_base 底座）→ **断点⓪** |
 | 1 骨架设计 | `steps/step-01-skeleton.md` | derived/ → skeleton.json（声明）→ **断点①** |
-| 2 房间设计 | `steps/step-02-rooms.md` | skeleton → rooms.json（承接分区画墙）+ floor.dxf → **断点②** |
+| 2 房间设计 | `steps/step-02-rooms.md` | skeleton → rooms.json（承接分区画墙）+ floor.dxf → **断点②**（画时机器记录 draw 调用序列） |
 | 3 细节 | `steps/step-03-details.md` | rooms → floor.dxf（门窗统一规律 + 柱网 + 标注） |
-| 4 交付 | `steps/step-04-deliver.md` | 全部层 → building.json + 逐层 DXF + 封存 rooms |
+| 4 交付 | `steps/step-04-deliver.md` | 全部层 → **每 zone build() 脚本固化（S4-a）→ script 工具链注册平台模型（S4-b，modelId）→ building.json 记 modelId（S4-c）** |
 
 从 step 0 开始。
 
