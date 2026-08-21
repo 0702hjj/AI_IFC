@@ -130,6 +130,24 @@ func loadConfig(path string) (*config, error) {
 	return &cfg, nil
 }
 
+// loadConfigOrExample 读配置；path 缺失时回退同目录的 server_config.example.json。
+// server_config.json 已移出 git 跟踪（本地敏感配置不入库）——CI 干净克隆没有，
+// 缺则从 example 兜底（example 是完整可用默认配置，apiKey 空 = scriptedModel 离线），
+// 避免 server 起不来。example 也读不到才报错。
+func loadConfigOrExample(path string) (*config, error) {
+	cfg, err := loadConfig(path)
+	if err == nil {
+		return cfg, nil
+	}
+	examplePath := filepath.Join(filepath.Dir(path), "server_config.example.json")
+	ex, exErr := loadConfig(examplePath)
+	if exErr == nil {
+		log.Printf("config %s 缺失（%v），回退 example %s", path, err, examplePath)
+		return ex, nil
+	}
+	return nil, fmt.Errorf("%w（且 example %s 也读不到: %v）", err, examplePath, exErr)
+}
+
 
 // buildRootMux 装配根 mux 的子树分发：
 //   /api/v1/chat/  与 /api/v1/projects/ 都归 chatHandler（chat/项目方案/交付域）；
@@ -147,7 +165,7 @@ func main() {
 	configPath := flag.String("config", "server_config.json", "path to config file (relative to working directory)")
 	flag.Parse()
 
-	cfg, err := loadConfig(*configPath)
+	cfg, err := loadConfigOrExample(*configPath)
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}

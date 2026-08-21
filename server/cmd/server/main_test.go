@@ -269,3 +269,30 @@ func TestLoadConfigEnvOverridesAuth(t *testing.T) {
 		t.Fatalf("env 应覆盖 json: %v", cfg.CORSOrigins)
 	}
 }
+
+// TestLoadConfigOrExampleFallback：config 缺失时回退同目录 example（server_config.json
+// 已移出 git 跟踪，CI 干净克隆没有——example 兜底避免 server 起不来）。
+func TestLoadConfigOrExampleFallback(t *testing.T) {
+	dir := t.TempDir()
+	examplePath := filepath.Join(dir, "server_config.example.json")
+	if err := os.WriteFile(examplePath, []byte(`{"port": 8090, "dataDir": "../data"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(dir, "server_config.json")
+	cfg, err := loadConfigOrExample(missing)
+	if err != nil {
+		t.Fatalf("缺失 config 应回退 example: %v", err)
+	}
+	if cfg.DataDir != "../data" {
+		t.Fatalf("example 值未生效: %+v", cfg)
+	}
+}
+
+// TestLoadConfigOrExampleBothMissing：config 与 example 都缺失 → 报错（不静默）。
+func TestLoadConfigOrExampleBothMissing(t *testing.T) {
+	dir := t.TempDir()
+	_, err := loadConfigOrExample(filepath.Join(dir, "server_config.json"))
+	if err == nil {
+		t.Fatal("config 与 example 都缺失应报错")
+	}
+}
