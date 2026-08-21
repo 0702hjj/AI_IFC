@@ -4,6 +4,11 @@
 
 路径相对于进程工作目录解析（非可执行文件目录）。
 
+> **本地配置文件不入库**：`server/server_config.json` 已在 `.gitignore`（含 LLM key/pgDSN 等敏感项）。
+> 首次使用从模板复制：`cp server/server_config.example.json server/server_config.json`，再按需填写。
+> 直接修改被跟踪文件会在 `git reset --hard` 时被覆盖——**先复制再改**。
+
+
 | key | 默认 | env 覆盖 | 说明 |
 | --- | --- | --- | --- |
 | `host` / `port` | `127.0.0.1` / `8090` | — | 监听地址 |
