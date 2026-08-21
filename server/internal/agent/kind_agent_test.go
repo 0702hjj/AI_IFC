@@ -21,8 +21,7 @@ func TestWithKindPersona(t *testing.T) {
 	}{
 		{"cad", "CAD 项目"},
 		{"ifc", "IFC 项目"},
-		{"cad->ifc", "帮助设计师通过对话完成"}, // 全装：不替换默认 persona
-		{"", "帮助设计师通过对话完成"},           // 空 = 全装默认
+		{"cad->ifc", "cad->ifc 项目"}, // cad->ifc 专属全链编排（kind 强制三选一，无空 kind）
 	}
 	for _, c := range cases {
 		ag, err := New(LLMConfig{}, WithKind(c.kind))
@@ -90,16 +89,17 @@ func TestCadAgentPersonaConsumesPlan(t *testing.T) {
 	}
 }
 
-// TestOrchestratorPersonaContract 编排契约：三个 persona 的关键编排要素（步骤 + 产物锚点 + 断点 + ifc 路径注入）。
+// TestOrchestratorPersonaContract 编排契约：三个 persona 的关键编排要素（步骤 + 产物锚点 + 断点）。
+// kind 强制三选一（无空 kind）：OrchestratorPersona = cad->ifc 专属全链编排。
 func TestOrchestratorPersonaContract(t *testing.T) {
-	// 全装（cad->ifc）：aiplan→cad→ifc 步骤 + 产物锚点 + 断点主持 + ifc 路径强制注入
-	if !strings.Contains(OrchestratorPersona, "cad->ifc 管线") ||
+	// OrchestratorPersona（cad->ifc 专属）：plan→cad→ifc 全链步骤 + 产物锚点 + 断点主持 + 消费上游路径
+	if !strings.Contains(OrchestratorPersona, "cad->ifc 项目") ||
 		!strings.Contains(OrchestratorPersona, "deliver_plan") ||
 		!strings.Contains(OrchestratorPersona, "deliver_building") ||
 		!strings.Contains(OrchestratorPersona, "stage_plan_to_workdir") ||
 		!strings.Contains(OrchestratorPersona, "CONSUME_UPSTREAM") ||
 		!strings.Contains(OrchestratorPersona, "断点主持") {
-		t.Errorf("OrchestratorPersona 缺编排契约要素（步骤/产物锚点/断点/ifc 路径注入）")
+		t.Errorf("OrchestratorPersona 缺 cad->ifc 全链编排契约要素（步骤/产物锚点/断点/消费上游路径）")
 	}
 	// personaCAD：cad 管线步骤（aiplan 前置 + cad 出图 + building.json）
 	if !strings.Contains(personaCAD, "aiplan") ||

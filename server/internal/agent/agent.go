@@ -202,6 +202,8 @@ func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
 		persona = personaCAD
 	case "ifc":
 		persona = personaIFC
+	case "cad->ifc":
+		persona = OrchestratorPersona // cad->ifc 专属全链编排（kind 强制三选一，无空 kind 兜底）
 	}
 	ag, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:          o.name,
