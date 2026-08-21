@@ -161,6 +161,33 @@ def _mm_to_m(v: float) -> float:
     return round(v / 1000.0, 3)
 
 
+def _point_to_segment(p: list, a: list, b: list) -> tuple[float, float]:
+    """点 p 到线段 ab 的（距离, 投影距 a 的长度）——门窗 at 沿墙定位用（mm）。"""
+    px, py = p
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    seg_len_sq = dx * dx + dy * dy
+    if seg_len_sq == 0:
+        return ((px - ax) ** 2 + (py - ay) ** 2) ** 0.5, 0.0
+    # 投影参数 t（0~1，钳制在线段内）
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / seg_len_sq))
+    proj_x, proj_y = ax + t * dx, ay + t * dy
+    dist = ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
+    along = (seg_len_sq ** 0.5) * t  # 投影距 a 的长度（mm）
+    return dist, along
+
+
+def _nearest_wall(at: list, segments: list) -> tuple[int, float]:
+    """门窗 at → 最近的墙段（索引, 沿该段投影长度 mm）——门窗沿墙精确定位。"""
+    best_i, best_d, best_along = 0, float("inf"), 0.0
+    for i, seg in enumerate(segments):
+        d, along = _point_to_segment(at, seg[0], seg[1])
+        if d < best_d:
+            best_i, best_d, best_along = i, d, along
+    return best_i, best_along
+
+
 def _fill_from_dxf(floor: dict, dxf_path: Path) -> None:
     """readback 解析 zone DXF → floors.walls/openings/slabs（精确几何直用，mm→m）。
 
@@ -189,17 +216,21 @@ def _fill_from_dxf(floor: dict, dxf_path: Path) -> None:
             "t": 0.2, "kind": "int", "key": f"wall_arc:{j}",
         })
     floor["walls"] = walls
+    # 门窗：at → 最近墙段 + along 投影长度（沿墙精确定位，mm→m）
+    segments = rb.get("wall_segments", [])
     openings: list = []
     for k, w in enumerate(rb.get("windows", [])):
         at = w.get("at", [0, 0])
+        wall_i, along = _nearest_wall(at, segments) if segments else (0, 0.0)
         openings.append({
-            "wall": 0, "along": _mm_to_m(at[0]), "w": _mm_to_m(w.get("width_mm", 1500)),
+            "wall": wall_i, "along": _mm_to_m(along), "w": _mm_to_m(w.get("width_mm", 1500)),
             "h": 1.5, "sill": 0.9, "type": "window", "key": f"opening:win:{k}",
         })
     for k, d in enumerate(rb.get("doors", [])):
         at = d.get("at", [0, 0])
+        wall_i, along = _nearest_wall(at, segments) if segments else (0, 0.0)
         openings.append({
-            "wall": 0, "along": _mm_to_m(at[0]), "w": _mm_to_m(d.get("width_mm", 900)),
+            "wall": wall_i, "along": _mm_to_m(along), "w": _mm_to_m(d.get("width_mm", 900)),
             "h": 2.1, "sill": 0.0, "type": "door", "key": f"opening:door:{k}",
         })
     floor["openings"] = openings

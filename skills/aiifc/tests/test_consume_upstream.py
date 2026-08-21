@@ -171,3 +171,44 @@ def test_arc_design_json_passes_design_build(tmp_path):
     r = sp.run(CLI + ["design-build", str(design_path), "-o", str(tmp_path / "feat.json")],
                capture_output=True, text=True, env=env)
     assert r.returncode == 0, f"design-build 失败（arc 墙语义不对齐）: {r.stdout} {r.stderr}"
+
+
+def test_openings_along_wall_positioning(tmp_path):
+    """门窗沿墙精确定位：at → 最近墙段（wall 索引）+ along 投影长度（沿墙 m）。"""
+    dxf = tmp_path / "tower.dxf"
+    # 四面墙 + 一扇窗（在南墙上）
+    _make_dxf(dxf, [
+        ((0, 0), (10000, 0), 200),      # 南墙（y=0）
+        ((10000, 0), (10000, 8000), 200),  # 东墙
+        ((10000, 8000), (0, 8000), 200),   # 北墙
+        ((0, 8000), (0, 0), 200),          # 西墙
+    ])
+    # 在南墙（y=0）上加一扇窗（at=(5000, 0)，沿南墙）
+    from dxfkit import draw
+    doc = __import__("ezdxf").readfile(str(dxf))
+    msp = doc.modelspace()
+    # readback 识别窗：WINDOW 图层的块/线——用 draw.window（WALL 图层沿墙窗）
+    draw.reset_keys()
+    doc2 = draw.new_doc()
+    msp2 = doc2.modelspace()
+    wkey = draw.wall_run(msp2, (0, 0), (10000, 0), 200, cuts=[])
+    draw.window(msp2, wkey, 5000, 1800)  # 南墙 at=5000 窗
+    draw.wall_run(msp2, (10000, 0), (10000, 8000), 200, cuts=[])
+    draw.wall_run(msp2, (10000, 8000), (0, 8000), 200, cuts=[])
+    draw.wall_run(msp2, (0, 8000), (0, 0), 200, cuts=[])
+    doc2.saveas(str(dxf))
+
+    building = tmp_path / "b.json"
+    building.write_text('{"version":2,"project":"t","zones":[{"zone":"tower","floors_from":1,"floors_to":1,"modelId":"m_1"}]}')
+    bim = tmp_path / "bim.json"
+    bim.write_text('{}')
+    design = consume_upstream(str(building), str(bim), str(tmp_path))
+    ops = design["floors"]["1F"]["openings"]
+    wins = [o for o in ops if o["type"] == "window"]
+    assert len(wins) >= 1, "应有窗"
+    win = wins[0]
+    # 窗应定位到南墙段（wall 索引指向 y=0 的墙段），along 是沿该墙的投影长度（>0）
+    assert win["wall"] >= 0, "窗应定位到具体墙段"
+    assert win["along"] > 0, "along 应是沿墙投影长度（m）"
+    # along 应 ≈ 5m（at=5000mm 沿南墙 10000mm 墙的投影）
+    assert win["along"] == pytest.approx(5.0, abs=1.0), f"along 应 ≈ 5m（at 沿墙投影），got {win['along']}"
