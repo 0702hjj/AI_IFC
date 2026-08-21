@@ -75,3 +75,17 @@ func TestKindChildren(t *testing.T) {
 		t.Errorf("kind=ifc 应只含 ifc-agent")
 	}
 }
+
+// TestCadAgentPersonaConsumesPlan cad-agent 必须显式消费 aiplan plan 产物：
+// 执行前先 get_project_plans 读 plan.json + bim_supplement.json，plan 缺失报告不硬画。
+func TestCadAgentPersonaConsumesPlan(t *testing.T) {
+	if !strings.Contains(cadAgentPersona, "先消费 plan 再动手") {
+		t.Error("cadAgentPersona 缺「先消费 plan 再动手」纪律")
+	}
+	if !strings.Contains(cadAgentPersona, "get_project_plans") {
+		t.Error("cadAgentPersona 缺 get_project_plans 读 plan 工具指引")
+	}
+	if !strings.Contains(cadAgentPersona, "禁止无 plan 硬画") {
+		t.Error("cadAgentPersona 缺 plan 缺失报告纪律")
+	}
+}
