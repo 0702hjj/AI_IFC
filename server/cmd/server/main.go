@@ -215,8 +215,13 @@ func main() {
 	log.Printf("chat: execute 命令白名单 = %v（VIEWER_SKILLS_CLI 可覆盖）", cliNames)
 	// 对齐官方 ch09 resolveSkillsDir：目录不存在/不可读时跳过挂载（skill 工具不出现），
 	// 而不是装配后运行时才爆。skillsDir 为空则完全不挂 skill middleware。
+	// 相对路径先归一为绝对（skill middleware 要求 BaseDir 绝对；cwd 不确定时
+	// 相对路径会在加载期才爆，这里启动期即钉死）。
 	skillsDir := cfg.SkillsDir
 	if skillsDir != "" {
+		if abs, err := filepath.Abs(skillsDir); err == nil {
+			skillsDir = abs
+		}
 		if fi, err := os.Stat(skillsDir); err != nil || !fi.IsDir() {
 			log.Printf("chat: skillsDir %q 不存在或不可读，跳过 skill middleware 挂载（配置 VIEWER_SKILLS_DIR）", skillsDir)
 			skillsDir = ""
@@ -232,6 +237,23 @@ func main() {
 		log.Fatalf("create chat agent: %v", err)
 	}
 	chatHandler.SetAgent(chatAgent)
+	// 按项目类型分化的主 agent（D13：AgentAsTool 选择性装配 + kind persona +
+	// aiplan 挂载差异）。会话经 agentForSession 按 Project.Kind 路由；
+	// 历史项目会话恢复同样命中（不落回默认全装）。
+	byKind := map[string]*agent.Agent{}
+	for _, k := range []string{"cad", "ifc", "cad->ifc"} {
+		ka, err := agent.New(llmCfg,
+			agent.WithStore(evStore),
+			agent.WithTools(chatHandler.DomainTools()),
+			agent.WithSkillsDir(skillsDir),
+			agent.WithKind(k),
+		)
+		if err != nil {
+			log.Fatalf("create %s chat agent: %v", k, err)
+		}
+		byKind[k] = ka
+	}
+	chatHandler.SetAgents(byKind)
 	if cfg.LLMAPIKey == "" {
 		log.Printf("chat: VIEWER_LLM_API_KEY 未配置，回退 scriptedModel（离线 demo 模式）")
 	}

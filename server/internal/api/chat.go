@@ -24,7 +24,11 @@ import (
 
 // ChatDeps 是 chat 模块的依赖包（agent 运行 + 事件日志 + notify 落盘 + 重转 + 脚本管线）。
 type ChatDeps struct {
+	// Ag 是默认主 agent（空 kind/兜底，全装：AgentAsTool(ifc+cad) + aiplan）。
+	// Agents 是按项目类型分化的主 agent（cad/ifc/cad->ifc 选择性装配）；会话经
+	// agentForSession 按 Project.Kind 路由（历史项目会话同样命中，不落默认）。
 	Ag      *agent.Agent
+	Agents  map[string]*agent.Agent // kind -> 主 agent（cad/ifc/cad->ifc）
 	Ev      *agent.EventStore
 	Ed      *editsvc.Client // ifc kind 后端（services/ifc :8100）
 	Cad     *editsvc.Client // dxf kind 后端（services/cad :8200）；nil 时 dxf 会话 notify 报错文本

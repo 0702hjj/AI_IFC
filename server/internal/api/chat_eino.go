@@ -43,7 +43,8 @@ func (h *ChatHandler) postMessage(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "text required")
 		return
 	}
-	if h.deps.Ag == nil {
+	ag := h.agentForSession(cs)
+	if ag == nil {
 		writeChatErr(w, errAgentNotConfigured)
 		return
 	}
@@ -68,7 +69,7 @@ func (h *ChatHandler) postMessage(w http.ResponseWriter, r *http.Request) {
 		text = "[系统上下文] " + sys + "\n\n[用户需求] " + body.Text
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	events, err := h.deps.Ag.Run(ctx, cs.AgentID, text)
+	events, err := ag.Run(ctx, cs.AgentID, text)
 	if err != nil {
 		cancel()
 		writeChatErr(w, err)
@@ -165,7 +166,8 @@ func (h *ChatHandler) answerSession(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, codeInvalidType, "interruptId/answer required")
 		return
 	}
-	if h.deps.Ag == nil {
+	ag := h.agentForSession(cs)
+	if ag == nil {
 		writeChatErr(w, errAgentNotConfigured)
 		return
 	}
@@ -173,7 +175,7 @@ func (h *ChatHandler) answerSession(w http.ResponseWriter, r *http.Request) {
 	params := &adk.ResumeParams{Targets: map[string]any{
 		body.InterruptID: &agent.AskUserInfo{UserAnswer: body.Answer},
 	}}
-	events, err := h.deps.Ag.Resume(ctx, cs.AgentID, params)
+	events, err := ag.Resume(ctx, cs.AgentID, params)
 	if err != nil {
 		cancel()
 		writeChatErr(w, err)
