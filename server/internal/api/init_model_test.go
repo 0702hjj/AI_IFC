@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"time"
 	"testing"
 
 	"ifcviewer/server/internal/convert"
@@ -39,14 +40,15 @@ func newFakeEditServer(t *testing.T) *fakeEditServer {
 	return f
 }
 
-func newInitModelHandler(t *testing.T, fakeURL string) (*ChatHandler, *store.ProjectStore) {
+func newInitModelHandler(t *testing.T, fakeURL string) (*ChatHandler, *store.ProjectStore, chan string) {
 	t.Helper()
 	dataDir := t.TempDir()
 	st := store.NewStore(dataDir)
 	ps := store.NewProjectStore(dataDir)
 	ed := editsvc.New(fakeURL)
 	cad := editsvc.New(fakeURL)
-	q := convert.NewQueue(st, okRunner{}, 1)
+	runs := make(chan string, 8)
+	q := convert.NewQueue(st, okRunner2{runs: runs}, 1)
 	h := &ChatHandler{
 		deps:     ChatDeps{St: st, Ps: ps, PlanSt: store.NewPlanStore(dataDir), Ed: ed, Cad: cad, Q: q, DataDir: dataDir},
 		mux:      http.NewServeMux(),
@@ -56,12 +58,24 @@ func newInitModelHandler(t *testing.T, fakeURL string) (*ChatHandler, *store.Pro
 		subs:     map[string]map[chan []byte]struct{}{},
 		creating: map[string]*sync.Mutex{},
 	}
-	return h, ps
+	return h, ps, runs
+}
+
+// waitConvert 条件等待 convert 队列处理完成（异步写盘必须等落地——AGENTS 纪律）。
+// runs 收到 in 路径即 worker 已开始处理该任务；等一个任务完成即可（okRunner2 同步结束）。
+func waitConvert(t *testing.T, runs chan string) {
+	t.Helper()
+	select {
+	case <-runs:
+		// worker 已拾取任务；okRunner2.Run 立即结束，目录写入已落地。
+	case <-time.After(3 * time.Second):
+		t.Fatal("convert 队列 3s 未处理（异步写盘未落地）")
+	}
 }
 
 func TestInitModelIFC(t *testing.T) {
 	fake := newFakeEditServer(t)
-	h, ps := newInitModelHandler(t, fake.srv.URL)
+	h, ps, runs := newInitModelHandler(t, fake.srv.URL)
 	p, err := ps.CreateWithKind("测试项目", "ifc")
 	if err != nil {
 		t.Fatal(err)
@@ -96,11 +110,13 @@ func TestInitModelIFC(t *testing.T) {
 	if !strings.Contains(strings.Join(fake.calls, " "), "/script") {
 		t.Error("缺 script stage 调用")
 	}
+	// ifc 骨架 save 后排队 XKT 重转——异步写盘必须等落地（TempDir cleanup 防 directory not empty）
+	waitConvert(t, runs)
 }
 
 func TestInitModelDXF(t *testing.T) {
 	fake := newFakeEditServer(t)
-	h, ps := newInitModelHandler(t, fake.srv.URL)
+	h, ps, _ := newInitModelHandler(t, fake.srv.URL)
 	p, _ := ps.CreateWithKind("cad 项目", "cad")
 	m, err := h.initModel(context.Background(), p.ID, store.KindDXF, "一层平面")
 	if err != nil {
@@ -126,7 +142,7 @@ func TestInitModelRollbackOnBuildFail(t *testing.T) {
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
 	defer fake2.srv.Close()
-	h2, _ := newInitModelHandler(t, fake2.srv.URL)
+	h2, _, _ := newInitModelHandler(t, fake2.srv.URL)
 	_, err := h2.initModel(context.Background(), "", store.KindIFC, "会失败")
 	if err == nil {
 		t.Fatal("构建失败应返回错误")
@@ -141,7 +157,7 @@ func TestInitModelRollbackOnBuildFail(t *testing.T) {
 // TestInitModelKindConstraint 项目 kind 约束：cad 项目只能 dxf、ifc 只能 ifc、cad->ifc 两者都可。
 func TestInitModelKindConstraint(t *testing.T) {
 	fake := newFakeEditServer(t)
-	h, ps := newInitModelHandler(t, fake.srv.URL)
+	h, ps, _ := newInitModelHandler(t, fake.srv.URL)
 	ctx := context.Background()
 
 	// cad 项目：init dxf 允许，init ifc 拒绝
@@ -175,7 +191,7 @@ func TestInitModelKindConstraint(t *testing.T) {
 // TestInitModelKindDefaultByProject kind 缺省按项目 kind 推导：ifc 项目默认 ifc，cad 默认 dxf。
 func TestInitModelKindDefaultByProject(t *testing.T) {
 	fake := newFakeEditServer(t)
-	h, ps := newInitModelHandler(t, fake.srv.URL)
+	h, ps, runs := newInitModelHandler(t, fake.srv.URL)
 	ctx := context.Background()
 
 	ifcP, _ := ps.CreateWithKind("ifc 项目", "ifc")
@@ -195,12 +211,14 @@ func TestInitModelKindDefaultByProject(t *testing.T) {
 	if m2.Kind != store.KindDXF {
 		t.Errorf("cad 项目 kind 缺省应推导 dxf，got %q", m2.Kind)
 	}
+	// ifc 骨架 save 后排队 XKT 重转——异步写盘等落地
+	waitConvert(t, runs)
 }
 
 // TestInitModelRequiresProject init_model 需项目绑定（项目绑唯一会话，A2）。
 func TestInitModelRequiresProject(t *testing.T) {
 	fake := newFakeEditServer(t)
-	h, _ := newInitModelHandler(t, fake.srv.URL)
+	h, _, _ := newInitModelHandler(t, fake.srv.URL)
 	if _, err := h.initModel(context.Background(), "", store.KindDXF, "无项目"); err == nil {
 		t.Error("无项目绑定应拒绝（init_model 需项目会话）")
 	}
@@ -210,7 +228,7 @@ func TestInitModelRequiresProject(t *testing.T) {
 // 与 ifc 一致（1 个 ifc 骨架），与 cad 区分（cad 空白）。
 func TestCreateProjectCadToIfcInitIFC(t *testing.T) {
 	fake := newFakeEditServer(t)
-	h, ps := newInitModelHandler(t, fake.srv.URL)
+	h, ps, runs := newInitModelHandler(t, fake.srv.URL)
 	h.registerRoutes()
 
 	r := doCreateProject(t, h, `{"title":"cad->ifc 项目","kind":"cad->ifc"}`)
@@ -231,4 +249,6 @@ func TestCreateProjectCadToIfcInitIFC(t *testing.T) {
 	if p.Models[0].Kind != "ifc" {
 		t.Errorf("骨架模型 kind = %q, want ifc", p.Models[0].Kind)
 	}
+	// ifc 骨架 save 后排队 XKT 重转——异步写盘等落地
+	waitConvert(t, runs)
 }
