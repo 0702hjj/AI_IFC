@@ -236,3 +236,42 @@ func TestSkillWorkDirForAgent(t *testing.T) {
 		t.Errorf("工作区幂等重建: %v", err)
 	}
 }
+
+// TestPlanToWorkdirForAgent plan 桥接：PlanStore plan/bim → 工作区文件（内容一致 + 路径正确）。
+func TestPlanToWorkdirForAgent(t *testing.T) {
+	h, ps := newKindAgentHandler(t)
+	p, _ := ps.CreateWithKind("项目", "cad")
+	if h.deps.PlanSt == nil {
+		h.deps.PlanSt = store.NewPlanStore(h.deps.DataDir)
+	}
+	planContent := []byte(`{"project":"` + p.ID + `","zones":[]}`)
+	bimContent := []byte(`{"roof":"flat"}`)
+	if _, err := h.deps.PlanSt.Put(p.ID, "plan.json", planContent); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.deps.PlanSt.Put(p.ID, "bim_supplement.json", bimContent); err != nil {
+		t.Fatal(err)
+	}
+
+	paths, err := h.planToWorkdirForAgent(context.Background(), p.ID)
+	if err != nil {
+		t.Fatalf("planToWorkdirForAgent: %v", err)
+	}
+	// 路径 = skill-work/{projectID}/plan.json + bim_supplement.json
+	wantDir := filepath.Join(h.deps.DataDir, "skill-work", p.ID)
+	if paths["planPath"] != filepath.Join(wantDir, "plan.json") {
+		t.Errorf("planPath = %q, want %s", paths["planPath"], filepath.Join(wantDir, "plan.json"))
+	}
+	if paths["bimPath"] != filepath.Join(wantDir, "bim_supplement.json") {
+		t.Errorf("bimPath = %q", paths["bimPath"])
+	}
+	// 文件落盘 + 内容一致
+	gotPlan, err := os.ReadFile(paths["planPath"])
+	if err != nil || string(gotPlan) != string(planContent) {
+		t.Errorf("plan.json 落盘内容不一致: %v got %q", err, gotPlan)
+	}
+	gotBim, err := os.ReadFile(paths["bimPath"])
+	if err != nil || string(gotBim) != string(bimContent) {
+		t.Errorf("bim_supplement.json 落盘内容不一致: %v got %q", err, gotBim)
+	}
+}

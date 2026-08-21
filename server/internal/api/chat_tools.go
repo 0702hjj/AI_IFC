@@ -136,6 +136,7 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		PlanGet:        h.planGetForAgent,
 		PlanDeliver:    h.planDeliverForAgent,
 		SkillWorkDir:   h.skillWorkDirForAgent,
+		PlanToWorkdir:  h.planToWorkdirForAgent,
 	}
 }
 
@@ -193,6 +194,36 @@ func (h *ChatHandler) skillWorkDirForAgent(ctx context.Context, projectID string
 		return "", fmt.Errorf("建 skill 工作区: %w", err)
 	}
 	return dir, nil
+}
+
+// planToWorkdirForAgent 把项目 plan 产物（plan.json + bim_supplement.json）从 PlanStore
+// 落到 skill 工作区文件，返回 {planPath, bimPath}——aidxfv3 preprocess --plan <文件> 等
+// 命令需要文件路径时的桥接（plan 内容 → 工作区文件）。
+func (h *ChatHandler) planToWorkdirForAgent(ctx context.Context, projectID string) (map[string]string, error) {
+	if h.deps.PlanSt == nil {
+		return nil, fmt.Errorf("方案存储未配置")
+	}
+	dir, err := h.skillWorkDirForAgent(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, name := range []string{"plan.json", "bim_supplement.json"} {
+		content, err := h.deps.PlanSt.Get(projectID, name)
+		if err != nil {
+			return nil, fmt.Errorf("读方案产物 %s: %w", name, err)
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return nil, fmt.Errorf("写工作区 %s: %w", name, err)
+		}
+		if name == "plan.json" {
+			out["planPath"] = path
+		} else {
+			out["bimPath"] = path
+		}
+	}
+	return out, nil
 }
 
 // planDeliverForAgent 触发 plan 交付（复用 deliverPlan 的 aiplan land 执行逻辑；

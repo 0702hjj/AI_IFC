@@ -150,6 +150,7 @@ func TestDomainToolsRegistered(t *testing.T) {
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
 		"get_project_plans", "deliver_plan", "get_project_models", "get_skill_workdir",
+		"stage_plan_to_workdir",
 		"get_script_locate", "edit_script_call", "init_model",
 	}
 	if len(got) != len(want) {
@@ -477,6 +478,31 @@ func TestGetSkillWorkdirToolUnconfigured(t *testing.T) {
 	deps, _, _, _ := newToolFixture(t)
 	// 未绑项目（SessionProject nil → projectID 空）
 	out := invoke(t, DomainTools(deps), "get_skill_workdir", `{}`)
+	if !strings.Contains(out, "未指定 projectId") && !strings.Contains(out, "未配置") {
+		t.Fatalf("未绑项目/未配置应文本错误, got %s", out)
+	}
+}
+
+// TestStagePlanToWorkdirTool stage_plan_to_workdir：返回 plan/bim 工作区文件路径（供 aidxfv3 --plan）。
+func TestStagePlanToWorkdirTool(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	deps.SessionProject = func(ctx context.Context) string { return "p_x" }
+	deps.PlanToWorkdir = func(ctx context.Context, projectID string) (map[string]string, error) {
+		return map[string]string{
+			"planPath": "/data/skill-work/p_x/plan.json",
+			"bimPath":  "/data/skill-work/p_x/bim_supplement.json",
+		}, nil
+	}
+	out := invoke(t, DomainTools(deps), "stage_plan_to_workdir", `{}`)
+	if !strings.Contains(out, "plan.json") || !strings.Contains(out, "bim_supplement.json") {
+		t.Fatalf("stage_plan_to_workdir 输出应含 plan/bim 路径, got %s", out)
+	}
+}
+
+// TestStagePlanToWorkdirToolUnconfigured 未配置/未绑项目 → 文本错误。
+func TestStagePlanToWorkdirToolUnconfigured(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	out := invoke(t, DomainTools(deps), "stage_plan_to_workdir", `{}`)
 	if !strings.Contains(out, "未指定 projectId") && !strings.Contains(out, "未配置") {
 		t.Fatalf("未绑项目/未配置应文本错误, got %s", out)
 	}
