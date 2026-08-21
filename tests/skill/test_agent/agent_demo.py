@@ -177,7 +177,7 @@ def create_project_flow():
 
 def chat_loop(cid, pid):
     """对话主循环：发消息 -> SSE 流式显示 -> HITL 回答 -> 命令。"""
-    print("\n== 对话（输入 /plans 看方案历史 /quit 退出）==")
+    print("\n== 对话（/plans 看方案历史 · /del 删除当前项目 · /quit 退出）==")
     while True:
         try:
             text = input("你> ").strip()
@@ -190,6 +190,16 @@ def chat_loop(cid, pid):
         if text == "/plans":
             r = http_json("GET", SERVER_PORT, f"/api/v1/projects/{pid}/plan_history", timeout=15)
             print(json.dumps(r.get("data"), ensure_ascii=False, indent=2))
+            continue
+        if text == "/del":
+            confirm = input(f"确认删除当前项目 {pid}？（级联删会话/方案/模型）y/n: ").strip().lower()
+            if confirm == "y":
+                try:
+                    http_json("DELETE", SERVER_PORT, f"/api/v1/chat/projects/{pid}", timeout=15)
+                    print(f"已删除项目 {pid}（级联）")
+                    return
+                except RuntimeError as e:
+                    print(f"删除失败: {e}")
             continue
         if not text:
             continue

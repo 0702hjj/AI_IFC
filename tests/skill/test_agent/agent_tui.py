@@ -127,7 +127,7 @@ class SetupScreen(ModalScreen):
     def compose(self) -> ComposeResult:
         yield Static("加载历史项目…", id="list")
         yield Static("")
-        yield Static("输入序号进入历史项目，或 n 新建项目", id="hint")
+        yield Static("输入序号进入 / d 序号删除 / n 新建", id="hint")
         yield Input(placeholder="n", id="pick")
         yield Static("", id="formtitle")
         yield Input(placeholder="项目名（回车=未命名项目）", id="title")
@@ -177,12 +177,23 @@ class SetupScreen(ModalScreen):
             if val.lower() == "n" or not self.sessions:
                 self.to_new_form()
                 return
+            # d <序号> 删除项目（级联：项目+会话+方案+项目下模型）
+            if val.lower().startswith("d"):
+                try:
+                    idx = int(val[1:].strip()) - 1
+                    s = self.sessions[idx]
+                except (ValueError, IndexError):
+                    self.query_one("#hint", Static).update("[red]无效删除序号[/] 如 d 1")
+                    self.query_one("#pick", Input).value = ""
+                    return
+                self.delete_project(s)
+                return
             try:
                 idx = int(val) - 1
                 s = self.sessions[idx]
                 self.dismiss(("session", s.get("chatSessionId"), s.get("projectId")))
             except (ValueError, IndexError):
-                self.query_one("#hint", Static).update("[red]无效序号[/] 输入序号或 n")
+                self.query_one("#hint", Static).update("[red]无效序号[/] 输入序号进入 / d 序号删除 / n 新建")
                 self.query_one("#pick", Input).value = ""
             return
         if event.input.id == "title":
@@ -195,6 +206,21 @@ class SetupScreen(ModalScreen):
             self.query_one("#kind", Input).value = ""
             return
         self.dismiss(("new", title, kind))
+
+    @work(thread=True)
+    def delete_project(self, session: dict) -> None:
+        """删除项目（级联），删除后刷新历史项目列表。"""
+        pid = session.get("projectId")
+        title = session.get("title", pid)
+        try:
+            http_json("DELETE", SERVER_PORT, f"/api/v1/chat/projects/{pid}", timeout=15)
+        except Exception as e:
+            self.app.call_from_thread(self.query_one("#hint", Static).update,
+                                      f"[red]删除失败：{e}[/]")
+            return
+        self.app.call_from_thread(self.query_one("#hint", Static).update,
+                                  f"[green]已删除项目「{title}」[/]（级联：会话/方案/模型）")
+        self.load_sessions()
 
     def to_new_form(self) -> None:
         self.mode = "new"

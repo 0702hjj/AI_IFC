@@ -116,9 +116,19 @@ JSON body：`{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"备�
 
 创建项目。body `{"title", "kind"}`；`kind` 必选 ∈ `ifc | cad | cad->ifc`（强制预选，决定 Agent 派发方向与装配：cad→只派 cad-agent+aiplan，ifc→只派 ifc-agent，cad->ifc→全装）。
 
+**模型初始化（kind 分化，2026-08-21）**：
+- `ifc`：**建项目即初始化骨架模型**（分配 modelId，1 个——script-as-source：骨架脚本沙箱构建出最小 IFC v1，含 IfcProject+单位+几何上下文）；
+- `cad` / `cad->ifc`：保持空白，agent 会话内经 `init_model` 工具按需初始化 DXF（每次新建图纸时分配 modelId）。
+
 > **项目路径组织**：项目创建/删除在 `/api/v1/chat/projects`（chat 子树），项目方案/交付在
 > `/api/v1/projects/{id}/...`（非 chat 前缀）——同一 projectID 两种前缀，历史原因（chat 模块独立挂载）。
 > **项目绑定唯一会话**（1 项目 = 1 会话）：模型由 agent 在项目内产生，不用户上传。
+
+**模型初始化（agent 工具 `init_model`）**：CAD 项目 agent 在会话内经 `init_model` 工具初始化骨架模型
+（骨架脚本 stage → run 沙箱构建 → save v1 → 分配 modelId → 挂项目）。骨架脚本 = 最小可构建脚本
+（script-as-source：PARAMS + build + __main__，沙箱执行生成最小骨架 v1）。后续 agent 经
+`get_project_models` 查看已有模型，决定新建（init_model）或编辑（stage/run/save_script）。
+骨架构建在 **bwrap 沙箱**隔离下执行；ifc save 后自动排队 XKT 重转（渲染），dxf 走 render.json 直挂。
 
 ```json
 {"code":0,"message":"ok","data":{"projectId":"p_xxxx","title":"我的项目","kind":"cad","createdAt":"2026-08-21T06:00:00Z","models":[]}}

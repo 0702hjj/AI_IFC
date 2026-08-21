@@ -11,6 +11,12 @@
       "file": "server/internal/api/chat.go"
     },
     {
+      "method": "DELETE",
+      "path": "/api/v1/chat/projects/{id}",
+      "handler": "h.deleteProject",
+      "file": "server/internal/api/chat.go"
+    },
+    {
       "method": "GET",
       "path": "/api/v1/chat/sessions",
       "handler": "h.listSessions",
