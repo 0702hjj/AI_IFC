@@ -137,3 +137,71 @@ func TestInitModelRollbackOnBuildFail(t *testing.T) {
 		t.Errorf("构建失败应回滚模型，残留 %d 个", len(list))
 	}
 }
+
+// TestInitModelKindConstraint 项目 kind 约束：cad 项目只能 dxf、ifc 只能 ifc、cad->ifc 两者都可。
+func TestInitModelKindConstraint(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, ps := newInitModelHandler(t, fake.srv.URL)
+	ctx := context.Background()
+
+	// cad 项目：init dxf 允许，init ifc 拒绝
+	cadP, _ := ps.CreateWithKind("cad 项目", "cad")
+	if _, err := h.initModel(ctx, cadP.ID, store.KindDXF, "cad图纸"); err != nil {
+		t.Errorf("cad 项目 init dxf 应允许: %v", err)
+	}
+	if _, err := h.initModel(ctx, cadP.ID, store.KindIFC, "cad项目建ifc"); err == nil {
+		t.Error("cad 项目 init ifc 应拒绝（cad 项目不该有 ifc）")
+	}
+
+	// ifc 项目：init ifc 允许，init dxf 拒绝
+	ifcP, _ := ps.CreateWithKind("ifc 项目", "ifc")
+	if _, err := h.initModel(ctx, ifcP.ID, store.KindIFC, "ifc建筑"); err != nil {
+		t.Errorf("ifc 项目 init ifc 应允许: %v", err)
+	}
+	if _, err := h.initModel(ctx, ifcP.ID, store.KindDXF, "ifc项目建dxf"); err == nil {
+		t.Error("ifc 项目 init dxf 应拒绝")
+	}
+
+	// cad->ifc 项目：两者都可
+	bothP, _ := ps.CreateWithKind("cad->ifc 项目", "cad->ifc")
+	if _, err := h.initModel(ctx, bothP.ID, store.KindDXF, "cad层"); err != nil {
+		t.Errorf("cad->ifc 项目 init dxf 应允许: %v", err)
+	}
+	if _, err := h.initModel(ctx, bothP.ID, store.KindIFC, "ifc建筑"); err != nil {
+		t.Errorf("cad->ifc 项目 init ifc 应允许: %v", err)
+	}
+}
+
+// TestInitModelKindDefaultByProject kind 缺省按项目 kind 推导：ifc 项目默认 ifc，cad 默认 dxf。
+func TestInitModelKindDefaultByProject(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, ps := newInitModelHandler(t, fake.srv.URL)
+	ctx := context.Background()
+
+	ifcP, _ := ps.CreateWithKind("ifc 项目", "ifc")
+	m, err := h.initModel(ctx, ifcP.ID, "", "无kind ifc项目") // kind 缺省
+	if err != nil {
+		t.Fatalf("ifc 项目 kind 缺省: %v", err)
+	}
+	if m.Kind != store.KindIFC {
+		t.Errorf("ifc 项目 kind 缺省应推导 ifc，got %q", m.Kind)
+	}
+
+	cadP, _ := ps.CreateWithKind("cad 项目", "cad")
+	m2, err := h.initModel(ctx, cadP.ID, "", "无kind cad项目")
+	if err != nil {
+		t.Fatalf("cad 项目 kind 缺省: %v", err)
+	}
+	if m2.Kind != store.KindDXF {
+		t.Errorf("cad 项目 kind 缺省应推导 dxf，got %q", m2.Kind)
+	}
+}
+
+// TestInitModelRequiresProject init_model 需项目绑定（项目绑唯一会话，A2）。
+func TestInitModelRequiresProject(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, _ := newInitModelHandler(t, fake.srv.URL)
+	if _, err := h.initModel(context.Background(), "", store.KindDXF, "无项目"); err == nil {
+		t.Error("无项目绑定应拒绝（init_model 需项目会话）")
+	}
+}

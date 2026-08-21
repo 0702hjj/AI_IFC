@@ -20,17 +20,60 @@ import (
 	"ifcviewer/server/internal/store"
 )
 
+// verifyInitModelKind 校验 init 模型 kind 与项目 kind 匹配（verify 层单点，业务规则）。
+// 项目 kind 必填（create_project 强制 ifc|cad|cad->ifc）：
+//   cad 项目只能初始化 dxf 模型（IFC 属 ifc 管线，cad 项目不该有 ifc）；
+//   ifc 项目只能初始化 ifc 模型；
+//   cad->ifc 两者都可（cad 先 dxf，ifc 后 ifc，按需）。
+func verifyInitModelKind(projectKind, initKind string) error {
+	if initKind != store.KindIFC && initKind != store.KindDXF {
+		return fmt.Errorf("init kind 仅支持 ifc/dxf，got %q", initKind)
+	}
+	switch projectKind {
+	case "cad":
+		if initKind != store.KindDXF {
+			return fmt.Errorf("cad 项目只能初始化 dxf 模型（ifc 属 ifc 管线，cad 项目不该有 ifc）")
+		}
+	case "ifc":
+		if initKind != store.KindIFC {
+			return fmt.Errorf("ifc 项目只能初始化 ifc 模型（dxf 属 cad 管线，ifc 项目不该有 dxf）")
+		}
+	case "cad->ifc":
+		// 两者都可（cad 先 dxf，ifc 后 ifc，按需）
+	}
+	return nil
+}
+
+
 // initModel 初始化一个骨架模型（script-as-source：骨架脚本构建出最小模型 v1）。
 //
 // 返回：*store.Model（含分配的 modelId）。失败回滚模型记录（骨架构建失败不留空模型）。
 func (h *ChatHandler) initModel(ctx context.Context, projectID, kind, title string) (*store.Model, error) {
+	// init_model 必须在项目会话里（项目绑定唯一会话，A2）；项目 kind 必填（create_project 强制）。
+	if projectID == "" || h.deps.Ps == nil {
+		return nil, fmt.Errorf("init_model 需项目绑定（会话未绑项目/项目存储未配置）")
+	}
+	p, err := h.deps.Ps.Get(projectID)
+	if err != nil || p == nil {
+		return nil, fmt.Errorf("项目不存在: %s", projectID)
+	}
+	// kind 缺省按项目 kind 推导：cad→dxf、ifc→ifc、cad->ifc→dxf（cad 先）。
+	if kind == "" {
+		if p.Kind == "ifc" {
+			kind = store.KindIFC
+		} else { // cad / cad->ifc 默认 dxf（cad 先）
+			kind = store.KindDXF
+		}
+	}
+	// 项目 kind 约束（verify 层）：cad 项目只能 dxf、ifc 项目只能 ifc、cad->ifc 两者都可。
+	if err := verifyInitModelKind(p.Kind, kind); err != nil {
+		return nil, err
+	}
 	skelScript := skeletonIFCScript
 	storeKind := store.KindIFC
 	if kind == store.KindDXF {
 		skelScript = skeletonDXFScript
 		storeKind = store.KindDXF
-	} else if kind != store.KindIFC {
-		return nil, fmt.Errorf("initModel kind 仅支持 ifc/dxf，got %q", kind)
 	}
 	if h.deps.St == nil {
 		return nil, fmt.Errorf("model store 未配置")
