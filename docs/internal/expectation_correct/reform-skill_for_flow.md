@@ -531,7 +531,15 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 ### P1 波：skill 编排契约（后续，P0 之后）
 
 - orchestrator 按 kind 编排 aiplan→aidxf→aiifc 步骤 + 断点 + 产物链（从 persona 文本纪律升级为编排契约）
-- aiifc 两条 ifc 深化路径区分（cad->ifc 消费上游 vs ifc 独立 design.json 前置）
+- **aiifc 两条 ifc 深化路径区分 ✅（P1-2，2026-08-21，`058d99c`）**：
+  - **设计要点**：判断逻辑**不在 skill/ifc-agent**（它们不判断），**在 orchestrator 按 kind 强制注入**。
+  - **aiifc skill**：声明两条路径（不判断）——`workflows/CONSUME_UPSTREAM.md`（cad->ifc 消费上游：
+    bim_supplement+building.json+DXF → IFC 脚本，新增英文）+ `workflows/PLAN_DXF_IFC.md`（ifc 独立
+    design.json 前置，已有）；`references/consume_upstream/`（解析参考骨架，P2 填充）。
+  - **ifcAgentPersona**：路径由主 Agent 指定（不自己判断）。
+  - **OrchestratorPersona**：ifc 路径强制注入（派 ifc-agent 时 request 指定：cad->ifc→消费上游路径
+    带上游锚点；ifc 独立→design.json 前置路径）。
+  - **语言统一**：aiifc skill 全英文（与原有英文一致），persona 保持中文。
 
 ### P2 波：aiifc 解析消费链（大工程量，最后）
 
