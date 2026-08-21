@@ -8,14 +8,44 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 SUBCOMMANDS = [
-    "preprocess", "derive", "normalize", "check", "draw",
+    "init", "preprocess", "derive", "normalize", "check", "draw",
     "svg", "readback", "reconcile", "sync",
     "pack", "state", "gold", "deliver",
 ]
+
+
+def resolve_skill_workdir(project_id: str) -> str:
+    """projectId → 平台 skill 工作区绝对路径（{VIEWER_DATA_DIR}/skill-work/{projectID}）。
+
+    结构性保证中间产物落盘位置：CLI 内部算 workdir（不靠 LLM 传对 --project 路径）。
+    平台内使用（agent execute 跑时 env 有 VIEWER_DATA_DIR）；独立使用时用 --project 直传路径。
+    """
+    if not project_id:
+        return ""
+    data_root = os.environ.get("VIEWER_DATA_DIR", "")
+    if not data_root:
+        raise SystemExit(
+            "VIEWER_DATA_DIR 未设置——--project-id 需平台环境（agent execute 注入）；"
+            "独立使用请用 --project 直传工作目录"
+        )
+    return os.path.join(data_root, "skill-work", project_id)
+
+
+def _apply_project_id(args) -> None:
+    """--project-id 优先：CLI 内部算 skill-work/{projectID} 覆盖 args.project（结构性落盘根）。
+
+    有 --project-id 时 args.project 被覆盖为平台工作区——后续各子命令用 args.project 即
+    落到 skill-work/{projectID}（不靠 LLM 传对路径）。无 --project-id 时保留 --project 原值
+    （独立使用/显式路径）。
+    """
+    pid = getattr(args, "project_id", None)
+    if pid:
+        args.project = resolve_skill_workdir(pid)
 
 STATE_SUBCOMMANDS = ["sync", "advance", "reconcile"]
 
@@ -33,7 +63,9 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--decl", help="声明文件路径（对账/同步用）")
     parser.add_argument("--graph", help="回读房间图 JSON 路径")
     parser.add_argument("--node", help="mission node（如 tower_std.rooms）")
-    parser.add_argument("--project", help="项目工作目录")
+    parser.add_argument("--project", help="项目工作目录（独立使用直传；平台内有 --project-id 时被覆盖）")
+    parser.add_argument("--project-id", dest="project_id",
+                        help="平台项目 id（p_...）——CLI 内部算 skill-work/{projectID} 为工作区（结构性落盘根，优先于 --project）")
     parser.add_argument("--units", help="DXF 单位（mm/inch）")
     parser.add_argument("--case", help="金例 case_id（gold 子命令）")
     parser.add_argument("--floors", nargs="+",
@@ -49,6 +81,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     commands = {
+        "init": "init 工作区（--project-id → 建 skill-work/{projectID} + marker 锚定，后续步骤不用一直传/算）",
         "validate": "DSL/plan schema 校验（exit 2 SchemaError）",
         "preprocess": "S0 全量预处理：schema 校验 + 派生 + 楼层归并 + zone 打包",
         "derive": "plan → 派生几何事实（边清单/方位/凹角/暗区/换算尺…）",
@@ -382,6 +415,32 @@ def _cmd_svg(args) -> int:
     return 0
 
 
+def _cmd_init(args) -> int:
+    """init 工作区（一次搞定，后续步骤不用一直传/算 workdir）：
+    --project-id → 建 skill-work/{projectID}/ + 写 marker（projectId 锚定），返回 workdir。
+
+    后续命令 --project-id 复用同一 projectId（CLI 内部算同一 workdir），或 --project 直传
+    init 返回的 workdir。交付（S4）跟 tool 交际见 steps/step-04-deliver.md（CLI 产中间产物 +
+    build 脚本，tool 注册平台模型/组装 building.json）。
+    """
+    if not args.project_id:
+        _emit({"valid": False, "error": "init 需 --project-id"}, args.out)
+        return 1
+    workdir = resolve_skill_workdir(args.project_id)
+    os.makedirs(workdir, exist_ok=True)
+    marker = {
+        "projectId": args.project_id,
+        "workdir": workdir,
+        "kind": "aidxf-work",
+    }
+    marker_path = os.path.join(workdir, ".aidxf-work.json")
+    with open(marker_path, "w", encoding="utf-8") as f:
+        json.dump(marker, f, ensure_ascii=False, indent=2)
+    _emit({"valid": True, "projectId": args.project_id, "workdir": workdir,
+           "marker": marker_path}, args.out)
+    return 0
+
+
 def _cmd_state(args) -> int:
     """state 编排：sync（补缺）/ advance（推进单 mission）/ reconcile（全量对账）。
 
@@ -414,6 +473,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     handlers = {
+        "init": _cmd_init,
         "validate": _cmd_validate,
         "preprocess": _cmd_preprocess,
         "derive": _cmd_derive,
@@ -433,6 +493,10 @@ def main(argv: list[str] | None = None) -> int:
     if handler is None:
         print(f"aidxfv3: 子命令 '{args.command}' 未接通", file=sys.stderr)
         return 1
+    # --project-id 优先：CLI 内部算 skill-work/{projectID} 覆盖 args.project（init 除外——
+    # init 本身用 project_id 建工作区，不需要覆盖）。
+    if args.command != "init":
+        _apply_project_id(args)
     try:
         return handler(args)
     except FileNotFoundError as ex:

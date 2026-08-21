@@ -110,7 +110,12 @@ def _main(argv: list[str]) -> int:
     p.add_argument("plan", help="plan.json 路径")
     p.add_argument("bim", help="bim_supplement.json 路径")
     p.add_argument("--outdir", default="plan", help="落盘根目录（默认 plan/，每次新建 run 子目录）")
+    p.add_argument("--project-id", dest="project_id",
+                   help="平台项目 id——CLI 内部算 skill-work/{pid}/aiplan/plan/ 为 outdir（结构性落盘根，优先于 --outdir）")
     args = p.parse_args(argv)
+    if args.project_id:
+        from aiplan_tools.workdir import resolve_aiplan_workdir
+        args.outdir = str(Path(resolve_aiplan_workdir(args.project_id)) / "plan")
 
     plan_obj = json.loads(Path(args.plan).read_text(encoding="utf-8"))
     bim_obj = json.loads(Path(args.bim).read_text(encoding="utf-8"))

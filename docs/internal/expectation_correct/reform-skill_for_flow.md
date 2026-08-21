@@ -198,6 +198,18 @@ init_model 注册）。与 ifc 管线的「建项目即 init_model(ifc)」对齐
 - **ifc 桥接（预留）**：cad→ifc 的 building.json/DXF 传给 ifc-agent 同样做桥接工具（后续 P0-3
   deliver_building + ifc 侧读取桥接）。
 
+**CLI --project-id 结构性落盘（已落地，2026-08-21）**：中间产物落盘位置从「LLM 传 --project 路径」
+（无强制）改为「CLI 内部算 skill-work/{projectID}」（结构性保证）——
+- **aidxfv3 `init --project-id <projectID>`**：一次建 skill-work/{projectID}/ + marker（projectId 锚定），
+  后续步骤不用一直传/算 workdir；所有 aidxfv3 命令加 `--project-id`，CLI 内部 `_apply_project_id`
+  算 skill-work/{projectID} 覆盖 `--project`（LLM 传错路径也被纠正）。
+- **aiplan `route`/`land --project-id`**：内部算 skill-work/{projectID}/aiplan/（route workspace /
+  land outdir 对齐）——中间产物（design_intent/normalized/run）落 skill-work。
+- **tool 边界**：CLI（skill）管中间产物落盘（skill-work，CLI 内部算）；tool（agent）管注册平台模型
+  （init_model）+ 方案版本化（deliver_plan/deliver_building → PlanStore）+ 工作区/projectId 提供
+  （get_skill_workdir/stage_plan_to_workdir）——CLI 不注册，tool 不落中间产物。
+- VIEWER_DATA_DIR：execute（local backend `/bin/sh -c`）继承 server 进程 env，CLI 从 env 读算 skill-work 根。
+
 **deliver 后清理中间产物（已敲定，2026-08-21）**：S4 完成后清空工作区过程产物
 （missions/derived/floor.dxf 过程态）——
 - **事实源已转移**：平台模型的 build() 脚本（models/{modelId}/scripts/）是该 zone 唯一事实源。
