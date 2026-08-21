@@ -26,7 +26,10 @@ metadata:
 4. **Read `references/SPATIAL_QUALITY.md` BEFORE framing any design JSON** — footprint articulation (CP-05), door swing clearance (GI-08), stair continuity (GI-09) must be internalized up front so the design JSON is born compliant. Also read `references/DESIGN_PATTERNS.md` before choosing massing/facade/spatial organization.
 5. **Component recipes — consult before building any element**: check `references/docs/design/` for a matching recipe. The index is in `docs/design/README.md`.
 
-> **Optional workflow**: when a task benefits from staged planning (assist a designer from idea to IFC), consult `workflows/PLAN_DXF_IFC.md` — plan → DXF → IFC. It is a **selective feature, not mandatory**; skip it entirely for simple direct builds (`simple wall/slab` MUST #19) or when the user's input already targets a specific stage.
+> **Two IFC authoring paths (2026-08-21)** — this skill declares two paths; **path selection is dictated by the calling agent (orchestrator) per pipeline** (this skill does NOT choose):
+> - **`workflows/CONSUME_UPSTREAM.md`** (cad->ifc, consume upstream): consume upstream artifacts (`bim_supplement.json` + `building.json` + per-zone DXF model IDs) → parse → IFC build script. Does NOT produce design.json.
+> - **`workflows/PLAN_DXF_IFC.md`** (ifc standalone, design.json first): optional design.json draft to frame design intent for confirmation → script → IFC.
+> Both paths share the **script-as-source main chain** (build script contract MUST #25-31 + script_lib + sandbox build → IFC) — the pre-authoring intake branches, the main chain is identical. Simple direct builds (`simple wall/slab` MUST #19) still skip the workflow entirely.
 
 **API usage:**
 6. All API calls use **keyword arguments**; the first positional argument is always `model`.
