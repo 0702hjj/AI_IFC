@@ -416,3 +416,53 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 > 缺口 1/2 方案已定（S4 交付改造，P0 进行中）——draw 固化是唯一新增改造，注册/传递复用现有
 > script 工具链与 modelId。缺口 3（aiifc 解析消费）是 cad->ifc 管线业务完全连续的最后一块，
 > 也是最大工程量。当前先做到「能正确拿到相关文件」，解析消费与 design.json 前置编排待 skill 改写。
+
+---
+
+## 六、执行波次（当前进度 + 每波产出）
+
+> 三管线改造的落地波次。前置已完成；**当前在 P0 波（产物链打通——拿到文件）**。
+
+### 前置波（✅ 已完成，2026-08-21）
+
+| 改造 | 产出 | commit |
+|---|---|---|
+| **services/cad 沙箱接入共享画法层**（archdxf + dxfkit 单一事实源，零版本差异） | 沙箱可同时 import cad_script_lib（用户编辑线）+ dxfkit.draw/archdxf（skill 固化脚本）；用户编辑线库升级到 skill 新版 | `a177eb8` |
+
+### P0 波：产物链打通——拿到文件（🔧 进行中）
+
+> 目标：aidxf S4 交付改造落地——每 zone DXF 注册平台模型 + building.json 记 modelId + ifc 拿到文件。
+
+| 波次 | 改造 | 产出/状态 | commit |
+|---|---|---|---|
+| **P0-1** | **draw 调用序列记录 + build() 脚本固化**（S4-a，唯一新增） | ✅ 已完成：dxfkit/record.py（record/wrap/to_build_script），8 测试 + 沙箱端到端（LLM 画→固化脚本→沙箱 build→DXF） | `45ec6e3` |
+| **P0-2** | **S4-b 每 zone 注册平台模型**（init_model 前置 + stage/run/save 编排——复用现有 script 工具链，非新机制） | 🔧 待做：aidxf deliver 改造（S4-a 固化后，agent 对每 zone 调 init_model+stage_script(build)+run_script+save_script） | — |
+| **P0-3** | **S4-c building.json 指针改 modelId + cad→ifc 传递** | 🔧 待做：building.json zones[] 记 modelId（替代 DXF 文件路径）；ifc 经 get_project_models/get_script 拿到 bim_supplement/building.json/DXF | — |
+
+**P0 验收**：cad->ifc 管线跑到 ifc 阶段，ifc-agent 能正确拿到 bim_supplement.json + building.json（含 modelId）+ 各 zone DXF 平台模型（文件层面），不解析。
+
+### P1 波：skill 编排契约（后续，P0 之后）
+
+- orchestrator 按 kind 编排 aiplan→aidxf→aiifc 步骤 + 断点 + 产物链（从 persona 文本纪律升级为编排契约）
+- aiifc 两条 ifc 深化路径区分（cad->ifc 消费上游 vs ifc 独立 design.json 前置）
+
+### P2 波：aiifc 解析消费链（大工程量，最后）
+
+- aiifc 把 bim_supplement.json + building.json + 各 zone DXF 解析转成 IFC 构建脚本
+- skill 本身改写（消费上游产物解析链）+ subagent 装配（文件喂给 aiifc + 断点编排）
+
+### 波次依赖
+
+```
+前置（沙箱共享画法层）✅
+  ↓（沙箱能跑 draw 链 build()）
+P0-1（draw 固化 build() 脚本）✅
+  ↓（有 build() 脚本才能进沙箱注册）
+P0-2（init_model + script 工具链注册平台模型）🔧 ← 当前
+  ↓（注册平台模型后产物可经 modelId 传递）
+P0-3（building.json 记 modelId + 传递）🔧
+  ↓
+P1（编排契约）→ P2（aiifc 解析消费）
+```
+
+> 当前进度：前置 ✅ + P0-1 ✅，**下一步 P0-2**（S4-b 注册平台模型——复用现有 script 工具链编排）。
