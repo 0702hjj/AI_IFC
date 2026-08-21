@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (C) 2026 0702hjj
+#
+# agent —— AI_IFC Agent 终端交互入口（一键弹出 opencode 风格交互页）。
+#
+#   用法：
+#     agent               启动 opencode 风格 TUI（textual，自动装依赖）
+#     agent --demo        轻量终端对话（无依赖 ANSI 版）
+#     agent --install     把本命令软链到 ~/.local/bin/agent（全局可用）
+#     agent --help        帮助
+#
+#   首次运行自动创建 venv（~/.cache/aiifc-agent/venv）并安装 textual；
+#   服务依赖（edit :8100 / cad :8200 / server :8090）由 TUI 自动拉起。
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+VENV_DIR="${AI_IFC_AGENT_VENV:-$HOME/.cache/aiifc-agent/venv}"
+PYTHON="$VENV_DIR/bin/python"
+REPO="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+case "${1:-}" in
+  --demo)
+    exec python3 "$SCRIPT_DIR/agent_demo.py"
+    ;;
+  --install)
+    mkdir -p "$HOME/.local/bin"
+    ln -sf "$SCRIPT_DIR/agent" "$HOME/.local/bin/agent"
+    echo "[agent] 已软链到 ~/.local/bin/agent（确保 ~/.local/bin 在 PATH）"
+    exit 0
+    ;;
+  --help|-h)
+    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+    ;;
+esac
+
+if [ ! -x "$PYTHON" ]; then
+  echo "[agent] 首次运行：创建 venv（$VENV_DIR）并安装 textual…"
+  python3 -m venv "$VENV_DIR"
+  "$VENV_DIR/bin/pip" install --quiet textual
+  echo "[agent] venv 就绪"
+fi
+
+if ! "$PYTHON" -c "import textual" >/dev/null 2>&1; then
+  echo "[agent] textual 缺失，安装…"
+  "$VENV_DIR/bin/pip" install --quiet textual
+fi
+
+exec "$PYTHON" "$SCRIPT_DIR/agent_tui.py"

@@ -38,6 +38,7 @@ type Option func(*agentOptions)
 
 type agentOptions struct {
 	name            string
+	kind            string // 项目类型 cad/ifc/cad->ifc：决定 AgentAsTool 选择性装配 + persona + aiplan skill
 	model           model.ToolCallingChatModel
 	childModel      func() model.ToolCallingChatModel // 子 agent 模型工厂（路线 B；nil 时默认新建）
 	tools           []tool.BaseTool
@@ -93,8 +94,18 @@ func WithSkillsDir(dir string) Option {
 	return func(o *agentOptions) { o.skillsDir = dir }
 }
 
+// WithKind 按项目类型（cad/ifc/cad->ifc）选择性装配 orchestrator：
+//   - AgentAsTool：cad->ifc 全装 cad+ifc；cad 只装 cad；ifc 只装 ifc
+//   - persona：cad→OrchestratorPersonaCAD、ifc→OrchestratorPersonaIFC、其余默认
+//   - aiplan skill：cad/cad->ifc 挂 orchestrator；ifc 管线不挂（无 plan 阶段）
+// 空值 = 全装（向后兼容：ifc+cad + aiplan）。
+func WithKind(kind string) Option {
+	return func(o *agentOptions) { o.kind = kind }
+}
+
 type Agent struct {
 	name            string
+	persona         string // 最终生效的 Instruction（kind 变体或显式 WithPersona）
 	runner          *adk.Runner
 	store           *EventStore
 	maxStep         int
@@ -158,10 +169,11 @@ func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
 		return nil, err
 	}
 
-	// orchestrator：领域工具 + AgentAsTool(ifc/cad) + EmitInternalEvents（子事件实时上浮）
-	// 角色 skill 映射：orchestrator→aiplan（对话协调层内联，D11）；编排手册在 OrchestratorPersona
+	// orchestrator：领域工具 + AgentAsTool(按 kind 选择性装配) + EmitInternalEvents（子事件实时上浮）
+	// 角色 skill 映射：cad/cad->ifc 管线 orchestrator→aiplan（对话协调层内联，D11）；
+	// ifc 管线不挂 aiplan（无 plan 阶段）。编排手册按 kind 选 persona。
 	var handlers []adk.TypedChatModelAgentMiddleware[*schema.Message]
-	if o.skillsDir != "" {
+	if o.skillsDir != "" && o.kind != "ifc" {
 		skillMW, err := newSkillMiddleware(ctx, o.skillsDir, "aiplan")
 		if err != nil {
 			return nil, err
@@ -182,15 +194,22 @@ func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
 	// 首次调用中断提问，用户经 /answer 确认后放行（官方 approval_wrapper 形态）。
 	handlers = append(handlers, newApprovalMiddleware())
 
+	persona := o.persona
+	switch o.kind {
+	case "cad":
+		persona = personaCAD
+	case "ifc":
+		persona = personaIFC
+	}
 	ag, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
 		Name:          o.name,
-		Description:   "AI_IFC 平台主智能体：意图路由 + 领域工具（REST 沙箱交付）+ AgentAsTool(ifc/cad) + skill 技能包",
-		Instruction:   o.persona,
+		Description:   "AI_IFC 平台主智能体：意图路由 + 领域工具（REST 沙箱交付）+ AgentAsTool(按 kind) + skill 技能包",
+		Instruction:   persona,
 		Model:         cm,
 		MaxIterations: o.maxStep,
 		ToolsConfig: adk.ToolsConfig{
 			ToolsNodeConfig: compose.ToolsNodeConfig{
-				Tools: orchestratorTools(domainAndAsk, ifcAgent, cadAgent),
+				Tools: orchestratorTools(domainAndAsk, kindChildren(o.kind, cadAgent, ifcAgent)...),
 			},
 			EmitInternalEvents: true, // 子 AgentEvent 实时上浮（翻译层 RunPath 打标）
 		},
@@ -204,7 +223,12 @@ func New(cfg LLMConfig, opts ...Option) (*Agent, error) {
 		EnableStreaming: true,
 		CheckPointStore: newMemoryCheckPointStore(), // HITL 前置：中断状态落检查点，Resume 续跑
 	})
-	return &Agent{name: o.name, runner: runner, store: o.store, maxStep: o.maxStep, maxContextChars: o.maxContextChars}, nil
+	return &Agent{name: o.name, persona: persona, runner: runner, store: o.store, maxStep: o.maxStep, maxContextChars: o.maxContextChars}, nil
+}
+
+// Persona 返回最终生效的 Instruction（kind 变体或显式 WithPersona）——路由/测试观察点。
+func (a *Agent) Persona() string {
+	return a.persona
 }
 
 // turnCount 返回历史父 turn/start 数（Run/Resume 共用基准）：
