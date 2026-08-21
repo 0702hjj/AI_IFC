@@ -56,23 +56,27 @@ aidxfv3 reconcile --decl <rooms.geom> --graph <readback.json>
 - 检查项：room_missing（双向，id/质心匹配）/ area（<5%）/ adjacency（单向防多）。
 - **`doorwin_issues`**（readback 输出字段）：门窗碰撞检测——`door_leaf_window`（门扇扫窗）/ `door_swing_window`（门 swing 弧扫窗）/ `door_door_leaf` / `door_door_swing`（相邻门扇重叠）。只报真相交（共线错开/端点接触/跨房间平行线不报）。非空即碰撞，details 阶段按避让规则修正。
 
-### pack / state / deliver
+### pack / state
 ```
 aidxfv3 pack --node <zone>.<stage> --project <dir> [--type <building_type> --db golden.db]
 aidxfv3 state sync       --project <dir>          # 对照 floors.json#dag.nodes 幂等补缺 mission
 aidxfv3 state advance    --project <dir> --node <zone>.rooms   # 按产物推进单 mission 状态
 aidxfv3 state reconcile  --project <dir>          # 中断恢复：扫 missions/ 汇总真实状态（不改写）
-aidxfv3 deliver --project <dir>
 ```
 - **`<dir>`（工作区）= `{DATA}/skill-work/{projectID}`**（2026-08-21 起）：agent 注入的项目
-  skill 工作区，主 agent 先 `get_skill_workdir` 拿绝对路径，所有 aidxfv3 `--project` 用它——
-  projectId 隔离多项目不混淆；中间产物（derived/missions/deliver）落该工作区，禁止落其他位置。
+  skill 工作区，主 agent 先 `get_skill_workdir` 拿绝对路径（或 `aidxfv3 init --project-id` 建），
+  所有 aidxfv3 `--project`/`--project-id` 用它——projectId 隔离多项目不混淆；中间产物
+  （derived/missions/deliver）落该工作区，禁止落其他位置。
 - pack 在 `<dir>/missions/<node>/` 生成 `mission.json` + `prompt.md`（注入输入指针 + gold pattern DSL 片段）。
 - `state` 负责状态记录；执行编排（线性逐 zone、断点、重做决策）由主 agent 亲自按 dispatch.md。
   状态推进规则（产物驱动）：rooms.json→declared；+geom.json→presented；
   +floor.dxf→built；+readback.json+geom_check.json(PASS)→done。
 - 多 zone（异楼层裙房/塔楼）：`floors.json#dag.edges` 恒空，各 zone 独立 mission **顺序**推进——
   `state sync` 补出全部 mission，主 agent 逐个 zone 线性处理（前一个 done 再进下一个）。
+
+> **`aidxfv3 deliver` 命令已退役（2026-08-21）**——它的两个职责都被 agent 工具链替代：
+> 复制 DXF → S4-b script 工具链（init_model+stage/run/save）；building.json → S4-c agent 组装
+> （deliver_building 工具）。CLI 不再提供 deliver 子命令。
 
 ### S4 交付改造（2026-08-21 起，deliver 不再「复制 DXF」）
 - **S2/S3 画图时机器经 `dxfkit.record` 记录 draw 调用序列**（主 agent 画图前 `record.start()` +
@@ -84,9 +88,11 @@ aidxfv3 deliver --project <dir>
   → `stage_script(build 脚本)` → `run_script`（沙箱跑 build 产 DXF）→ `save_script`（v1 版本化）。
   **这步替代了旧 deliver 的「复制 DXF 到 deliver/」**——DXF 交付 = 平台模型（modelId + script-as-source
   版本化 + viewer render.json 可看），不是游离文件。
-- **S4-c building.json**：`aidxfv3 deliver` 汇总整栋楼（site/standards/vertical_relations/
-  design_rationale/requirements 原样来自 plan），zones[] 记 **modelId**（平台模型指针，替代旧
-  DXF 文件路径 + sha256）+ 非几何属性（typology/note/area）。几何留在各 zone 平台模型的 DXF。
+- **S4-c building.json（agent 组装，非 CLI deliver）**：agent 组装（读 plan.json + 各 zone modelId）
+  → `deliver_building` 工具落 PlanStore（plans/{projectID}/building.json 版本化）。zones[] 记
+  **modelId**（平台模型指针，替代旧 DXF 文件路径 + sha256）+ 非几何属性（typology/note/area）。
+  几何留在各 zone 平台模型的 DXF。**deliver.py 不知道 agent init_model 的 modelId——building.json
+  只能 agent 组装**。
 - **deliver 后清理中间产物**：S4 完成后清空工作区过程产物（missions/derived/floor.dxf 过程态）——
   事实源已转移到平台模型 build() 脚本（models/{modelId}/scripts/），再次修改走平台模型
   script-as-source（改 build 脚本 → 沙箱跑），不依赖过程残留（避免误导）。building.json 与

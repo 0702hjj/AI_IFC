@@ -39,14 +39,25 @@ save_script()                         ← 落 v1 版本（scripts/v1.py + DXF �
 ```
 → 每 zone DXF 成为**平台模型**（modelId + script-as-source 版本化 + viewer render.json 可看）。
 
-### S4-c building.json 汇总（zones 记 modelId）
+### S4-c building.json 组装（agent 侧，非 CLI deliver）
 
-```bash
-aidxfv3 deliver --project <dir>     # <dir> = {DATA}/skill-work/{projectID}（get_skill_workdir 拿）
+> `aidxfv3 deliver` 命令已退役（2026-08-21）——它的两个职责（复制 DXF + 汇总 building.json）
+> 都被 agent 工具链替代：复制 DXF → S4-b script 工具链；building.json → 本步 agent 组装
+> （deliver.py 不知道 agent init_model 的 modelId，产不了 zones 的 modelId 指针）。
+
+agent（你）组装 building.json 并交付：
 ```
-汇总整栋楼：`deliver/building.json`（plan 形态：site/standards/vertical_relations/
-design_rationale/requirements 原样来自 plan）+ zones[]（每 zone：floors_from/to +
-**modelId**（平台模型指针，替代旧 DXF 文件路径+sha256）+ 非几何属性 typology/note/area）。
+# 1. 组装 building.json 内容：
+#    读 plan.json（get_project_plans）+ 各 zone modelId（S4-b init_model 返回）
+#    → plan 形态整栋楼（site/standards/vertical_relations/design_rationale/requirements
+#      原样来自 plan）+ zones[]（每 zone：floors_from/to + modelId + 非几何属性 typology/note/area）
+# 2. deliver_building 工具交付：
+deliver_building(building=<组装内容>)
+#    → PlanStore 版本化 plans/{projectID}/building.json（+ plan_history/v{n} 归档）
+```
+→ building.json 落方案库（plans/{projectID}/），zones 记 **modelId**——ifc 经 get_project_plans
+（扩展读 building.json）拿 zones→modelId 映射，再 get_project_models/get_script 拿各 zone DXF
+平台模型。
 
 ## 产出
 - **每 zone 平台模型**（modelId + build() 脚本 + DXF，script-as-source 版本化）——S4-b

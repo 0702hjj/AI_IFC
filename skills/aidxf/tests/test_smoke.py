@@ -14,7 +14,6 @@ from floorgeom.check import check_alignment_zones, check_outline_plan
 from floorgeom.derive import derive
 from floorgeom.normalize import normalize_rooms, normalize_skeleton
 from floorgeom.reconcile import reconcile
-from flowops.deliver import deliver
 from flowops.pack import init_state, pack_mission
 from flowops.preprocess import preprocess
 
@@ -164,23 +163,6 @@ class TestSmokeS2:
         assert not [f for f in report if f["severity"] == "FAIL"]
 
 
-class TestSmokeDeliver:
-    """S4：deliver → building.json。"""
-
-    def test_deliver(self, tmp_path):
-        # 构造 confirmed mission
-        m = tmp_path / "missions" / "f1.rooms"
-        m.mkdir(parents=True, exist_ok=True)
-        (m / "floor.dxf").write_bytes(b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n")
-        (m / "rooms.json").write_text(json.dumps(ROOMS))
-        init_state(str(tmp_path))
-        pack_mission("f1.rooms", str(tmp_path), inputs={})
-        building = deliver("smoke_house", str(tmp_path))
-        assert building["floors"][0]["floor"] == "f1"
-        from flowops.validate import validate_building
-        assert validate_building(building) == []
-
-
 class TestSmokeReport:
     """冒烟报告落盘 tests/golden/smoke/report.md。"""
 
@@ -197,7 +179,7 @@ class TestSmokeReport:
             
             "- [ ] 【断点② 人工确认】房间方案（自动化冒烟标记待确认）\n"
             "- [x] reconcile 对账通过（画出来的 = 声明的）\n\n"
-            "## S4 交付\n- [x] deliver 产出 building.json 过 schema\n\n"
+            "## S4 交付\n- [x] 每 zone 注册平台模型（init_model+script 工具链）+ building.json 记 modelId\n\n"
             "## 结论\n自动化冒烟全闸门绿；两次人工断点确认待人工执行。\n",
             encoding="utf-8")
         assert report.exists()

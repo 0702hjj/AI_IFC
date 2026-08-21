@@ -28,7 +28,7 @@
 
 **S4 交付（全部 zone done 后）**：见 `steps/step-04-deliver.md`——
 S4-a 固化每 zone build() 脚本 → S4-b 每 zone 经 init_model + stage/run/save 注册平台模型
-（modelId）→ S4-c `aidxfv3 deliver` 汇总 building.json（zones 记 modelId）→ deliver 后清理
+（modelId）→ S4-c agent 组装 building.json + deliver_building 工具落 PlanStore（zones 记 modelId）→ deliver 后清理
 中间产物（再次修改走平台模型 script-as-source，不依赖过程残留）。
 
 **每 zone 处理时按 include 声明加载参考提示**（design/rooms.md / design/details.md 头部的

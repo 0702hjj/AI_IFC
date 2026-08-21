@@ -15,7 +15,7 @@ from pathlib import Path
 SUBCOMMANDS = [
     "init", "preprocess", "derive", "normalize", "check", "draw",
     "svg", "readback", "reconcile", "sync",
-    "pack", "state", "gold", "deliver",
+    "pack", "state", "gold",
 ]
 
 
@@ -93,7 +93,6 @@ def build_parser() -> argparse.ArgumentParser:
         "reconcile": "声明 vs 底稿对账",
         "sync": "DXF 直接编辑回收：哈希 → 回读 → audit → 更新声明",
         "pack": "mission 渲染（zone 切片 + 骨架段 + feedback → prompt.md）",
-        "deliver": "confirmed 封存 + building.json + checksums",
     }
     for name, help_text in commands.items():
         p = sub.add_parser(name, help=help_text)
@@ -361,13 +360,6 @@ def _extract_pattern_dsl(source: str) -> str:
     return "\n".join(out).strip()
 
 
-def _cmd_deliver(args) -> int:
-    from flowops.deliver import deliver
-    building = deliver("project", args.project)
-    _emit({"building": building.get("project"), "floors": len(building["floors"])}, args.out)
-    return 0
-
-
 def _cmd_gold(args) -> int:
     if args.gold_command == "reindex":
         from goldlib.reindex import reindex
@@ -486,7 +478,6 @@ def main(argv: list[str] | None = None) -> int:
         "sync": _cmd_sync,
         "pack": _cmd_pack,
         "state": _cmd_state,
-        "deliver": _cmd_deliver,
         "gold": _cmd_gold,
     }
     handler = handlers.get(args.command)
