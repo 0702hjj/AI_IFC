@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -148,7 +149,7 @@ func TestDomainToolsRegistered(t *testing.T) {
 	want := []string{
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
-		"get_project_plans", "deliver_plan", "get_project_models",
+		"get_project_plans", "deliver_plan", "get_project_models", "get_skill_workdir",
 		"get_script_locate", "edit_script_call", "init_model",
 	}
 	if len(got) != len(want) {
@@ -454,4 +455,29 @@ func TestInitModelTool(t *testing.T) {
 		t.Error("init_model 未 markDirty（模型变更信号）")
 	}
 	_ = gotProjectID // 无绑定时 projectId 为空（initModel 内部处理/可为空项目外初始化）
+}
+
+// TestGetSkillWorkdirTool get_skill_workdir：返回项目 skill 工作区绝对路径（会话绑项目）。
+func TestGetSkillWorkdirTool(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	workdir := filepath.Join(t.TempDir(), "skill-work", "p_x")
+	deps.SessionProject = func(ctx context.Context) string { return "p_x" }
+	deps.SkillWorkDir = func(ctx context.Context, projectID string) (string, error) { return workdir, nil }
+	out := invoke(t, DomainTools(deps), "get_skill_workdir", `{}`)
+	if !strings.Contains(out, workdir) {
+		t.Fatalf("get_skill_workdir 输出应含工作区路径 %q, got %s", workdir, out)
+	}
+	if !strings.Contains(out, "p_x") {
+		t.Fatalf("get_skill_workdir 输出应含 projectId, got %s", out)
+	}
+}
+
+// TestGetSkillWorkdirToolUnconfigured get_skill_workdir 未配置/未绑项目 → 文本错误（不中断）。
+func TestGetSkillWorkdirToolUnconfigured(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	// 未绑项目（SessionProject nil → projectID 空）
+	out := invoke(t, DomainTools(deps), "get_skill_workdir", `{}`)
+	if !strings.Contains(out, "未指定 projectId") && !strings.Contains(out, "未配置") {
+		t.Fatalf("未绑项目/未配置应文本错误, got %s", out)
+	}
 }

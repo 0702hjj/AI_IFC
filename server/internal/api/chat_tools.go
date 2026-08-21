@@ -9,6 +9,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/cloudwego/eino/components/tool"
 
@@ -133,6 +135,7 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		ProjectModels:  h.projectModelsForAgent,
 		PlanGet:        h.planGetForAgent,
 		PlanDeliver:    h.planDeliverForAgent,
+		SkillWorkDir:   h.skillWorkDirForAgent,
 	}
 }
 
@@ -176,6 +179,20 @@ func (h *ChatHandler) planGetForAgent(ctx context.Context, projectID, name strin
 		return "", err
 	}
 	return string(content), nil
+}
+
+// skillWorkDirForAgent 返回项目 skill 工作区绝对路径（{DATA}/skill-work/{projectID}，
+// 首次调用 MkdirAll）——aidxf 中间产物（derived/missions/deliver）落盘根，projectId
+// 隔离多项目不混淆（复用 plans/{projectID} 的 projectId 隔离地基）。
+func (h *ChatHandler) skillWorkDirForAgent(ctx context.Context, projectID string) (string, error) {
+	if h.deps.DataDir == "" {
+		return "", fmt.Errorf("数据目录未配置")
+	}
+	dir := filepath.Join(h.deps.DataDir, "skill-work", projectID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("建 skill 工作区: %w", err)
+	}
+	return dir, nil
 }
 
 // planDeliverForAgent 触发 plan 交付（复用 deliverPlan 的 aiplan land 执行逻辑；

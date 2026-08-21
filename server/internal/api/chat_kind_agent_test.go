@@ -7,6 +7,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -151,6 +152,11 @@ func TestDeleteProjectCascade(t *testing.T) {
 	if _, err := h.deps.PlanSt.Put(p.ID, "plan.json", []byte(`{"project":"`+p.ID+`"}`)); err != nil {
 		t.Fatal(err)
 	}
+	// skill 工作区（skill-work/{projectID}——aidxf 中间产物）
+	workdir := filepath.Join(h.deps.DataDir, "skill-work", p.ID)
+	if err := os.MkdirAll(filepath.Join(workdir, "missions"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/chat/projects/"+p.ID, nil)
 	req.SetPathValue("id", p.ID)
@@ -178,6 +184,10 @@ func TestDeleteProjectCascade(t *testing.T) {
 	if _, err := h.deps.PlanSt.Get(p.ID, "plan.json"); err == nil {
 		t.Error("方案未删")
 	}
+	// skill 工作区已删（级联 2.5）
+	if _, err := os.Stat(workdir); err == nil {
+		t.Error("skill 工作区未删（级联清理缺失）")
+	}
 }
 
 // TestDeleteProjectNotFound 删除不存在项目 → 404。
@@ -192,3 +202,37 @@ func TestDeleteProjectNotFound(t *testing.T) {
 	}
 }
 
+
+// TestSkillWorkDirForAgent skill 工作区：{DATA}/skill-work/{projectID} + MkdirAll + projectId 隔离。
+func TestSkillWorkDirForAgent(t *testing.T) {
+	h, ps := newKindAgentHandler(t)
+	p1, _ := ps.CreateWithKind("项目1", "cad")
+	p2, _ := ps.CreateWithKind("项目2", "cad")
+	ctx := context.Background()
+
+	d1, err := h.skillWorkDirForAgent(ctx, p1.ID)
+	if err != nil {
+		t.Fatalf("skillWorkDirForAgent: %v", err)
+	}
+	// 路径 = {DATA}/skill-work/{projectID}
+	want1 := filepath.Join(h.deps.DataDir, "skill-work", p1.ID)
+	if d1 != want1 {
+		t.Errorf("工作区路径 = %q, want %q", d1, want1)
+	}
+	// 自动建目录
+	if fi, err := os.Stat(d1); err != nil || !fi.IsDir() {
+		t.Errorf("工作区目录未建: %v", err)
+	}
+	// projectId 隔离（两项目工作区不同）
+	d2, err := h.skillWorkDirForAgent(ctx, p2.ID)
+	if err != nil {
+		t.Fatalf("skillWorkDirForAgent p2: %v", err)
+	}
+	if d1 == d2 {
+		t.Errorf("两项目工作区应隔离（projectId 不同）: %q == %q", d1, d2)
+	}
+	// 幂等（再调不报错）
+	if _, err := h.skillWorkDirForAgent(ctx, p1.ID); err != nil {
+		t.Errorf("工作区幂等重建: %v", err)
+	}
+}

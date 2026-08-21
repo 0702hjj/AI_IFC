@@ -61,6 +61,10 @@ type ToolDeps struct {
 	// PlanDeliver 触发 plan 交付（B2：aiplan land → 落方案级目录），
 	// 返回 {planVersion, bimVersion}；可空。
 	PlanDeliver func(ctx context.Context, projectID, plan, bimSupplement string) (map[string]any, error)
+	// SkillWorkDir 返回项目 skill 工作区绝对路径（{DATA}/skill-work/{projectID}，
+	// 首次调用 MkdirAll；projectId 隔离多项目不混淆）——aidxf 中间产物
+	// （derived/missions/deliver）落盘根，复用 plans/{projectID} 的 projectId 隔离地基；可空。
+	SkillWorkDir func(ctx context.Context, projectID string) (string, error)
 }
 
 func (d ToolDeps) markDirty(ctx context.Context) {
@@ -309,6 +313,22 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 					return toolErr(err), nil
 				}
 				return toolJSON(map[string]any{"projectId": projectID, "models": models}), nil
+			}),
+
+		mustTool("get_skill_workdir", "返回项目 skill 工作区绝对路径（{DATA}/skill-work/{projectID}，首次调用自动建目录；projectId 隔离多项目不混淆）——aidxf 中间产物（derived/missions/deliver）落盘根：所有 aidxfv3 命令的 --project 必须用它",
+			func(ctx context.Context, in projectRefReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.SkillWorkDir == nil {
+					return "get_skill_workdir 未配置（装配缺失）", nil
+				}
+				dir, err := deps.SkillWorkDir(ctx, projectID)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(map[string]any{"projectId": projectID, "workdir": dir}), nil
 			}),
 
 		mustTool("get_script_locate", "XDATA key → 脚本调用点定位（line/col/snippet）——选中构件后定位到创建它的脚本位置（M3-①）",

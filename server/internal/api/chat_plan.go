@@ -336,6 +336,11 @@ func (h *ChatHandler) deleteProject(w http.ResponseWriter, r *http.Request) {
 		_ = h.deps.PlanSt.Delete(pid)
 	}
 
+	// 级联 2.5：skill 工作区（skill-work/{projectID}——aidxf 中间产物 derived/missions/deliver）
+	if h.deps.DataDir != "" {
+		_ = os.RemoveAll(filepath.Join(h.deps.DataDir, "skill-work", pid))
+	}
+
 	// 级联 3：项目下模型（issues/changes/overrides + store 目录）——同 delete model 清理
 	for _, m := range p.Models {
 		if h.deps.Iss != nil {
