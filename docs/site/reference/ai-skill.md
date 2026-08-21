@@ -4,17 +4,22 @@
 
 ## 管线总览
 
-plan→cad 侧是 AI BIM 管线的入口与中段：`aiplan` 把外部资料归一成任务书，`aidxf` v3 把任务书落地成图纸，下游 bim 消费：
+plan→cad 侧是 AI BIM 管线的入口与中段：`aiplan` 把外部资料归一成任务书，`aidxf` v3 把任务书落地成图纸，下游 bim 消费（`aiifc` consume-upstream 消化 cad 产物）：
 
 ```
-外部资料 ──► aiplan ──┬─► plan.json（任务书）──────────► aidxf v3 ──► building.json + 各层 DXF ──► bim
-                      └─► bim_supplement.json（BIM 补充）─────────────────────────────────────► bim
+外部资料 ──► aiplan ──┬─► plan.json（任务书）──────────► aidxf v3 ──► building.json + 各层 DXF ──┬─► bim（ifc）
+                      └─► bim_supplement.json（BIM 补充）──────────────────────────────────────┘    ▲
+                                                                                                   │
+                             ifc 独立管线：design.json（LLM 草稿）──► aiifc ──────────────────────────┘
+                             cad→ifc 消化管线：building.json + 各 zone DXF ──► aiifc consume-upstream
+                                 ──► design.json ──► design-build（features.json）──► build-script（IFC）
 ```
 
 | skill | 阶段 | 输入 | 输出 |
 |---|---|---|---|
 | `aiplan` | plan（管线入口） | 无特殊要求——外部资料（图片/PPT/技术文档/用户对话） | `plan.json` + `bim_supplement.json` |
 | `aidxfv3` | cad（管线中段） | `plan.json`（只读）+ 用户额外描述 | `building.json` + 各层 DXF |
+| `aiifc` | bim（管线末段，双路径） | **消费上游**：`building.json` + `bim_supplement.json` + 各 zone DXF；**独立**：design.json 草稿 | 构建脚本 + IFC（script-as-source） |
 
 ## aiifc（IFC 生成/修改）
 
@@ -44,6 +49,25 @@ Skeleton（Project→Site→Building→Storey）
 ```
 
 复杂户型 / 异形 / 多楼层先输出 **design JSON**（几何意图，不写坐标），经 `design_builder.py` 规范化后再生成构建脚本——避免坐标漂移。
+
+### aiifc CLI（中间产物规范落盘，2026-08-21）
+
+aiifc 提供三个可执行 CLI（入口 `aiifc`，skills/.venv 内；execute 白名单含 `aiifc`），**全部支持 `--project-id`**：
+
+| 命令 | 输入 | 输出 |
+|---|---|---|
+| `aiifc consume-upstream --building <b.json> --bim <bim.json> --dxf-dir <dir> --project-id <pid>` | building.json + bim_supplement.json + 各 zone DXF | `design.json`（上游几何 → floors.walls/openings 精确映射，含曲线 arc 语义对齐） |
+| `aiifc design-build <design.json> --project-id <pid>` | design.json | `features.json`（机器派生 + 校验） |
+| `aiifc build-script <features.json> --project-id <pid>` | features.json | 演示 IFC（`model.ifc`，沙箱构建） |
+
+**中间产物规范落盘**（结构性保证，不靠 LLM 传 `-o`）：有 `--project-id` 时自动落
+`{VIEWER_DATA_DIR}/skill-work/{projectID}/`（consume-upstream → `design.json`；design-build →
+`features.json`；build-script → `model.ifc`）；显式 `-o` 优先；无 `--project-id` 时 cwd 缺省名（独立使用）。
+**不版本化**——版本化只走平台 script-as-source（`models/{modelId}/`，build 脚本 + IFC）。
+
+**cad→ifc 消化管线（ifc-agent 消费上游路径）**：agent 先 `stage_upstream_to_workdir` 把上游产物
+（building.json + bim_supplement.json + 各 zone DXF）桥接到工作区 → `aiifc consume-upstream`
+→ `design-build` → 在已绑定骨架的既有脚本上深化（script-as-source 增量，不重写）。
 
 ## aiplan（plan 阶段：外部资料 → 任务书）
 

@@ -23,8 +23,8 @@
 | `llmBaseURL` | `""` | `VIEWER_LLM_BASE_URL` | LLM OpenAI 兼容端点（如 `https://api.openai.com/v1`） |
 | `llmModel` | `""` | `VIEWER_LLM_MODEL` | 模型名（如 `gpt-4o`、`deepseek-chat`） |
 | `skillsDir` | `../skills/dist` | `VIEWER_SKILLS_DIR` | **正式 skill 集合**（agent 只面对 dist，不感知开发版本）；skill middleware 的 BaseDir |
-| `skillVenv` | `../skills/.venv` | `VIEWER_SKILLS_VENV` | 独立 skill venv（bin 注入 PATH，execute 能调到 aiplan/aidxfv3；装包：`bash tools/install_skill_venv.sh`） |
-| `skillCLI` | `aiplan,aidxfv3` | `VIEWER_SKILLS_CLI` | execute 命令白名单（逗号分隔，领域收敛单点） |
+| `skillVenv` | `../skills/.venv` | `VIEWER_SKILLS_VENV` | 独立 skill venv（bin 注入 PATH，execute 能调到 aiplan/aidxfv3/aiifc；装包：`bash tools/install_skill_venv.sh`） |
+| `skillCLI` |  `aiplan,aidxfv3,aiifc` | `VIEWER_SKILLS_CLI` | execute 命令白名单（逗号分隔，领域收敛单点） |
 | `apiToken` | `""` | `VIEWER_API_TOKEN` | Bearer token 鉴权；**空 = 关闭**（仅限本机开发），**生产/多用户环境必填**；设置后除豁免路径外全部端点要求 `Authorization: Bearer <token>` |
 | `corsOrigins` | `http://localhost:5173,http://localhost:8080` | `VIEWER_CORS_ORIGINS` | CORS 允许来源白名单，逗号分隔；不在白名单的 Origin 不反射 `Access-Control-Allow-Origin` |
 
@@ -42,7 +42,7 @@
   "cadServiceURL": "http://127.0.0.1:8200",
   "skillsDir": "../skills/dist",
   "skillVenv": "../skills/.venv",
-  "skillCLI": "aiplan,aidxfv3"
+  "skillCLI": "aiplan,aidxfv3,aiifc"
 }
 ```
 
@@ -59,7 +59,7 @@
 
 - chat 侧的 AI 对话由 **进程内 Eino ADK agent**（`server/internal/agent/`，`adk.ChatModelAgent` + `Runner`）驱动，经领域工具集读写 edit-service / cad-edit-service，不再依赖外部 opencode serve。
 - 三参配置见上表（`llmAPIKey` / `llmBaseURL` / `llmModel`）；`llmAPIKey` 为空时自动回退 **scriptedModel**（确定性脚本模型）：离线 demo 与测试零依赖可跑，但不会产生真实智能回复。
-- **skill 配置**：`skillsDir`（默认 `../skills/dist`，正式 skill 集合）+ `skillVenv`（独立 skill venv，CLI 执行环境）+ `skillCLI`（execute 命令白名单，默认 `aiplan,aidxfv3`）。
+- **skill 配置**：`skillsDir`（默认 `../skills/dist`，正式 skill 集合）+ `skillVenv`（独立 skill venv，CLI 执行环境）+ `skillCLI`（execute 命令白名单，默认 `aiplan,aidxfv3,aiifc`）。
 - **三角色编排（AgentAsTool）**：orchestrator 经官方 `AgentAsTool` 派 `ifc-agent` / `cad-agent` 子 agent（深度预算 1），子 agent 事件经同一 SSE 流下发（`subagentId` 标签），前端右侧边栏分组展示。
 - **HITL**：`ask_user` 工具（官方 interrupt/resume）→ SSE `question.ask` 帧；`/answer` 端点回灌用户回答续跑。
 - 历史配置 `VIEWER_OPENCODE_URL` 已退役（W-0043）：opencode serve 退役，设置后无效果，可从部署环境删除。

@@ -126,9 +126,16 @@ JSON body：`{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"备�
 
 **模型初始化（agent 工具 `init_model`）**：CAD 项目 agent 在会话内经 `init_model` 工具初始化骨架模型
 （骨架脚本 stage → run 沙箱构建 → save v1 → 分配 modelId → 挂项目）。骨架脚本 = 最小可构建脚本
-（script-as-source：PARAMS + build + __main__，沙箱执行生成最小骨架 v1）。后续 agent 经
+（script-as-source：PARAMS + build + `__main__`，沙箱执行生成最小骨架 v1）。后续 agent 经
 `get_project_models` 查看已有模型，决定新建（init_model）或编辑（stage/run/save_script）。
 骨架构建在 **bwrap 沙箱**隔离下执行；ifc save 后自动排队 XKT 重转（渲染），dxf 走 render.json 直挂。
+
+**skill 工作区（中间产物规范落盘，2026-08-21）**：项目级 `{DATA}/skill-work/{projectID}/`——
+plan/cad/ifc 各 skill CLI（`aiplan` / `aidxfv3` / `aiifc`）加 `--project-id` 后结构性落盘
+（aiplan → `skill-work/{pid}/aiplan/`；aidxfv3 → `skill-work/{pid}/`；aiifc consume-upstream →
+`skill-work/{pid}/design.json`，design-build → `features.json`，build-script → 演示 IFC）。
+**不版本化**（辅助信息）；版本化只走 PlanStore 三文件（plan/bim_supplement/building）+ 模型
+script-as-source。execute 白名单 = `aiplan,aidxfv3,aiifc`（`server_config.json` `skillCLI` 可覆盖）。
 
 ```json
 {"code":0,"message":"ok","data":{"projectId":"p_xxxx","title":"我的项目","kind":"cad","createdAt":"2026-08-21T06:00:00Z","models":[]}}
@@ -182,6 +189,8 @@ SSE 事件流（`text/event-stream`）。帧类型：
 | `message.part.delta` | `{"delta","field":"text","partID",...}` | 流式增量（reasoning partID 含 `_reasoning`） |
 | `subagent.status` | `{"subagentId","parentSessionId","persona","status","task"}` | 子 agent 边界 |
 | `question.ask` | `{"interruptId","question"}` | HITL 提问（ask_user 中断） |
+| `viewer.staged` | `{"modelId","kind":"ifc"\|"dxf"}` | run_script 试跑成功（中途预览，严格 2 字段） |
+| `viewer.committed` | `{...}` | save 成功（驱动前端刷新） |
 | `session.error` | `{"error"}` | 错误 |
 | `session.idle` | `{}` | turn 结束 |
 
@@ -199,7 +208,12 @@ HITL 回答（ask_user 中断续跑）。body `{"interruptId", "answer"}`；响�
 
 #### GET / PUT /api/v1/projects/{projectID}/{name} {#plan-file}
 
-方案文件读存。`name` ∈ `plan | bim_supplement`。PUT 全量替换并版本化（`plan_history/v{n}.json`）。
+方案文件读存。`name` ∈ `plan | bim_supplement | building`（**2026-08-21 增 `building`**——aidxf 交付的 plan 形态整栋楼，`deliver_building` 工具落，zones 记各层 modelId）。PUT 全量替换并版本化（`plan_history/v{n}.json`）。
+
+> **方案版本化边界**：`plan` / `bim_supplement` / `building` 三个方案文件全部走 PlanStore 版本化
+> （`plan_history/v{n}.json` + diff）。**skill 中间产物（design.json / features.json / 演示 IFC /
+> derived / missions / deliver 等）不版本化**——落 `{DATA}/skill-work/{projectID}/`（结构性路径，
+> agent 经 `--project-id` 自动算，不靠 LLM 传 `-o`；级联删除随项目清空）。
 
 #### GET /api/v1/projects/{projectID}/plan_history
 
