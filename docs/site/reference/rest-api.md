@@ -102,6 +102,93 @@ JSON body：`{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"备�
 ]}
 ```
 
+## Chat（项目 + 会话 + AI 对话）
+
+进程内 chat agent 的 REST/SSE 接口（主 agent 编排：项目级会话，按项目类型选择性装配子 agent）。**历史项目 = 会话列表**（前端「历史项目（会话）」即 `GET /api/v1/chat/sessions`）。
+
+### 项目
+
+#### POST /api/v1/chat/projects
+
+创建项目。body `{"title", "kind"}`；`kind` 必选 ∈ `ifc | cad | cad->ifc`（强制预选，决定 Agent 派发方向与装配：cad→只派 cad-agent+aiplan，ifc→只派 ifc-agent，cad->ifc→全装）。
+
+```json
+{"code":0,"message":"ok","data":{"projectId":"p_xxxx","title":"我的项目","kind":"cad","createdAt":"2026-08-21T06:00:00Z","models":[]}}
+```
+
+错误：`40001` kind 缺失/非法。
+
+### 会话
+
+#### GET /api/v1/chat/sessions
+
+会话列表（历史项目入口）：
+
+```json
+{"code":0,"message":"ok","data":[
+  {"chatSessionId":"c_xxxx","opencodeSessionId":"s_xxxx","modelId":"","projectId":"p_xxxx","title":"我的项目","createdAt":"2026-08-21T06:00:00Z"}
+]}
+```
+
+#### POST /api/v1/chat/sessions
+
+创建/复用会话。body `{"title", "projectId"}`（项目级，**projectId 幂等：1 项目 = 1 会话，历史项目进入即命中现有会话**）或 `{"title", "modelId"}`（单模型，旧语义）。
+
+会话绑定项目后，对话按 `Project.Kind` 路由主 agent（选择性装配：AgentAsTool 子 agent + persona + aiplan skill 按 kind 分化）；历史项目会话恢复（重启后）同样命中对应 kind agent。
+
+错误：`40001` project 不存在。
+
+#### POST /api/v1/chat/sessions/{cid}/messages
+
+发消息（异步）。body `{"text"}`；响应 `{"code":0,"data":{"accepted":true}}`，事件经 SSE 推送。
+
+#### GET /api/v1/chat/sessions/{cid}/messages
+
+会话历史（事件投影回填 `{info, parts}`，重新打开会话时前端按 id 去重合并）。
+
+#### GET /api/v1/chat/sessions/{cid}/events
+
+SSE 事件流（`text/event-stream`）。帧类型：
+
+| event | data | 说明 |
+| --- | --- | --- |
+| `session.status` | `{"status":{"type":"busy\|idle"}}` | run 边界 |
+| `message.updated` | `{"info":{"id","role","sessionID"}}` | 消息骨架 |
+| `message.part.updated` | `{"part":{...}}` | part 定型（text/reasoning/tool 卡片） |
+| `message.part.delta` | `{"delta","field":"text","partID",...}` | 流式增量（reasoning partID 含 `_reasoning`） |
+| `subagent.status` | `{"subagentId","parentSessionId","persona","status","task"}` | 子 agent 边界 |
+| `question.ask` | `{"interruptId","question"}` | HITL 提问（ask_user 中断） |
+| `session.error` | `{"error"}` | 错误 |
+| `session.idle` | `{}` | turn 结束 |
+
+支持 `Last-Event-ID` 断线重同步（缓冲最近 64 条）。
+
+#### POST /api/v1/chat/sessions/{cid}/answer
+
+HITL 回答（ask_user 中断续跑）。body `{"interruptId", "answer"}`；响应 `{"code":0,"data":{"accepted":true}}`。
+
+#### POST /api/v1/chat/sessions/{cid}/abort
+
+中止当前 run。
+
+### 项目级方案产物
+
+#### GET / PUT /api/v1/projects/{projectID}/{name} {#plan-file}
+
+方案文件读存。`name` ∈ `plan | bim_supplement`。PUT 全量替换并版本化（`plan_history/v{n}.json`）。
+
+#### GET /api/v1/projects/{projectID}/plan_history
+
+方案版本历史：`data: {"versions":[...]}`。
+
+#### GET /api/v1/projects/{projectID}/plan_history/{base}/{target}/diff
+
+方案版本 diff（JSONDiff）：`data: {"changes":[...]}`；`base/target` 可为 `v{n}` 或 `current`。
+
+#### POST /api/v1/projects/{projectID}/deliver
+
+plan 交付（aiplan land → 方案级目录版本化）。body `{"plan", "bimSupplement"}`（对象 JSON 文本）。
+
 ## 编辑代理端点
 
 Go server 把 edit-service 的脚本编辑端点暴露在 `/api/v1/models/{id}/script/...` 前缀下（编排：run/save/rollback 成功后排队重转 XKT）；只读/对比端点保留在 `/api/v1/models/{id}/edit/...` 前缀下（`edit/diff`、`edit/pending`、`edit/history`、`edit/versions`）。直改代理路由（`edit/entities/{guid}`、`edit/commit`）已随 L1 直改退役删除。完整契约见 [IFC 编辑 API](/reference/edit-api)。
