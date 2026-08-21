@@ -53,23 +53,42 @@ S4 deliver（机器）：扫 confirmed missions → 复制 DXF 到 <project>/del
 
 > 目标：aidxf deliver 的 building.json + 逐 zone DXF **注册为平台模型**（唯一脚本/zone + script-as-source 版本化），并能**经平台模型传给 ifc-agent**（拿到文件层面）。aiifc 解析消费（P2）不在本波。
 
-### P0-1：aidxf 适配——每 zone 唯一构建脚本（draw 链固化）
+### P0-1：aidxf 适配——每 zone 单一构建脚本（draw_api 不变 + 调用序列固化）
 
-**目标**：aidxf 每 zone 的 LLM draw 调用链固化为 script-as-source 构建脚本（对齐 services/cad 契约）。
+**目标**：draw_api 能力规范**不变**（LLM 逐次调 dxfkit.draw 的画法手册保留——skill 设计重点依赖），
+但最后产出一个**在自定义 archdxf 环境下可运行的单一构建脚本**（每 zone 一个，对齐
+services/cad script-as-source 契约）。
 
-**改动点**（aidxf skill + services/cad 协同）：
-- aidxf 在 S2/S3 主 agent 画完一 zone 后，**产出该 zone 的构建脚本**：
-  - `PARAMS = {skeleton, rooms, details}`（LLM 声明的 DSL，JSON-compatible 字面量）
-  - `build(params, out_path)`：重放整层画法（dxfkit.new_doc → 底座 → wall_run/door/window → 柱 → 标注 → write_and_validate）
-  - 契约对齐 `services/cad/flows/cad_script_lib.py`（PARAMS/build/__main__/XDATA key/write_and_validate）
-- **位置**：这是 skill 侧新增「draw 链 → 构建脚本」的固化能力——需要 aidxf skill 改写（在 draw_composition 组装序基础上，把 LLM 的 draw 调用链记录/固化为可重放的 build()）
+**机制（draw_api 零改动 + 机器记录固化）**：
+```
+LLM 逐次调 dxfkit.draw（draw_api 不变：wall_run/door/window/... 一次一构件）✅ 保留
+  ↓（dxfkit/archdxf 侧在 LLM 画的同时记录：每次 draw 调用的函数 + 参数 + 次序
+     ——draw_composition 组装序：底座→墙→门窗→柱→标注）
+机器记录该 zone 的完整 draw 调用序列
+  ↓（S4 deliver 时）
+机器把调用序列固化为单一构建脚本（archdxf 环境可运行）：
+  PARAMS = {skeleton: {...}, rooms: {...}, details: {...}}   # LLM 声明的 DSL（JSON 字面量）
+  def build(params, out_path):
+      doc = dxfkit.new_doc()
+      # 按记录的调用序列重放整层画法（确定性：同 PARAMS → 同 DXF，字节级）
+      wall_run(...); door(...); window(...); draw_stair(...); ...
+      write_and_validate(doc, out_path)   # saveas + audit + map.json 侧车
+  if __name__ == "__main__": build(PARAMS, ...)
+```
 
-**裁决点**：draw 链固化的实现方式——
-- (a) LLM 画的同时**记录 draw 调用序列**，deliver 时把调用序列翻译成 build() 脚本（机器生成）
-- (b) LLM 直接**产出构建脚本**（不调零散 draw，而是一次写出 build() 脚本，沙箱跑 build() 产 DXF）——更接近用户编辑线
-- **倾向 (b)**：LLM 直接产 build() 脚本（与用户编辑线完全一致：script-as-source，沙箱 build→DXF），draw_api/draw_composition 作为「写 build() 脚本时的画法参考手册」而非逐次调用。这样 aidxf 的 DXF 天然就是 script-as-source，无需额外固化。
+**契约对齐** `services/cad/flows/cad_script_lib.py`：PARAMS 顶层字面量 + build(params, out_path)
+入口 + __main__ + XDATA 确定性 key（AIDXF）+ write_and_validate 出口。**脚本在自定义 archdxf
+环境下可运行**（import dxfkit/archdxf，build() 重放 draw 调用序列）。
 
-**测试**：契约测试（validate_script_contract 过）+ 沙箱 build→DXF 可重放（同 PARAMS 同 DXF）+ golden 对比。
+**改动点**：
+- dxfkit/archdxf：加 **draw 调用序列记录**能力（LLM 逐次调 draw 时，机器侧累积记录
+  函数+参数+次序——不改 draw_api 的调用面，只在 draw 实现里埋记录点）
+- aidxf S4 deliver：把记录的调用序列**翻译固化为 build() 脚本**（每 zone 一个）
+- 这是 skill 侧新增「draw 调用序列 → 可重放 build() 脚本」的固化能力（能力规范不变，
+  只加记录 + 固化）
+
+**测试**：契约测试（validate_script_contract 过）+ archdxf 环境跑 build() 可重放
+（同 PARAMS 同 DXF 字节级）+ 与 LLM 实画的 DXF 一致（golden 对比）。
 
 ### P0-2：deliver 落盘对接 + 注册平台模型（每 zone）
 
@@ -148,10 +167,11 @@ P1（skill 编排契约）→ P2（aiifc 解析消费，大工程量）
 
 ## 六、本波（P0）裁决点汇总（需用户确认）
 
-| 裁决 | 选项 | 倾向 |
+| 裁决 | 选项 | 定稿 |
 |---|---|---|
-| **P0-1 draw 链固化方式** | (a) 记录调用序列机器翻译 build() / (b) LLM 直接产 build() 脚本 | **(b)**——与用户编辑线完全一致（script-as-source，沙箱 build→DXF），draw_api 作为写法参考 |
+| **P0-1 draw 链固化方式** | (a) draw_api 不变 + 机器记录调用序列固化 build() / (b) LLM 直接产 build() 脚本 | **(a) 已定**——draw_api 能力规范不变（skill 设计重点依赖），机器记录 draw 调用序列 → 固化为 archdxf 可运行的单一 build() 脚本/zone |
 | **P0-2 注册触发位置** | (a) skill 感知平台调 API / (b) agent 侧 init_model+编辑链注册 | **(b)**——skill 产文件不感知平台，注册逻辑在 agent 侧（职责分清） |
 | **P0-3 building.json 读取入口** | get_project_plans 扩展 / 新工具 | 待定（看 building.json 挂哪——方案级 or 项目级） |
 
-> 确认这三个裁决后，P0 可拆任务执行（TDD，测试≥实现，对齐 api_regulation 硬标准）。
+> P0-1 已定（draw_api 不变 + 调用序列固化单一脚本，archdxf 可运行）。余下两个裁决确认后，
+> P0 可拆任务执行（TDD，测试≥实现，对齐 api_regulation 硬标准）。
