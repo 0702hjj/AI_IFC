@@ -111,7 +111,7 @@ func loadConfig(path string) (*config, error) {
 		cfg.SkillCLI = c
 	}
 	if cfg.SkillCLI == "" {
-		cfg.SkillCLI = "aiplan,aidxfv3" // 默认 = dist 正式集合 CLI 入口
+		cfg.SkillCLI = "aiplan,aidxfv3,aiifc" // 默认 = dist 正式集合 CLI 入口（含 aiifc——P2 消费上游链）
 	}
 	if t := os.Getenv("VIEWER_API_TOKEN"); t != "" {
 		cfg.APIToken = t

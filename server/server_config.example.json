@@ -14,5 +14,5 @@
   "llmModel": "",
   "skillsDir": "../skills/dist",
   "skillVenv": "../skills/.venv",
-  "skillCLI": "aiplan,aidxfv3"
+  "skillCLI": "aiplan,aidxfv3,aiifc"
 }
