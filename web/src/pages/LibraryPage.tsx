@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (C) 2026 0702hjj
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   listModels,
-  uploadModel,
   deleteModel,
+  deleteChatProject,
   retryModel,
   downloadUrl,
   createChatProject,
@@ -18,7 +18,6 @@ import {
 import type { ModelInfo } from "@/api/types";
 import "./LibraryPage.css";
 
-const MAX_SIZE = 200 * 1024 * 1024;
 const KIND_OPTIONS = [
   { value: "cad", label: "CAD 项目（aidxf 管线，默认）" },
   { value: "ifc", label: "IFC 项目（aiifc 管线）" },
@@ -31,17 +30,11 @@ function formatSize(size: number): string {
   return `${size} B`;
 }
 
-function validateFile(file: File): string | null {
-  if (!file.name.toLowerCase().endsWith(".ifc")) return "仅支持 .ifc 文件";
-  if (file.size > MAX_SIZE) return "文件超过 200MB 限制";
-  return null;
-}
 
 export default function LibraryPage() {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [error, setError] = useState<string>("");
-  const [uploading, setUploading] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
   const [naming, setNaming] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -76,8 +69,6 @@ export default function LibraryPage() {
       setCreatingProject(false);
     }
   };
-  const [dragOver, setDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -90,7 +81,7 @@ export default function LibraryPage() {
   const refreshSessions = useCallback(async () => {
     try {
       setSessions(await listChatSessions());
-    } catch (e) {
+    } catch {
       // 会话列表不可用不影响模型库主体
     }
   }, []);
@@ -106,44 +97,26 @@ export default function LibraryPage() {
     return () => clearInterval(timer);
   }, [models, refresh]);
 
-  const doUpload = useCallback(
-    async (file: File) => {
-      const err = validateFile(file);
-      if (err) {
-        setError(err);
-        return;
-      }
-      setError("");
-      setUploading(true);
-      try {
-        await uploadModel(file);
-        await refresh();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setUploading(false);
-      }
-    },
-    [refresh],
-  );
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) doUpload(file);
-    e.target.value = "";
-  };
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) doUpload(file);
-  };
 
   const onDelete = async (m: ModelInfo) => {
     if (!window.confirm(`删除模型「${m.name}」?`)) return;
     try {
       await deleteModel(m.id);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  };
+
+  // 删除项目（级联：项目 + 会话 + 方案 + 项目下模型）——历史项目入口的清理。
+  const onDeleteProject = async (s: ChatSession) => {
+    if (!s.projectId) return;
+    if (!window.confirm(`删除项目「${s.title}」?（连带会话/方案/项目下模型）`)) return;
+    try {
+      await deleteChatProject(s.projectId);
+      await refreshSessions();
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -207,31 +180,17 @@ export default function LibraryPage() {
                   <span className="history-title">{s.title}</span>
                   <span className="history-time">{new Date(s.createdAt).toLocaleString()}</span>
                 </Link>
+                {s.projectId && (
+                  <button className="history-delete" onClick={() => onDeleteProject(s)}>删除</button>
+                )}
               </li>
             ))}
           </ul>
         </section>
       )}
 
-      <div
-        className={`dropzone${dragOver ? " dragover" : ""}`}
-        onClick={() => fileInputRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={onDrop}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".ifc"
-          hidden
-          onChange={onFileChange}
-        />
-        {uploading ? "上传中…" : "点击选择或拖拽 .ifc 文件到此处上传（≤200MB）"}
-      </div>
+      {/* 上传入口已隐藏（2026-08-21）：模型不再由用户直接上传——经 agent 在项目会话内生成。
+          后端转化/显示链（upload→convert→XKT/render）保留，agent 建模型产物展示。 */}
 
       {error && <div className="error-banner">{error}</div>}
 

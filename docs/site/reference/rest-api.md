@@ -6,9 +6,13 @@
 
 ## 模型
 
-### POST /api/v1/models
+### POST /api/v1/models {#upload-model}
 
 上传 IFC 文件并触发异步转换。请求：`multipart/form-data`，字段 `file`（仅 `.ifc`，≤200MB）。
+
+> **用户视角已隐藏**（2026-08-21）：前端不再暴露上传入口——模型由 agent 在项目会话内生成（
+> 用户走项目流程：`POST /chat/projects` → 会话 → agent 建模型）。本端点保留为
+> **agent 建模型的内部链路**（agent 初始化模型 → 沙箱构建 → 转化 → 显示），用户勿直调。
 
 响应：
 
@@ -112,6 +116,10 @@ JSON body：`{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"备�
 
 创建项目。body `{"title", "kind"}`；`kind` 必选 ∈ `ifc | cad | cad->ifc`（强制预选，决定 Agent 派发方向与装配：cad→只派 cad-agent+aiplan，ifc→只派 ifc-agent，cad->ifc→全装）。
 
+> **项目路径组织**：项目创建/删除在 `/api/v1/chat/projects`（chat 子树），项目方案/交付在
+> `/api/v1/projects/{id}/...`（非 chat 前缀）——同一 projectID 两种前缀，历史原因（chat 模块独立挂载）。
+> **项目绑定唯一会话**（1 项目 = 1 会话）：模型由 agent 在项目内产生，不用户上传。
+
 ```json
 {"code":0,"message":"ok","data":{"projectId":"p_xxxx","title":"我的项目","kind":"cad","createdAt":"2026-08-21T06:00:00Z","models":[]}}
 ```
@@ -129,6 +137,12 @@ JSON body：`{"entityName":"Wall","fields":{"FireRating":"F60","Comments":"备�
   {"chatSessionId":"c_xxxx","opencodeSessionId":"s_xxxx","modelId":"","projectId":"p_xxxx","title":"我的项目","createdAt":"2026-08-21T06:00:00Z"}
 ]}
 ```
+
+#### DELETE /api/v1/chat/projects/{id} {#delete-project}
+
+删除项目并**级联清理绑定产物**：项目 + 会话（chat-sessions）+ 事件日志（chat/{agentID}.jsonl）+
+方案（plans/{projectID}）+ 项目下模型（issues/changes/overrides + store 目录）。
+与 `DELETE /api/v1/models/{id}`（单模型删除，不级联）区分——**删除项目即删全套**。
 
 #### POST /api/v1/chat/sessions
 

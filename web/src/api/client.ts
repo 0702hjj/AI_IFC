@@ -66,6 +66,9 @@ export function createChatProject(title: string, kind: string = "cad") {
     body: JSON.stringify({ title, kind }),
   });
 }
+export function deleteChatProject(projectId: string) {
+  return request<null>(`/api/v1/chat/projects/${projectId}`, { method: "DELETE" });
+}
 export function postChatMessage(cid: string, text: string) {
   return request<{ accepted: boolean }>(`/api/v1/chat/sessions/${cid}/messages`, {
     method: "POST",
