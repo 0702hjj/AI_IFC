@@ -47,6 +47,9 @@ type ToolDeps struct {
 	// CreateProject 创建「项目」（项目级 A1：projectID + 首交付模型，kind ifc|dxf）；
 	// 返回可 JSON 化的 {model, project}；可空。
 	CreateProject func(ctx context.Context, title, kind string) (any, error)
+	// InitModel 在项目下初始化骨架模型（agent 会话内新建 DXF/IFC——script-as-source：
+	// 骨架脚本构建出最小模型 v1）。返回 {modelId, kind, title, projectId}；可空。
+	InitModel func(ctx context.Context, projectID, kind, title string) (any, error)
 
 	// --- D2 项目/方案域（交付对齐） ---
 	// SessionProject 从 ctx 解析会话绑定项目 id（A2；无绑定返回 ""）；可空。
@@ -58,6 +61,22 @@ type ToolDeps struct {
 	// PlanDeliver 触发 plan 交付（B2：aiplan land → 落方案级目录），
 	// 返回 {planVersion, bimVersion}；可空。
 	PlanDeliver func(ctx context.Context, projectID, plan, bimSupplement string) (map[string]any, error)
+	// BuildingDeliver 交付 building.json（aidxf S4-c：agent 组装 plan 形态整栋楼 + zones 记
+	// modelId）→ PlanStore 版本化 plans/{projectID}/building.json，返回 {buildingVersion}；可空。
+	BuildingDeliver func(ctx context.Context, projectID, building string) (map[string]any, error)
+	// SkillWorkDir 返回项目 skill 工作区绝对路径（{DATA}/skill-work/{projectID}，
+	// 首次调用 MkdirAll；projectId 隔离多项目不混淆）——aidxf 中间产物
+	// （derived/missions/deliver）落盘根，复用 plans/{projectID} 的 projectId 隔离地基；可空。
+	SkillWorkDir func(ctx context.Context, projectID string) (string, error)
+	// PlanToWorkdir 把项目 plan 产物（plan.json + bim_supplement.json）从 PlanStore
+	// 落到 skill 工作区文件，返回 {planPath, bimPath}——aidxfv3 preprocess --plan 等命令
+	// 需要文件路径时的桥接（plan 内容 → 工作区文件）；可空。
+	PlanToWorkdir func(ctx context.Context, projectID string) (map[string]string, error)
+	// UpstreamToWorkdir 把 ifc 消费的上游产物（building.json + bim_supplement.json +
+	// 各 zone DXF）落到 skill 工作区，返回 {buildingPath, bimPath, dxfDir, dxfPaths}——
+	// cad->ifc 消费上游：ifc-agent 跑 aiifc consume-upstream 的输入桥接（多 DXF 按
+	// zones[].modelId 从 uploads/{modelId}.dxf 复制到工作区 dxf/）；可空。
+	UpstreamToWorkdir func(ctx context.Context, projectID string) (map[string]any, error)
 }
 
 func (d ToolDeps) markDirty(ctx context.Context) {
@@ -98,7 +117,6 @@ func (d ToolDeps) resolve(ctx context.Context, modelID string) (*store.Model, *e
 	}
 	return m, cl, ""
 }
-
 
 // mustTool 构造 InferTool；schema 是静态的，构造失败即程序员错误，启动期直接 panic
 // （同 http.ServeMux 冲突 panic 语义），不拖错误签名污染 DomainTools 契约。
@@ -199,23 +217,22 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				return toolRaw(out, nil)
 			}),
 
-		mustTool("get_versions", "列出模型的脚本大版本（version/createdAt/note）",
+		mustTool("get_versions", "列出模型的大版本（IFC 快照 versions + 构建脚本 scripts + 当前版本 current）——模型版本历史全景（参考 mcp model_versions 组合视图）",
 			func(ctx context.Context, in modelRefReq) (string, error) {
 				m, cl, errText := deps.resolve(ctx, in.ModelID)
 				if errText != "" {
 					return errText, nil
 				}
-				return toolRaw(cl.Do(ctx, http.MethodGet, "/models/"+m.ID+"/scripts", nil))
+				return combineModelVersions(ctx, cl, m.ID)
 			}),
 
-		mustTool("get_diff", "拉两个大版本的脚本 diff（text_diff + PARAMS 变化 + 统计）",
+		mustTool("get_diff", "拉两个大版本的组合 diff：ifc=IFC 语义 diff（构件增删改）+ script=构建脚本 diff（text_diff+PARAMS 变化）——模型级版本对比全景（参考 mcp model_diff 组合视图）",
 			func(ctx context.Context, in diffReq) (string, error) {
 				m, cl, errText := deps.resolve(ctx, in.ModelID)
 				if errText != "" {
 					return errText, nil
 				}
-				body, _ := json.Marshal(map[string]string{"base": in.Base, "target": in.Target})
-				return toolRaw(cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/diff", body))
+				return combineModelDiff(ctx, cl, m.ID, in.Base, in.Target)
 			}),
 
 		mustTool("create_project", "创建空白项目（项目级：projectID + 首交付模型，kind 可选 ifc/dxf 默认 ifc），返回首模型（modelId 供后续编辑）+ projectId（会话绑定用它）",
@@ -234,7 +251,28 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				return toolJSON(v), nil
 			}),
 
-		mustTool("get_project_plans", "读项目方案产物当前态（plan.json / bim_supplement.json）——plan 是任务书（对接 cad/bim），先读它再决定派发",
+		mustTool("init_model", "在项目下初始化骨架模型（新建 DXF/IFC：骨架脚本沙箱构建出最小模型 v1，分配 modelId）——agent 会话内新建模型的入口；CAD 项目每次新建图纸时调用，后续看 get_project_models 决定新建或编辑已有",
+			func(ctx context.Context, in initModelReq) (string, error) {
+				if deps.InitModel == nil {
+					return "init_model 未配置（装配缺失）", nil
+				}
+				pid := in.ProjectID
+				if pid == "" {
+					pid = resolveProjectID(ctx, deps, "")
+				}
+				kind := in.Kind
+				if kind == "" {
+					kind = "dxf"
+				}
+				v, err := deps.InitModel(ctx, pid, kind, in.Title)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				deps.markDirty(ctx)
+				return toolJSON(v), nil
+			}),
+
+		mustTool("get_project_plans", "读项目方案产物当前态（plan.json / bim_supplement.json / building.json）——plan 是任务书（对接 cad），bim_supplement 是 BIM 补充（对接 bim），building 是 aidxf 交付的整栋楼（zones 记 modelId，对接 ifc；早期无 building 时不含该字段）",
 			func(ctx context.Context, in projectRefReq) (string, error) {
 				projectID := resolveProjectID(ctx, deps, in.ProjectID)
 				if projectID == "" {
@@ -251,9 +289,14 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				if err != nil {
 					return toolErr(err), nil
 				}
-				return toolJSON(map[string]any{
+				out := map[string]any{
 					"projectId": projectID, "plan": json.RawMessage(plan), "bimSupplement": json.RawMessage(bim),
-				}), nil
+				}
+				// building.json 容忍缺失（aidxf S4-c 交付后才有；缺失时不含该字段，不报错）。
+				if building, berr := deps.PlanGet(ctx, projectID, "building.json"); berr == nil {
+					out["building"] = json.RawMessage(building)
+				}
+				return toolJSON(out), nil
 			}),
 
 		mustTool("deliver_plan", "执行 plan 交付（aiplan land → 方案级目录版本化）：body 传 plan + bimSupplement（可从 get_project_plans 读后修改再交）",
@@ -266,6 +309,22 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 					return "deliver_plan 未配置（装配缺失）", nil
 				}
 				v, err := deps.PlanDeliver(ctx, projectID, string(in.Plan), string(in.BimSupplement))
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(v), nil
+			}),
+
+		mustTool("deliver_building", "交付 building.json（aidxf S4-c：你组装 plan 形态整栋楼 + zones 记 modelId——读 get_project_plans 的 plan.json + 各 zone init_model 的 modelId 组装）→ 方案库版本化 plans/{projectID}/building.json。building 不由 CLI deliver 产（它不知道你的 modelId）",
+			func(ctx context.Context, in deliverBuildingReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.BuildingDeliver == nil {
+					return "deliver_building 未配置（装配缺失）", nil
+				}
+				v, err := deps.BuildingDeliver(ctx, projectID, string(in.Building))
 				if err != nil {
 					return toolErr(err), nil
 				}
@@ -286,6 +345,58 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 					return toolErr(err), nil
 				}
 				return toolJSON(map[string]any{"projectId": projectID, "models": models}), nil
+			}),
+
+		mustTool("get_skill_workdir", "返回项目 skill 工作区绝对路径（{DATA}/skill-work/{projectID}，首次调用自动建目录；projectId 隔离多项目不混淆）——aidxf 中间产物（derived/missions/deliver）落盘根：所有 aidxfv3 命令的 --project 必须用它",
+			func(ctx context.Context, in projectRefReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.SkillWorkDir == nil {
+					return "get_skill_workdir 未配置（装配缺失）", nil
+				}
+				dir, err := deps.SkillWorkDir(ctx, projectID)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(map[string]any{"projectId": projectID, "workdir": dir}), nil
+			}),
+
+		mustTool("stage_plan_to_workdir", "把项目 plan 产物（plan.json + bim_supplement.json）从方案库落到 skill 工作区文件，返回 {planPath, bimPath}——aidxfv3 preprocess --plan <文件> 等命令需要文件路径时调用（plan 内容 → 工作区文件的桥接）。先 get_project_plans 确认 plan 存在再调",
+			func(ctx context.Context, in projectRefReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.PlanToWorkdir == nil {
+					return "stage_plan_to_workdir 未配置（装配缺失）", nil
+				}
+				paths, err := deps.PlanToWorkdir(ctx, projectID)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(map[string]any{
+					"projectId": projectID,
+					"planPath":  paths["planPath"],
+					"bimPath":   paths["bimPath"],
+				}), nil
+			}),
+
+		mustTool("stage_upstream_to_workdir", "把 ifc 消费的上游产物（building.json + bim_supplement.json + 各 zone DXF）落到 skill 工作区，返回 {buildingPath, bimPath, dxfDir, dxfPaths}——cad->ifc 消费上游：你跑 aiifc consume-upstream --building <buildingPath> --bim <bimPath> --dxf-dir <dxfDir> 前的输入桥接（多 DXF 按 zones[].modelId 从平台模型复制到工作区 dxf/）。先 get_project_plans 确认 building 存在再调",
+			func(ctx context.Context, in projectRefReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.UpstreamToWorkdir == nil {
+					return "stage_upstream_to_workdir 未配置（装配缺失）", nil
+				}
+				v, err := deps.UpstreamToWorkdir(ctx, projectID)
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(v), nil
 			}),
 
 		mustTool("get_script_locate", "XDATA key → 脚本调用点定位（line/col/snippet）——选中构件后定位到创建它的脚本位置（M3-①）",

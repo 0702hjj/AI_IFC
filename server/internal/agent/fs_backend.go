@@ -25,9 +25,9 @@ import (
 )
 
 // skillCommandAllowlist 是 execute 命令白名单（默认 = dist 正式集合的 CLI 入口：
-// aiplan / aidxfv3）。可经 SetSkillCommandAllowlist 配置化（第二层：对齐已接入
+// aiplan / aidxfv3 / aiifc）。可经 SetSkillCommandAllowlist 配置化（第二层：对齐已接入
 // skill 集合）；正式 skill 命令面（完整子命令枚举）后续按 machine_contract 细化。
-var skillCommandAllowlist = []string{"aiplan", "aidxfv3"}
+var skillCommandAllowlist = []string{"aiplan", "aidxfv3", "aiifc"}
 
 // SetSkillCommandAllowlist 覆盖 execute 命令白名单（装配时调用，来自 server 配置）。
 // 空列表 = 全部拒绝（execute 不可用）。

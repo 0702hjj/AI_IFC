@@ -35,8 +35,26 @@
 - 只在用户未指定维度做**受限创新**（候选集内选优 / 区间内取值 / prefer 项排序）
 - **不突破**任何用户意图与硬约束
 
-## 落盘（run 目录唯一性，零覆盖）
+## 落盘（平台内：deliver_plan 工具交付；独立使用：land 成对落盘）
 
+### 平台内交付（2026-08-21 起，推荐）
+
+平台内（agent 驱动的项目会话）交付走 **deliver_plan 工具**（agent 提供）：
+```
+# 中间产物落 {DATA}/skill-work/{projectID}/aiplan/（先 get_skill_workdir 拿，projectId 隔离）
+# 交付：deliver_plan 工具（body 传 plan + bimSupplement，可从 get_project_plans 读后修改再交）
+#   → 工具内部 deliverPlanCore：临时区 aiplan land → 读产出 → PlanStore.Put 版本化
+#     plans/{projectID}/plan.json + bim_supplement.json（+ plan_history/v{n} 归档）
+```
+- **版本化**：PlanStore 版本化（`plans/{projectID}/{name}` 当前态 + `plan_history/{name}/v{n}.json`
+  归档递增）——每次 deliver_plan 是一个版本，可追溯。
+- **deliver 后清理中间产物**：deliver_plan 后清理 aiplan 过程产物（design_intent/normalized/run
+  过程态）——再次修改走 deliver_plan（从 get_project_plans 读当前态改了重交），不依赖过程残留。
+- 下游读取：`get_project_plans` 读 plans/{projectID}/ 当前态。
+
+### 独立使用（自包含，可迁移）
+
+独立使用（无 agent/平台）时，`aiplan land` 成对落盘自包含工作区：
 ```
 .venv/bin/aiplan land <plan.json> <bim_supplement.json> --outdir plan/
 # 落盘到 {workspace}/plan/<时间戳>_<项目>/
@@ -48,6 +66,7 @@
 
 ## 路由（中断恢复，D-4——判定规则见 step-00，此处只收尾）
 
+平台内 `<workspace>` = `{DATA}/skill-work/{projectID}/aiplan/`（get_skill_workdir 拿）：
 ```
 plan/ 下有完整 run（已冻结）→ 跳过 step-01，本步直接校验该 run 内文件
                         （重读 + 双门禁 + 互指校验，通过即完成）

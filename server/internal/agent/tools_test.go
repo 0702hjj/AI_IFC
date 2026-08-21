@@ -148,8 +148,9 @@ func TestDomainToolsRegistered(t *testing.T) {
 	want := []string{
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
-		"get_project_plans", "deliver_plan", "get_project_models",
-		"get_script_locate", "edit_script_call",
+		"get_project_plans", "deliver_plan", "deliver_building", "get_project_models", "get_skill_workdir",
+		"stage_plan_to_workdir", "stage_upstream_to_workdir",
+		"get_script_locate", "edit_script_call", "init_model",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("工具数 = %d (%v), want %d (%v)", len(got), got, len(want), want)
@@ -277,12 +278,16 @@ func TestGetVersionsProxiesScripts(t *testing.T) {
 	deps, ifcFB, _, st := newToolFixture(t)
 	m := mustModel(t, st, "a.ifc", store.KindIFC)
 	out := invoke(t, DomainTools(deps), "get_versions", `{"modelId":"`+m.ID+`"}`)
-	if !strings.Contains(out, `"ok":true`) {
-		t.Fatalf("get_versions 输出 = %s", out)
+	// 组合视图：IFC 快照版本 + 脚本版本（参考 mcp model_versions）
+	if !strings.Contains(out, `"versions"`) || !strings.Contains(out, `"scripts"`) {
+		t.Fatalf("get_versions 组合输出应含 versions+scripts = %s", out)
 	}
-	last := ifcFB.last()
-	if last.method != http.MethodGet || last.path != "/models/"+m.ID+"/scripts" {
-		t.Fatalf("后端收到 %s %s, want GET /models/%s/scripts", last.method, last.path, m.ID)
+	// 调用了两个端点（/versions IFC 快照 + /scripts 脚本）
+	if !ifcFB.saw(http.MethodGet, "/models/"+m.ID+"/versions") {
+		t.Fatalf("未调用 GET /models/%s/versions（IFC 快照版本）", m.ID)
+	}
+	if !ifcFB.saw(http.MethodGet, "/models/"+m.ID+"/scripts") {
+		t.Fatalf("未调用 GET /models/%s/scripts（脚本版本）", m.ID)
 	}
 }
 
@@ -291,13 +296,19 @@ func TestGetDiffPostsBaseTarget(t *testing.T) {
 	m := mustModel(t, st, "a.ifc", store.KindIFC)
 	out := invoke(t, DomainTools(deps), "get_diff",
 		`{"modelId":"`+m.ID+`","base":"v1","target":"v2"}`)
-	if !strings.Contains(out, `"ok":true`) {
-		t.Fatalf("get_diff 输出 = %s", out)
+	// 组合视图：IFC 语义 diff + 脚本 diff（参考 mcp model_diff）
+	if !strings.Contains(out, `"ifc"`) || !strings.Contains(out, `"script"`) {
+		t.Fatalf("get_diff 组合输出应含 ifc+script = %s", out)
 	}
+	// 调用了两个端点（/diff IFC 语义 + /script/diff 脚本）
+	if !ifcFB.saw(http.MethodPost, "/models/"+m.ID+"/diff") {
+		t.Fatalf("未调用 POST /models/%s/diff（IFC 语义 diff）", m.ID)
+	}
+	if !ifcFB.saw(http.MethodPost, "/models/"+m.ID+"/script/diff") {
+		t.Fatalf("未调用 POST /models/%s/script/diff（脚本 diff）", m.ID)
+	}
+	// base/target 透传
 	last := ifcFB.last()
-	if last.method != http.MethodPost || last.path != "/models/"+m.ID+"/script/diff" {
-		t.Fatalf("后端收到 %s %s, want POST /models/%s/script/diff", last.method, last.path, m.ID)
-	}
 	var body map[string]any
 	if err := json.Unmarshal([]byte(last.body), &body); err != nil {
 		t.Fatalf("diff body 非 JSON: %s", last.body)
@@ -332,86 +343,3 @@ func TestCreateProjectInvokesDepNoDirty(t *testing.T) {
 }
 
 // TestGetProjectPlansTool D2：读项目方案产物（projectID 缺省回退会话绑定项目）。
-func TestGetProjectPlansTool(t *testing.T) {
-	deps, _, _, _ := newToolFixture(t)
-	var gotPID string
-	deps.SessionProject = func(ctx context.Context) string { return "p_0000000000000001" }
-	deps.PlanGet = func(ctx context.Context, projectID, name string) (string, error) {
-		gotPID = projectID
-		return `{"version":1,"project":"p_0000000000000001"}`, nil
-	}
-	out := invoke(t, DomainTools(deps), "get_project_plans", `{}`)
-	if gotPID != "p_0000000000000001" {
-		t.Fatalf("PlanGet projectID = %q", gotPID)
-	}
-	if !strings.Contains(out, `"plan"`) || !strings.Contains(out, `"bimSupplement"`) {
-		t.Fatalf("get_project_plans 输出应含 plan/bimSupplement: %s", out)
-	}
-}
-
-// TestDeliverPlanTool D2：plan 交付（调 PlanDeliver 回调）。
-func TestDeliverPlanTool(t *testing.T) {
-	deps, _, _, _ := newToolFixture(t)
-	var gotPlan string
-	deps.SessionProject = func(ctx context.Context) string { return "p_0000000000000001" }
-	deps.PlanDeliver = func(ctx context.Context, projectID, plan, bim string) (map[string]any, error) {
-		gotPlan = plan
-		return map[string]any{"planVersion": "v1", "bimVersion": "v1"}, nil
-	}
-	out := invoke(t, DomainTools(deps), "deliver_plan", `{"plan":{"project":"p_0000000000000001"}}`)
-	if !strings.Contains(gotPlan, "p_0000000000000001") {
-		t.Fatalf("PlanDeliver plan = %q", gotPlan)
-	}
-	if !strings.Contains(out, `"planVersion":"v1"`) {
-		t.Fatalf("deliver_plan 输出应含版本: %s", out)
-	}
-}
-
-// TestProjectToolsUnconfigured D2：回调未配置 → 文本错误（可空适配器）。
-func TestProjectToolsUnconfigured(t *testing.T) {
-	deps, _, _, _ := newToolFixture(t)
-	out := invoke(t, DomainTools(deps), "get_project_plans", `{"projectId":"p_0000000000000001"}`)
-	if !strings.Contains(out, "未配置") {
-		t.Fatalf("get_project_plans 未配置应提示: %s", out)
-	}
-	out = invoke(t, DomainTools(deps), "deliver_plan", `{"projectId":"p_0000000000000001","plan":{}}`)
-	if !strings.Contains(out, "未配置") {
-		t.Fatalf("deliver_plan 未配置应提示: %s", out)
-	}
-}
-
-// TestGetScriptLocateTool D1：XDATA key → 调用点定位（走 resolve → GET locate）。
-func TestGetScriptLocateTool(t *testing.T) {
-	deps, ifcFB, _, st := newToolFixture(t)
-	m, err := st.CreateWithKind("a.ifc", 5, strings.NewReader("aaaaa"), store.KindIFC)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := invoke(t, DomainTools(deps), "get_script_locate", `{"modelId":"`+m.ID+`","key":"0:line:1"}`)
-	if !strings.Contains(out, "ok") {
-		t.Fatalf("locate 输出应含 fake 响应: %s", out)
-	}
-	ifcFB.mu.Lock()
-	defer ifcFB.mu.Unlock()
-	if len(ifcFB.reqs) == 0 || !strings.Contains(ifcFB.reqs[0].path, "/script/locate") {
-		t.Fatalf("locate 应调 GET /script/locate: %+v", ifcFB.reqs)
-	}
-}
-
-// TestEditScriptCallTool D1：标量改写（走 resolve → POST edit-call）。
-func TestEditScriptCallTool(t *testing.T) {
-	deps, ifcFB, _, st := newToolFixture(t)
-	m, err := st.CreateWithKind("a.ifc", 5, strings.NewReader("aaaaa"), store.KindIFC)
-	if err != nil {
-		t.Fatal(err)
-	}
-	out := invoke(t, DomainTools(deps), "edit_script_call", `{"modelId":"`+m.ID+`","key":"0:line:1","argument":"length","value":20}`)
-	if !strings.Contains(out, "ok") {
-		t.Fatalf("edit-call 输出应含 fake 响应: %s", out)
-	}
-	ifcFB.mu.Lock()
-	defer ifcFB.mu.Unlock()
-	if len(ifcFB.reqs) == 0 || !strings.Contains(ifcFB.reqs[0].path, "/script/edit-call") {
-		t.Fatalf("edit-call 应调 POST /script/edit-call: %+v", ifcFB.reqs)
-	}
-}

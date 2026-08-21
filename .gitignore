@@ -15,6 +15,9 @@ data/
 
 .env
 
+# 本地敏感配置（LLM key / pgDSN 等，从 server/server_config.example.json 复制）
+server/server_config.json
+
 # Generated skills archives
 skills/*.tar.gz
 skills/dist/

@@ -8,7 +8,10 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/cloudwego/eino/components/tool"
 
@@ -78,7 +81,29 @@ func (h *ChatHandler) createProjectForAgent(ctx context.Context, title, kind str
 	if title == "" {
 		title = "AI 项目"
 	}
-	return h.deps.Ps.CreateWithKind(title, kind)
+	p, err := h.deps.Ps.CreateWithKind(title, kind)
+	if err != nil {
+		return nil, err
+	}
+	// ifc 管线：建项目即初始化骨架模型（分配 modelId，1 个——script-as-source：
+	// 骨架脚本构建出最小 IFC v1）。骨架构建失败 → 回滚项目（不留无模型的 ifc 项目）。
+	// cad/cad->ifc 管线：保持空白，agent 会话内经 init_model 工具按需初始化 DXF。
+	// ifc / cad->ifc 管线：建项目即初始化 IFC 骨架模型（分配 modelId，绑定——script-as-source：
+	// 骨架脚本构建出最小 IFC v1）。cad->ifc 先初始化 ifc 骨架（形成绑定），cad 部分按需
+	// 经 init_model 初始化 DXF。骨架构建失败 → 回滚项目。
+	// cad 管线：保持空白，agent 会话内经 init_model 按需初始化 DXF。
+	if kind == store.KindIFC || kind == "cad->ifc" {
+		if _, err := h.initModel(ctx, p.ID, store.KindIFC, title); err != nil {
+			_ = h.deps.Ps.Delete(p.ID)
+			return nil, fmt.Errorf("初始化 IFC 骨架模型: %w", err)
+		}
+		// initModel 经 AddModel 更新了 project.json——返回前刷新（p 是 initModel 前旧引用，
+		// Models 空会让 REST 响应缺骨架模型）。
+		if fresh, err := h.deps.Ps.Get(p.ID); err == nil && fresh != nil {
+			return fresh, nil
+		}
+	}
+	return p, nil
 }
 
 // createProjectForAgentTool 是 agent.ToolDeps.CreateProject 的适配：返回项目信息。
@@ -105,11 +130,16 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		MarkDirty:     h.markSessionDirty,
 		PushStaged:    h.pushStaged,
 		CreateProject: h.createProjectForAgentTool,
+		InitModel:     h.initModelForAgentTool,
 		// D2 项目/方案域
-		SessionProject: h.sessionBoundProject,
-		ProjectModels:  h.projectModelsForAgent,
-		PlanGet:        h.planGetForAgent,
-		PlanDeliver:    h.planDeliverForAgent,
+		SessionProject:    h.sessionBoundProject,
+		ProjectModels:     h.projectModelsForAgent,
+		PlanGet:           h.planGetForAgent,
+		PlanDeliver:       h.planDeliverForAgent,
+		BuildingDeliver:   h.buildingDeliverForAgent,
+		SkillWorkDir:      h.skillWorkDirForAgent,
+		PlanToWorkdir:     h.planToWorkdirForAgent,
+		UpstreamToWorkdir: h.upstreamToWorkdirForAgent,
 	}
 }
 
@@ -155,6 +185,50 @@ func (h *ChatHandler) planGetForAgent(ctx context.Context, projectID, name strin
 	return string(content), nil
 }
 
+// skillWorkDirForAgent 返回项目 skill 工作区绝对路径（{DATA}/skill-work/{projectID}，
+// 首次调用 MkdirAll）——aidxf 中间产物（derived/missions/deliver）落盘根，projectId
+// 隔离多项目不混淆（复用 plans/{projectID} 的 projectId 隔离地基）。
+func (h *ChatHandler) skillWorkDirForAgent(ctx context.Context, projectID string) (string, error) {
+	if h.deps.DataDir == "" {
+		return "", fmt.Errorf("数据目录未配置")
+	}
+	dir := filepath.Join(h.deps.DataDir, "skill-work", projectID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("建 skill 工作区: %w", err)
+	}
+	return dir, nil
+}
+
+// planToWorkdirForAgent 把项目 plan 产物（plan.json + bim_supplement.json）从 PlanStore
+// 落到 skill 工作区文件，返回 {planPath, bimPath}——aidxfv3 preprocess --plan <文件> 等
+// 命令需要文件路径时的桥接（plan 内容 → 工作区文件）。
+func (h *ChatHandler) planToWorkdirForAgent(ctx context.Context, projectID string) (map[string]string, error) {
+	if h.deps.PlanSt == nil {
+		return nil, fmt.Errorf("方案存储未配置")
+	}
+	dir, err := h.skillWorkDirForAgent(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]string{}
+	for _, name := range []string{"plan.json", "bim_supplement.json"} {
+		content, err := h.deps.PlanSt.Get(projectID, name)
+		if err != nil {
+			return nil, fmt.Errorf("读方案产物 %s: %w", name, err)
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return nil, fmt.Errorf("写工作区 %s: %w", name, err)
+		}
+		if name == "plan.json" {
+			out["planPath"] = path
+		} else {
+			out["bimPath"] = path
+		}
+	}
+	return out, nil
+}
+
 // planDeliverForAgent 触发 plan 交付（复用 deliverPlan 的 aiplan land 执行逻辑；
 // 抽 deliverPlanCore 供 REST handler 与工具共用——单一事实源）。
 func (h *ChatHandler) planDeliverForAgent(ctx context.Context, projectID, plan, bimSupplement string) (map[string]any, error) {
@@ -162,6 +236,97 @@ func (h *ChatHandler) planDeliverForAgent(ctx context.Context, projectID, plan, 
 		return nil, fmt.Errorf("aiplan 未配置（skill venv 缺失），plan 交付不可用")
 	}
 	return h.deliverPlanCore(ctx, projectID, []byte(plan), []byte(bimSupplement))
+}
+
+// upstreamToWorkdirForAgent 把 ifc 消费的上游产物落到 skill 工作区（cad->ifc 消费上游桥接）：
+// building.json + bim_supplement.json（PlanStore → skill-work/{projectID}/）+
+// 各 zone DXF（building.json zones[].modelId → uploads/{modelId}.dxf 当前态 →
+// skill-work/{projectID}/dxf/<zone>.dxf）。返回 {buildingPath, bimPath, dxfDir, dxfPaths}——
+// ifc-agent 跑 aiifc consume-upstream --building/--bim/--dxf-dir 的输入桥接。
+func (h *ChatHandler) upstreamToWorkdirForAgent(ctx context.Context, projectID string) (map[string]any, error) {
+	if h.deps.PlanSt == nil {
+		return nil, fmt.Errorf("方案存储未配置")
+	}
+	if h.deps.DataDir == "" {
+		return nil, fmt.Errorf("数据目录未配置")
+	}
+	dir, err := h.skillWorkDirForAgent(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]any{"projectId": projectID}
+	for _, name := range []string{"building.json", "bim_supplement.json"} {
+		content, err := h.deps.PlanSt.Get(projectID, name)
+		if err != nil {
+			return nil, fmt.Errorf("读上游产物 %s: %w（需先 deliver_building/deliver_plan）", name, err)
+		}
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, content, 0o644); err != nil {
+			return nil, fmt.Errorf("写工作区 %s: %w", name, err)
+		}
+		if name == "building.json" {
+			out["buildingPath"] = path
+		} else {
+			out["bimPath"] = path
+		}
+	}
+	dxfDir := filepath.Join(dir, "dxf")
+	if err := os.MkdirAll(dxfDir, 0o755); err != nil {
+		return nil, fmt.Errorf("建 dxf 目录: %w", err)
+	}
+	zones, err := h.buildingZones(projectID)
+	if err != nil {
+		return nil, err
+	}
+	dxfPaths := map[string]string{}
+	for _, z := range zones {
+		zone, _ := z["zone"].(string)
+		modelID, _ := z["modelId"].(string)
+		if zone == "" || modelID == "" {
+			continue
+		}
+		src := filepath.Join(h.deps.DataDir, "uploads", modelID+".dxf")
+		if _, err := os.Stat(src); err != nil {
+			return nil, fmt.Errorf("zone %s 的 DXF 缺失（%s——需先 init_model 注册并 run 产 DXF）: %w", zone, src, err)
+		}
+		dst := filepath.Join(dxfDir, zone+".dxf")
+		if err := copyFile(src, dst); err != nil {
+			return nil, fmt.Errorf("复制 zone %s DXF: %w", zone, err)
+		}
+		dxfPaths[zone] = dst
+	}
+	out["dxfDir"] = dxfDir
+	out["dxfPaths"] = dxfPaths
+	return out, nil
+}
+
+// buildingZones 读 building.json 的 zones[]（zone + modelId 列表）。
+func (h *ChatHandler) buildingZones(projectID string) ([]map[string]any, error) {
+	content, err := h.deps.PlanSt.Get(projectID, "building.json")
+	if err != nil {
+		return nil, fmt.Errorf("读 building.json: %w", err)
+	}
+	var b struct {
+		Zones []map[string]any `json:"zones"`
+	}
+	if err := json.Unmarshal(content, &b); err != nil {
+		return nil, fmt.Errorf("building.json 解析: %w", err)
+	}
+	return b.Zones, nil
+}
+
+// buildingDeliverForAgent 交付 building.json（aidxf S4-c：agent 组装 plan 形态整栋楼 +
+// zones 记 modelId）→ PlanStore 版本化 plans/{projectID}/building.json。
+// 与 deliver_plan 同构但独立（building 不走 aiplan land——agent 组装直接 Put）。
+func (h *ChatHandler) buildingDeliverForAgent(ctx context.Context, projectID, building string) (map[string]any, error) {
+	if h.deps.PlanSt == nil {
+		return nil, fmt.Errorf("方案存储未配置")
+	}
+	ver, err := h.deps.PlanSt.Put(projectID, "building.json", []byte(building))
+	if err != nil {
+		return nil, fmt.Errorf("building.json 版本化: %w", err)
+	}
+	return map[string]any{"projectId": projectID, "buildingVersion": ver}, nil
 }
 
 // DomainTools 产出 chat agent 的领域工具集（main 装配：agent.WithTools）。
@@ -187,6 +352,7 @@ func (h *ChatHandler) SetAgents(agents map[string]*agent.Agent) {
 // agentForSession 按会话绑定的项目类型路由主 agent：
 //   - 项目会话（ProjectID）→ Project.Kind → Agents[kind]；未分化（缺 map/该 kind）落默认 Ag
 //   - 模型会话/无绑定 → 默认 Ag
+//
 // 历史项目会话（重启后从 chat-sessions.json 恢复）同样按 ProjectID 命中——kind
 // 决定 AgentAsTool 选择性装配 + persona + aiplan，会话恢复不落回默认全装。
 func (h *ChatHandler) agentForSession(cs *chatSession) *agent.Agent {

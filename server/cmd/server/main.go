@@ -20,6 +20,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/cloudwego/eino/components/tool"
+
 	"ifcviewer/server/internal/agent"
 	"ifcviewer/server/internal/api"
 	"ifcviewer/server/internal/change"
@@ -46,6 +48,7 @@ type config struct {
 	LLMBaseURL      string `json:"llmBaseURL"`
 	LLMModel        string `json:"llmModel"`
 	SkillsDir       string `json:"skillsDir"` // 扁平 skills 目录（BaseDir/*/SKILL.md），挂官方 skill middleware
+	MCPDir          string `json:"mcpDir"`    // mcp/ 目录（stdio MCP server 的 cwd，server.py 所在）；空=不接 MCP
 	SkillVenv       string `json:"skillVenv"` // 独立 skill venv 路径（bin 注入 PATH，execute 能调到 aiplan/aidxfv3）
 	SkillCLI        string `json:"skillCLI"`  // execute 命令白名单（逗号分隔；默认 aiplan,aidxfv3）
 	APIToken        string `json:"apiToken"`
@@ -98,6 +101,9 @@ func loadConfig(path string) (*config, error) {
 	if s := os.Getenv("VIEWER_SKILLS_DIR"); s != "" {
 		cfg.SkillsDir = s
 	}
+	if s := os.Getenv("VIEWER_MCP_DIR"); s != "" {
+		cfg.MCPDir = s
+	}
 	if v := os.Getenv("VIEWER_SKILLS_VENV"); v != "" {
 		cfg.SkillVenv = v
 	}
@@ -105,7 +111,7 @@ func loadConfig(path string) (*config, error) {
 		cfg.SkillCLI = c
 	}
 	if cfg.SkillCLI == "" {
-		cfg.SkillCLI = "aiplan,aidxfv3" // 默认 = dist 正式集合 CLI 入口
+		cfg.SkillCLI = "aiplan,aidxfv3,aiifc" // 默认 = dist 正式集合 CLI 入口（含 aiifc——P2 消费上游链）
 	}
 	if t := os.Getenv("VIEWER_API_TOKEN"); t != "" {
 		cfg.APIToken = t
@@ -124,11 +130,42 @@ func loadConfig(path string) (*config, error) {
 	return &cfg, nil
 }
 
+// loadConfigOrExample 读配置；path 缺失时回退同目录的 server_config.example.json。
+// server_config.json 已移出 git 跟踪（本地敏感配置不入库）——CI 干净克隆没有，
+// 缺则从 example 兜底（example 是完整可用默认配置，apiKey 空 = scriptedModel 离线），
+// 避免 server 起不来。example 也读不到才报错。
+func loadConfigOrExample(path string) (*config, error) {
+	cfg, err := loadConfig(path)
+	if err == nil {
+		return cfg, nil
+	}
+	examplePath := filepath.Join(filepath.Dir(path), "server_config.example.json")
+	ex, exErr := loadConfig(examplePath)
+	if exErr == nil {
+		log.Printf("config %s 缺失（%v），回退 example %s", path, err, examplePath)
+		return ex, nil
+	}
+	return nil, fmt.Errorf("%w（且 example %s 也读不到: %v）", err, examplePath, exErr)
+}
+
+
+// buildRootMux 装配根 mux 的子树分发：
+//   /api/v1/chat/  与 /api/v1/projects/ 都归 chatHandler（chat/项目方案/交付域）；
+//   其余走 api.go handler + 静态托管。子树分发须显式注册——/api/v1/projects/
+//   若漏注册会落 "/" 兜底（api.go 无这些路由 → 方案端点 404，2026-08-21 实证）。
+func buildRootMux(chatHandler http.Handler, rootHandler http.Handler) *http.ServeMux {
+	root := http.NewServeMux()
+	root.Handle("/api/v1/chat/", chatHandler)
+	root.Handle("/api/v1/projects/", chatHandler)
+	root.Handle("/", rootHandler)
+	return root
+}
+
 func main() {
 	configPath := flag.String("config", "server_config.json", "path to config file (relative to working directory)")
 	flag.Parse()
 
-	cfg, err := loadConfig(*configPath)
+	cfg, err := loadConfigOrExample(*configPath)
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
@@ -227,9 +264,33 @@ func main() {
 			skillsDir = ""
 		}
 	}
+	// MCP 工具接入（只读定位——实时跟进项目进程）：拉起 mcp stdio server，
+	// 三个 agent 共享一个 session（GetTools 一次，工具实例复用）。MCPDir 缺省
+	// 推 <repo>/mcp（server 可执行文件上一级的 mcp/）；拉起失败优雅降级（不接）。
+	mcpDir := cfg.MCPDir
+	if mcpDir != "" {
+		if abs, err := filepath.Abs(mcpDir); err == nil {
+			mcpDir = abs
+		}
+	}
+	mcpTools, mcpCleanup, mcpErr := agent.LoadMCPTools(context.Background(), agent.MCPToolsConfig{
+		MCPDir:  mcpDir,
+		DataDir: cfg.DataDir,
+	})
+	if mcpErr != nil {
+		log.Printf("chat: MCP server 拉起失败（%v），跳过 MCP 工具接入", mcpErr)
+		mcpTools = nil
+	} else if len(mcpTools) > 0 {
+		defer mcpCleanup()
+		log.Printf("chat: MCP 工具已接入（%d 个，mcpDir=%s）", len(mcpTools), mcpDir)
+	}
+	domainTools := func() []tool.BaseTool {
+		// chatHandler.DomainTools() 已是 []tool.BaseTool（api 层组装好），直接追加 mcp 工具。
+		return append(chatHandler.DomainTools(), mcpTools...)
+	}
 	chatAgent, err := agent.New(llmCfg,
 		agent.WithStore(evStore),
-		agent.WithTools(chatHandler.DomainTools()),
+		agent.WithTools(domainTools()),
 		agent.WithPersona(agent.OrchestratorPersona),
 		agent.WithSkillsDir(skillsDir),
 	)
@@ -244,7 +305,7 @@ func main() {
 	for _, k := range []string{"cad", "ifc", "cad->ifc"} {
 		ka, err := agent.New(llmCfg,
 			agent.WithStore(evStore),
-			agent.WithTools(chatHandler.DomainTools()),
+			agent.WithTools(domainTools()),
 			agent.WithSkillsDir(skillsDir),
 			agent.WithKind(k),
 		)
@@ -262,9 +323,7 @@ func main() {
 	} else {
 		log.Printf("chat: skillsDir 未配置（VIEWER_SKILLS_DIR 或 server_config.json skillsDir），skill 工具未挂载")
 	}
-	root := http.NewServeMux()
-	root.Handle("/api/v1/chat/", chatHandler)
-	root.Handle("/", api.NewStaticHandler(cfg.WebDist, handler))
+	root := buildRootMux(chatHandler, api.NewStaticHandler(cfg.WebDist, handler))
 	if _, err := os.Stat(cfg.WebDist); err != nil {
 		log.Printf("web dist 不可用（%s）：静态页面返回 503，API 不受影响（构建：cd web && npm run build）", cfg.WebDist)
 	}

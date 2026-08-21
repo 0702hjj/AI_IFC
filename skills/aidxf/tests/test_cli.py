@@ -64,7 +64,7 @@ class TestHelp:
         assert r.returncode == 0
         for cmd in ("preprocess", "derive", "normalize", "check", "draw",
                     "svg", "readback", "reconcile", "sync",
-                    "pack", "gold", "deliver"):
+                    "pack", "gold"):
             assert cmd in r.stdout
 
 
@@ -352,7 +352,7 @@ class TestRedlines:
 
 
 class TestRemainingCommandsContract:
-    """T45+ P1/P2/P4 补齐：draw/svg/readback/reconcile/sync/deliver/gold 契约。"""
+    """T45+ P1/P2/P4 补齐：draw/svg/readback/reconcile/sync/gold 契约。"""
 
     def test_missing_file_not_silent(self, tmp_path):
         """不静默：不存在的文件路径 → exit 1 + 结构化 JSON 错误（非裸 traceback）。"""
@@ -428,17 +428,6 @@ class TestRemainingCommandsContract:
         assert r.returncode == 0
         mission = json.loads((tmp_path / "missions" / "house.rooms" / "mission.json").read_text())
         assert {"node", "status", "attempts", "depends_on", "inputs"} <= set(mission)
-
-    def test_deliver_key_contract(self, tmp_path):
-        """deliver：building.json 键集（floors/doors/metadata/checksums）。"""
-        mission_dir = tmp_path / "missions" / "f1.rooms"
-        mission_dir.mkdir(parents=True, exist_ok=True)
-        (mission_dir / "floor.dxf").write_bytes(b"0\nEOF\n")
-        (mission_dir / "rooms.json").write_text(json.dumps({"floor": "f1", "rooms": []}))
-        r = run_cli("deliver", "--project", str(tmp_path))
-        assert r.returncode == 0
-        building = json.loads((tmp_path / "deliver" / "building.json").read_text())
-        assert {"floors", "doors", "metadata", "checksums"} <= set(building)
 
     def test_gold_replay_exit_semantics(self, tmp_path):
         """gold replay：R-01 PASS → exit0。"""

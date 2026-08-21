@@ -14,7 +14,7 @@
 - [x] reconcile 对账通过（画出来的 = 声明的）
 
 ## S4 交付
-- [x] deliver 产出 building.json 过 schema
+- [x] 每 zone 注册平台模型（init_model+script 工具链）+ building.json 记 modelId
 
 ## 结论
 自动化冒烟全闸门绿；两次人工断点确认待人工执行。

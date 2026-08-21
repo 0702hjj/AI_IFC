@@ -39,7 +39,7 @@ plan 是 wrapping：不只列房间，还要框定**总面积怎么分给各大�
 
 **面积配比标准**：面积分块的占比区间（核心筒占 8-12% 等）参考
 `references/building_types/<type>.cases.json`（ratio_standards，当前占位 TBD，后期接入优秀建筑标准）。
-step-01 第 3 轮会用 question 工具弹占比范围让用户确认——你不预填，等用户拍板。
+step-01 第 3 轮会用 ask_user 工具弹占比范围让用户确认——你不预填，等用户拍板。
 
 ### 拓扑 Topology（"挨着/通/连"）—— ⚠️ 不落 plan 硬约束
 - "老人房挨着卫生间" → **不进 cards**，进 topology：

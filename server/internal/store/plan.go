@@ -5,7 +5,9 @@
 // 方案（projectID）落盘 + 方案级版本化（plan 演化独立于模型版本，P-1/P-3）。
 //
 // 落盘：{DATA}/plans/{projectID}/{name}（当前态，原子 tmp+rename）；
-//       历史：{DATA}/plans/{projectID}/plan_history/{name}/v{n}.json（归档递增）。
+//
+//	历史：{DATA}/plans/{projectID}/plan_history/{name}/v{n}.json（归档递增）。
+//
 // name 白名单：plan.json | bim_supplement.json（领域收敛单点）。
 package store
 
@@ -27,6 +29,7 @@ var ErrInvalidJSON = errors.New("invalid json content")
 var planFileNames = map[string]bool{
 	"plan.json":           true,
 	"bim_supplement.json": true,
+	"building.json":       true, // aidxf 交付的 plan 形态整栋楼（zones 记 modelId），deliver_building 工具落
 }
 
 var planHistoryRe = regexp.MustCompile(`^v(\d+)\.json$`)
@@ -152,6 +155,11 @@ func (s *PlanStore) ListHistory(projectID, name string) ([]string, error) {
 
 // LoadHistory 读方案产物的历史版本内容；非法 name/id → ErrInvalidKind/ErrInvalidID，
 // 版本不存在（含当前态版本——它不在 history/ 下）→ ErrNotFound。
+// Delete 删除项目全部方案产物（plans/{projectID} 目录）；幂等（不存在不报错）。
+func (s *PlanStore) Delete(projectID string) error {
+	return os.RemoveAll(s.dir(projectID))
+}
+
 func (s *PlanStore) LoadHistory(projectID, name, version string) ([]byte, error) {
 	if !validPlanName(name) {
 		return nil, ErrInvalidKind

@@ -45,9 +45,17 @@ done
 pip install --quiet --no-deps --editable "$DIST_DIR/aidxf/scripts/aidxfv3"
 pip install --quiet ezdxf shapely Pillow
 
+echo "==> 安装 aiifc CLI（aiifc 主包 + flows 脚本运行时依赖 ifcopenshell/ifcquery）"
+# aiifc CLI（console_scripts aiifc=aiifc.cli:main）——flows 脚本（design_builder/
+# build_script_template/dxf_from_design）的通用 shell 入口 + consume_upstream 新库。
+# flows 脚本运行时需要 ifcopenshell/ifcquery（build_script_template 产 IFC）。
+pip install --quiet --no-deps --editable "$DIST_DIR/aiifc/scripts/aiifc_cli"
+pip install --quiet "ifcopenshell>=0.8" "ifcquery>=0.8" numpy ezdxf
+
 echo "==> 验证"
 "$VENV_DIR/bin/aiplan" gate --help >/dev/null 2>&1 && echo "  aiplan OK" || echo "  aiplan 不可用（检查安装）"
 "$VENV_DIR/bin/aidxfv3" --help >/dev/null 2>&1 && echo "  aidxfv3 OK" || echo "  aidxfv3 不可用（检查安装）"
+"$VENV_DIR/bin/aiifc" --help >/dev/null 2>&1 && echo "  aiifc OK" || echo "  aiifc 不可用（检查安装）"
 
 echo "==> 完成。server 装配时配置："
 echo "    server_config.json: \"skillVenv\": \"$VENV_DIR\""

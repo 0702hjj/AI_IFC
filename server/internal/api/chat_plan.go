@@ -302,3 +302,79 @@ func verifyAiplanAvailable(w http.ResponseWriter, aiplanBin string) bool {
 	}
 	return true
 }
+
+// deleteProject 删除项目并级联清理绑定产物（D13 后的删除入口单点——
+// 会话/项目/kind/agent 已绑定，删项目即删全套）：
+//   会话（chat-sessions.json）+ 事件日志（chat/{agentID}.jsonl）+
+//   方案产物（plans/{projectID}）+ 项目下模型（issues/changes/overrides + store 目录）。
+// 幂等：项目不存在 404；模型/方案缺失自动跳过。
+func (h *ChatHandler) deleteProject(w http.ResponseWriter, r *http.Request) {
+	pid := r.PathValue("id")
+	if h.deps.Ps == nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "project store 未配置")
+		return
+	}
+	p := h.projectOrErr(w, pid)
+	if p == nil {
+		return
+	}
+
+	// 级联 1：该项目会话（内存映射 + 事件日志文件）——1 项目 = 1 会话
+	h.mu.Lock()
+	for cid, cs := range h.sessions {
+		if cs.ProjectID == pid {
+			delete(h.sessions, cid)
+			delete(h.byAgent, cs.AgentID)
+			_ = os.Remove(filepath.Join(h.deps.DataDir, "chat", cs.AgentID+".jsonl"))
+		}
+	}
+	h.mu.Unlock()
+	h.saveSessions() // saveSessions 内部持 RLock，须在写锁释放后调
+
+	// 级联 2：方案产物（plans/{projectID}）
+	if h.deps.PlanSt != nil {
+		_ = h.deps.PlanSt.Delete(pid)
+	}
+
+	// 级联 2.5：skill 工作区（skill-work/{projectID}——aidxf 中间产物 derived/missions/deliver）
+	if h.deps.DataDir != "" {
+		_ = os.RemoveAll(filepath.Join(h.deps.DataDir, "skill-work", pid))
+	}
+
+	// 级联 3：项目下模型（issues/changes/overrides + store 目录）——同 delete model 清理
+	for _, m := range p.Models {
+		if h.deps.Iss != nil {
+			_ = h.deps.Iss.DeleteModel(m.ID)
+		}
+		if h.deps.Chg != nil {
+			_ = h.deps.Chg.DeleteModel(m.ID)
+		}
+		if h.deps.Ovr != nil {
+			_ = h.deps.Ovr.DeleteModel(m.ID)
+		}
+		if h.deps.St != nil {
+			_ = h.deps.St.Delete(m.ID)
+		}
+	}
+
+	// 级联 4：项目本身
+	if err := h.deps.Ps.Delete(pid); err != nil {
+		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
+		return
+	}
+	writeJSON(w, nil)
+}
+
+// projectOrErr 取项目或 404（资源查找归 helper，handler 不内联非 400 writeErr）。
+func (h *ChatHandler) projectOrErr(w http.ResponseWriter, id string) *store.Project {
+	if h.deps.Ps == nil {
+		writeErr(w, http.StatusBadRequest, codeInvalidType, "project store 未配置")
+		return nil
+	}
+	p, err := h.deps.Ps.Get(id)
+	if err != nil || p == nil {
+		writeErr(w, http.StatusNotFound, codeNotFound, "project not found: "+id)
+		return nil
+	}
+	return p
+}

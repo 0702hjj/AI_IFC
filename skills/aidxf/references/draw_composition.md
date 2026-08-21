@@ -66,7 +66,7 @@ draw_north_arrow(msp, at)
 draw_title(msp, title, at)
 ```
 
-### 第 5 步：封存 + 返回摘要
+### 第 5 步：封存 + 返回摘要（含 record 固化）
 
 ```python
 doc.saveas("floor.dxf")   # new_doc 的 doc 自动 ASCII 转义中文 + 字节级确定
@@ -74,6 +74,19 @@ doc.saveas("floor.dxf")   # new_doc 的 doc 自动 ASCII 转义中文 + 字节�
 # 主 agent 建造后集中执行 readback + reconcile（一次对账）
 # error 携报告（带 bbox 诊断）修正，按报告修
 ```
+
+**record 记录 + build() 脚本固化（2026-08-21 起，draw_api 不变）**：
+- 画图全程机器经 `dxfkit.record` 记录 draw 调用序列（函数 + 参数 + 次序；msp 等运行时对象不记录）。
+  主 agent 在画图前 `record.start()` + `record.wrap_draw_module(draw)` 开启记录（draw_api 调用面不变，
+  仅模块函数被包装为记录版）。
+- 封存（saveas）后，调 `record.to_build_script(record.calls(), params={skeleton/rooms/details DSL})`
+  把调用序列固化为 **archdxf 环境可运行的 build() 脚本**（PARAMS 字面量 + build(params,out_path)
+  重放整层画法 + `__main__`）——这是该 zone 的**构建脚本事实源**（对齐 services/cad script-as-source
+  契约），供 S4-b 注册平台模型（init_model + stage/run/save）。
+- **确定性**：draw 的 key 顺序计数（wall_0001→open_0002→...，reset_keys 归零），同序列重放产同 key，
+  door/window 引用的 wall_key/open_key 字面值在重放时自然对齐——固化脚本重放 = 原图（字节级）。
+- floor.dxf 是**过程产物**（被 build() 脚本取代为事实源）；deliver 后过程产物（missions/derived/
+  floor.dxf）清理——再次修改走平台模型 script-as-source（改 build 脚本 → 沙箱跑），不依赖过程残留。
 
 ## 自由度与约束
 

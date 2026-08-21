@@ -59,7 +59,18 @@ def route(workspace: Path) -> str:
 
 
 def _main(argv: list[str]) -> int:
-    ws = Path(argv[0]) if argv else Path.cwd()
+    # --project-id <pid>：CLI 内部算 skill-work/{pid}/aiplan/ 为 workspace（结构性落盘根，
+    # 优先于显式 workspace 路径）；无 --project-id 时 argv[0] 为 workspace（独立使用）。
+    ws = None
+    rest = list(argv)
+    if "--project-id" in rest:
+        i = rest.index("--project-id")
+        if i + 1 < len(rest):
+            from aiplan_tools.workdir import resolve_aiplan_workdir
+            ws = Path(resolve_aiplan_workdir(rest[i + 1]))
+            rest = rest[:i] + rest[i + 2:]
+    if ws is None:
+        ws = Path(rest[0]) if rest else Path.cwd()
     step = route(ws)
     print(step)
     return 0

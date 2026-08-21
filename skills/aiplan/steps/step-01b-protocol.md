@@ -1,9 +1,9 @@
 # step-01b 交互协议（P1 设计的协议）
 
-> 本文件是 step-01 渐进设计对话的**协议**：question 工具用法、修改/回退协议、冲突裁决、
+> 本文件是 step-01 渐进设计对话的**协议**：ask_user 工具用法、修改/回退协议、冲突裁决、
 > question_templates 用法。轮次内容见 `step-01a-rounds.md`，节奏与回退主干见 `step-01-design.md`。
 
-## question 工具（opencode 原生，主交互通道）
+## ask_user 工具（agent 自定义封装，HITL 断点，主交互通道）
 
 ```
 question({
@@ -19,10 +19,10 @@ question({
 ```
 
 **用法铁律**：
-- 缺口追问 / 歧义收敛 / 候选拍板 / 方向候选 / 确认 / 获批 → 用 `question` 弹选择框
+- 缺口追问 / 歧义收敛 / 候选拍板 / 方向候选 / 确认 / 获批 → 用 `ask_user` 弹选择框
   （带 options + custom:true）
 - 用户自由表达（一段方案描述）→ 直接在对话里听（不弹框，让用户自然说话）
-- 轮次回显确认 → 对话里整段复述该轮 + 用 `question` 弹"对吗？对/改"
+- 轮次回显确认 → 对话里整段复述该轮 + 用 `ask_user` 弹"对吗？对/改"
 
 ## 修改与回退协议（改同轮 → 再问同轮；改已锁轮 → 查依赖回退）
 
@@ -43,7 +43,7 @@ question({
   回显变更 + 重问（"因 X 改为 Y，这里按新值重新确认一次"）；未受影响的不打扰
 - **换方向**（"要不改成办公吧"）→ 回第 1 轮重走骨架，未锁定轮按新方向重推进
 
-## 冲突裁决（must 级冲突，question 弹裁决）
+## 冲突裁决（must 级冲突，ask_user 弹裁决）
 
 弹裁决框模板（占位符 `<...>` 按当前冲突的实际情况填写——不内置具体冲突例子）：
 
@@ -66,8 +66,8 @@ question({
 ## question_templates.json 的用法
 
 `references/question_templates.json` 的 **BRAIN**（方向候选）/ **GAP**（缺口）/ **AMB**（歧义）/
-**CAN**（候选）模板**直接喂给 question 工具**：
-- 模板的 `options` → question 工具的 options（转成 `{label, description}` 格式）
+**CAN**（候选）模板**直接喂给 ask_user 工具**：
+- 模板的 `options` → ask_user 工具的 options（转成 `{label, description}` 格式）
 - 模板的 `问什么/追问语` → question 的 question 文本
 - 模板的 `默认` → options 里标出默认项
 - 模板的 `轮次归属` → 决定该模板在哪个轮次循环里用

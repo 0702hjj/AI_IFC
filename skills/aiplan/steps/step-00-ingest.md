@@ -36,6 +36,9 @@
 
 ## 路由（中断恢复，D-4）——判定逻辑只在本步讲一次
 
+平台内 `<workspace>` = `{DATA}/skill-work/{projectID}/aiplan/`（先 `get_skill_workdir` 拿绝对路径，
+projectId 隔离多项目不混淆）；独立使用 = 任意自包含 `{workspace}`。
+
 ```
 .venv/bin/aiplan route <workspace>
 → step-00（plan/ 下无完整 run，走完整 P0→P2）

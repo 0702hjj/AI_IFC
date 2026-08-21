@@ -8,21 +8,35 @@ import { modelIdParam, chatCidParam, issueIdParam, entityIdParam, projectIdParam
 export const modelEndpoints = {
   // ─────────────────────────── chat（demo）───────────────────────────
   'POST /api/v1/chat/projects': {
-    summary: '创建空白项目',
-    description: '写入骨架 IFC 并注册为模型（modelId 即刻就位），随后 AI 从零构建走与改模型相同的主链路。title 可空，默认 "AI 项目"。',
+    summary: '创建项目（kind 必选）',
+    description: '创建项目。kind 必选（ifc|cad|cad->ifc，强制预选）。ifc 管线建项目即初始化骨架模型（script-as-source 骨架脚本沙箱构建出最小 IFC v1，分配 modelId）；cad/cad->ifc 保持空白，agent 会话内经 init_model 工具按需初始化 DXF。',
     tags: ['chat'],
     requestBody: {
-      description: 'JSON body，title 可空',
+      description: 'JSON body，title 可空，kind 必选',
       contentType: 'application/json',
       schema: {
         type: 'object',
-        properties: { title: { type: 'string', description: '默认 "AI 项目"' } },
+        required: ['kind'],
+        properties: {
+          title: { type: 'string', description: '默认 "AI 项目"' },
+          kind: { type: 'string', enum: ['ifc', 'cad', 'cad->ifc'], description: '项目类型（决定 Agent 派发方向与装配）' },
+        },
       },
     },
     responses: {
-      200: { description: 'ok', data: '#/components/schemas/Model' },
+      200: { description: 'ok', data: '#/components/schemas/Project' },
     },
-    errors: ['50000'],
+    errors: ['40001', '50000'],
+  },
+  'DELETE /api/v1/chat/projects/{id}': {
+    summary: '删除项目（级联）',
+    description: '删除项目并级联清理绑定产物：项目 + 会话（chat-sessions）+ 事件日志（chat/{agentID}.jsonl）+ 方案（plans/{projectID}）+ 项目下模型（issues/changes/overrides + store 目录）。与 DELETE /models/{id}（单模型，不级联）区分——删除项目即删全套。',
+    tags: ['chat'],
+    pathParams: [{ name: 'id', description: '项目 id（p_ 前缀）' }],
+    responses: {
+      200: { description: 'ok', data: null },
+    },
+    errors: ['40400', '50000'],
   },
   'GET /api/v1/chat/sessions': {
     summary: '会话列表',

@@ -1,0 +1,250 @@
+"""aiifc.consume_upstream —— 上游产物 → design.json 转换器（cad->ifc 消费上游路径）。
+
+把 aidxf/aiplan 的上游产物归一成 aiifc 可消费的 design.json（DESIGN_JSON_SCHEMA 协议）：
+  building.json（zones 记 modelId + site/standards）+ bim_supplement.json（屋顶/特殊结构/PSET）
+  + 各 zone DXF（outline/core/墙/房间/门窗几何）
+  → design.json（meta + frame{footprint,storeys,axis_grid,typical} + floors{walls,openings,slabs,stairs,roof}）
+
+几何处理（用户定）：**精确几何直用**——DXF 是坐标级精确几何，直接映射成 design.json 的
+墙 axis/洞口沿轴（不降级为近似语义；design.json 的 axis/footprint 接受精确坐标）。
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+
+def consume_upstream(building_path: str, bim_path: str, dxf_dir: str) -> dict:
+    """上游产物 → design.json。
+
+    :param building_path: building.json 路径（aidxf deliver_building 产物，zones 记 modelId）
+    :param bim_path: bim_supplement.json 路径（aiplan 产物，屋顶/特殊结构/PSET）
+    :param dxf_dir: 各 zone DXF 目录（或工作区——经 zones[].modelId 对应的 DXF）
+    :return: design.json dict（DESIGN_JSON_SCHEMA 协议）
+    """
+    building = json.loads(Path(building_path).read_text(encoding="utf-8"))
+    bim = json.loads(Path(bim_path).read_text(encoding="utf-8"))
+
+    design: dict = {
+        "meta": _meta(building),
+        "frame": _frame(building, Path(dxf_dir)),
+        "floors": _floors(building, bim, Path(dxf_dir)),
+    }
+    return design
+
+
+def _meta(building: dict) -> dict:
+    """meta：units/modulus/name（project 名）。"""
+    return {
+        "units": "m",
+        "modulus": 0.1,
+        "name": building.get("project", "building"),
+    }
+
+
+def _frame(building: dict, dxf_dir: Path) -> dict:
+    """frame：storeys（zones floors_from/to → 层高推导）+ typical（标准层）+ footprint（首层轮廓）。
+
+    footprint 从首层 DXF outline 读（readback 的 outline_mm，精确几何直用，mm→m）——
+    design_builder 要求 footprint ≥3 点闭合多边形。
+    """
+    storeys: dict[str, float] = {}
+    zones = building.get("zones", [])
+    default_height = 3.0
+    for z in zones:
+        f_from = int(z.get("floors_from", 1))
+        f_to = int(z.get("floors_to", f_from))
+        for f in range(f_from, f_to + 1):
+            name = f"{f}F"
+            if name not in storeys:
+                storeys[name] = (f - 1) * default_height
+    if not storeys:
+        storeys = {"1F": 0.0}
+    frame: dict = {"storeys": storeys}
+    # footprint：首层 DXF outline（readback outline_mm，精确几何直用，mm→m）
+    footprint = _footprint_from_dxf(zones, dxf_dir)
+    if footprint:
+        frame["footprint"] = footprint
+    typical = _typical(zones)
+    if typical:
+        frame["typical"] = typical
+    return frame
+
+
+def _footprint_from_dxf(zones: list, dxf_dir: Path) -> list:
+    """首层 DXF outline → footprint（精确几何直用，mm→m）。
+
+    经 readback 读首层 zone 的 DXF outline_mm（多边形坐标 mm）→ m。DXF 缺/readback 失败 →
+    空（调用方 design_builder 会报 footprint 缺失——P2 经 zones[].modelId 定位 DXF 后必达）。
+    """
+    if not zones:
+        return []
+    first = sorted(zones, key=lambda z: int(z.get("floors_from", 1)))[0]
+    # DXF 定位：dxf_dir/<zone>.dxf（aidxf deliver 落 <floor>.dxf；P2 经 zones[].modelId 精确对）
+    zone_name = first.get("zone", "")
+    dxf_path = None
+    for cand in (dxf_dir / f"{zone_name}.dxf", dxf_dir / "floor.dxf"):
+        if cand.is_file():
+            dxf_path = cand
+            break
+    if dxf_path is None:
+        return []
+    try:
+        from dxfkit.readback import readback
+        rb = readback(str(dxf_path))
+        outline_mm = rb.get("outline_mm") or []
+        return [[round(x / 1000.0, 3), round(y / 1000.0, 3)] for x, y in outline_mm]
+    except Exception:  # noqa: BLE001 —— readback 失败 → 空（design_builder 报错提示）
+        return []
+
+
+def _typical(zones: list) -> dict:
+    """标准层映射：typology 相同的连续楼层归一个 typical key。"""
+    typical: dict[str, list] = {}
+    for z in zones:
+        typ = z.get("typology") or z.get("zone", "STD")
+        f_from = int(z.get("floors_from", 1))
+        f_to = int(z.get("floors_to", f_from))
+        if f_to > f_from:  # 多层 → 标准层
+            key = str(typ).upper()
+            typical.setdefault(key, []).extend(f"{f}F" for f in range(f_from, f_to + 1))
+    return typical
+
+
+def _floors(building: dict, bim: dict, dxf_dir: Path) -> dict:
+    """floors：每楼层 walls/openings/slabs/stairs/roof（DXF 精确几何直用 + bim 补充 roof/PSET）。
+
+    【P2 细化】当前骨架：DXF 几何解析（outline/core/墙/房间/门窗 → walls/openings）留 P2
+    完整实现（dxf_to_ifc_geometry 映射）；roof 从 bim_supplement 映射（屋顶/特殊结构）。
+    """
+    floors: dict = {}
+    zones = building.get("zones", [])
+    for z in zones:
+        f_from = int(z.get("floors_from", 1))
+        f_to = int(z.get("floors_to", f_from))
+        for f in range(f_from, f_to + 1):
+            name = f"{f}F"
+            floors[name] = _floor_from_zone(z, f, bim, dxf_dir)
+    return floors
+
+
+def _floor_from_zone(zone: dict, floor_no: int, bim: dict, dxf_dir: Path) -> dict:
+    """单楼层：walls/openings（DXF 精确几何）+ roof（bim 补充，仅顶层）。
+
+    DXF 精确几何直用：readback 解析 zone DXF →
+      wall_segments（直墙段）→ walls（axis 折线 + t + kind）
+      wall_arcs（曲线墙）→ walls（arc 形态：center/r/a0/a1）
+      windows/doors（沿墙 at/width）→ openings（wall + along + w + type）
+      outline → slabs.profile
+    """
+    floor: dict = {"walls": [], "openings": [], "slabs": [], "stairs": []}
+    dxf_path = _zone_dxf_path(zone, dxf_dir)
+    if dxf_path is not None:
+        _fill_from_dxf(floor, dxf_path)
+    roof = _roof_from_bim(bim, floor_no)
+    if roof:
+        floor["roof"] = roof
+    return floor
+
+
+def _zone_dxf_path(zone: dict, dxf_dir: Path) -> Path | None:
+    """zone → DXF 路径（dxf_dir/<zone>.dxf；多 DXF 按 zone 名定位）。"""
+    zone_name = zone.get("zone", "")
+    for cand in (dxf_dir / f"{zone_name}.dxf", dxf_dir / "floor.dxf"):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _mm_to_m(v: float) -> float:
+    return round(v / 1000.0, 3)
+
+
+def _point_to_segment(p: list, a: list, b: list) -> tuple[float, float]:
+    """点 p 到线段 ab 的（距离, 投影距 a 的长度）——门窗 at 沿墙定位用（mm）。"""
+    px, py = p
+    ax, ay = a
+    bx, by = b
+    dx, dy = bx - ax, by - ay
+    seg_len_sq = dx * dx + dy * dy
+    if seg_len_sq == 0:
+        return ((px - ax) ** 2 + (py - ay) ** 2) ** 0.5, 0.0
+    # 投影参数 t（0~1，钳制在线段内）
+    t = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / seg_len_sq))
+    proj_x, proj_y = ax + t * dx, ay + t * dy
+    dist = ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
+    along = (seg_len_sq ** 0.5) * t  # 投影距 a 的长度（mm）
+    return dist, along
+
+
+def _nearest_wall(at: list, segments: list) -> tuple[int, float]:
+    """门窗 at → 最近的墙段（索引, 沿该段投影长度 mm）——门窗沿墙精确定位。"""
+    best_i, best_d, best_along = 0, float("inf"), 0.0
+    for i, seg in enumerate(segments):
+        d, along = _point_to_segment(at, seg[0], seg[1])
+        if d < best_d:
+            best_i, best_d, best_along = i, d, along
+    return best_i, best_along
+
+
+def _fill_from_dxf(floor: dict, dxf_path: Path) -> None:
+    """readback 解析 zone DXF → floors.walls/openings/slabs（精确几何直用，mm→m）。
+
+    语义对齐：
+      wall_segments（直墙段）→ walls axis 折线 + t + kind
+      wall_arcs（曲线墙 {center,radius,start/end_angle}）→ walls arc（center/r/a0/a1）
+      windows/doors（沿墙 at/width）→ openings（wall + along + w + type）
+      outline → slabs.profile
+    """
+    from dxfkit.readback import readback
+    rb = readback(str(dxf_path))
+    walls: list = []
+    for i, seg in enumerate(rb.get("wall_segments", [])):
+        (x1, y1), (x2, y2) = seg[0], seg[1]
+        walls.append({
+            "axis": [[_mm_to_m(x1), _mm_to_m(y1)], [_mm_to_m(x2), _mm_to_m(y2)]],
+            "t": 0.2, "kind": "int", "key": f"wall:{i}",
+        })
+    for j, arc in enumerate(rb.get("wall_arcs", []) or []):
+        walls.append({
+            "arc": {
+                "center": [_mm_to_m(arc["center"][0]), _mm_to_m(arc["center"][1])],
+                "r": _mm_to_m(arc["radius"]),
+                "a0": arc["start_angle"], "a1": arc["end_angle"],
+            },
+            "t": 0.2, "kind": "int", "key": f"wall_arc:{j}",
+        })
+    floor["walls"] = walls
+    # 门窗：at → 最近墙段 + along 投影长度（沿墙精确定位，mm→m）
+    segments = rb.get("wall_segments", [])
+    openings: list = []
+    for k, w in enumerate(rb.get("windows", [])):
+        at = w.get("at", [0, 0])
+        wall_i, along = _nearest_wall(at, segments) if segments else (0, 0.0)
+        openings.append({
+            "wall": wall_i, "along": _mm_to_m(along), "w": _mm_to_m(w.get("width_mm", 1500)),
+            "h": 1.5, "sill": 0.9, "type": "window", "key": f"opening:win:{k}",
+        })
+    for k, d in enumerate(rb.get("doors", [])):
+        at = d.get("at", [0, 0])
+        wall_i, along = _nearest_wall(at, segments) if segments else (0, 0.0)
+        openings.append({
+            "wall": wall_i, "along": _mm_to_m(along), "w": _mm_to_m(d.get("width_mm", 900)),
+            "h": 2.1, "sill": 0.0, "type": "door", "key": f"opening:door:{k}",
+        })
+    floor["openings"] = openings
+    outline = rb.get("outline_mm") or []
+    if outline:
+        floor["slabs"] = [{
+            "profile": [[_mm_to_m(x), _mm_to_m(y)] for x, y in outline],
+            "t": 0.15, "key": "slab:0",
+        }]
+
+
+def _roof_from_bim(bim: dict, floor_no: int) -> dict | None:
+    """bim_supplement 的屋顶/特殊结构 → design.json roof（仅顶层；P2 细化映射）。"""
+    roof = bim.get("roof") if isinstance(bim, dict) else None
+    if roof:
+        return roof
+    return None

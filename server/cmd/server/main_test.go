@@ -149,12 +149,12 @@ func TestLoadConfigSkillsDirFromJSONAndEnv(t *testing.T) {
 // TestLoadConfigSkillVenvAndCLI：skillVenv / skillCLI 从 server_config.json 读取，
 // VIEWER_SKILLS_VENV / VIEWER_SKILLS_CLI env 覆盖；skillCLI 缺省 = dist 对齐默认集。
 func TestLoadConfigSkillVenvAndCLI(t *testing.T) {
-	path := writeConfig(t, `{"skillVenv":"/abs/skills/.venv","skillCLI":"aiplan,aidxfv3"}`)
+	path := writeConfig(t, `{"skillVenv":"/abs/skills/.venv","skillCLI":"aiplan,aidxfv3,aiifc"}`)
 	cfg, err := loadConfig(path)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
-	if cfg.SkillVenv != "/abs/skills/.venv" || cfg.SkillCLI != "aiplan,aidxfv3" {
+	if cfg.SkillVenv != "/abs/skills/.venv" || cfg.SkillCLI != "aiplan,aidxfv3,aiifc" {
 		t.Fatalf("skill 配置未读到: %+v", cfg)
 	}
 
@@ -174,7 +174,7 @@ func TestLoadConfigSkillVenvAndCLI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
-	if cfg.SkillCLI != "aiplan,aidxfv3" {
+	if cfg.SkillCLI != "aiplan,aidxfv3,aiifc" {
 		t.Fatalf("skillCLI 缺省应为 dist 默认集: %+v", cfg)
 	}
 }
@@ -192,10 +192,10 @@ func TestLoadConfigRetiredOpenCodeURLEnvironmentIgnored(t *testing.T) {
 	_ = cfg // OpenCodeURL 字段已删除——编译期保证不可再引用
 }
 
-// TestShippedConfigsContainNoOpenCodeURL：随仓发布的 server_config.json
+// TestShippedConfigsContainNoOpenCodeURL：随仓发布的 server_config.example.json（server_config.json 已移出跟踪，example 即「随仓发布配置」）
 // 不得再含退役键 openCodeURL，且 llm 三参（空缺省）在位。
 func TestShippedConfigsContainNoOpenCodeURL(t *testing.T) {
-	for _, name := range []string{"server_config.json"} {
+	for _, name := range []string{"server_config.example.json"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", name))
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
@@ -267,5 +267,32 @@ func TestLoadConfigEnvOverridesAuth(t *testing.T) {
 	}
 	if len(cfg.CORSOrigins) != 1 || cfg.CORSOrigins[0] != "https://env.example" {
 		t.Fatalf("env 应覆盖 json: %v", cfg.CORSOrigins)
+	}
+}
+
+// TestLoadConfigOrExampleFallback：config 缺失时回退同目录 example（server_config.json
+// 已移出 git 跟踪，CI 干净克隆没有——example 兜底避免 server 起不来）。
+func TestLoadConfigOrExampleFallback(t *testing.T) {
+	dir := t.TempDir()
+	examplePath := filepath.Join(dir, "server_config.example.json")
+	if err := os.WriteFile(examplePath, []byte(`{"port": 8090, "dataDir": "../data"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(dir, "server_config.json")
+	cfg, err := loadConfigOrExample(missing)
+	if err != nil {
+		t.Fatalf("缺失 config 应回退 example: %v", err)
+	}
+	if cfg.DataDir != "../data" {
+		t.Fatalf("example 值未生效: %+v", cfg)
+	}
+}
+
+// TestLoadConfigOrExampleBothMissing：config 与 example 都缺失 → 报错（不静默）。
+func TestLoadConfigOrExampleBothMissing(t *testing.T) {
+	dir := t.TempDir()
+	_, err := loadConfigOrExample(filepath.Join(dir, "server_config.json"))
+	if err == nil {
+		t.Fatal("config 与 example 都缺失应报错")
 	}
 }

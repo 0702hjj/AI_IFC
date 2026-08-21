@@ -1,58 +1,46 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aidxfv3.dev/schemas/building.schema.json",
-  "title": "building.json v1 —— 交付契约（S4 confirmed 层封存）",
-  "description": "冻结于 2026-08-10（W0 T04）。继承 V2 S4 形态：floors 楼层↔DXF 映射 + doors 门表 + metadata + checksums。bim 接口文件。改则回 W0 重走正反例。",
+  "title": "building.json v2 —— 交付契约（S4-c agent 组装，zones 记 modelId）",
+  "description": "重构于 2026-08-21（P0-3，deliver 退役后）。building.json = aidxf 交付的 plan 形态整栋楼（bim 接口文件）：site/standards/vertical_relations/design_rationale/requirements 原样来自 plan.json + zones[]（每 zone：floors_from/to + modelId 平台模型指针 + 非几何属性 typology/note/area_sqm）。几何留在各 zone 平台模型的 DXF（building.json 不重复几何，避免用户改 DXF 后失同步）。由 agent 组装（读 plan.json + 各 zone init_model 的 modelId），deliver_building 工具落 PlanStore 版本化 plans/{projectID}/building.json。",
   "type": "object",
-  "required": ["version", "project", "metadata", "floors", "doors", "checksums"],
-  "additionalProperties": false,
+  "required": ["version", "project", "zones"],
+  "additionalProperties": true,
   "properties": {
-    "version": { "type": "integer", "minimum": 1 },
+    "version": { "type": "integer", "minimum": 2 },
     "project": { "type": "string", "minLength": 1 },
-    "metadata": {
-      "type": "object",
-      "required": ["generated_at", "by"],
-      "additionalProperties": false,
-      "properties": {
-        "generated_at": { "type": "string", "minLength": 1 },
-        "by": { "type": "string", "minLength": 1 }
-      }
+    "site": { "type": "object", "description": "原样来自 plan.json（地块/退线/锚点）" },
+    "standards": { "type": "object", "description": "原样来自 plan.json（规范/标准）" },
+    "vertical_relations": { "type": "object", "description": "原样来自 plan.json（竖向关系）" },
+    "design_rationale": { "type": "object", "description": "原样来自 plan.json（设计依据，引 derive 事实）" },
+    "requirements": {
+      "type": "array",
+      "description": "原样来自 plan.json（需求规则，satisfied_by 取 rooms.json requirements_trace）",
+      "items": { "type": "object" }
     },
-    "floors": {
+    "zones": {
       "type": "array",
       "minItems": 1,
+      "description": "逐 zone：覆盖楼层范围 + 平台模型 modelId（替代旧 DXF 文件路径+sha256）+ 非几何属性",
       "items": {
         "type": "object",
-        "required": ["floor", "elevation_mm", "height_mm", "dxf", "sha256"],
-        "additionalProperties": false,
+        "required": ["zone", "floors_from", "floors_to", "modelId"],
+        "additionalProperties": true,
         "properties": {
-          "floor": { "type": "string", "minLength": 1 },
-          "elevation_mm": { "type": "number" },
-          "height_mm": { "type": "number", "exclusiveMinimum": 0 },
-          "dxf": { "type": "string", "minLength": 1 },
-          "sha256": { "type": "string", "minLength": 1, "pattern": "^[0-9a-f]{64}$" }
+          "zone": { "type": "string", "minLength": 1, "description": "zone id（如 tower_std）" },
+          "floors_from": { "type": "integer", "description": "覆盖起始楼层" },
+          "floors_to": { "type": "integer", "description": "覆盖结束楼层" },
+          "modelId": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^m_[0-9a-f]{16}$",
+            "description": "该 zone 的平台模型 modelId（S4-b init_model 分配；DXF 几何在此模型，经 get_project_models/get_script 拿）"
+          },
+          "typology": { "type": "string", "description": "非几何属性：类型（residence/office/...）" },
+          "note": { "type": "string", "description": "非几何属性：备注" },
+          "area_sqm": { "type": "number", "exclusiveMinimum": 0, "description": "非几何属性：面积" }
         }
       }
-    },
-    "doors": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "required": ["id", "floor", "room_from", "room_to", "w_mm", "h_mm"],
-        "additionalProperties": false,
-        "properties": {
-          "id": { "type": "string", "minLength": 1 },
-          "floor": { "type": "string", "minLength": 1 },
-          "room_from": { "type": "string", "minLength": 1 },
-          "room_to": { "type": "string", "minLength": 1 },
-          "w_mm": { "type": "number", "exclusiveMinimum": 0 },
-          "h_mm": { "type": "number", "exclusiveMinimum": 0 }
-        }
-      }
-    },
-    "checksums": {
-      "type": "object",
-      "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
     }
   }
 }
