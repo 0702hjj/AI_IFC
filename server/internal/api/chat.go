@@ -17,13 +17,20 @@ import (
 	"sync"
 
 	"ifcviewer/server/internal/agent"
+	"ifcviewer/server/internal/change"
 	"ifcviewer/server/internal/convert"
 	"ifcviewer/server/internal/editsvc"
+	"ifcviewer/server/internal/issue"
+	"ifcviewer/server/internal/override"
 	"ifcviewer/server/internal/store"
 )
 
 // ChatDeps 是 chat 模块的依赖包（agent 运行 + 事件日志 + notify 落盘 + 重转 + 脚本管线）。
 type ChatDeps struct {
+	// 级联删模型用（deleteProject 删项目时连带清理其下模型的 issues/changes/overrides）。
+	Iss issue.Store
+	Chg change.Store
+	Ovr override.Store
 	// Ag 是默认主 agent（空 kind/兜底，全装：AgentAsTool(ifc+cad) + aiplan）。
 	// Agents 是按项目类型分化的主 agent（cad/ifc/cad->ifc 选择性装配）；会话经
 	// agentForSession 按 Project.Kind 路由（历史项目会话同样命中，不落默认）。
@@ -92,6 +99,7 @@ func (h *ChatHandler) registerRoutes() {
 	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/abort", h.abortSession)
 	h.mux.HandleFunc("POST /api/v1/chat/sessions/{cid}/answer", h.answerSession)
 	h.mux.HandleFunc("POST /api/v1/chat/projects", h.createProject)
+	h.mux.HandleFunc("DELETE /api/v1/chat/projects/{id}", h.deleteProject)
 	// B1 方案级存储（交付对齐）：项目资源下的 plan 产物（plan/cad/ifc 共享项目，
 	// plan.json/bim_supplement.json 挂项目资源前缀，非 chat 专属模块）
 	h.mux.HandleFunc("GET /api/v1/projects/{projectID}/{name}", h.getPlanFile)

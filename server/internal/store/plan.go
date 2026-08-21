@@ -152,6 +152,11 @@ func (s *PlanStore) ListHistory(projectID, name string) ([]string, error) {
 
 // LoadHistory 读方案产物的历史版本内容；非法 name/id → ErrInvalidKind/ErrInvalidID，
 // 版本不存在（含当前态版本——它不在 history/ 下）→ ErrNotFound。
+// Delete 删除项目全部方案产物（plans/{projectID} 目录）；幂等（不存在不报错）。
+func (s *PlanStore) Delete(projectID string) error {
+	return os.RemoveAll(s.dir(projectID))
+}
+
 func (s *PlanStore) LoadHistory(projectID, name, version string) ([]byte, error) {
 	if !validPlanName(name) {
 		return nil, ErrInvalidKind

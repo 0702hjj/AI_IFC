@@ -8,6 +8,9 @@ package api
 
 import (
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -119,3 +122,73 @@ func TestAgentForSessionFallback(t *testing.T) {
 		t.Errorf("未知 kind 应落默认 agent")
 	}
 }
+
+// TestDeleteProjectCascade 删除项目级联清理（单删除入口，绑定全套）：
+// 项目 + 会话（chat-sessions）+ 事件日志 + 方案 + 项目下模型。
+func TestDeleteProjectCascade(t *testing.T) {
+	h, ps := newKindAgentHandler(t)
+	p, err := ps.CreateWithKind("待删项目", "cad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 造会话 + 事件日志 + 方案 + 模型目录
+	cs := &chatSession{ID: "s_del", AgentID: "a_del", ProjectID: p.ID}
+	h.mu.Lock()
+	h.sessions[cs.ID] = cs
+	h.byAgent[cs.AgentID] = cs.ID
+	h.mu.Unlock()
+	h.saveSessions()
+	if err := os.MkdirAll(filepath.Join(h.deps.DataDir, "chat"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(h.deps.DataDir, "chat", cs.AgentID+".jsonl"), []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// 方案产物
+	if h.deps.PlanSt == nil {
+		h.deps.PlanSt = store.NewPlanStore(h.deps.DataDir)
+	}
+	if _, err := h.deps.PlanSt.Put(p.ID, "plan.json", []byte(`{"project":"`+p.ID+`"}`)); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/chat/projects/"+p.ID, nil)
+	req.SetPathValue("id", p.ID)
+	rec := httptest.NewRecorder()
+	h.deleteProject(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	// 项目已删
+	if _, err := ps.Get(p.ID); err == nil {
+		t.Error("项目未删")
+	}
+	// 会话已删
+	h.mu.Lock()
+	_, ok := h.sessions[cs.ID]
+	h.mu.Unlock()
+	if ok {
+		t.Error("会话未删")
+	}
+	// 事件日志已删
+	if _, err := os.Stat(filepath.Join(h.deps.DataDir, "chat", cs.AgentID+".jsonl")); err == nil {
+		t.Error("事件日志未删")
+	}
+	// 方案已删
+	if _, err := h.deps.PlanSt.Get(p.ID, "plan.json"); err == nil {
+		t.Error("方案未删")
+	}
+}
+
+// TestDeleteProjectNotFound 删除不存在项目 → 404。
+func TestDeleteProjectNotFound(t *testing.T) {
+	h, _ := newKindAgentHandler(t)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/chat/projects/p_nonexist", nil)
+	req.SetPathValue("id", "p_nonexist")
+	rec := httptest.NewRecorder()
+	h.deleteProject(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status=%d，期望 404", rec.Code)
+	}
+}
+

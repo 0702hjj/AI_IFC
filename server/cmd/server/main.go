@@ -124,6 +124,19 @@ func loadConfig(path string) (*config, error) {
 	return &cfg, nil
 }
 
+
+// buildRootMux 装配根 mux 的子树分发：
+//   /api/v1/chat/  与 /api/v1/projects/ 都归 chatHandler（chat/项目方案/交付域）；
+//   其余走 api.go handler + 静态托管。子树分发须显式注册——/api/v1/projects/
+//   若漏注册会落 "/" 兜底（api.go 无这些路由 → 方案端点 404，2026-08-21 实证）。
+func buildRootMux(chatHandler http.Handler, rootHandler http.Handler) *http.ServeMux {
+	root := http.NewServeMux()
+	root.Handle("/api/v1/chat/", chatHandler)
+	root.Handle("/api/v1/projects/", chatHandler)
+	root.Handle("/", rootHandler)
+	return root
+}
+
 func main() {
 	configPath := flag.String("config", "server_config.json", "path to config file (relative to working directory)")
 	flag.Parse()
@@ -262,9 +275,7 @@ func main() {
 	} else {
 		log.Printf("chat: skillsDir 未配置（VIEWER_SKILLS_DIR 或 server_config.json skillsDir），skill 工具未挂载")
 	}
-	root := http.NewServeMux()
-	root.Handle("/api/v1/chat/", chatHandler)
-	root.Handle("/", api.NewStaticHandler(cfg.WebDist, handler))
+	root := buildRootMux(chatHandler, api.NewStaticHandler(cfg.WebDist, handler))
 	if _, err := os.Stat(cfg.WebDist); err != nil {
 		log.Printf("web dist 不可用（%s）：静态页面返回 503，API 不受影响（构建：cd web && npm run build）", cfg.WebDist)
 	}
