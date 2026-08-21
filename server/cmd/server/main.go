@@ -20,6 +20,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/cloudwego/eino/components/tool"
+
 	"ifcviewer/server/internal/agent"
 	"ifcviewer/server/internal/api"
 	"ifcviewer/server/internal/change"
@@ -46,6 +48,7 @@ type config struct {
 	LLMBaseURL      string `json:"llmBaseURL"`
 	LLMModel        string `json:"llmModel"`
 	SkillsDir       string `json:"skillsDir"` // 扁平 skills 目录（BaseDir/*/SKILL.md），挂官方 skill middleware
+	MCPDir          string `json:"mcpDir"`    // mcp/ 目录（stdio MCP server 的 cwd，server.py 所在）；空=不接 MCP
 	SkillVenv       string `json:"skillVenv"` // 独立 skill venv 路径（bin 注入 PATH，execute 能调到 aiplan/aidxfv3）
 	SkillCLI        string `json:"skillCLI"`  // execute 命令白名单（逗号分隔；默认 aiplan,aidxfv3）
 	APIToken        string `json:"apiToken"`
@@ -97,6 +100,9 @@ func loadConfig(path string) (*config, error) {
 	}
 	if s := os.Getenv("VIEWER_SKILLS_DIR"); s != "" {
 		cfg.SkillsDir = s
+	}
+	if s := os.Getenv("VIEWER_MCP_DIR"); s != "" {
+		cfg.MCPDir = s
 	}
 	if v := os.Getenv("VIEWER_SKILLS_VENV"); v != "" {
 		cfg.SkillVenv = v
@@ -240,9 +246,33 @@ func main() {
 			skillsDir = ""
 		}
 	}
+	// MCP 工具接入（只读定位——实时跟进项目进程）：拉起 mcp stdio server，
+	// 三个 agent 共享一个 session（GetTools 一次，工具实例复用）。MCPDir 缺省
+	// 推 <repo>/mcp（server 可执行文件上一级的 mcp/）；拉起失败优雅降级（不接）。
+	mcpDir := cfg.MCPDir
+	if mcpDir != "" {
+		if abs, err := filepath.Abs(mcpDir); err == nil {
+			mcpDir = abs
+		}
+	}
+	mcpTools, mcpCleanup, mcpErr := agent.LoadMCPTools(context.Background(), agent.MCPToolsConfig{
+		MCPDir:  mcpDir,
+		DataDir: cfg.DataDir,
+	})
+	if mcpErr != nil {
+		log.Printf("chat: MCP server 拉起失败（%v），跳过 MCP 工具接入", mcpErr)
+		mcpTools = nil
+	} else if len(mcpTools) > 0 {
+		defer mcpCleanup()
+		log.Printf("chat: MCP 工具已接入（%d 个，mcpDir=%s）", len(mcpTools), mcpDir)
+	}
+	domainTools := func() []tool.BaseTool {
+		// chatHandler.DomainTools() 已是 []tool.BaseTool（api 层组装好），直接追加 mcp 工具。
+		return append(chatHandler.DomainTools(), mcpTools...)
+	}
 	chatAgent, err := agent.New(llmCfg,
 		agent.WithStore(evStore),
-		agent.WithTools(chatHandler.DomainTools()),
+		agent.WithTools(domainTools()),
 		agent.WithPersona(agent.OrchestratorPersona),
 		agent.WithSkillsDir(skillsDir),
 	)
@@ -257,7 +287,7 @@ func main() {
 	for _, k := range []string{"cad", "ifc", "cad->ifc"} {
 		ka, err := agent.New(llmCfg,
 			agent.WithStore(evStore),
-			agent.WithTools(chatHandler.DomainTools()),
+			agent.WithTools(domainTools()),
 			agent.WithSkillsDir(skillsDir),
 			agent.WithKind(k),
 		)
