@@ -98,6 +98,8 @@ func WithSkillsDir(dir string) Option {
 //   - AgentAsTool：cad->ifc 全装 cad+ifc；cad 只装 cad；ifc 只装 ifc
 //   - persona：cad→OrchestratorPersonaCAD、ifc→OrchestratorPersonaIFC、其余默认
 //   - aiplan skill：cad/cad->ifc 挂 orchestrator；ifc 管线不挂（无 plan 阶段）
+// cad 管线语义 = aiplan → cad-agent 设计完即止（不派 ifc，等价「只走到 CAD
+// 设计完」的 orches 版本）；cad->ifc = 全链（plan → cad → ifc）。
 // 空值 = 全装（向后兼容：ifc+cad + aiplan）。
 func WithKind(kind string) Option {
 	return func(o *agentOptions) { o.kind = kind }
