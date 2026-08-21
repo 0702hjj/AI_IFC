@@ -433,35 +433,9 @@ def _cmd_init(args) -> int:
     return 0
 
 
-def _cmd_state(args) -> int:
-    """state 编排：sync（补缺）/ advance（推进单 mission）/ reconcile（全量对账）。
-
-    只做状态记录，不自动派发 subagent、不自动跑 check/reconcile——决策归主 agent。
-    """
-    from flowops.orchestrate import advance_status, reconcile_state, sync_missions
-    if not args.project:
-        _emit({"valid": False, "error": "需 --project"}, args.out)
-        return 1
-    if args.state_command == "sync":
-        result = sync_missions(args.project)
-        _emit({"valid": True, "created": result["created"],
-               "existing": result["existing"]}, args.out)
-        return 0
-    if args.state_command == "advance":
-        if not args.node:
-            _emit({"valid": False, "error": "advance 需 --node"}, args.out)
-            return 1
-        status = advance_status(args.project, args.node)
-        _emit({"valid": True, "node": args.node, "status": status}, args.out)
-        return 0
-    if args.state_command == "reconcile":
-        report = reconcile_state(args.project)
-        _emit({"valid": True, "missions": report}, args.out)
-        return 0
-    return 1
-
-
 def main(argv: list[str] | None = None) -> int:
+    from .commands_state import cmd_state
+
     parser = build_parser()
     args = parser.parse_args(argv)
     handlers = {
@@ -477,7 +451,7 @@ def main(argv: list[str] | None = None) -> int:
         "reconcile": _cmd_reconcile,
         "sync": _cmd_sync,
         "pack": _cmd_pack,
-        "state": _cmd_state,
+        "state": lambda a: cmd_state(a, _emit),
         "gold": _cmd_gold,
     }
     handler = handlers.get(args.command)

@@ -688,17 +688,22 @@ class TestDrawlibSingleSource:
 
     约束（用户硬要求）：依赖的 archdxf 库不能有版本差异——
     skill（editable install）与 services/cad 沙箱（PYTHONPATH + ro-bind）必须引用
-    同一份 dist 源码（skills/dist/aidxf/scripts/packages/*/src），且 dist 与开发源
-    （skills/aidxf）保持同步。
+    同一份**源**源码（skills/aidxf/scripts/packages/*/src）。dist 是打包产物（gitignored），
+    config 缺省从源推导（CI 干净克隆无 dist 也能跑）；test_dist_archdxf_in_sync_with_source
+    仍强制 dist 与源同步（防两份漂移）。
     """
 
-    def test_drawlib_dir_defaults_to_dist_packages(self, settings):
-        """沙箱 drawlib_dir 默认指向 dist 的 archdxf + dxfkit src（单一事实源）。"""
+    def test_drawlib_dir_defaults_to_source_packages(self, settings):
+        """沙箱 drawlib_dir 默认指向**源** skill 的 archdxf + dxfkit src（单一事实源）。
+
+        2026-08-21：缺省从 skills/aidxf/（git 跟踪）推导——skills/dist/ 是打包产物（gitignored，
+        CI 干净克隆无 dist）。单一事实源语义不变：skill editable install 与沙箱引用同一份源码。
+        """
         parts = [p for p in settings.drawlib_dir.split(":") if p]
         assert len(parts) == 2, f"drawlib 应含 archdxf + dxfkit 两路径，got {parts}"
         for p in parts:
-            assert "skills/dist/aidxf/scripts/packages" in p, (
-                f"drawlib 路径应指向 dist 单一事实源: {p}"
+            assert "skills/aidxf/scripts/packages" in p, (
+                f"drawlib 路径应指向源 skill 单一事实源: {p}"
             )
             assert os.path.isdir(p), f"drawlib 路径不存在: {p}"
         assert any("archdxf/src" in p for p in parts)
@@ -723,15 +728,15 @@ class TestDrawlibSingleSource:
                 assert f"--ro-bind {p} {p}" in cmdstr, f"bwrap 缺 drawlib ro-bind: {p}"
 
     def test_draw_chain_importable_via_sandbox_pythonpath(self, settings):
-        """draw 链（archdxf + dxfkit.draw）经沙箱 PYTHONPATH 可 import，且 archdxf 是 dist 单一事实源。"""
+        """draw 链（archdxf + dxfkit.draw）经沙箱 PYTHONPATH 可 import，且 archdxf 是源单一事实源。"""
         for p in [settings.flows_dir] + [x for x in settings.drawlib_dir.split(":") if x]:
             if p not in sys.path:
                 sys.path.insert(0, p)
         import archdxf
         from dxfkit import draw  # noqa: F401
         import cad_script_lib  # noqa: F401
-        assert "skills/dist/aidxf" in archdxf.__file__, (
-            f"archdxf 应来自 dist 单一事实源，got {archdxf.__file__}"
+        assert "skills/aidxf" in archdxf.__file__, (
+            f"archdxf 应来自源 skill 单一事实源，got {archdxf.__file__}"
         )
 
     def test_dist_archdxf_in_sync_with_source(self, settings):

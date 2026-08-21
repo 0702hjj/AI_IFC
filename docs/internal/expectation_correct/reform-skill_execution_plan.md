@@ -175,3 +175,126 @@ P1（skill 编排契约）→ P2（aiifc 解析消费，大工程量）
 
 > P0-1 已定（draw_api 不变 + 调用序列固化单一脚本，archdxf 可运行）。余下两个裁决确认后，
 > P0 可拆任务执行（TDD，测试≥实现，对齐 api_regulation 硬标准）。
+
+---
+
+## 六、执行波次（原 reform-skill_for_flow.md 拆入，2026-08-21）
+
+## 六、执行波次（当前进度 + 每波产出）
+
+> 三管线改造的落地波次。前置已完成；**当前在 P0 波（产物链打通——拿到文件）**。
+
+### 前置波（✅ 已完成，2026-08-21）
+
+| 改造 | 产出 | commit |
+|---|---|---|
+| **services/cad 沙箱接入共享画法层**（archdxf + dxfkit 单一事实源，零版本差异） | 沙箱可同时 import cad_script_lib（用户编辑线）+ dxfkit.draw/archdxf（skill 固化脚本）；用户编辑线库升级到 skill 新版 | `a177eb8` |
+
+### P0 波：产物链打通——拿到文件（🔧 进行中）
+
+> 目标：aidxf S4 交付改造落地——每 zone DXF 注册平台模型 + building.json 记 modelId + ifc 拿到文件。
+> **每个波次 = 代码改造 + 对应 skill 文档同步更新**（避免代码改了但文档残留旧逻辑不适配，见 §6.1）。
+
+| 波次 | 代码改造 | skill 文档同步更新 | 产出/状态 | commit |
+|---|---|---|---|---|
+| **P0-1** | **draw 调用序列记录 + build() 脚本固化**（S4-a，唯一新增） | `SKILL.md`、`references/draw_composition.md`、`references/machine_contract.md`、`references/draw_api.md`（record 契约） | ✅ 代码 + 文档完成 | `45ec6e3`/`9478511` |
+| **P0-2a** | **skill 工作区地基**（`{DATA}/skill-work/{projectID}`，projectId 隔离 + get_skill_workdir 工具 + persona 注入 + 级联清理） | —（agent 配置，非 skill 文档） | ✅ 已完成 | `a6a5ea5` |
+| **P0-2** | **S4-b 每 zone 注册平台模型**——**复用 tools.go 现有工具链（init_model+stage_script+run_script+save_script），零新代码**（LLM 按 cadAgentPersona 对每 zone 调） | `steps/step-04-deliver.md`、`references/machine_contract.md`、`references/orchestrator/dispatch.md`（S4 交付改造 + skill-work 工作区 + deliver 后清理） | ✅ 文档完成；**代码零新增**（复用现有工具链） | `9478511` |
+| **P0-2b** | **aiplan 交付对齐**（deliver_plan/deliverPlanCore 已有——代码不动） | `skills/aiplan/SKILL.md`、`steps/step-02-deliver.md`、`steps/step-00-ingest.md`（交付 deliverPlanCore + PlanStore 版本化 + 工作区 skill-work/{projectID}/aiplan/ + deliver 后清理） | ✅ 文档完成 | `5679db5` |
+| **P0-3** | **S4-c building.json agent 组装 + 交付工具 ✅**——`deliver_building` 工具（agent 组装 building.json → PlanStore 版本化 plans/{projectID}/building.json）+ **get_project_plans 扩展读全部方案产物（plan+bim+building，building 容忍缺失）** + building.schema.json v2（zones 记 modelId）。**`aidxfv3 deliver` 命令已退役 ✅**（复制 DXF→S4-b、building.json→agent 组装） | `references/schemas/building.schema.json`（zones 记 modelId ✅）、`steps/step-04-deliver.md`（S4-c ✅）、`references/machine_contract.md`（building 契约 ✅） | ✅ 完成（deliver_building 工具 + get_project_plans 扩展 + building.schema + deliver 退役） | `c175796`/`45bc5c4` |
+
+**P0 验收**：cad->ifc 管线跑到 ifc 阶段，ifc-agent 能正确拿到 bim_supplement.json + building.json（含 modelId）+ 各 zone DXF 平台模型（文件层面），不解析。
+
+### 6.1 skill 文档残留清单（旧逻辑 ↔ 当前接口不适配点）
+
+> aidxf skill 内部文档的旧逻辑残留（deliver 复制 DXF、无 build() 脚本、非平台模型体系），
+> 与当前接口（script-as-source / 平台模型 / init_model / modelId / record 固化）不适配——
+> **按波次同步清理**（不单独设波次，随代码改造同波更新）。
+
+| 文档 | 旧逻辑残留 | 当前接口（改为） | 所属波次 |
+|---|---|---|---|
+| `SKILL.md` | S4 行「building.json + 逐层 DXF + 封存 rooms」；中段「复制 DXF」 | S4-a 固化→S4-b 注册平台模型（modelId）→S4-c building.json 记 modelId | P0-1/P0-2（✅ 已改） |
+| `steps/step-04-deliver.md` | `aidxfv3 deliver` 复制 `deliver/<floor>.dxf` + `<floor>.rooms.json` + building.json（checksums） | S4 交付改造三子步（S4-a 固化/S4-b 注册/S4-c building.json 记 modelId）+ **deliver 后清理中间产物** | P0-2（✅ 已改） |
+| `references/machine_contract.md` | deliver 扫 missions → 复制 DXF 到 deliver/ + building.json（sha256）；**`<project>` 任意目录** | deliver 不再复制 DXF（被 script 工具链替代）；record 固化契约 + modelId 指针；**`<project>` = `{DATA}/skill-work/{projectID}`**；deliver 后清理中间产物 | P0-1/P0-2（✅ 已改）/P0-3（building） |
+| `references/draw_composition.md` | 出口 `doc.saveas("floor.dxf")`（无 record/固化） | 出口加 record 记录（LLM 画时机器记录调用序列）→ S4-a 固化 build() 脚本（draw_api 不变）+ 过程产物清理说明 | P0-1（✅ 已改） |
+| `references/draw_api.md` | 画图流程无 record 步骤 | 流程加 ⓪ record.start+wrap 开记录 + ⑤ record.to_build_script 固化（draw_api 能力规范不变） | P0-1（✅ 已改） |
+| `references/schemas/building.schema.json` | zones[] 记 `dxf`（文件路径）+ `sha256` | zones[] 记 `modelId`（平台模型指针，替代文件路径） | P0-3（🔧 待改） |
+| `references/orchestrator/dispatch.md` | 编排无 init_model/script 工具链；`<project>` 任意 | 编排加 建造段 record 开记录/固化 + S4-b init_model/script 工具链注册；`<project>` = skill-work/{projectID} | P0-2（✅ 已改） |
+
+### 6.2 aiplan 文档残留（P0-2b——交付 deliverPlanCore 已有，文档对齐）
+
+> aiplan 的 agent 适配（`deliver_plan` 工具 → deliverPlanCore → PlanStore 版本化 `plans/{projectID}/`）
+> 已完善，但 **aiplan skill 文档还是旧逻辑**（land 落 `{workspace}/plan/` 自包含工作区，没对齐
+> deliver_plan 工具链 + PlanStore 版本化 + skill-work 工作区 + deliver 后清理）——同样流程对齐 aidxf。
+
+| 文档 | 旧逻辑残留 | 当前接口（改为） | 状态 |
+|---|---|---|---|
+| `skills/aiplan/SKILL.md` | step 2 落盘 `{workspace}/plan/`（自包含）；无 deliver_plan/工作区/清理 | step 2 交付 = **deliver_plan 工具**（deliverPlanCore → PlanStore 版本化 `plans/{projectID}/`）；中间产物 skill-work/{projectID}/aiplan/；deliver 后清理（再次修改走 deliver_plan 读当前态重交） | 🔧 待改 |
+| `skills/aiplan/steps/step-02-deliver.md` | `aiplan land --outdir {workspace}/plan/`（run 目录落自包含工作区） | 交付走 deliver_plan 工具（agent 提供）；land 经 deliverPlanCore（临时区 → PlanStore）；工作区 skill-work/{projectID}/aiplan/；deliver 后清理 | 🔧 待改 |
+| `skills/aiplan/steps/step-00-ingest.md` | `aiplan route <workspace>`（自包含工作区） | `aiplan route skill-work/{projectID}/aiplan/`（get_skill_workdir 拿，projectId 隔离） | 🔧 待改 |
+
+**决策（2026-08-21 用户敲定）**：
+- **交付路径**：中间产物 skill-work/{projectID}/aiplan/（与 aidxf 同一工作区根，projectId 隔离）；
+  交付 deliver_plan 走现有 deliverPlanCore（PlanStore 版本化 plans/{projectID}/）——代码不动，文档对齐。
+- **deliver 后清理**：与 aidxf 一致——deliver_plan 后清理 aiplan 过程产物（design_intent/normalized/
+  run 过程态）；再次修改走 deliver_plan（从 get_project_plans 读当前态改了重交），不依赖过程残留。
+- **自包含纪律保留**：aiplan 独立使用时 land 仍可落任意目录（自包含可迁移）；平台内交付走
+  deliver_plan 工具链——文档区分「独立使用」vs「平台内」。
+
+**清理纪律**：
+1. **同波同步**：改代码的同一波次更新对应文档（文档随代码 commit 同波落地，不滞后）。
+2. **改完打包**：skill 文档改在源 `skills/aidxf`，改完 `python3 tools/skill_pack.py --skill aidxf` 同步 dist。
+3. **schema 联动**：`building.schema.json` 改 modelId 后，building.json 由 agent 侧组装（不再
+   `deliver.py` 产——它不知道 agent init_model 的 modelId），`deliver_building` 工具落 PlanStore
+   （P0-3 代码：deliver_building 工具 + get_project_plans 扩展读 building.json + schema 一起）。
+
+### P1 波：skill 编排契约（后续，P0 之后）
+
+- **orchestrator 编排契约细化 ✅（P1-1，2026-08-21，`ce3de7f`）**：
+  - **无空 kind，三个 kind 强制装配**：kind 强制必选（create_project 强制 ifc|cad|cad->ifc），
+    orchestrator 按 kind 强制装配 persona：cad→personaCAD、ifc→personaIFC、cad->ifc→OrchestratorPersona。
+  - **OrchestratorPersona = cad->ifc 专属全链编排**（不是空 kind 全装默认兜底）——cad->ifc 用全装
+    （aiplan+cad+ifc）：① plan（aiplan 对话框定+断点主持 → deliver_plan）→ ② cad（plan 锚点
+    +stage_plan_to_workdir → 各 zone modelId + deliver_building）→ ③ ifc（消费上游路径 CONSUME_UPSTREAM
+    + 上游锚点）→ IFC 交付。
+  - **personaCAD**（cad 管线）：aiplan 前置（断点主持 → deliver_plan）→ cad（plan 锚点 → init_model
+    注册 → deliver_building）。
+  - **personaIFC**（ifc 独立管线）：design.json 前置路径（PLAN_DXF_IFC，断点确认设计意图）→ 骨架深化。
+  - **产物传递锚点显式化**：aiplan→cad=plan.json+stage_plan_to_workdir；cad→ifc=building.json+
+    zones modelId+DXF modelId——步骤编排 + 产物锚点 + 断点主持都写进编排契约。
+- **aiifc 两条 ifc 深化路径区分 ✅（P1-2，2026-08-21，`058d99c`）**：
+  - **设计要点**：判断逻辑**不在 skill/ifc-agent**（它们不判断），**在 orchestrator 按 kind 强制注入**。
+  - **aiifc skill**：声明两条路径（不判断）——`workflows/CONSUME_UPSTREAM.md`（cad->ifc 消费上游：
+    bim_supplement+building.json+DXF → IFC 脚本，新增英文）+ `workflows/PLAN_DXF_IFC.md`（ifc 独立
+    design.json 前置，已有）；`references/consume_upstream/`（解析参考骨架，P2 填充）。
+  - **ifcAgentPersona**：路径由主 Agent 指定（不自己判断）。
+  - **OrchestratorPersona**：ifc 路径强制注入（派 ifc-agent 时 request 指定：cad->ifc→消费上游路径
+    带上游锚点；ifc 独立→design.json 前置路径）。
+  - **语言统一**：aiifc skill 全英文（与原有英文一致），persona 保持中文。
+
+### P2 波：aiifc 解析消费链（大工程量，最后）
+
+- aiifc 把 bim_supplement.json + building.json + 各 zone DXF 解析转成 IFC 构建脚本
+- skill 本身改写（消费上游产物解析链）+ subagent 装配（文件喂给 aiifc + 断点编排）
+
+### 波次依赖
+
+```
+前置（沙箱共享画法层）✅
+  ↓（沙箱能跑 draw 链 build()）
+P0-1（draw 固化 build() 脚本）✅ 代码 / 🔧 文档残留（draw_composition/machine_contract record 契约）
+  ↓（有 build() 脚本才能进沙箱注册）
+P0-2a（skill 工作区地基 skill-work/{projectID}）✅ ← projectId 隔离 + get_skill_workdir + persona + 级联
+  ↓（工作区定了中间产物落盘根）
+P0-2（init_model + script 工具链注册平台模型）🔧 ← 当前（代码 + step-04/deliver 契约/dispatch 文档）
+  ↓（注册平台模型后产物可经 modelId 传递）
+P0-3（building.json 记 modelId + 传递）🔧（代码 + building.schema/deliver 文档）
+  ↓
+P1（编排契约）→ P2（aiifc 解析消费）
+```
+
+> 当前进度：前置 ✅ + P0-1 代码 ✅ + **P0-2a 工作区地基 ✅**（`a6a5ea5`：skill-work/{projectID}
+> projectId 隔离 + get_skill_workdir 工具 + persona 注入 + 级联清理）。
+> **下一步 P0-2**（S4-b 注册平台模型 + 同波更新 step-04/deliver 契约/dispatch——`<project>` 落盘位置
+> 改为 skill-work/{projectID}，见 §6.1）。
+> **每个波次代码与 skill 文档同步落地**（§6.1 清单，避免文档残留旧逻辑不适配）。

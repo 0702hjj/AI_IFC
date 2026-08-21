@@ -33,14 +33,16 @@ def load_settings() -> Settings:
     anchor = Path(__file__).resolve().parent.parent  # edit-service root
     data_dir = os.environ.get("VIEWER_DATA_DIR", "../data")
     flows_dir = os.environ.get("AIDXF_FLOWS_DIR", "flows")
-    # 共享画法层：archdxf + dxfkit 的 src 目录（冒号分隔，缺省推导 skill dist 的 packages src）。
+    # 共享画法层：archdxf + dxfkit 的 src 目录（冒号分隔，缺省推导 skill **源**目录的 packages src）。
     # 单一事实源——skill editable install 与本沙箱 PYTHONPATH 引用同一份源码。
+    # 注意：缺省从 skills/aidxf/（git 跟踪）推导，不从 skills/dist/（打包产物，gitignored，
+    # CI 干净克隆无 dist）。CI/宿主未生成 dist 也能跑。
     drawlib_dir = os.environ.get("AIDXF_DRAWLIB_DIR", "")
     if not drawlib_dir:
         repo = anchor.parent.parent  # services/cad -> services -> repo root
         default_drawlib = [
-            repo / "skills" / "dist" / "aidxf" / "scripts" / "packages" / "archdxf" / "src",
-            repo / "skills" / "dist" / "aidxf" / "scripts" / "packages" / "dxfkit" / "src",
+            repo / "skills" / "aidxf" / "scripts" / "packages" / "archdxf" / "src",
+            repo / "skills" / "aidxf" / "scripts" / "packages" / "dxfkit" / "src",
         ]
         drawlib_dir = ":".join(str(p) for p in default_drawlib if p.is_dir())
     return Settings(
