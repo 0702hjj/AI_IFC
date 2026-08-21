@@ -25,7 +25,7 @@
    aidxfv3 check --plan <plan.json>                 # 轮廓级摄取（exit 1 → 回改）
    aidxfv3 check --dsl skeleton.json --plan <plan.json>  # 骨架级：分区越轮廓 + blocks 语义 + holes 对齐
    ```
-3. 【断点① 用户确认】——用 `question` 工具弹框（方式见 `references/orchestrator/breakpoint.md`）：
+3. 【断点① 用户确认】——用 `ask_user` 工具弹框（方式见 `references/orchestrator/breakpoint.md`）：
    对话回显骨架方案（建筑师语言）→ `question` 弹"对吗？对，继续 / 要改骨架"（custom:true）
 4. 确认后：按代表层出 `skeleton.<floor>.dxf`（分区轮廓底座 = dxfkit 按 normalize 分区几何画；
    LLM 在底座上逐构件画画法细节，`aidxfv3 draw`）→ 骨架冻结

@@ -119,14 +119,14 @@ aidxfv3 sync / deliver                               # 编辑回收 / 封存 + b
 aidxfv3 gold query --params '{"kind":"case","type":"office"}'   # 参考库检索
 ```
 
-## 交互协议（断点 = question 确认）
+## 交互协议（断点 = ask_user 确认）
 
-用 opencode 原生 **`question` 工具**弹框确认——断点⓪/①/②、缺口追问、冲突裁决
-全走 `question`（header + question + options + custom），用户在 TUI 里选或自定义填。
+用 **`ask_user` 工具**（agent 自定义封装，HITL 断点）弹框确认——断点⓪/①/②、缺口追问、冲突裁决
+全走 `ask_user`（question + options），用户选或自定义填，回答 = 用户原文。
 
 **流畅性铁律**：
-- 合法停顿只有 `question`（断点⓪ S0 确认 / 断点① 骨架 / 断点② 房间）
-- 进度写在 question 的 header 或正文首行
+- 合法停顿只有 `ask_user`（断点⓪ S0 确认 / 断点① 骨架 / 断点② 房间）
+- 进度写在 ask_user 的 question 首行
 - 断点确认后本回合内连续执行机器活；PASS 再问，FAIL 先自改
 
 - 断点规范：`references/orchestrator/breakpoint.md`

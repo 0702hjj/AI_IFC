@@ -84,7 +84,7 @@ plan 是 AI BIM 管线的**入口**：外部资料对接 → 关键参数框定 
 | Step | File | 输入 → 输出 |
 |---|---|---|
 | 0 摄取归一化 | `steps/step-00-ingest.md` | 外部资料 → 意图卡片 + 缺口清单 |
-| 1 渐进设计对话 | `steps/step-01-design.md`（骨架）+ `step-01a-rounds.md`（4 轮细则）+ `step-01b-protocol.md`（协议） | 意图卡片 → **全锁定设计草案**（4 轮渐进：骨架→几何→功能→结构空间，边设计边确认可回退，question 工具弹选择框，本 skill 核心；设计方向确认前不画几何） |
+| 1 渐进设计对话 | `steps/step-01-design.md`（骨架）+ `step-01a-rounds.md`（4 轮细则）+ `step-01b-protocol.md`（协议） | 意图卡片 → **全锁定设计草案**（4 轮渐进：骨架→几何→功能→结构空间，边设计边确认可回退，ask_user 工具弹选择框，本 skill 核心；设计方向确认前不画几何） |
 | 2 生成落盘 | `steps/step-02-deliver.md` | 全锁定草案 → plan.json + bim_supplement.json（过门禁 + canon + sha256 互指）→ **平台内：deliver_plan 工具交付（PlanStore 版本化 plans/{projectID}/）**；独立使用：成对落盘 `{workspace}/plan/` + 双下游告知 |
 
 从 step 0 开始；step 0 用 `aiplan route <workspace>` 判定路由（中断恢复）：
@@ -138,19 +138,19 @@ aiplan pack-drift [packs...]               # 类型包漂移（维护）
 
 ## 交互协议（step-01 核心）
 
-用 opencode 原生 **`question` 工具**弹选择框跟用户交互——方向候选/缺口追问/
-歧义收敛/候选拍板/冲突裁决/方案确认 全走 `question`（header + question + options + custom），
-用户在 TUI 里选或自定义填。用户自由表达方案时直接对话听（不弹框）。
+用 **`ask_user` 工具**（agent 自定义封装，HITL 断点）弹选择框跟用户交互——方向候选/缺口追问/
+歧义收敛/候选拍板/冲突裁决/方案确认 全走 `ask_user`（question + options），
+用户选或自定义填，回答 = 用户原文。用户自由表达方案时直接对话听（不弹框）。
 
 **流畅性铁律（2026-08-17）**：
-- **唯一合法停顿 = `question`**；禁止进度旁白/「要继续吗」/跑工具前等许可
-- 进度只写在 question 的 header 或正文首行（如「骨架已定，进入几何轮（2/4）」）
+- **唯一合法停顿 = `ask_user`**；禁止进度旁白/「要继续吗」/跑工具前等许可
+- 进度只写在 ask_user 的 question 首行（如「骨架已定，进入几何轮（2/4）」）
 - 用户确认后本回合内连续执行机器活；PASS 再问，FAIL 先自改
-- 第 1 轮：方向+已知缺口并进**一个**确认框
+- 第 1 轮：方向+已知缺口并进**一个** ask_user 确认框
 
 - 翻译/回显/裁决规范：`references/prompts/`（translate.md / echo.md / conflict.md）
 - 选择框选项来源：`references/question_templates.json`（**BRAIN**/GAP/AMB/CAN 四类模板 →
-  question options；每模板带轮次归属）
+  ask_user options；每模板带轮次归属）
 - 规则名词表：`references/predicate_vocabulary.md`（V3 扁平规则名，requirements rule 唯一来源；与 cad 侧同源副本）
 - 轮廓几何：`normalize`（design_intent → outline_mm）+ `geom check/align`
 - 协议：`path.rings[].edges` + `segments`（projection/recess/arc）；见 schema + golden

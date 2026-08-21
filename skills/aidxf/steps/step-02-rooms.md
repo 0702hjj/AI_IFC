@@ -32,7 +32,7 @@
    aidxfv3 check --dsl <rooms> --geom <skeleton.json>         # 房间级 R-01~R-09
    ```
    - 通过 → 进 presented 队列；error → 携报告修正声明（attempts+1）
-3. 【断点② 用户确认该 zone】（单断点纪律，其余 zone 排队）——用 `question` 工具弹框
+3. 【断点② 用户确认该 zone】（单断点纪律，其余 zone 排队）——用 `ask_user` 工具弹框
    （方式见 `references/orchestrator/breakpoint.md`）：
    对话回显该 zone 房间方案 → `question` 弹"对吗？对，继续 / 改房间 / 骨架问题"（custom:true）
    ——改同板块→再问同板块（修改协议）

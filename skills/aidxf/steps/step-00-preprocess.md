@@ -19,9 +19,9 @@ aidxfv3 preprocess --plan <plan.json> --out derived/
 - `derived/<zone>.json × M`（zone 包：geom 派生 + 代表层切片 + vocab + 金例卡片）
 - `derived/skeleton_base.json`（底座：outline/core anchor 从 plan 机械注入，S1 主 agent 在其上全权填充）
 
-## 断点⓪（S0 确认——question 弹框）
+## 断点⓪（S0 确认——ask_user 弹框）
 
-S0 退出码 0 后，回显 S0 摘要（zone 数 + 总面积 + 每 zone 形态要点）→ `question` 弹框确认：
+S0 退出码 0 后，回显 S0 摘要（zone 数 + 总面积 + 每 zone 形态要点）→ `ask_user` 弹框确认：
 
 ```
 question({

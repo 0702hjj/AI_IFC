@@ -187,6 +187,17 @@ S4-c building.json 组装（agent 侧，**非 deliver.py**）
 init_model 注册）。与 ifc 管线的「建项目即 init_model(ifc)」对齐——**骨架初始化 → 深化**
 统一模式。
 
+**plan 桥接工具（已落地，2026-08-21，`ca317ba`）**：cad 拿上游 plan.json 的链路断点桥接——
+- 链路：aiplan 产 plan.json → `deliver_plan`（deliverPlanCore → PlanStore 版本化 plans/{projectID}/）
+  → orchestrator 派 cad-agent → cad-agent `get_project_plans` 读 plan.json **内容**（JSON string）。
+- 断点：`aidxfv3 preprocess --plan <文件>` 要**文件路径**，而 LLM 拿到的是内容 + 写受限
+  （fsReadOnlyBackend 写拒绝）——桥接不稳定。
+- **`stage_plan_to_workdir` 工具**：PlanStore 读 plan.json + bim_supplement.json → Go 写
+  skill-work/{projectID}/plan.json + bim_supplement.json → 返回 {planPath, bimPath}——
+  aidxfv3 `--plan` 等命令直接用文件路径。
+- **ifc 桥接（预留）**：cad→ifc 的 building.json/DXF 传给 ifc-agent 同样做桥接工具（后续 P0-3
+  deliver_building + ifc 侧读取桥接）。
+
 **deliver 后清理中间产物（已敲定，2026-08-21）**：S4 完成后清空工作区过程产物
 （missions/derived/floor.dxf 过程态）——
 - **事实源已转移**：平台模型的 build() 脚本（models/{modelId}/scripts/）是该 zone 唯一事实源。
@@ -292,9 +303,14 @@ init_model 注册）。与 ifc 管线的「建项目即 init_model(ifc)」对齐
 
 ### 3.2 断点连续性（HITL）
 
+> **断点工具 = `ask_user`**（agent 自定义封装，`tool.StatefulInterrupt`，HITL 断点）——
+> aiplan/aidxf 文档的 opencode 原生 `question` 已全部替换为 `ask_user`（2026-08-21，
+> 不管 opencode 兼容）：弹选择框（question + options），用户选/自定义填，回答 = 用户原文，
+> answer 恢复推进。
+
 | 断点 | 状态 |
 |---|---|
-| plan step 1（4 轮设计对话） | ✅ ask_user question tool 弹选择框（HITL） |
+| plan step 1（4 轮设计对话） | ✅ ask_user 弹选择框（HITL） |
 | aidxf S0/S1/S2 断点（⓪①②） | ✅ ask_user → 用户确认 → aidxfv3 state advance 推进 |
 | aiplan gate/validate（门禁） | ✅ 门禁失败 → 报告 → 修改 → 重交 |
 | 中断恢复 | ✅ aiplan route（plan）+ aidxfv3 state reconcile（cad） |
