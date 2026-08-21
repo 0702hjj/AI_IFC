@@ -149,12 +149,12 @@ func TestLoadConfigSkillsDirFromJSONAndEnv(t *testing.T) {
 // TestLoadConfigSkillVenvAndCLI：skillVenv / skillCLI 从 server_config.json 读取，
 // VIEWER_SKILLS_VENV / VIEWER_SKILLS_CLI env 覆盖；skillCLI 缺省 = dist 对齐默认集。
 func TestLoadConfigSkillVenvAndCLI(t *testing.T) {
-	path := writeConfig(t, `{"skillVenv":"/abs/skills/.venv","skillCLI":"aiplan,aidxfv3"}`)
+	path := writeConfig(t, `{"skillVenv":"/abs/skills/.venv","skillCLI":"aiplan,aidxfv3,aiifc"}`)
 	cfg, err := loadConfig(path)
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
-	if cfg.SkillVenv != "/abs/skills/.venv" || cfg.SkillCLI != "aiplan,aidxfv3" {
+	if cfg.SkillVenv != "/abs/skills/.venv" || cfg.SkillCLI != "aiplan,aidxfv3,aiifc" {
 		t.Fatalf("skill 配置未读到: %+v", cfg)
 	}
 
@@ -174,7 +174,7 @@ func TestLoadConfigSkillVenvAndCLI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loadConfig: %v", err)
 	}
-	if cfg.SkillCLI != "aiplan,aidxfv3" {
+	if cfg.SkillCLI != "aiplan,aidxfv3,aiifc" {
 		t.Fatalf("skillCLI 缺省应为 dist 默认集: %+v", cfg)
 	}
 }
