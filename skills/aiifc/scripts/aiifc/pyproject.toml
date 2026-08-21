@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aiifc"
+version = "0.1.0"
+description = "aiifc IFC 建模 CLI（flows 脚本 agent 可执行入口：design-build/build-script/dxf-from-design/consume-upstream）"
+requires-python = ">=3.10"
+
+[project.scripts]
+aiifc = "aiifc.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["aiifc*"]
