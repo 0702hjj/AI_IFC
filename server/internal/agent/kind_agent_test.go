@@ -89,3 +89,41 @@ func TestCadAgentPersonaConsumesPlan(t *testing.T) {
 		t.Error("cadAgentPersona 缺 plan 缺失报告纪律")
 	}
 }
+
+// TestOrchestratorPersonaContract 编排契约：三个 persona 的关键编排要素（步骤 + 产物锚点 + 断点 + ifc 路径注入）。
+func TestOrchestratorPersonaContract(t *testing.T) {
+	// 全装（cad->ifc）：aiplan→cad→ifc 步骤 + 产物锚点 + 断点主持 + ifc 路径强制注入
+	if !strings.Contains(OrchestratorPersona, "cad->ifc 管线") ||
+		!strings.Contains(OrchestratorPersona, "deliver_plan") ||
+		!strings.Contains(OrchestratorPersona, "deliver_building") ||
+		!strings.Contains(OrchestratorPersona, "stage_plan_to_workdir") ||
+		!strings.Contains(OrchestratorPersona, "CONSUME_UPSTREAM") ||
+		!strings.Contains(OrchestratorPersona, "断点主持") {
+		t.Errorf("OrchestratorPersona 缺编排契约要素（步骤/产物锚点/断点/ifc 路径注入）")
+	}
+	// personaCAD：cad 管线步骤（aiplan 前置 + cad 出图 + building.json）
+	if !strings.Contains(personaCAD, "aiplan") ||
+		!strings.Contains(personaCAD, "deliver_building") ||
+		!strings.Contains(personaCAD, "stage_plan_to_workdir") ||
+		strings.Contains(personaCAD, "ifc-agent") {
+		t.Errorf("personaCAD 应为 aiplan→cad 编排（不含 ifc 分支）")
+	}
+	// personaIFC：ifc 独立管线（design.json 前置 + 骨架深化）
+	if !strings.Contains(personaIFC, "design.json 前置路径") ||
+		!strings.Contains(personaIFC, "PLAN_DXF_IFC") ||
+		!strings.Contains(personaIFC, "断点") {
+		t.Errorf("personaIFC 应为 design.json 前置路径编排")
+	}
+}
+
+// TestSubAgentPersonaPathDiscipline 子 agent 路径纪律：cad 消费 plan + ifc 路径由主 Agent 指定（不自己判断）。
+func TestSubAgentPersonaPathDiscipline(t *testing.T) {
+	if !strings.Contains(cadAgentPersona, "get_project_plans") ||
+		!strings.Contains(cadAgentPersona, "plan.json") {
+		t.Errorf("cadAgentPersona 应先消费 plan（get_project_plans 读 plan.json）")
+	}
+	if !strings.Contains(ifcAgentPersona, "路径由主 Agent 指定") ||
+		!strings.Contains(ifcAgentPersona, "不自己判断") {
+		t.Errorf("ifcAgentPersona 应为「路径由主 Agent 指定」（判断逻辑在 orchestrator）")
+	}
+}
