@@ -355,8 +355,10 @@ init_model 注册）。与 ifc 管线的「建项目即 init_model(ifc)」对齐
 - **S4-b（复用现有工具链，非新机制）**：每 zone `init_model(dxf)` 前置（已敲定——cad 管线每次新建
   DXF 时初始化）→ `stage_script`（build 脚本）→ `run_script`（沙盒跑 build 产 DXF，共享画法层
   archdxf/dxfkit 单一事实源）→ `save_script`（v1 版本化）→ 平台模型。**这步替代了 deliver 的复制 DXF**。
-- **S4-c（deliver 保留）**：building.json 汇总，但 zones[] 的 DXF 指针从「deliver/ 文件路径 + sha256」
-  改为「**平台模型 modelId**」。
+- **S4-c（agent 组装，`aidxfv3 deliver` 已退役 ✅）**：building.json 由 agent 组装（读 plan.json +
+  各 zone modelId）→ `deliver_building` 工具落 PlanStore——zones[] 记「**平台模型 modelId**」。
+  **`aidxfv3 deliver` 命令已退役**（复制 DXF→S4-b、building.json→agent 组装，deliver.py 不知道
+  agent init_model 的 modelId）。
 
 **前置已完成（2026-08-21）**：services/cad 沙箱接入共享画法层（archdxf + dxfkit，dist 单一事实源，
 零版本差异）——沙箱可同时 import cad_script_lib（用户编辑线）与 dxfkit.draw/archdxf（skill 固化
@@ -479,7 +481,7 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 | **P0-2a** | **skill 工作区地基**（`{DATA}/skill-work/{projectID}`，projectId 隔离 + get_skill_workdir 工具 + persona 注入 + 级联清理） | —（agent 配置，非 skill 文档） | ✅ 已完成 | `a6a5ea5` |
 | **P0-2** | **S4-b 每 zone 注册平台模型**——**复用 tools.go 现有工具链（init_model+stage_script+run_script+save_script），零新代码**（LLM 按 cadAgentPersona 对每 zone 调） | `steps/step-04-deliver.md`、`references/machine_contract.md`、`references/orchestrator/dispatch.md`（S4 交付改造 + skill-work 工作区 + deliver 后清理） | ✅ 文档完成；**代码零新增**（复用现有工具链） | `9478511` |
 | **P0-2b** | **aiplan 交付对齐**（deliver_plan/deliverPlanCore 已有——代码不动） | `skills/aiplan/SKILL.md`、`steps/step-02-deliver.md`、`steps/step-00-ingest.md`（交付 deliverPlanCore + PlanStore 版本化 + 工作区 skill-work/{projectID}/aiplan/ + deliver 后清理） | ✅ 文档完成 | `5679db5` |
-| **P0-3** | **S4-c building.json agent 组装 + 交付工具**——agent（LLM）组装 building.json（读 plan.json + 各 zone modelId），经新工具 **deliver_building** 落 PlanStore（plans/{projectID}/building.json 版本化）；**get_project_plans 扩展读 building.json**（ifc 拿 zones→modelId 映射）。**deliver.py 退役/纯校验**（building.json 不由它产——它不知道 agent init_model 的 modelId） | `references/schemas/building.schema.json`（zones[] 记 modelId）、`steps/step-04-deliver.md`（S4-c building.json agent 组装）、`references/machine_contract.md`（building 契约） | 🔧 待做（代码：deliver_building 工具 + get_project_plans 扩展 + building.schema） | — |
+| **P0-3** | **S4-c building.json agent 组装 + 交付工具**——agent（LLM）组装 building.json（读 plan.json + 各 zone modelId），经新工具 **deliver_building** 落 PlanStore（plans/{projectID}/building.json 版本化）；**get_project_plans 扩展读全部方案产物（plan+bim+building，building 容忍缺失）**（ifc 拿 zones→modelId 映射）。**`aidxfv3 deliver` 命令已退役 ✅**（复制 DXF→S4-b script 工具链、building.json→agent 组装——deliver.py 不知道 agent init_model 的 modelId） | `references/schemas/building.schema.json`（zones[] 记 modelId）、`steps/step-04-deliver.md`（S4-c building.json agent 组装 ✅）、`references/machine_contract.md`（building 契约 ✅） | 🔧 待做（代码：deliver_building 工具 + get_project_plans 扩展 + building.schema）；文档 + deliver 退役 ✅ | `45bc5c4`（退役） |
 
 **P0 验收**：cad->ifc 管线跑到 ifc 阶段，ifc-agent 能正确拿到 bim_supplement.json + building.json（含 modelId）+ 各 zone DXF 平台模型（文件层面），不解析。
 
