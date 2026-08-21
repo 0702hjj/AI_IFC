@@ -437,7 +437,8 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 | 波次 | 代码改造 | skill 文档同步更新 | 产出/状态 | commit |
 |---|---|---|---|---|
 | **P0-1** | **draw 调用序列记录 + build() 脚本固化**（S4-a，唯一新增） | `SKILL.md`（S2 画时记录说明 ✅ 已改）、`references/draw_composition.md`（出口加 record 记录+固化）、`references/machine_contract.md`（record 契约） | ✅ 代码完成（record.py，8 测试+沙箱端到端）；**文档部分残留**（draw_composition/machine_contract 待更新） | `45ec6e3` |
-| **P0-2** | **S4-b 每 zone 注册平台模型**（init_model 前置 + stage/run/save 编排——复用现有 script 工具链） | `steps/step-04-deliver.md`（重写为 S4 交付改造，删复制 DXF 旧逻辑）、`references/machine_contract.md`（deliver 契约：不再复制 DXF）、`references/orchestrator/dispatch.md`（编排加 init_model + script 工具链）、`SKILL.md`（S4 行 ✅ 已改） | 🔧 待做（代码 + 文档） | — |
+| **P0-2a** | **skill 工作区地基**（`{DATA}/skill-work/{projectID}`，projectId 隔离 + get_skill_workdir 工具 + persona 注入 + 级联清理） | —（agent 配置，非 skill 文档） | ✅ 已完成（工作区隔离/工具/persona/级联测试） | `a6a5ea5` |
+| **P0-2** | **S4-b 每 zone 注册平台模型**（init_model 前置 + stage/run/save 编排——复用现有 script 工具链） | `steps/step-04-deliver.md`（重写为 S4 交付改造，删复制 DXF 旧逻辑）、`references/machine_contract.md`（deliver 契约 + `<project>`→skill-work/{projectID}）、`references/orchestrator/dispatch.md`（编排加 init_model + script 工具链）、`SKILL.md`（S4 行 ✅ 已改） | 🔧 待做（代码 + 文档） | — |
 | **P0-3** | **S4-c building.json 指针改 modelId + cad→ifc 传递** | `references/schemas/building.schema.json`（zones[] DXF 指针从文件路径+sha256 改 modelId）、`steps/step-04-deliver.md`（S4-c building.json）、`references/machine_contract.md`（building 契约） | 🔧 待做（代码 + 文档） | — |
 
 **P0 验收**：cad->ifc 管线跑到 ifc 阶段，ifc-agent 能正确拿到 bim_supplement.json + building.json（含 modelId）+ 各 zone DXF 平台模型（文件层面），不解析。
@@ -452,10 +453,10 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 |---|---|---|---|
 | `SKILL.md` | S4 行「building.json + 逐层 DXF + 封存 rooms」；中段「复制 DXF」 | S4-a 固化→S4-b 注册平台模型（modelId）→S4-c building.json 记 modelId | P0-1/P0-2（✅ 已改） |
 | `steps/step-04-deliver.md` | `aidxfv3 deliver` 复制 `deliver/<floor>.dxf` + `<floor>.rooms.json` + building.json（checksums） | S4 交付改造三子步：S4-a 固化 build() 脚本 / S4-b init_model+script 工具链注册 / S4-c building.json 记 modelId | P0-2 |
-| `references/machine_contract.md` | deliver 扫 missions → 复制 DXF 到 deliver/ + building.json（sha256） | deliver 不再复制 DXF（被 script 工具链替代）；record 固化契约 + modelId 指针 | P0-1（record）/P0-2（deliver）/P0-3（building） |
+| `references/machine_contract.md` | deliver 扫 missions → 复制 DXF 到 deliver/ + building.json（sha256）；**`<project>` 任意目录** | deliver 不再复制 DXF（被 script 工具链替代）；record 固化契约 + modelId 指针；**`<project>` = `{DATA}/skill-work/{projectID}`（agent 注入的项目工作区，P0-2a 地基）** | P0-1（record）/P0-2（deliver + 工作区）/P0-3（building） |
 | `references/draw_composition.md` | 出口 `doc.saveas("floor.dxf")`（无 record/固化） | 出口加 record 记录（LLM 画时机器记录调用序列）→ S4-a 固化 build() 脚本（draw_api 不变） | P0-1 |
 | `references/schemas/building.schema.json` | zones[] 记 `dxf`（文件路径）+ `sha256` | zones[] 记 `modelId`（平台模型指针，替代文件路径） | P0-3 |
-| `references/orchestrator/dispatch.md` | 编排无 init_model/script 工具链 | 编排加 S4-b：init_model + stage/run/save 注册平台模型环节 | P0-2 |
+| `references/orchestrator/dispatch.md` | 编排无 init_model/script 工具链；`<project>` 任意 | 编排加 S4-b：init_model + stage/run/save 注册平台模型环节；`<project>` = skill-work/{projectID} | P0-2 |
 
 **清理纪律**：
 1. **同波同步**：改代码的同一波次更新对应文档（文档随代码 commit 同波落地，不滞后）。
@@ -479,6 +480,8 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
   ↓（沙箱能跑 draw 链 build()）
 P0-1（draw 固化 build() 脚本）✅ 代码 / 🔧 文档残留（draw_composition/machine_contract record 契约）
   ↓（有 build() 脚本才能进沙箱注册）
+P0-2a（skill 工作区地基 skill-work/{projectID}）✅ ← projectId 隔离 + get_skill_workdir + persona + 级联
+  ↓（工作区定了中间产物落盘根）
 P0-2（init_model + script 工具链注册平台模型）🔧 ← 当前（代码 + step-04/deliver 契约/dispatch 文档）
   ↓（注册平台模型后产物可经 modelId 传递）
 P0-3（building.json 记 modelId + 传递）🔧（代码 + building.schema/deliver 文档）
@@ -486,6 +489,8 @@ P0-3（building.json 记 modelId + 传递）🔧（代码 + building.schema/deli
 P1（编排契约）→ P2（aiifc 解析消费）
 ```
 
-> 当前进度：前置 ✅ + P0-1 代码 ✅（文档残留见 §6.1，随 P0-1 同波补 draw_composition/machine_contract
-> record 契约）。**下一步 P0-2**（S4-b 注册平台模型 + 同波更新 step-04/deliver 契约/dispatch）。
+> 当前进度：前置 ✅ + P0-1 代码 ✅ + **P0-2a 工作区地基 ✅**（`a6a5ea5`：skill-work/{projectID}
+> projectId 隔离 + get_skill_workdir 工具 + persona 注入 + 级联清理）。
+> **下一步 P0-2**（S4-b 注册平台模型 + 同波更新 step-04/deliver 契约/dispatch——`<project>` 落盘位置
+> 改为 skill-work/{projectID}，见 §6.1）。
 > **每个波次代码与 skill 文档同步落地**（§6.1 清单，避免文档残留旧逻辑不适配）。
