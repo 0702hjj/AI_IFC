@@ -131,12 +131,13 @@ func (h *ChatHandler) AgentToolDeps() agent.ToolDeps {
 		CreateProject: h.createProjectForAgentTool,
 		InitModel:     h.initModelForAgentTool,
 		// D2 项目/方案域
-		SessionProject: h.sessionBoundProject,
-		ProjectModels:  h.projectModelsForAgent,
-		PlanGet:        h.planGetForAgent,
-		PlanDeliver:    h.planDeliverForAgent,
-		SkillWorkDir:   h.skillWorkDirForAgent,
-		PlanToWorkdir:  h.planToWorkdirForAgent,
+		SessionProject:  h.sessionBoundProject,
+		ProjectModels:   h.projectModelsForAgent,
+		PlanGet:         h.planGetForAgent,
+		PlanDeliver:     h.planDeliverForAgent,
+		BuildingDeliver: h.buildingDeliverForAgent,
+		SkillWorkDir:    h.skillWorkDirForAgent,
+		PlanToWorkdir:   h.planToWorkdirForAgent,
 	}
 }
 
@@ -235,6 +236,20 @@ func (h *ChatHandler) planDeliverForAgent(ctx context.Context, projectID, plan, 
 	return h.deliverPlanCore(ctx, projectID, []byte(plan), []byte(bimSupplement))
 }
 
+// buildingDeliverForAgent 交付 building.json（aidxf S4-c：agent 组装 plan 形态整栋楼 +
+// zones 记 modelId）→ PlanStore 版本化 plans/{projectID}/building.json。
+// 与 deliver_plan 同构但独立（building 不走 aiplan land——agent 组装直接 Put）。
+func (h *ChatHandler) buildingDeliverForAgent(ctx context.Context, projectID, building string) (map[string]any, error) {
+	if h.deps.PlanSt == nil {
+		return nil, fmt.Errorf("方案存储未配置")
+	}
+	ver, err := h.deps.PlanSt.Put(projectID, "building.json", []byte(building))
+	if err != nil {
+		return nil, fmt.Errorf("building.json 版本化: %w", err)
+	}
+	return map[string]any{"projectId": projectID, "buildingVersion": ver}, nil
+}
+
 // DomainTools 产出 chat agent 的领域工具集（main 装配：agent.WithTools）。
 func (h *ChatHandler) DomainTools() []tool.BaseTool {
 	return agent.AsBaseTools(agent.DomainTools(h.AgentToolDeps()))
@@ -258,6 +273,7 @@ func (h *ChatHandler) SetAgents(agents map[string]*agent.Agent) {
 // agentForSession 按会话绑定的项目类型路由主 agent：
 //   - 项目会话（ProjectID）→ Project.Kind → Agents[kind]；未分化（缺 map/该 kind）落默认 Ag
 //   - 模型会话/无绑定 → 默认 Ag
+//
 // 历史项目会话（重启后从 chat-sessions.json 恢复）同样按 ProjectID 命中——kind
 // 决定 AgentAsTool 选择性装配 + persona + aiplan，会话恢复不落回默认全装。
 func (h *ChatHandler) agentForSession(cs *chatSession) *agent.Agent {

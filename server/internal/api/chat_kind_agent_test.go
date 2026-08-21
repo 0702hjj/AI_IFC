@@ -275,3 +275,28 @@ func TestPlanToWorkdirForAgent(t *testing.T) {
 		t.Errorf("bim_supplement.json 落盘内容不一致: %v got %q", err, gotBim)
 	}
 }
+
+// TestBuildingDeliverForAgent building.json 交付：PlanStore 版本化 plans/{projectID}/building.json。
+func TestBuildingDeliverForAgent(t *testing.T) {
+	h, ps := newKindAgentHandler(t)
+	p, _ := ps.CreateWithKind("项目", "cad")
+	if h.deps.PlanSt == nil {
+		h.deps.PlanSt = store.NewPlanStore(h.deps.DataDir)
+	}
+	building := `{"project":"` + p.ID + `","zones":[{"zone":"f1","modelId":"m_abc"}]}`
+	v, err := h.buildingDeliverForAgent(context.Background(), p.ID, building)
+	if err != nil {
+		t.Fatalf("buildingDeliverForAgent: %v", err)
+	}
+	if v["buildingVersion"] == nil || v["buildingVersion"] == "" {
+		t.Errorf("应返回 buildingVersion: %v", v)
+	}
+	// PlanStore 可读回（版本化 plans/{projectID}/building.json）
+	got, err := h.deps.PlanSt.Get(p.ID, "building.json")
+	if err != nil {
+		t.Fatalf("building.json 未落 PlanStore: %v", err)
+	}
+	if !strings.Contains(string(got), "m_abc") {
+		t.Errorf("building.json 内容不一致: %s", got)
+	}
+}

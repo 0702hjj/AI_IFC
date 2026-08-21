@@ -149,7 +149,7 @@ func TestDomainToolsRegistered(t *testing.T) {
 	want := []string{
 		"list_models", "get_model_info", "get_script", "stage_script", "run_script",
 		"save_script", "get_versions", "get_diff", "create_project",
-		"get_project_plans", "deliver_plan", "get_project_models", "get_skill_workdir",
+		"get_project_plans", "deliver_plan", "deliver_building", "get_project_models", "get_skill_workdir",
 		"stage_plan_to_workdir",
 		"get_script_locate", "edit_script_call", "init_model",
 	}
@@ -507,3 +507,69 @@ func TestStagePlanToWorkdirToolUnconfigured(t *testing.T) {
 		t.Fatalf("未绑项目/未配置应文本错误, got %s", out)
 	}
 }
+
+// TestDeliverBuildingTool deliver_building：agent 组装 building.json → 交付（返回 buildingVersion）。
+func TestDeliverBuildingTool(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	deps.SessionProject = func(ctx context.Context) string { return "p_x" }
+	var gotBuilding string
+	deps.BuildingDeliver = func(ctx context.Context, projectID, building string) (map[string]any, error) {
+		gotBuilding = building
+		return map[string]any{"projectId": projectID, "buildingVersion": "v1"}, nil
+	}
+	out := invoke(t, DomainTools(deps), "deliver_building", `{"building":{"zones":[{"zone":"f1","modelId":"m_1"}]}}`)
+	if !strings.Contains(out, "buildingVersion") {
+		t.Fatalf("deliver_building 输出应含 buildingVersion, got %s", out)
+	}
+	if !strings.Contains(gotBuilding, "m_1") {
+		t.Fatalf("deliver_building 应透传 agent 组装的 building 内容, got %s", gotBuilding)
+	}
+}
+
+// TestGetProjectPlansWithBuilding get_project_plans 扩展：读 plan+bim+building（building 容忍缺失）。
+func TestGetProjectPlansWithBuilding(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	deps.SessionProject = func(ctx context.Context) string { return "p_x" }
+	deps.PlanGet = func(ctx context.Context, projectID, name string) (string, error) {
+		switch name {
+		case "plan.json":
+			return `{"task":"plan"}`, nil
+		case "bim_supplement.json":
+			return `{"roof":"flat"}`, nil
+		case "building.json":
+			return `{"zones":[{"modelId":"m_1"}]}`, nil
+		}
+		return "", nil
+	}
+	out := invoke(t, DomainTools(deps), "get_project_plans", `{}`)
+	if !strings.Contains(out, `"building"`) || !strings.Contains(out, "m_1") {
+		t.Fatalf("get_project_plans 应含 building 字段（zones 记 modelId）, got %s", out)
+	}
+	if !strings.Contains(out, `"plan"`) || !strings.Contains(out, `"bimSupplement"`) {
+		t.Fatalf("get_project_plans 应仍含 plan + bimSupplement, got %s", out)
+	}
+}
+
+// TestGetProjectPlansBuildingMissing get_project_plans：building 缺失时容忍（不含该字段，不报错）。
+func TestGetProjectPlansBuildingMissing(t *testing.T) {
+	deps, _, _, _ := newToolFixture(t)
+	deps.SessionProject = func(ctx context.Context) string { return "p_x" }
+	deps.PlanGet = func(ctx context.Context, projectID, name string) (string, error) {
+		if name == "building.json" {
+			return "", &missingErr{}
+		}
+		return `{"x":1}`, nil
+	}
+	out := invoke(t, DomainTools(deps), "get_project_plans", `{}`)
+	// building 缺失 → 不含 building 字段（容忍），但 plan/bim 正常返回
+	if strings.Contains(out, `"building"`) {
+		t.Fatalf("building 缺失时不应含 building 字段, got %s", out)
+	}
+	if !strings.Contains(out, `"plan"`) {
+		t.Fatalf("building 缺失时 plan/bim 应正常返回, got %s", out)
+	}
+}
+
+type missingErr struct{}
+
+func (e *missingErr) Error() string { return "not found" }

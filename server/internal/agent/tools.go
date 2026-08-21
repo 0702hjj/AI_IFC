@@ -61,6 +61,9 @@ type ToolDeps struct {
 	// PlanDeliver 触发 plan 交付（B2：aiplan land → 落方案级目录），
 	// 返回 {planVersion, bimVersion}；可空。
 	PlanDeliver func(ctx context.Context, projectID, plan, bimSupplement string) (map[string]any, error)
+	// BuildingDeliver 交付 building.json（aidxf S4-c：agent 组装 plan 形态整栋楼 + zones 记
+	// modelId）→ PlanStore 版本化 plans/{projectID}/building.json，返回 {buildingVersion}；可空。
+	BuildingDeliver func(ctx context.Context, projectID, building string) (map[string]any, error)
 	// SkillWorkDir 返回项目 skill 工作区绝对路径（{DATA}/skill-work/{projectID}，
 	// 首次调用 MkdirAll；projectId 隔离多项目不混淆）——aidxf 中间产物
 	// （derived/missions/deliver）落盘根，复用 plans/{projectID} 的 projectId 隔离地基；可空。
@@ -109,7 +112,6 @@ func (d ToolDeps) resolve(ctx context.Context, modelID string) (*store.Model, *e
 	}
 	return m, cl, ""
 }
-
 
 // mustTool 构造 InferTool；schema 是静态的，构造失败即程序员错误，启动期直接 panic
 // （同 http.ServeMux 冲突 panic 语义），不拖错误签名污染 DomainTools 契约。
@@ -265,7 +267,7 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				return toolJSON(v), nil
 			}),
 
-		mustTool("get_project_plans", "读项目方案产物当前态（plan.json / bim_supplement.json）——plan 是任务书（对接 cad/bim），先读它再决定派发",
+		mustTool("get_project_plans", "读项目方案产物当前态（plan.json / bim_supplement.json / building.json）——plan 是任务书（对接 cad），bim_supplement 是 BIM 补充（对接 bim），building 是 aidxf 交付的整栋楼（zones 记 modelId，对接 ifc；早期无 building 时不含该字段）",
 			func(ctx context.Context, in projectRefReq) (string, error) {
 				projectID := resolveProjectID(ctx, deps, in.ProjectID)
 				if projectID == "" {
@@ -282,9 +284,14 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				if err != nil {
 					return toolErr(err), nil
 				}
-				return toolJSON(map[string]any{
+				out := map[string]any{
 					"projectId": projectID, "plan": json.RawMessage(plan), "bimSupplement": json.RawMessage(bim),
-				}), nil
+				}
+				// building.json 容忍缺失（aidxf S4-c 交付后才有；缺失时不含该字段，不报错）。
+				if building, berr := deps.PlanGet(ctx, projectID, "building.json"); berr == nil {
+					out["building"] = json.RawMessage(building)
+				}
+				return toolJSON(out), nil
 			}),
 
 		mustTool("deliver_plan", "执行 plan 交付（aiplan land → 方案级目录版本化）：body 传 plan + bimSupplement（可从 get_project_plans 读后修改再交）",
@@ -297,6 +304,22 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 					return "deliver_plan 未配置（装配缺失）", nil
 				}
 				v, err := deps.PlanDeliver(ctx, projectID, string(in.Plan), string(in.BimSupplement))
+				if err != nil {
+					return toolErr(err), nil
+				}
+				return toolJSON(v), nil
+			}),
+
+		mustTool("deliver_building", "交付 building.json（aidxf S4-c：你组装 plan 形态整栋楼 + zones 记 modelId——读 get_project_plans 的 plan.json + 各 zone init_model 的 modelId 组装）→ 方案库版本化 plans/{projectID}/building.json。building 不由 CLI deliver 产（它不知道你的 modelId）",
+			func(ctx context.Context, in deliverBuildingReq) (string, error) {
+				projectID := resolveProjectID(ctx, deps, in.ProjectID)
+				if projectID == "" {
+					return "未指定 projectId，且当前会话未绑定项目——请先 create_project 或在绑定项目的会话中重试", nil
+				}
+				if deps.BuildingDeliver == nil {
+					return "deliver_building 未配置（装配缺失）", nil
+				}
+				v, err := deps.BuildingDeliver(ctx, projectID, string(in.Building))
 				if err != nil {
 					return toolErr(err), nil
 				}

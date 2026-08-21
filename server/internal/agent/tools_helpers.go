@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"strings"
 
-
 	"ifcviewer/server/internal/editsvc"
 )
 
@@ -97,6 +96,7 @@ func toolRaw(raw json.RawMessage, err error) (string, error) {
 	}
 	return truncateToolResult(string(raw)), nil
 }
+
 // --- 工具参数 schema（jsonschema tag 即模型可见的参数说明） ---
 
 type emptyReq struct{}
@@ -145,6 +145,12 @@ type deliverPlanReq struct {
 	BimSupplement json.RawMessage `json:"bimSupplement,omitempty" jsonschema:"description=bim_supplement.json 内容（对象，可空）"`
 }
 
+// deliverBuildingReq 是 deliver_building 入参（agent 组装的 building.json 内容）。
+type deliverBuildingReq struct {
+	ProjectID string          `json:"projectId,omitempty" jsonschema:"description=项目 id（p_...；缺省用当前会话绑定项目）"`
+	Building  json.RawMessage `json:"building" jsonschema:"required,description=building.json 内容（agent 组装：plan 形态整栋楼 + zones 记 modelId）"`
+}
+
 // locateReq 是调用点定位入参（XDATA key）。
 type locateReq struct {
 	Key     string `json:"key" jsonschema:"required,description=XDATA 稳定 key（如 0:line:1，从 render.json 实体选中获得）"`
@@ -160,9 +166,10 @@ type editCallReq struct {
 }
 
 // combineModelVersions 组合模型大版本视图（参考 mcp model_versions）：
-//   versions = IFC 快照大版本（GET /models/{id}/versions）+ scripts = 构建脚本版本
-//   （GET /models/{id}/scripts）+ current = 当前版本。统一一套工具返回两种视角，
-//   避免与 mcp model_versions 双套工具混淆。
+//
+//	versions = IFC 快照大版本（GET /models/{id}/versions）+ scripts = 构建脚本版本
+//	（GET /models/{id}/scripts）+ current = 当前版本。统一一套工具返回两种视角，
+//	避免与 mcp model_versions 双套工具混淆。
 func combineModelVersions(ctx context.Context, cl *editsvc.Client, modelID string) (string, error) {
 	versionsRaw, err := cl.Do(ctx, http.MethodGet, "/models/"+modelID+"/versions", nil)
 	if err != nil {
@@ -181,9 +188,10 @@ func combineModelVersions(ctx context.Context, cl *editsvc.Client, modelID strin
 }
 
 // combineModelDiff 组合模型大版本 diff（参考 mcp model_diff）：
-//   ifc = IFC 语义 diff（POST /models/{id}/diff，构件增删改，GlobalId 键）+
-//   script = 构建脚本 diff（POST /models/{id}/script/diff，text_diff+PARAMS 变化）。
-//   统一一套工具返回两种视角，避免与 mcp model_diff 双套工具混淆。
+//
+//	ifc = IFC 语义 diff（POST /models/{id}/diff，构件增删改，GlobalId 键）+
+//	script = 构建脚本 diff（POST /models/{id}/script/diff，text_diff+PARAMS 变化）。
+//	统一一套工具返回两种视角，避免与 mcp model_diff 双套工具混淆。
 func combineModelDiff(ctx context.Context, cl *editsvc.Client, modelID, base, target string) (string, error) {
 	body, _ := json.Marshal(map[string]string{"base": base, "target": target})
 	ifcRaw, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/diff", body)
