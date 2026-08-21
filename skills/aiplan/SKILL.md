@@ -85,10 +85,18 @@ plan 是 AI BIM 管线的**入口**：外部资料对接 → 关键参数框定 
 |---|---|---|
 | 0 摄取归一化 | `steps/step-00-ingest.md` | 外部资料 → 意图卡片 + 缺口清单 |
 | 1 渐进设计对话 | `steps/step-01-design.md`（骨架）+ `step-01a-rounds.md`（4 轮细则）+ `step-01b-protocol.md`（协议） | 意图卡片 → **全锁定设计草案**（4 轮渐进：骨架→几何→功能→结构空间，边设计边确认可回退，question 工具弹选择框，本 skill 核心；设计方向确认前不画几何） |
-| 2 生成落盘 | `steps/step-02-deliver.md` | 全锁定草案 → plan.json + bim_supplement.json（过门禁 + canon + sha256 互指）→ 成对落盘 `{workspace}/plan/` + 双下游告知 |
+| 2 生成落盘 | `steps/step-02-deliver.md` | 全锁定草案 → plan.json + bim_supplement.json（过门禁 + canon + sha256 互指）→ **平台内：deliver_plan 工具交付（PlanStore 版本化 plans/{projectID}/）**；独立使用：成对落盘 `{workspace}/plan/` + 双下游告知 |
 
 从 step 0 开始；step 0 用 `aiplan route <workspace>` 判定路由（中断恢复）：
 已冻结 → 直进 step 2 校验；不存在 → 走完整 P0→P2。
+
+> **工作区（平台内，2026-08-21 起）**：aiplan 的中间产物（design_intent/normalized/run 过程态）
+> 落 **`{DATA}/skill-work/{projectID}/aiplan/`**（先 `get_skill_workdir` 拿绝对路径，projectId 隔离
+> 多项目不混淆）——`aiplan route <workspace>` 的 `<workspace>` 用它。交付走 **deliver_plan 工具**
+> （agent 提供：临时区 land → PlanStore 版本化 `plans/{projectID}/`），deliver 后清理中间产物
+> （再次修改走 deliver_plan 读 get_project_plans 当前态改了重交，不依赖过程残留）。
+> **自包含纪律保留**：独立使用时 land 仍可落任意 `{workspace}/plan/`（skill 可迁移）；平台内
+> 交付走 deliver_plan 工具链——见 `steps/step-02-deliver.md`。
 
 ## 工具命令（统一入口 `aiplan <group> <cmd>`，子命令分组）
 

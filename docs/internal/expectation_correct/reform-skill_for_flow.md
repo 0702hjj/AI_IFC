@@ -445,9 +445,10 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 
 | 波次 | 代码改造 | skill 文档同步更新 | 产出/状态 | commit |
 |---|---|---|---|---|
-| **P0-1** | **draw 调用序列记录 + build() 脚本固化**（S4-a，唯一新增） | `SKILL.md`（S2 画时记录说明 ✅ 已改）、`references/draw_composition.md`（出口加 record 记录+固化）、`references/machine_contract.md`（record 契约） | ✅ 代码完成（record.py，8 测试+沙箱端到端）；**文档部分残留**（draw_composition/machine_contract 待更新） | `45ec6e3` |
-| **P0-2a** | **skill 工作区地基**（`{DATA}/skill-work/{projectID}`，projectId 隔离 + get_skill_workdir 工具 + persona 注入 + 级联清理） | —（agent 配置，非 skill 文档） | ✅ 已完成（工作区隔离/工具/persona/级联测试） | `a6a5ea5` |
-| **P0-2** | **S4-b 每 zone 注册平台模型**（init_model 前置 + stage/run/save 编排——复用现有 script 工具链） | `steps/step-04-deliver.md`（重写为 S4 交付改造，删复制 DXF 旧逻辑）、`references/machine_contract.md`（deliver 契约 + `<project>`→skill-work/{projectID}）、`references/orchestrator/dispatch.md`（编排加 init_model + script 工具链）、`SKILL.md`（S4 行 ✅ 已改） | 🔧 待做（代码 + 文档） | — |
+| **P0-1** | **draw 调用序列记录 + build() 脚本固化**（S4-a，唯一新增） | `SKILL.md`、`references/draw_composition.md`、`references/machine_contract.md`、`references/draw_api.md`（record 契约） | ✅ 代码 + 文档完成 | `45ec6e3`/`9478511` |
+| **P0-2a** | **skill 工作区地基**（`{DATA}/skill-work/{projectID}`，projectId 隔离 + get_skill_workdir 工具 + persona 注入 + 级联清理） | —（agent 配置，非 skill 文档） | ✅ 已完成 | `a6a5ea5` |
+| **P0-2** | **S4-b 每 zone 注册平台模型**（init_model 前置 + stage/run/save 编排——复用现有 script 工具链） | `steps/step-04-deliver.md`、`references/machine_contract.md`、`references/orchestrator/dispatch.md`（S4 交付改造 + skill-work 工作区 + deliver 后清理） | ✅ 文档完成（deliver.py 代码下一轮） | `9478511` |
+| **P0-2b** | **aiplan 交付对齐**（deliver_plan/deliverPlanCore 已有——代码不动） | `skills/aiplan/SKILL.md`、`steps/step-02-deliver.md`、`steps/step-00-ingest.md`（交付 deliverPlanCore + PlanStore 版本化 + 工作区 skill-work/{projectID}/aiplan/ + deliver 后清理） | 🔧 文档待做 | — |
 | **P0-3** | **S4-c building.json 指针改 modelId + cad→ifc 传递** | `references/schemas/building.schema.json`（zones[] DXF 指针从文件路径+sha256 改 modelId）、`steps/step-04-deliver.md`（S4-c building.json）、`references/machine_contract.md`（building 契约） | 🔧 待做（代码 + 文档） | — |
 
 **P0 验收**：cad->ifc 管线跑到 ifc 阶段，ifc-agent 能正确拿到 bim_supplement.json + building.json（含 modelId）+ 各 zone DXF 平台模型（文件层面），不解析。
@@ -467,6 +468,26 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 | `references/draw_api.md` | 画图流程无 record 步骤 | 流程加 ⓪ record.start+wrap 开记录 + ⑤ record.to_build_script 固化（draw_api 能力规范不变） | P0-1（✅ 已改） |
 | `references/schemas/building.schema.json` | zones[] 记 `dxf`（文件路径）+ `sha256` | zones[] 记 `modelId`（平台模型指针，替代文件路径） | P0-3（🔧 待改） |
 | `references/orchestrator/dispatch.md` | 编排无 init_model/script 工具链；`<project>` 任意 | 编排加 建造段 record 开记录/固化 + S4-b init_model/script 工具链注册；`<project>` = skill-work/{projectID} | P0-2（✅ 已改） |
+
+### 6.2 aiplan 文档残留（P0-2b——交付 deliverPlanCore 已有，文档对齐）
+
+> aiplan 的 agent 适配（`deliver_plan` 工具 → deliverPlanCore → PlanStore 版本化 `plans/{projectID}/`）
+> 已完善，但 **aiplan skill 文档还是旧逻辑**（land 落 `{workspace}/plan/` 自包含工作区，没对齐
+> deliver_plan 工具链 + PlanStore 版本化 + skill-work 工作区 + deliver 后清理）——同样流程对齐 aidxf。
+
+| 文档 | 旧逻辑残留 | 当前接口（改为） | 状态 |
+|---|---|---|---|
+| `skills/aiplan/SKILL.md` | step 2 落盘 `{workspace}/plan/`（自包含）；无 deliver_plan/工作区/清理 | step 2 交付 = **deliver_plan 工具**（deliverPlanCore → PlanStore 版本化 `plans/{projectID}/`）；中间产物 skill-work/{projectID}/aiplan/；deliver 后清理（再次修改走 deliver_plan 读当前态重交） | 🔧 待改 |
+| `skills/aiplan/steps/step-02-deliver.md` | `aiplan land --outdir {workspace}/plan/`（run 目录落自包含工作区） | 交付走 deliver_plan 工具（agent 提供）；land 经 deliverPlanCore（临时区 → PlanStore）；工作区 skill-work/{projectID}/aiplan/；deliver 后清理 | 🔧 待改 |
+| `skills/aiplan/steps/step-00-ingest.md` | `aiplan route <workspace>`（自包含工作区） | `aiplan route skill-work/{projectID}/aiplan/`（get_skill_workdir 拿，projectId 隔离） | 🔧 待改 |
+
+**决策（2026-08-21 用户敲定）**：
+- **交付路径**：中间产物 skill-work/{projectID}/aiplan/（与 aidxf 同一工作区根，projectId 隔离）；
+  交付 deliver_plan 走现有 deliverPlanCore（PlanStore 版本化 plans/{projectID}/）——代码不动，文档对齐。
+- **deliver 后清理**：与 aidxf 一致——deliver_plan 后清理 aiplan 过程产物（design_intent/normalized/
+  run 过程态）；再次修改走 deliver_plan（从 get_project_plans 读当前态改了重交），不依赖过程残留。
+- **自包含纪律保留**：aiplan 独立使用时 land 仍可落任意目录（自包含可迁移）；平台内交付走
+  deliver_plan 工具链——文档区分「独立使用」vs「平台内」。
 
 **清理纪律**：
 1. **同波同步**：改代码的同一波次更新对应文档（文档随代码 commit 同波落地，不滞后）。
