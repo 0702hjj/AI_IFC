@@ -132,15 +132,83 @@ def _floors(building: dict, bim: dict, dxf_dir: Path) -> dict:
 def _floor_from_zone(zone: dict, floor_no: int, bim: dict, dxf_dir: Path) -> dict:
     """单楼层：walls/openings（DXF 精确几何）+ roof（bim 补充，仅顶层）。
 
-    【P2 细化】DXF → walls/openings 的精确几何解析（outline/core/墙/房间/门窗 →
-    axis/沿轴洞口）——当前骨架返回空墙/洞（P2 经 dxf_dir + zones[].modelId 读 DXF 解析填充）。
+    DXF 精确几何直用：readback 解析 zone DXF →
+      wall_segments（直墙段）→ walls（axis 折线 + t + kind）
+      wall_arcs（曲线墙）→ walls（arc 形态：center/r/a0/a1）
+      windows/doors（沿墙 at/width）→ openings（wall + along + w + type）
+      outline → slabs.profile
     """
     floor: dict = {"walls": [], "openings": [], "slabs": [], "stairs": []}
-    # roof：bim_supplement 的屋顶/特殊结构 → 顶层 roof 字段（P2 经 bim 解析填充）
+    dxf_path = _zone_dxf_path(zone, dxf_dir)
+    if dxf_path is not None:
+        _fill_from_dxf(floor, dxf_path)
     roof = _roof_from_bim(bim, floor_no)
     if roof:
         floor["roof"] = roof
     return floor
+
+
+def _zone_dxf_path(zone: dict, dxf_dir: Path) -> Path | None:
+    """zone → DXF 路径（dxf_dir/<zone>.dxf；多 DXF 按 zone 名定位）。"""
+    zone_name = zone.get("zone", "")
+    for cand in (dxf_dir / f"{zone_name}.dxf", dxf_dir / "floor.dxf"):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _mm_to_m(v: float) -> float:
+    return round(v / 1000.0, 3)
+
+
+def _fill_from_dxf(floor: dict, dxf_path: Path) -> None:
+    """readback 解析 zone DXF → floors.walls/openings/slabs（精确几何直用，mm→m）。
+
+    语义对齐：
+      wall_segments（直墙段）→ walls axis 折线 + t + kind
+      wall_arcs（曲线墙 {center,radius,start/end_angle}）→ walls arc（center/r/a0/a1）
+      windows/doors（沿墙 at/width）→ openings（wall + along + w + type）
+      outline → slabs.profile
+    """
+    from dxfkit.readback import readback
+    rb = readback(str(dxf_path))
+    walls: list = []
+    for i, seg in enumerate(rb.get("wall_segments", [])):
+        (x1, y1), (x2, y2) = seg[0], seg[1]
+        walls.append({
+            "axis": [[_mm_to_m(x1), _mm_to_m(y1)], [_mm_to_m(x2), _mm_to_m(y2)]],
+            "t": 0.2, "kind": "int", "key": f"wall:{i}",
+        })
+    for j, arc in enumerate(rb.get("wall_arcs", []) or []):
+        walls.append({
+            "arc": {
+                "center": [_mm_to_m(arc["center"][0]), _mm_to_m(arc["center"][1])],
+                "r": _mm_to_m(arc["radius"]),
+                "a0": arc["start_angle"], "a1": arc["end_angle"],
+            },
+            "t": 0.2, "kind": "int", "key": f"wall_arc:{j}",
+        })
+    floor["walls"] = walls
+    openings: list = []
+    for k, w in enumerate(rb.get("windows", [])):
+        at = w.get("at", [0, 0])
+        openings.append({
+            "wall": 0, "along": _mm_to_m(at[0]), "w": _mm_to_m(w.get("width_mm", 1500)),
+            "h": 1.5, "sill": 0.9, "type": "window", "key": f"opening:win:{k}",
+        })
+    for k, d in enumerate(rb.get("doors", [])):
+        at = d.get("at", [0, 0])
+        openings.append({
+            "wall": 0, "along": _mm_to_m(at[0]), "w": _mm_to_m(d.get("width_mm", 900)),
+            "h": 2.1, "sill": 0.0, "type": "door", "key": f"opening:door:{k}",
+        })
+    floor["openings"] = openings
+    outline = rb.get("outline_mm") or []
+    if outline:
+        floor["slabs"] = [{
+            "profile": [[_mm_to_m(x), _mm_to_m(y)] for x, y in outline],
+            "t": 0.15, "key": "slab:0",
+        }]
 
 
 def _roof_from_bim(bim: dict, floor_no: int) -> dict | None:
