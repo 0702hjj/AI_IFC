@@ -92,6 +92,12 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
 ② 派发     orchestrator → AgentAsTool(ifc-agent)（只 ifc，不挂 aiplan）
             └→ ifc-agent 加载 aiifc skill（薄包 ifcopenshell 参考 + 建模纪律 + 脚本契约 MUST #25-31）
 
+②.5 前置设计（可选） aiifc 工作流 ① plan 草稿：design.json / plan.dxf（纯语义设计意图框定，
+            无坐标）——**ifc 独立管线专属**：ifc 管线无 aiplan 前置，aiifc 自己产 design.json
+            框定设计意图供用户确认（复杂平面/异形/多层时）。design.json 是辅助信息（非完整
+            表示、不进版本、不做 diff），确认后进入 script。与 aiplan plan.json 定位重复
+            （见 §2.5 产物定位），但 ifc 独立管线无 aiplan，需保留此前置设计能力。
+
 ③ 深化     ifc-agent 与用户对话 → 编辑模型（script-as-source）
             └→ get_script（读当前脚本）→ stage_script（暂存改）→ run_script（沙箱验证）→ save_script（落大版本）
             └→ 辅助：get_versions / get_diff（版本追溯）；get_script_locate / edit_script_call（选中定位改）
@@ -104,7 +110,7 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
 **业务连续性**：
 - 建项目即骨架初始化（modelId 绑定）→ 后续深化都在该骨架上 ✅
 - 骨架 → 深化连续（骨架脚本 v1 → 深化 save_script v2/v3/...）✅
-- aiifc 工作流编排（PLAN_DXF_IFC.md）：plan（可选）→ script（事实源）→ IFC（派生物）——ifc 管线是「script→IFC」主链（plan 可选草稿辅助确认意图，复杂时先产 design JSON 草稿）✅
+- aiifc 工作流编排（PLAN_DXF_IFC.md）：plan（可选）→ script（事实源）→ IFC（派生物）——ifc 独立管线是「design.json 草稿（可选）→ script→IFC」主链。design.json 前置设计**对 ifc 独立管线保留**（无 aiplan，aiifc 自己框定设计供确认；与 plan.json 定位重复但各有归属，见 §2.5）✅
 
 ### 2.3 cad 管线（plan → DXF：aiplan → aidxf）
 
@@ -119,7 +125,9 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
             └→ step 2 生成落盘（aiplan validate/gate/canon/land → plan.json + bim_supplement.json → deliver_plan 方案版本化）
 
 ③ 派发     orchestrator → AgentAsTool(cad-agent)（只 cad，不挂 aiplan skill）
-            └→ cad-agent persona：先 get_project_plans 读 plan.json + bim_supplement.json（plan 缺失→报告不硬画）
+            └→ cad-agent persona：先 get_project_plans 读 **plan.json**（任务书，对接 cad）
+               ——plan 缺失→报告不硬画。**cad 只消费 plan.json，不消费 bim_supplement.json**
+               （bim_supplement 是 BIM 补充，对接 bim/ifc，非 cad 输入，见 §2.5）
 
 ④ cad      cad-agent 加载 aidxf skill（plan→cad 建筑平面管线）：
             └→ S0 预处理（aidxfv3 preprocess：plan.json → derived/（floors + zone 包 + skeleton_base）→ 断点⓪）
@@ -155,7 +163,16 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
             └→ deliver → building.json + DXF（落盘）
 
 ④ ifc      orchestrator → AgentAsTool(ifc-agent)（同 ifc 管线 ③）：
-            └→ aiifc skill：消费 plan.json + bim_supplement.json（+ cad DXF 参考）
+            └→ aiifc skill：消费 bim_supplement.json + building.json + cad DXF
+               （**不消费 plan.json**——plan.json 只对接 cad；ifc 消费的是 bim 补充 +
+               aidxf 交付物，见 §2.5 产物定位）
+            └→ **现状（先做到拿到文件）**：ifc-agent 能正确拿到相关文件——
+               bim_supplement.json（get_project_plans 读方案产物）+ building.json / 逐 zone DXF
+               （aidxf deliver 落盘 deliver/，经产物传递机制拿到，见 §4.2）✅
+            └→ **后续大工程量（未做）**：aiifc 解析消费——把 bim_supplement.json（BIM 补充：
+               屋顶/特殊结构/PSET）+ building.json（plan 形态整栋楼 + DXF 指针）+ 相应 DXF
+               解析转成 IFC 构建脚本（script-as-source）——**这是 aiifc skill 的大改写**
+               （见 §4.5），当前未做。
             └→ script-as-source：骨架 ifc（建项目已初始化）→ 深化（stage/run/save）→ IFC 交付
             └→ aiifc 工作流：plan（草稿）→ script（事实源）→ IFC
 
@@ -170,8 +187,33 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
 **业务连续性**：
 - ifc 骨架绑定先（create_project 初始化 ifc 骨架）→ plan → cad → ifc 在绑定骨架上深化 ✅
 - plan → cad 依赖：cad 需 plan.json ✅
-- cad → ifc 依赖：ifc 深化消费 plan.json + bim_supplement.json（+ cad DXF 参考——**cad DXF 如何传给 ifc-agent 待明确**）
+- cad → ifc 依赖：ifc 消费 **bim_supplement.json + building.json + cad DXF**（**不消费 plan.json**——plan.json 只对接 cad）✅（拿到文件层面）；**解析消费未做**（大工程量，见 §4.5）
 - **缺口**：cad deliver 的 DXF 如何注册平台模型 + 如何传给 ifc-agent（当前 aidxf deliver 落盘 missions/，未注册平台模型）
+
+---
+
+### 2.5 产物定位（谁产谁消费——避免重复与错配）
+
+三管线涉及 4 类设计/交付产物，定位必须分清（**谁产、谁消费、是否进版本**）：
+
+| 产物 | 产出方 | 消费方 | 定位 | 进版本 |
+|---|---|---|---|---|
+| **plan.json** | aiplan（step 2 落盘） | **只 cad（aidxf）** | 任务书（对接 cad）：竖向功能分区/面积表/设计要求 | ✅ 方案版本化（deliver_plan） |
+| **bim_supplement.json** | aiplan（step 2 落盘） | **只 bim/ifc（aiifc）** | BIM 补充（CAD 覆盖不了的：屋顶/特殊结构/PSET） | ✅ 方案版本化 |
+| **building.json** | aidxf（S4 deliver） | **只 bim/ifc（aiifc）** | plan 形态整栋楼 + 逐 zone DXF 指针（sha256）——bim 接口文件 | ❌（不含几何，几何在 DXF） |
+| **design.json** | aiifc（工作流 ① plan 草稿，可选） | **只 aiifc 自己**（ifc 独立管线设计框定） | 纯语义设计意图（墙轴/洞口沿轴/层高，无坐标）——辅助确认 | ❌（辅助信息，非完整表示） |
+
+**关键区分（避免重复/错配）**：
+1. **plan.json 只给 cad，ifc 不消费**——ifc 消费的是 bim_supplement.json（aiplan 的 bim 补充）
+   + building.json（aidxf 的 bim 接口）+ 逐 zone DXF。**cad 只消费 plan.json，不消费
+   bim_supplement.json**（bim 补充非 cad 输入）。
+2. **design.json vs plan.json 定位重复但各有归属**：
+   - plan.json = aiplan 产（cad/cad->ifc 管线的任务书，完整设计意图，**进版本**）
+   - design.json = aiifc 产（**ifc 独立管线**的设计草稿，可选辅助确认，**不进版本**）
+   - 重复点：都是「前置设计意图框定」。**但 design.json 对 ifc 独立管线必须保留**——
+     ifc 独立管线无 aiplan 前置，aiifc 需自己产 design.json 框定设计供用户确认
+     （复杂平面/异形/多层时）。cad->ifc 管线里 aiifc 不产 design.json（有 plan.json/
+     building.json 输入），只有 ifc 独立管线才走 aiifc 的 design.json 前置。
 
 ---
 
@@ -181,8 +223,8 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
 
 | 依赖 | 状态 | 说明 |
 |---|---|---|
-| **plan → cad** | ✅ | cad-agent persona 硬纪律：先 get_project_plans 读 plan.json，缺失报告不硬画 |
-| **cad → ifc** | ⚠️ 部分 | ifc 消费 plan.json + bim_supplement.json（✅）；cad DXF 传给 ifc（**待明确**——DXF 是中间产物 missions/，deliver 后才落盘） |
+| **plan → cad** | ✅ | cad-agent 消费 **plan.json**（任务书）：先 get_project_plans 读 plan.json，缺失报告不硬画 |
+| **cad → ifc** | ⚠️ 拿到文件 ✅ / 解析 ❌ | ifc 消费 **bim_supplement.json + building.json + cad DXF**（不消费 plan.json）；**拿到文件已可做**（get_project_plans + 产物传递），**解析消费成 IFC 未做**（aiifc 大改写，见 §4.5） |
 | **ifc 骨架绑定** | ✅ | ifc/cad->ifc 建项目即初始化 ifc 骨架（modelId 绑定） |
 | **cad 模型初始化** | ⚠️ | cad 项目空白 → agent init_model(dxf) 按需；**aidxf deliver DXF 注册平台模型待设计** |
 
@@ -225,11 +267,13 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
 
 ### 4.2 cad DXF 传给 ifc-agent（cad→ifc 链）
 
-**现状**：cad deliver DXF 落盘 missions/（未注册平台模型）——ifc-agent 怎么拿到 cad DXF？
+**现状**：cad deliver DXF 落盘 missions/（未注册平台模型）——ifc-agent 怎么拿到 cad DXF + building.json？
 
 **需要的机制**：
-- deliver DXF 注册平台模型后，ifc-agent 经 get_project_models 拿到 dxf 模型 → 读 dxf 参考（或直接消费 plan.json + bim_supplement.json，dxf 作为辅助）
-- 或：cad-agent deliver 后把 dxf 路径传给 orchestrator → orchestrator 传给 ifc-agent（派发时带 dxf 上下文）
+- deliver DXF 注册平台模型后，ifc-agent 经 get_project_models 拿到 dxf 模型 → 读 dxf（+ building.json）参考
+- 或：cad-agent deliver 后把 building.json + dxf 路径传给 orchestrator → orchestrator 传给 ifc-agent（派发时带产物上下文）
+
+**注意**：ifc-agent 消费的是 **bim_supplement.json + building.json + DXF**（**不消费 plan.json**——plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC 是大工程量**（见 §4.5），当前先做到「能正确拿到文件」。
 
 **待定**：cad→ifc 的产物传递机制（经平台模型 or 派发上下文）。
 
@@ -247,6 +291,30 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
 - aiifc：改「直接在数据目录写 IFC 版本」→ 「平台模型 API + script-as-source」
 - aidxf/aiplan：产物传递 + 注册机制 + 管线编排
 
+### 4.5 aiifc 解析消费链（cad->ifc 管线的 ifc 深化——大工程量，未做）
+
+**现状**：cad->ifc 管线里 aiifc **先做到「能正确拿到相关文件」**：
+- `bim_supplement.json`（aiplan 产物，BIM 补充）——经 `get_project_plans` 读方案产物 ✅
+- `building.json` + 逐 zone DXF（aidxf S4 deliver 产物）——经产物传递机制拿到（见 §4.2）✅
+
+**未做（大工程量）**：aiifc **解析消费**这些文件转成 IFC 构建脚本：
+- 解析 bim_supplement.json（屋顶/特殊结构/PSET）→ IFC 对应建模（IfcRoof/特殊构件/Pset）
+- 解析 building.json（plan 形态整栋楼 + 逐 zone DXF 指针/sha256）→ 楼层/分区结构
+- 解析相应 DXF（outline/core/墙/房间/门窗几何）→ IFC 几何构建（墙/板/门窗实体）
+- 综合三者 → 产出符合脚本契约的 IFC 构建脚本（script-as-source：PARAMS + build() + validate）
+
+**工程量大**，涉及：
+- **skill 本身改写**：aiifc 加「消费 bim_supplement/building.json/DXF → IFC 脚本」的解析逻辑与
+  建模纪律（当前 aiifc 是「从零建模」薄包参考，没有「消费上游产物」的解析链）
+- **subagent 装配改写**：ifc-agent 的工具/上下文装配——拿到文件后如何喂给 aiifc
+  （文件路径传递 / 内容注入 / 分阶段解析的断点编排）
+- **与 design.json 前置的关系**：cad->ifc 管线 aiifc 走「消费上游产物」（不产 design.json）；
+  ifc 独立管线 aiifc 走「design.json 前置 → 从零建模」（见 §2.5）——两条 ifc 深化路径
+  需在 aiifc skill 里区分编排。
+
+**定位**：这是 cad->ifc 管线「业务完全连续」的最后一块——当前先做到「拿到文件」，
+解析消费待 skill 改写（与 §4.4 的 aiifc 改写同一波）。
+
 ---
 
 ## 五、结论
@@ -255,20 +323,24 @@ cad->ifc 管线 create_project(cad->ifc) → ifc 骨架(绑定先) → plan(aipl
 
 | 管线 | 可执行单元链 |
 |---|---|
-| **ifc** | `create_project(ifc)` → ifc 骨架 → ifc-agent(aiifc) → `stage_script→run_script→save_script` → IFC 交付 |
-| **cad** | `create_project(cad)` → 空白 → plan(aiplan step 0-2: `aiplan <cmd>`) → cad-agent(aidxf S0-S4: `aidxfv3 <cmd>`) → DXF 交付（deliver 注册待设计） |
-| **cad->ifc** | `create_project(cad->ifc)` → ifc 骨架(绑定先) → plan(aiplan) → cad(aidxf) → ifc(aiifc 深化骨架) → IFC 交付 |
+| **ifc（独立）** | `create_project(ifc)` → ifc 骨架 → ifc-agent(aiifc) → 【可选 design.json 前置设计框定】→ `stage_script→run_script→save_script` → IFC 交付 |
+| **cad** | `create_project(cad)` → 空白 → plan(aiplan step 0-2: `aiplan <cmd>` → plan.json) → cad-agent(aidxf S0-S4: `aidxfv3 <cmd>`，消费 plan.json) → DXF 交付（deliver 注册待设计） |
+| **cad->ifc** | `create_project(cad->ifc)` → ifc 骨架(绑定先) → plan(aiplan → plan.json+bim_supplement.json) → cad(aidxf，消费 plan.json → building.json+DXF) → ifc(aiifc，消费 bim_supplement+building.json+DXF 深化骨架) → IFC 交付 |
 
 ### 业务连续性评估
 
-- **依赖链**：plan → cad ✅；cad → ifc ⚠️（DXF 传递待明确）；ifc 骨架绑定 ✅
+- **依赖链**：plan → cad ✅（plan.json 只给 cad）；cad → ifc ⚠️（拿到文件 ✅ / 解析消费 ❌ 大工程量）；ifc 骨架绑定 ✅
 - **断点**：plan/aidxf 断点 HITL 连续 ✅；中断恢复（route/reconcile）✅
-- **产物链**：plan.json → 方案版本化 ✅；DXF 注册平台模型 ❌（缺口）；ifc 深化版本化 ✅
+- **产物链**：plan.json+bim_supplement → 方案版本化 ✅；building.json+DXF 注册平台模型 ❌（缺口）；ifc 深化版本化 ✅
+- **产物定位**：plan.json→只 cad、bim_supplement/building.json/DXF→只 ifc、design.json→aiifc ifc 独立管线（见 §2.5）✅ 已分清
 
 ### 核心缺口（M3+ skill 编排前置）
 
-1. **aidxf deliver DXF 注册平台模型机制**（deliver → init_model(dxf) 骨架→深化？还是直接注册？）
-2. **cad DXF 传给 ifc-agent**（cad→ifc 产物传递）
-3. **skill 编排契约**（orchestrator 按 kind 编排 aiplan→aidxf→aiifc 步骤 + 断点 + 产物链）
+1. **aidxf deliver DXF + building.json 注册平台模型机制**（deliver → init_model(dxf) 骨架→深化？还是直接注册？）
+2. **cad DXF + building.json 传给 ifc-agent**（cad→ifc 产物传递——拿到文件层面）
+3. **aiifc 解析消费链**（bim_supplement + building.json + DXF → IFC 构建脚本——**大工程量**，skill + subagent 装配改写，见 §4.5）
+4. **skill 编排契约**（orchestrator 按 kind 编排 aiplan→aidxf→aiifc 步骤 + 断点 + 产物链；含 aiifc 两条路径：cad->ifc 消费上游 vs ifc 独立 design.json 前置）
 
-> 这三个缺口是「skill 编排 / 管线可执行化」的前置——解决后三管线业务完全连续。
+> 这四个缺口是「skill 编排 / 管线可执行化」的前置——其中 §4.5（aiifc 解析消费）是 cad->ifc
+> 管线业务完全连续的最后一块，也是最大工程量（aiifc skill + subagent 装配改写）。
+> 当前先做到「能正确拿到相关文件」，解析消费与 design.json 前置编排待 skill 改写。
