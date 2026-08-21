@@ -530,7 +530,18 @@ plan.json 只给 cad，见 §2.5）。拿到文件后，**解析消费成 IFC �
 
 ### P1 波：skill 编排契约（后续，P0 之后）
 
-- orchestrator 按 kind 编排 aiplan→aidxf→aiifc 步骤 + 断点 + 产物链（从 persona 文本纪律升级为编排契约）
+- **orchestrator 编排契约细化 ✅（P1-1，2026-08-21，`ce3de7f`）**：
+  - **无空 kind，三个 kind 强制装配**：kind 强制必选（create_project 强制 ifc|cad|cad->ifc），
+    orchestrator 按 kind 强制装配 persona：cad→personaCAD、ifc→personaIFC、cad->ifc→OrchestratorPersona。
+  - **OrchestratorPersona = cad->ifc 专属全链编排**（不是空 kind 全装默认兜底）——cad->ifc 用全装
+    （aiplan+cad+ifc）：① plan（aiplan 对话框定+断点主持 → deliver_plan）→ ② cad（plan 锚点
+    +stage_plan_to_workdir → 各 zone modelId + deliver_building）→ ③ ifc（消费上游路径 CONSUME_UPSTREAM
+    + 上游锚点）→ IFC 交付。
+  - **personaCAD**（cad 管线）：aiplan 前置（断点主持 → deliver_plan）→ cad（plan 锚点 → init_model
+    注册 → deliver_building）。
+  - **personaIFC**（ifc 独立管线）：design.json 前置路径（PLAN_DXF_IFC，断点确认设计意图）→ 骨架深化。
+  - **产物传递锚点显式化**：aiplan→cad=plan.json+stage_plan_to_workdir；cad→ifc=building.json+
+    zones modelId+DXF modelId——步骤编排 + 产物锚点 + 断点主持都写进编排契约。
 - **aiifc 两条 ifc 深化路径区分 ✅（P1-2，2026-08-21，`058d99c`）**：
   - **设计要点**：判断逻辑**不在 skill/ifc-agent**（它们不判断），**在 orchestrator 按 kind 强制注入**。
   - **aiifc skill**：声明两条路径（不判断）——`workflows/CONSUME_UPSTREAM.md`（cad->ifc 消费上游：
