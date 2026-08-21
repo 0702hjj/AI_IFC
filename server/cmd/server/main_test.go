@@ -192,10 +192,10 @@ func TestLoadConfigRetiredOpenCodeURLEnvironmentIgnored(t *testing.T) {
 	_ = cfg // OpenCodeURL 字段已删除——编译期保证不可再引用
 }
 
-// TestShippedConfigsContainNoOpenCodeURL：随仓发布的 server_config.json
+// TestShippedConfigsContainNoOpenCodeURL：随仓发布的 server_config.example.json（server_config.json 已移出跟踪，example 即「随仓发布配置」）
 // 不得再含退役键 openCodeURL，且 llm 三参（空缺省）在位。
 func TestShippedConfigsContainNoOpenCodeURL(t *testing.T) {
-	for _, name := range []string{"server_config.json"} {
+	for _, name := range []string{"server_config.example.json"} {
 		raw, err := os.ReadFile(filepath.Join("..", "..", name))
 		if err != nil {
 			t.Fatalf("read %s: %v", name, err)
