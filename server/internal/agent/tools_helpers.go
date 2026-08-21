@@ -159,3 +159,47 @@ type editCallReq struct {
 	ModelID  string          `json:"modelId,omitempty" jsonschema:"description=目标模型 id（m_ 开头）；缺省取当前会话绑定模型"`
 }
 
+// combineModelVersions 组合模型大版本视图（参考 mcp model_versions）：
+//   versions = IFC 快照大版本（GET /models/{id}/versions）+ scripts = 构建脚本版本
+//   （GET /models/{id}/scripts）+ current = 当前版本。统一一套工具返回两种视角，
+//   避免与 mcp model_versions 双套工具混淆。
+func combineModelVersions(ctx context.Context, cl *editsvc.Client, modelID string) (string, error) {
+	versionsRaw, err := cl.Do(ctx, http.MethodGet, "/models/"+modelID+"/versions", nil)
+	if err != nil {
+		return "[tool error] 拉取模型快照版本: " + err.Error(), nil
+	}
+	scriptsRaw, err := cl.Do(ctx, http.MethodGet, "/models/"+modelID+"/scripts", nil)
+	if err != nil {
+		return "[tool error] 拉取脚本版本: " + err.Error(), nil
+	}
+	out, _ := json.Marshal(map[string]any{
+		"modelId":  modelID,
+		"versions": json.RawMessage(versionsRaw),
+		"scripts":  json.RawMessage(scriptsRaw),
+	})
+	return truncateToolResult(string(out)), nil
+}
+
+// combineModelDiff 组合模型大版本 diff（参考 mcp model_diff）：
+//   ifc = IFC 语义 diff（POST /models/{id}/diff，构件增删改，GlobalId 键）+
+//   script = 构建脚本 diff（POST /models/{id}/script/diff，text_diff+PARAMS 变化）。
+//   统一一套工具返回两种视角，避免与 mcp model_diff 双套工具混淆。
+func combineModelDiff(ctx context.Context, cl *editsvc.Client, modelID, base, target string) (string, error) {
+	body, _ := json.Marshal(map[string]string{"base": base, "target": target})
+	ifcRaw, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/diff", body)
+	if err != nil {
+		return "[tool error] 拉取 IFC 语义 diff: " + err.Error(), nil
+	}
+	scriptRaw, err := cl.DoSlow(ctx, http.MethodPost, "/models/"+modelID+"/script/diff", body)
+	if err != nil {
+		return "[tool error] 拉取脚本 diff: " + err.Error(), nil
+	}
+	out, _ := json.Marshal(map[string]any{
+		"modelId": modelID,
+		"base":    base,
+		"target":  target,
+		"ifc":     json.RawMessage(ifcRaw),
+		"script":  json.RawMessage(scriptRaw),
+	})
+	return truncateToolResult(string(out)), nil
+}

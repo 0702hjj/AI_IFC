@@ -277,12 +277,16 @@ func TestGetVersionsProxiesScripts(t *testing.T) {
 	deps, ifcFB, _, st := newToolFixture(t)
 	m := mustModel(t, st, "a.ifc", store.KindIFC)
 	out := invoke(t, DomainTools(deps), "get_versions", `{"modelId":"`+m.ID+`"}`)
-	if !strings.Contains(out, `"ok":true`) {
-		t.Fatalf("get_versions 输出 = %s", out)
+	// 组合视图：IFC 快照版本 + 脚本版本（参考 mcp model_versions）
+	if !strings.Contains(out, `"versions"`) || !strings.Contains(out, `"scripts"`) {
+		t.Fatalf("get_versions 组合输出应含 versions+scripts = %s", out)
 	}
-	last := ifcFB.last()
-	if last.method != http.MethodGet || last.path != "/models/"+m.ID+"/scripts" {
-		t.Fatalf("后端收到 %s %s, want GET /models/%s/scripts", last.method, last.path, m.ID)
+	// 调用了两个端点（/versions IFC 快照 + /scripts 脚本）
+	if !ifcFB.saw(http.MethodGet, "/models/"+m.ID+"/versions") {
+		t.Fatalf("未调用 GET /models/%s/versions（IFC 快照版本）", m.ID)
+	}
+	if !ifcFB.saw(http.MethodGet, "/models/"+m.ID+"/scripts") {
+		t.Fatalf("未调用 GET /models/%s/scripts（脚本版本）", m.ID)
 	}
 }
 
@@ -291,13 +295,19 @@ func TestGetDiffPostsBaseTarget(t *testing.T) {
 	m := mustModel(t, st, "a.ifc", store.KindIFC)
 	out := invoke(t, DomainTools(deps), "get_diff",
 		`{"modelId":"`+m.ID+`","base":"v1","target":"v2"}`)
-	if !strings.Contains(out, `"ok":true`) {
-		t.Fatalf("get_diff 输出 = %s", out)
+	// 组合视图：IFC 语义 diff + 脚本 diff（参考 mcp model_diff）
+	if !strings.Contains(out, `"ifc"`) || !strings.Contains(out, `"script"`) {
+		t.Fatalf("get_diff 组合输出应含 ifc+script = %s", out)
 	}
+	// 调用了两个端点（/diff IFC 语义 + /script/diff 脚本）
+	if !ifcFB.saw(http.MethodPost, "/models/"+m.ID+"/diff") {
+		t.Fatalf("未调用 POST /models/%s/diff（IFC 语义 diff）", m.ID)
+	}
+	if !ifcFB.saw(http.MethodPost, "/models/"+m.ID+"/script/diff") {
+		t.Fatalf("未调用 POST /models/%s/script/diff（脚本 diff）", m.ID)
+	}
+	// base/target 透传
 	last := ifcFB.last()
-	if last.method != http.MethodPost || last.path != "/models/"+m.ID+"/script/diff" {
-		t.Fatalf("后端收到 %s %s, want POST /models/%s/script/diff", last.method, last.path, m.ID)
-	}
 	var body map[string]any
 	if err := json.Unmarshal([]byte(last.body), &body); err != nil {
 		t.Fatalf("diff body 非 JSON: %s", last.body)

@@ -46,8 +46,9 @@ def build_server(
         instructions=(
             "AI_IFC platform tools. Parse user-modified IFC/DXF uploads into "
             "USER-annotated modification events (ifc_upload_modified / "
-            "dxf_upload_modified), and inspect model state (model_versions / "
-            "model_diff / model_current_context)."
+            "dxf_upload_modified), and inspect current model context "
+            "(model_current_context). Version/diff queries are served by the "
+            "in-process agent tools (get_versions / get_diff combined views)."
         ),
     )
 
@@ -115,29 +116,6 @@ def build_server(
             "events": recorded["entries"],
             "summary": diff["layers"],
             "texts": diff["texts"],
-        }
-
-    @server.tool()
-    def model_versions(model_id: str) -> Dict[str, Any]:
-        """List a model's big versions (IFC snapshots + build scripts) and the current one."""
-        versions = client.versions(model_id)
-        scripts = client.scripts(model_id)
-        return {
-            "modelId": model_id,
-            "current": versions["current"],
-            "versions": versions["versions"],
-            "scripts": scripts["scripts"],
-        }
-
-    @server.tool()
-    def model_diff(model_id: str, base: str, target: str) -> Dict[str, Any]:
-        """Big-version diff: IFC semantic diff plus build-script diff (null for script-less models)."""
-        return {
-            "modelId": model_id,
-            "base": base,
-            "target": target,
-            "ifc": client.diff(model_id, base, target),
-            "script": client.script_diff(model_id, base, target),
         }
 
     @server.tool()

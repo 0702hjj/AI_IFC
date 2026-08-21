@@ -202,23 +202,22 @@ func DomainTools(deps ToolDeps) []tool.InvokableTool {
 				return toolRaw(out, nil)
 			}),
 
-		mustTool("get_versions", "列出模型的脚本大版本（version/createdAt/note）",
+		mustTool("get_versions", "列出模型的大版本（IFC 快照 versions + 构建脚本 scripts + 当前版本 current）——模型版本历史全景（参考 mcp model_versions 组合视图）",
 			func(ctx context.Context, in modelRefReq) (string, error) {
 				m, cl, errText := deps.resolve(ctx, in.ModelID)
 				if errText != "" {
 					return errText, nil
 				}
-				return toolRaw(cl.Do(ctx, http.MethodGet, "/models/"+m.ID+"/scripts", nil))
+				return combineModelVersions(ctx, cl, m.ID)
 			}),
 
-		mustTool("get_diff", "拉两个大版本的脚本 diff（text_diff + PARAMS 变化 + 统计）",
+		mustTool("get_diff", "拉两个大版本的组合 diff：ifc=IFC 语义 diff（构件增删改）+ script=构建脚本 diff（text_diff+PARAMS 变化）——模型级版本对比全景（参考 mcp model_diff 组合视图）",
 			func(ctx context.Context, in diffReq) (string, error) {
 				m, cl, errText := deps.resolve(ctx, in.ModelID)
 				if errText != "" {
 					return errText, nil
 				}
-				body, _ := json.Marshal(map[string]string{"base": in.Base, "target": in.Target})
-				return toolRaw(cl.DoSlow(ctx, http.MethodPost, "/models/"+m.ID+"/script/diff", body))
+				return combineModelDiff(ctx, cl, m.ID, in.Base, in.Target)
 			}),
 
 		mustTool("create_project", "创建空白项目（项目级：projectID + 首交付模型，kind 可选 ifc/dxf 默认 ifc），返回首模型（modelId 供后续编辑）+ projectId（会话绑定用它）",

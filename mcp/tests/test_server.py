@@ -18,8 +18,6 @@ from conftest import MODEL_ID, FakeEditService
 EXPECTED_TOOLS = [
     "ifc_upload_modified",
     "dxf_upload_modified",
-    "model_versions",
-    "model_diff",
     "model_current_context",
 ]
 
@@ -152,59 +150,6 @@ def test_dxf_upload_modified_missing_baseline_errors(fake: FakeEditService) -> N
 
     asyncio.run(run())
     assert result_error.is_error
-
-
-def test_model_versions_merges_ifc_and_script_versions(fake: FakeEditService) -> None:
-    fake.add(
-        "GET",
-        f"/models/{MODEL_ID}/versions",
-        {"versions": [{"version": "v1", "createdAt": "t1"},
-                      {"version": "v2", "createdAt": "t2"}],
-         "current": "v2"},
-    )
-    fake.add(
-        "GET",
-        f"/models/{MODEL_ID}/scripts",
-        {"modelId": MODEL_ID,
-         "scripts": [{"version": "v1", "createdAt": "t1"},
-                     {"version": "v2", "createdAt": "t2"}],
-         "versions": [{"version": "v1", "createdAt": "t1"},
-                      {"version": "v2", "createdAt": "t2"}]},
-    )
-    result = _call(_server(fake), "model_versions", {"model_id": MODEL_ID})
-    assert result["current"] == "v2"
-    assert [v["version"] for v in result["versions"]] == ["v1", "v2"]
-    assert [s["version"] for s in result["scripts"]] == ["v1", "v2"]
-
-
-def test_model_diff_passthrough_ifc_and_script(fake: FakeEditService) -> None:
-    fake.add(
-        "POST",
-        f"/models/{MODEL_ID}/diff",
-        {"base": "v1", "target": "v2", "added": [], "removed": [], "changed": []},
-    )
-    fake.add(
-        "POST",
-        f"/models/{MODEL_ID}/script/diff",
-        {"base": "v1", "target": "v2", "engine": "script", "diff": "@@ ..."},
-    )
-    result = _call(
-        _server(fake), "model_diff", {"model_id": MODEL_ID, "base": "v1", "target": "v2"}
-    )
-    assert result["ifc"]["base"] == "v1"
-    assert result["script"]["engine"] == "script"
-
-
-def test_model_diff_without_scripts_returns_null_script(fake: FakeEditService) -> None:
-    fake.add(
-        "POST",
-        f"/models/{MODEL_ID}/diff",
-        {"base": "v1", "target": "v2", "added": [], "removed": [], "changed": []},
-    )
-    result = _call(
-        _server(fake), "model_diff", {"model_id": MODEL_ID, "base": "v1", "target": "v2"}
-    )
-    assert result["script"] is None
 
 
 def test_model_current_context_composes_state(fake: FakeEditService) -> None:
