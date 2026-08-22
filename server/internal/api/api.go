@@ -8,9 +8,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"net/url"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -43,8 +41,12 @@ type handler struct {
 	ovr       override.Store
 	ed        *editsvc.Client // services/ifc :8100（kind=ifc）
 	cad       *editsvc.Client // services/cad :8200（kind=dxf，W-0040）
+	ps        *store.ProjectStore // 删除模型联动项目摘除（nil 跳过——测试/无项目装配）
 	maxUpload int64
 }
+
+// SetProjectStore 注入项目存储（删除模型时联动 RemoveModel 防孤儿 modelId；nil 跳过）。
+func (h *handler) SetProjectStore(ps *store.ProjectStore) { h.ps = ps }
 
 func NewHandler(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed, cad *editsvc.Client, maxUploadBytes int64) http.Handler {
 	return NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, maxUploadBytes, nil)
@@ -57,7 +59,14 @@ func DefaultCORSOrigins() []string {
 
 // NewHandlerWithCORS 同 NewHandler，corsOrigins 指定 CORS 白名单（空 = 默认）。
 func NewHandlerWithCORS(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed, cad *editsvc.Client, maxUploadBytes int64, corsOrigins []string) http.Handler {
-	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, ed: ed, cad: cad, maxUpload: maxUploadBytes}
+	return NewHandlerWithProjectStore(st, q, iss, chg, ovr, ed, cad, maxUploadBytes, corsOrigins, nil)
+}
+
+// NewHandlerWithProjectStore 同 NewHandlerWithCORS，额外注入项目存储——
+// 删除模型时联动 ProjectStore.RemoveModel（防孤儿 modelId 残留 project.json）。
+// ps 可空（测试/无项目装配跳过联动）。
+func NewHandlerWithProjectStore(st *store.Store, q *convert.Queue, iss issue.Store, chg change.Store, ovr override.Store, ed, cad *editsvc.Client, maxUploadBytes int64, corsOrigins []string, ps *store.ProjectStore) http.Handler {
+	h := &handler{st: st, q: q, iss: iss, chg: chg, ovr: ovr, ed: ed, cad: cad, ps: ps, maxUpload: maxUploadBytes}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/v1/models", h.upload)
 	mux.HandleFunc("GET /api/v1/models", h.list)
@@ -116,147 +125,6 @@ func writeErr(w http.ResponseWriter, httpStatus, code int, msg string) {
 	w.WriteHeader(httpStatus)
 	json.NewEncoder(w).Encode(envelope{Code: code, Message: msg, Data: nil})
 }
-
-func (h *handler) modelOrErr(w http.ResponseWriter, id string) *store.Model {
-	m, err := h.st.Get(id)
-	if errors.Is(err, store.ErrNotFound) || errors.Is(err, store.ErrInvalidID) {
-		writeErr(w, http.StatusNotFound, codeNotFound, "model not found")
-		return nil
-	}
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return nil
-	}
-	return m
-}
-
-func (h *handler) upload(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, h.maxUpload)
-	if err := r.ParseMultipartForm(h.maxUpload); err != nil {
-		writeErr(w, http.StatusBadRequest, codeTooLarge, "file exceeds size limit")
-		return
-	}
-	file, fh, err := r.FormFile("file")
-	if err != nil {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "missing file field")
-		return
-	}
-	defer file.Close()
-	kind, err := store.KindForFilename(fh.Filename)
-	if errors.Is(err, store.ErrUnsupportedExt) {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "only .ifc and .dxf files are allowed")
-		return
-	}
-	m, err := h.st.CreateWithKind(fh.Filename, fh.Size, file, kind)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
-	}
-	// dxf 无 XKT 转换（services/cad 直接产 render.json），创建即 ready、不入队。
-	if kind == store.KindIFC {
-		h.q.Enqueue(m.ID)
-	}
-	writeJSON(w, m)
-}
-
-func (h *handler) list(w http.ResponseWriter, r *http.Request) {
-	models, err := h.st.List()
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
-	}
-	if models == nil {
-		models = []*store.Model{}
-	}
-	writeJSON(w, models)
-}
-
-func (h *handler) get(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	writeJSON(w, m)
-}
-
-func (h *handler) retry(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	if m.Status != "failed" {
-		writeErr(w, http.StatusBadRequest, codeInvalidType, "only failed models can be retried")
-		return
-	}
-	// dxf 无转换链路：直接回 ready，不入队（W-0040）。
-	if m.Kind == store.KindDXF {
-		if err := h.st.SetStatus(m.ID, "ready", ""); err != nil {
-			writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-			return
-		}
-	} else {
-		if err := h.st.SetStatus(m.ID, "converting", ""); err != nil {
-			writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-			return
-		}
-		h.q.Enqueue(m.ID)
-	}
-	m, err := h.st.Get(m.ID)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
-	}
-	writeJSON(w, m)
-}
-
-func (h *handler) delete(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	// 先清理各 store 的模型作用域数据（PG 模式下文件系统删除无法覆盖），再删模型目录。
-	if err := h.iss.DeleteModel(m.ID); err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
-	}
-	if err := h.chg.DeleteModel(m.ID); err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
-	}
-	if err := h.ovr.DeleteModel(m.ID); err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
-	}
-	if err := h.st.Delete(m.ID); err != nil {
-		writeErr(w, http.StatusInternalServerError, codeInternal, err.Error())
-		return
-	}
-	writeJSON(w, nil)
-}
-
-func (h *handler) download(w http.ResponseWriter, r *http.Request) {
-	m := h.modelOrErr(w, r.PathValue("id"))
-	if m == nil {
-		return
-	}
-	w.Header().Set("Content-Disposition", "attachment; filename*=UTF-8''"+url.PathEscape(m.Name))
-	http.ServeFile(w, r, h.st.SourcePath(m))
-}
-
-func (h *handler) serveModelFile(name string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		m := h.modelOrErr(w, r.PathValue("id"))
-		if m == nil {
-			return
-		}
-		http.ServeFile(w, r, filepath.Join(h.st.ModelDir(m.ID), name))
-	}
-}
-
-const maxIssueUpload = 6 << 20 // 6MB
-const maxScreenshot = 5 << 20  // 5MB
-
-var issueFilePattern = regexp.MustCompile(`^i_[0-9a-f]{12}\.png$`)
 
 func (h *handler) listIssues(w http.ResponseWriter, r *http.Request) {
 	m := h.modelOrErr(w, r.PathValue("id"))

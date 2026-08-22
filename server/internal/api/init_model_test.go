@@ -61,16 +61,26 @@ func newInitModelHandler(t *testing.T, fakeURL string) (*ChatHandler, *store.Pro
 	return h, ps, runs
 }
 
-// waitConvert 条件等待 convert 队列处理完成（异步写盘必须等落地——AGENTS 纪律）。
-// runs 收到 in 路径即 worker 已开始处理该任务；等一个任务完成即可（okRunner2 同步结束）。
-func waitConvert(t *testing.T, runs chan string) {
+// waitConvertByModel 条件等待 convert 队列对指定模型处理完成（异步写盘必须等落地——AGENTS 纪律）。
+// 等 worker 拾取任务（runs 信号）+ SetStatus 落盘（轮询 store 状态直到非 converting），
+// 防止 TempDir cleanup 撞后台写盘（directory not empty）。
+func waitConvertByModel(t *testing.T, runs chan string, st *store.Store, modelID string) {
 	t.Helper()
 	select {
 	case <-runs:
-		// worker 已拾取任务；okRunner2.Run 立即结束，目录写入已落地。
+		// worker 已拾取任务；SetStatus 在其后写 model.json——轮询直到落盘。
 	case <-time.After(3 * time.Second):
 		t.Fatal("convert 队列 3s 未处理（异步写盘未落地）")
 	}
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		m, err := st.Get(modelID)
+		if err == nil && m.Status != "converting" {
+			return // 已落盘（ready/failed）
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("模型 %s 状态 %dms 未落盘（异步写盘未落地）", modelID, 3_000)
 }
 
 func TestInitModelIFC(t *testing.T) {
@@ -111,7 +121,7 @@ func TestInitModelIFC(t *testing.T) {
 		t.Error("缺 script stage 调用")
 	}
 	// ifc 骨架 save 后排队 XKT 重转——异步写盘必须等落地（TempDir cleanup 防 directory not empty）
-	waitConvert(t, runs)
+	waitConvertByModel(t, runs, h.deps.St, m.ID)
 }
 
 func TestInitModelDXF(t *testing.T) {
@@ -157,7 +167,7 @@ func TestInitModelRollbackOnBuildFail(t *testing.T) {
 // TestInitModelKindConstraint 项目 kind 约束：cad 项目只能 dxf、ifc 只能 ifc、cad->ifc 两者都可。
 func TestInitModelKindConstraint(t *testing.T) {
 	fake := newFakeEditServer(t)
-	h, ps, _ := newInitModelHandler(t, fake.srv.URL)
+	h, ps, runs := newInitModelHandler(t, fake.srv.URL)
 	ctx := context.Background()
 
 	// cad 项目：init dxf 允许，init ifc 拒绝
@@ -186,6 +196,15 @@ func TestInitModelKindConstraint(t *testing.T) {
 	if _, err := h.initModel(ctx, bothP.ID, store.KindIFC, "ifc建筑"); err != nil {
 		t.Errorf("cad->ifc 项目 init ifc 应允许: %v", err)
 	}
+	// ifc init 排队 convert——异步写盘等落地（2 个 ifc 模型：ifcP + bothP）
+	for _, proj := range []string{ifcP.ID, bothP.ID} {
+		p, _ := ps.Get(proj)
+		for _, mr := range p.Models {
+			if mr.Kind == "ifc" {
+				waitConvertByModel(t, runs, h.deps.St, mr.ID)
+			}
+		}
+	}
 }
 
 // TestInitModelKindDefaultByProject kind 缺省按项目 kind 推导：ifc 项目默认 ifc，cad 默认 dxf。
@@ -212,7 +231,7 @@ func TestInitModelKindDefaultByProject(t *testing.T) {
 		t.Errorf("cad 项目 kind 缺省应推导 dxf，got %q", m2.Kind)
 	}
 	// ifc 骨架 save 后排队 XKT 重转——异步写盘等落地
-	waitConvert(t, runs)
+	waitConvertByModel(t, runs, h.deps.St, m.ID)
 }
 
 // TestInitModelRequiresProject init_model 需项目绑定（项目绑唯一会话，A2）。
@@ -250,5 +269,36 @@ func TestCreateProjectCadToIfcInitIFC(t *testing.T) {
 		t.Errorf("骨架模型 kind = %q, want ifc", p.Models[0].Kind)
 	}
 	// ifc 骨架 save 后排队 XKT 重转——异步写盘等落地
-	waitConvert(t, runs)
+	waitConvertByModel(t, runs, h.deps.St, p.Models[0].ID)
+}
+
+// TestInitModelSetsProjectBacklink：initModel 写 Model.ProjectID 反向归属（A1）。
+func TestInitModelSetsProjectBacklink(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, ps, runs := newInitModelHandler(t, fake.srv.URL)
+	p, _ := ps.CreateWithKind("ifc 项目", "ifc")
+	m, err := h.initModel(context.Background(), p.ID, store.KindIFC, "我的建筑")
+	if err != nil {
+		t.Fatalf("initModel: %v", err)
+	}
+	got, _ := h.deps.St.Get(m.ID)
+	if got.ProjectID != p.ID {
+		t.Fatalf("model.ProjectID = %q, want %q（反向归属）", got.ProjectID, p.ID)
+	}
+	waitConvertByModel(t, runs, h.deps.St, m.ID)
+}
+
+// TestInitModelMissingProjectNoOrphan：项目不存在 → initModel 报错且无孤儿模型
+// （initModel 先 Ps.Get 校验项目存在，模型不创建；挂项目失败路径同理不留孤儿）。
+func TestInitModelMissingProjectNoOrphan(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, _, _ := newInitModelHandler(t, fake.srv.URL)
+	_, err := h.initModel(context.Background(), "p_missing", store.KindIFC, "孤儿")
+	if err == nil {
+		t.Fatal("项目不存在应报错")
+	}
+	list, _ := h.deps.St.List()
+	if len(list) != 0 {
+		t.Fatalf("项目不存在应无模型残留，残留 %d 个", len(list))
+	}
 }

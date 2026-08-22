@@ -103,6 +103,26 @@ func (s *ProjectStore) AddModel(id, modelID, kind, name, status string) error {
 	return s.write(p)
 }
 
+// RemoveModel 从项目摘除 modelId（幂等：未挂/已摘除均空操作）；项目不存在返回 ErrNotFound。
+// 删除平台模型时联动调用（handler.delete），防孤儿 modelId 残留 project.json。
+func (s *ProjectStore) RemoveModel(id, modelID string) error {
+	p, err := s.Get(id)
+	if err != nil {
+		return err
+	}
+	out := p.Models[:0]
+	for _, m := range p.Models {
+		if m.ID != modelID {
+			out = append(out, m)
+		}
+	}
+	if len(out) == len(p.Models) {
+		return nil // 幂等：本来就没挂
+	}
+	p.Models = out
+	return s.write(p)
+}
+
 // Get 读项目；非法 id 返回 ErrInvalidID，不存在返回 ErrNotFound（与 Model 同哨兵）。
 func (s *ProjectStore) Get(id string) (*Project, error) {
 	if !validProjectID(id) {

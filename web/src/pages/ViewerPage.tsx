@@ -2,7 +2,7 @@
 // Copyright (C) 2026 0702hjj
 
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { fetchModel, createChatSession, createChatSessionByProject, type ChatSession } from "@/api/client";
 import type { ModelInfo } from "@/api/types";
 import { ViewerProvider } from "@/viewer/ViewerContext";
@@ -42,6 +42,9 @@ export default function ViewerPage() {
   const pendingModelReload = useViewerStore((s) => s.pendingModelReload);
   const clearPendingModelReload = useViewerStore((s) => s.clearPendingModelReload);
   const stagedPreview = useViewerStore((s) => s.stagedPreview);
+  const modelCreated = useViewerStore((s) => s.modelCreated);
+  const clearModelCreated = useViewerStore((s) => s.clearModelCreated);
+  const navigate = useNavigate();
   const [stagedBanner, setStagedBanner] = useState(false);
 
   // 模型状态轮询：converting→ready 自动重载查看器（AI commit 后走这条路刷新）
@@ -102,6 +105,20 @@ export default function ViewerPage() {
   useEffect(() => {
     if (session) setChatOpen(true);
   }, [session?.chatSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // model.created：AI init_model 创建新模型 → 切到新模型渲染（保留 project 参数）。
+  // nonce 保证连续多个新模型都触发；消费后清零。
+  useEffect(() => {
+    if (!modelCreated) return;
+    const target = modelCreated.modelId;
+    clearModelCreated();
+    if (target === id) {
+      setReloadKey((k) => k + 1); // 同一模型重载（理论上 init_model 是新 id，兜底）
+      return;
+    }
+    const qs = projectId ? `?project=${encodeURIComponent(projectId)}` : "";
+    navigate(`/view/${target}${qs}`, { replace: true });
+  }, [modelCreated, id, projectId, navigate, clearModelCreated]);
 
   // IFC 引擎切换（key 变化触发查看器整树重挂载，与 reloadKey 同机制）
   const [engine, setEngine] = useState<ViewerEngine>(readEngine);
