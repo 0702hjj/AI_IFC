@@ -39,6 +39,7 @@ interface ViewerState {
   chatOpen: boolean;
   pendingModelReload: boolean; // AI commit 后（viewer.committed）置 true；前端轮询到 ready 即 reload 并清零
   stagedPreview: StagedPreview | null; // AI run_script 中间产物（viewer.staged）；消费方按 nonce 触发
+  modelCreated: { modelId: string; kind: string; nonce: number } | null; // AI init_model 新模型（model.created）；消费方切渲染并清零
   scriptJump: ScriptJump | null;
   setSelected: (id: string | null) => void;
   setTool: (tool: ViewerTool) => void;
@@ -58,6 +59,8 @@ interface ViewerState {
   flagPendingModelReload: () => void;
   clearPendingModelReload: () => void;
   flagStagedPreview: (p: { modelId: string; kind: "ifc" | "dxf" }) => void;
+  flagModelCreated: (p: { modelId: string; kind: string }) => void;
+  clearModelCreated: () => void;
   requestScriptJump: (jump: {
     line: number;
     origin?: ScriptLocateOrigin;
@@ -80,6 +83,7 @@ export const useViewerStore = create<ViewerState>((set) => ({
   chatOpen: false,
   pendingModelReload: false,
   stagedPreview: null,
+  modelCreated: null,
   scriptJump: null,
   setSelected: (id) => set({ selectedId: id }),
   setTool: (tool) => set({ tool }),
@@ -123,6 +127,9 @@ export const useViewerStore = create<ViewerState>((set) => ({
   clearPendingModelReload: () => set({ pendingModelReload: false }),
   flagStagedPreview: (p) =>
     set((s) => ({ stagedPreview: { ...p, nonce: (s.stagedPreview?.nonce ?? 0) + 1 } })),
+  flagModelCreated: (p) =>
+    set((s) => ({ modelCreated: { ...p, nonce: (s.modelCreated?.nonce ?? 0) + 1 } })),
+  clearModelCreated: () => set({ modelCreated: null }),
   requestScriptJump: (jump) =>
     set((s) => ({ scriptJump: { ...jump, nonce: (s.scriptJump?.nonce ?? 0) + 1 } })),
   clearScriptJump: () => set({ scriptJump: null }),

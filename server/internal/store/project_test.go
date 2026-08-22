@@ -77,3 +77,52 @@ func TestProjectNotFound(t *testing.T) {
 		t.Fatalf("err = %v, want ErrInvalidID", err)
 	}
 }
+
+// TestModelProjectIDBacklink：模型反向归属——CreateWithKindInProject 写入 Model.ProjectID。
+func TestModelProjectIDBacklink(t *testing.T) {
+	dir := t.TempDir()
+	st := NewStore(dir)
+	ps := NewProjectStore(dir)
+	p, err := ps.CreateWithKind("p1", "ifc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := st.CreateWithKindInProject("model1", 0, strings.NewReader(""), KindIFC, p.ID)
+	if err != nil {
+		t.Fatalf("CreateWithKindInProject: %v", err)
+	}
+	got, err := st.Get(m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.ProjectID != p.ID {
+		t.Fatalf("model.ProjectID = %q, want %q（反向归属）", got.ProjectID, p.ID)
+	}
+}
+
+// TestProjectRemoveModel：RemoveModel 从项目摘除 modelId（幂等；未挂模型幂等空操作）。
+func TestProjectRemoveModel(t *testing.T) {
+	s := NewProjectStore(t.TempDir())
+	p, err := s.CreateWithKind("p1", "cad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddModel(p.ID, "m_1", KindDXF, "图", "ready"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RemoveModel(p.ID, "m_1"); err != nil {
+		t.Fatalf("RemoveModel: %v", err)
+	}
+	got, _ := s.Get(p.ID)
+	if len(got.Models) != 0 {
+		t.Fatalf("RemoveModel 后项目 Models = %v, want 空", got.Models)
+	}
+	// 幂等：再删一次不报错
+	if err := s.RemoveModel(p.ID, "m_1"); err != nil {
+		t.Fatalf("RemoveModel 幂等: %v", err)
+	}
+	// 项目不存在 → 报错
+	if err := s.RemoveModel("p_missing", "m_1"); err == nil {
+		t.Fatal("RemoveModel 项目不存在应报错")
+	}
+}

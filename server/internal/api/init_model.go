@@ -12,6 +12,8 @@ package api
 
 import (
 	"context"
+
+	"ifcviewer/server/internal/agent"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -83,7 +85,8 @@ func (h *ChatHandler) initModel(ctx context.Context, projectID, kind, title stri
 	script := strings.ReplaceAll(skelScript, `{"title": "{title}"}`, `{"title": `+string(titleJSON)+`}`)
 
 	// 1. 创建模型记录（分配 modelId；骨架构建前空文件占位，kind 决定初始 status）
-	m, err := h.deps.St.CreateWithKind(title, 0, strings.NewReader(""), storeKind)
+	//    用 CreateWithKindInProject 写 Model.ProjectID 反向归属（A1：项目下模型）。
+	m, err := h.deps.St.CreateWithKindInProject(title, 0, strings.NewReader(""), storeKind, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("创建模型记录: %w", err)
 	}
@@ -113,11 +116,12 @@ func (h *ChatHandler) initModel(ctx context.Context, projectID, kind, title stri
 		return rollback(fmt.Errorf("落 v1 版本: %w", err))
 	}
 
-	// 5. 挂到项目（projectID 非空时；D13 后 agent 经 init_model 挂 Project.Models）
+	// 5. 挂到项目（projectID 非空时；D13 后 agent 经 init_model 挂 Project.Models）。
+	//    挂项目失败 → 回滚模型（不留孤儿：模型必须归属项目，A1）。
 	if projectID != "" && h.deps.Ps != nil {
 		if err := h.deps.Ps.AddModel(projectID, m.ID, storeKind, title, "ready"); err != nil {
-			// 挂项目失败不回滚模型（模型已可用，仅聚合缺失——幂等重挂由后续 AddModel 覆盖）。
-			return m, nil
+			_ = h.deps.St.Delete(m.ID)
+			return nil, fmt.Errorf("挂到项目: %w", err)
 		}
 	}
 
@@ -129,10 +133,17 @@ func (h *ChatHandler) initModel(ctx context.Context, projectID, kind, title stri
 }
 
 // initModelForAgentTool 是 agent.ToolDeps.InitModel 的适配：返回可 JSON 化的模型信息。
+// 成功后推 model.created SSE 事件——前端刷新项目模型列表 + 渲染新模型（agent 生成链路）。
 func (h *ChatHandler) initModelForAgentTool(ctx context.Context, projectID, kind, title string) (any, error) {
 	m, err := h.initModel(ctx, projectID, kind, title)
 	if err != nil {
 		return nil, err
+	}
+	// 推 model.created：会话订阅者收到后刷新项目模型列表/渲染（viewer.staged 同源链路）。
+	if cid := h.chatSessionIDFromAgent(ctx); cid != "" {
+		h.pushSystem(cid, "model.created", map[string]any{
+			"modelId": m.ID, "kind": m.Kind, "title": m.Name, "projectId": projectID,
+		})
 	}
 	return map[string]any{
 		"modelId":   m.ID,
@@ -140,4 +151,15 @@ func (h *ChatHandler) initModelForAgentTool(ctx context.Context, projectID, kind
 		"title":     m.Name,
 		"projectId": projectID,
 	}, nil
+}
+
+// chatSessionIDFromAgent 由 agentSessionId（ctx）反查 chatSessionId（推 SSE 用）。
+func (h *ChatHandler) chatSessionIDFromAgent(ctx context.Context) string {
+	sid := agent.SessionIDFromContext(ctx)
+	if sid == "" {
+		return ""
+	}
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.byAgent[sid]
 }

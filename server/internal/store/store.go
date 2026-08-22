@@ -55,6 +55,9 @@ type Model struct {
 	Kind      string    `json:"kind"`
 	CreatedAt time.Time `json:"createdAt"`
 	Error     string    `json:"error"`
+	// ProjectID 是模型→项目反向归属（A1：项目下模型；init_model 挂项目时写入）。
+	// omitempty 兼容存量模型（迁移前无该字段）；删除联动见 handler.delete / ProjectStore.RemoveModel。
+	ProjectID string `json:"projectId,omitempty"`
 }
 
 type Store struct{ DataDir string }
@@ -115,6 +118,20 @@ func (s *Store) CreateWithKind(name string, size int64, src io.Reader, kind stri
 		return nil, closeErr
 	}
 	m := &Model{ID: id, Name: name, Size: written, Status: status, Kind: kind, CreatedAt: time.Now().UTC()}
+	if err := s.write(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// CreateWithKindInProject 创建模型并写 Model.ProjectID 反向归属（init_model 挂项目路径；
+// 与 ProjectStore.AddModel 成对——Project.Models 正向 + Model.ProjectID 反向）。
+func (s *Store) CreateWithKindInProject(name string, size int64, src io.Reader, kind, projectID string) (*Model, error) {
+	m, err := s.CreateWithKind(name, size, src, kind)
+	if err != nil {
+		return nil, err
+	}
+	m.ProjectID = projectID
 	if err := s.write(m); err != nil {
 		return nil, err
 	}

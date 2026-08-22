@@ -211,7 +211,7 @@ func main() {
 	}
 	ed := editsvc.New(cfg.EditServiceURL)
 	cad := editsvc.New(cfg.CadServiceURL)
-	handler := api.NewHandlerWithCORS(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins)
+	handler := api.NewHandlerWithProjectStore(st, q, iss, chg, ovr, ed, cad, cfg.MaxUploadMB<<20, cfg.CORSOrigins, store.NewProjectStore(cfg.DataDir))
 	// chat 模块（demo）：独立 handler，/api/v1/chat/ 子树优先匹配，其余走既有 handler。
 	// 对话由内置 Eino agent 驱动（API key 空时回退确定性 scriptedModel，离线 demo 可用）；
 	// 领域工具集按模型 kind 路由（ifc→ed :8100 / dxf→cad :8200，agent.DomainTools）。

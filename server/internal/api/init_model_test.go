@@ -252,3 +252,34 @@ func TestCreateProjectCadToIfcInitIFC(t *testing.T) {
 	// ifc 骨架 save 后排队 XKT 重转——异步写盘等落地
 	waitConvert(t, runs)
 }
+
+// TestInitModelSetsProjectBacklink：initModel 写 Model.ProjectID 反向归属（A1）。
+func TestInitModelSetsProjectBacklink(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, ps, runs := newInitModelHandler(t, fake.srv.URL)
+	p, _ := ps.CreateWithKind("ifc 项目", "ifc")
+	m, err := h.initModel(context.Background(), p.ID, store.KindIFC, "我的建筑")
+	if err != nil {
+		t.Fatalf("initModel: %v", err)
+	}
+	got, _ := h.deps.St.Get(m.ID)
+	if got.ProjectID != p.ID {
+		t.Fatalf("model.ProjectID = %q, want %q（反向归属）", got.ProjectID, p.ID)
+	}
+	waitConvert(t, runs)
+}
+
+// TestInitModelMissingProjectNoOrphan：项目不存在 → initModel 报错且无孤儿模型
+// （initModel 先 Ps.Get 校验项目存在，模型不创建；挂项目失败路径同理不留孤儿）。
+func TestInitModelMissingProjectNoOrphan(t *testing.T) {
+	fake := newFakeEditServer(t)
+	h, _, _ := newInitModelHandler(t, fake.srv.URL)
+	_, err := h.initModel(context.Background(), "p_missing", store.KindIFC, "孤儿")
+	if err == nil {
+		t.Fatal("项目不存在应报错")
+	}
+	list, _ := h.deps.St.List()
+	if len(list) != 0 {
+		t.Fatalf("项目不存在应无模型残留，残留 %d 个", len(list))
+	}
+}

@@ -46,6 +46,9 @@
 
 删除该模型的 IFC、XKT、metadata、状态文件及 issues/changes/overrides。响应 `data: null`。
 
+**项目联动（2026-08-22）**：模型若归属于项目（`Model.ProjectID` 反向字段，init_model 写入），
+删除时自动从项目 `Project.Models` 摘除——**不留孤儿 modelId**（project.json 同步更新）。
+
 ### GET /api/v1/models/{id}/download
 
 下载原始 IFC，带 `Content-Disposition: attachment; filename="<name>"`。
@@ -191,6 +194,7 @@ SSE 事件流（`text/event-stream`）。帧类型：
 | `question.ask` | `{"interruptId","question"}` | HITL 提问（ask_user 中断） |
 | `viewer.staged` | `{"modelId","kind":"ifc"\|"dxf"}` | run_script 试跑成功（中途预览，严格 2 字段） |
 | `viewer.committed` | `{...}` | save 成功（驱动前端刷新） |
+| `model.created` | `{"modelId","kind","title","projectId"}` | AI init_model 创建新模型（骨架注册完成）——前端刷新项目模型列表并切到新模型渲染 |
 | `session.error` | `{"error"}` | 错误 |
 | `session.idle` | `{}` | turn 结束 |
 

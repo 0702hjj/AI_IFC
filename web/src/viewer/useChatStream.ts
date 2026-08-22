@@ -17,6 +17,7 @@ export interface ChatQuestion {
 export function useChatStream(session: ChatSession) {
   const flagPendingModelReload = useViewerStore((s) => s.flagPendingModelReload);
   const flagStagedPreview = useViewerStore((s) => s.flagStagedPreview);
+  const flagModelCreated = useViewerStore((s) => s.flagModelCreated);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [subagents, setSubagents] = useState<SubagentGroup[]>([]);
   const [busy, setBusy] = useState(false);
@@ -262,6 +263,13 @@ export function useChatStream(session: ChatSession) {
       if (!d || typeof d.modelId !== "string" || !d.modelId) return;
       if (d.kind !== "ifc" && d.kind !== "dxf") return;
       flagStagedPreview({ modelId: d.modelId, kind: d.kind });
+    });
+
+    // model.created：AI init_model 创建新模型（骨架注册完成）——前端刷新项目模型列表并切到新模型渲染。
+    es.addEventListener("model.created", (e) => {
+      const d = parseEventData(e);
+      if (!d || typeof d.modelId !== "string" || !d.modelId) return;
+      flagModelCreated({ modelId: d.modelId, kind: String(d.kind ?? "ifc") });
     });
 
     // question.ask：HITL 提问（ask_user 中断）——前端弹输入框收集回答，经 /answer 续跑。

@@ -237,3 +237,41 @@ func TestPutEntityPropertiesBodyTooLarge(t *testing.T) {
 		t.Fatalf("code = %d, want %d", be.Code, codeInvalidType)
 	}
 }
+
+// TestDeleteModelRemovesFromProject：删除平台模型联动项目摘除——防孤儿 modelId 残留。
+func TestDeleteModelRemovesFromProject(t *testing.T) {
+	st := store.NewStore(t.TempDir())
+	ps := store.NewProjectStore(st.DataDir)
+	q := convert.NewQueue(st, okRunner{}, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	q.Start(ctx)
+	srv := httptest.NewServer(NewHandlerWithProjectStore(st, q, issue.NewFileStore(st.DataDir),
+		change.NewFileStore(st.DataDir), override.NewFileStore(st.DataDir), nil, nil, 1<<20, nil, ps))
+	t.Cleanup(srv.Close)
+
+	// 造项目 + 项目下模型（正向 Project.Models + 反向 Model.ProjectID）
+	p, err := ps.CreateWithKind("p1", "cad")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := st.CreateWithKindInProject("图纸", 0, strings.NewReader(""), store.KindDXF, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ps.AddModel(p.ID, m.ID, store.KindDXF, "图纸", "ready"); err != nil {
+		t.Fatal(err)
+	}
+
+	// 删除模型 → 项目引用应摘除
+	req, _ := http.NewRequest(http.MethodDelete, "/api/v1/models/"+m.ID, nil)
+	rec := httptest.NewRecorder()
+	srv.Config.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	got, _ := ps.Get(p.ID)
+	if len(got.Models) != 0 {
+		t.Fatalf("删除模型后项目 Models = %v, want 空（孤儿 modelId 应摘除）", got.Models)
+	}
+}
